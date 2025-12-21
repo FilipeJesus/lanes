@@ -628,7 +628,7 @@ suite('Claude Lanes Extension Test Suite', () => {
 							hooks: [
 								{
 									type: 'command',
-									command: "echo '{\"sessionId\":\"'$CLAUDE_SESSION_ID'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > .claude-session"
+									command: "jq -r --arg ts \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" '{sessionId: .session_id, timestamp: $ts}' > .claude-session"
 								}
 							]
 						}
@@ -652,7 +652,7 @@ suite('Claude Lanes Extension Test Suite', () => {
 			assert.ok(sessionStartHook.hooks, 'SessionStart entry should have hooks array');
 			const hookCommand = sessionStartHook.hooks[0].command;
 			assert.ok(hookCommand.includes('.claude-session'), 'Hook command should write to .claude-session');
-			assert.ok(hookCommand.includes('CLAUDE_SESSION_ID'), 'Hook command should use CLAUDE_SESSION_ID env var');
+			assert.ok(hookCommand.includes('.session_id'), 'Hook command should extract session_id from stdin JSON');
 		});
 
 		test('should read session ID correctly from .claude-session file', () => {
@@ -796,7 +796,7 @@ suite('Claude Lanes Extension Test Suite', () => {
 				hooks: [
 					{
 						type: 'command',
-						command: "echo '{\"sessionId\":\"'$CLAUDE_SESSION_ID'\"}' > .claude-session"
+						command: "jq -r '{sessionId: .session_id}' > .claude-session"
 					}
 				]
 			});
