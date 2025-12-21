@@ -266,7 +266,7 @@ function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: str
         // Start new session with initial prompt
         // Escape single quotes in the prompt for shell safety
         const escapedPrompt = prompt.trim().replace(/'/g, "'\\''");
-        terminal.sendText(`claude -p '${escapedPrompt}'`);
+        terminal.sendText(`claude '${escapedPrompt}'`);
     } else {
         // Start new session without prompt
         terminal.sendText("claude");
