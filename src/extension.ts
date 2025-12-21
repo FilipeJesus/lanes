@@ -32,9 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Handle form submission - creates a new session with optional prompt
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string) => {
-        await createSession(name, prompt, workspaceRoot, sessionProvider);
+    // Handle form submission - creates a new session with optional prompt and acceptance criteria
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string) => {
+        await createSession(name, prompt, acceptanceCriteria, workspaceRoot, sessionProvider);
     });
 
     // Watch for .claude-status file changes to refresh the sidebar
@@ -88,8 +88,8 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Use the shared createSession function (no prompt when using command palette)
-        await createSession(name, '', workspaceRoot, sessionProvider);
+        // Use the shared createSession function (no prompt or acceptance criteria when using command palette)
+        await createSession(name, '', '', workspaceRoot, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -156,12 +156,13 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * Creates a new Claude session with optional starting prompt.
+ * Creates a new Claude session with optional starting prompt and acceptance criteria.
  * Shared logic between the form-based UI and the command palette.
  */
 async function createSession(
     name: string,
     prompt: string,
+    acceptanceCriteria: string,
     workspaceRoot: string | undefined,
     sessionProvider: ClaudeSessionProvider
 ): Promise<void> {
@@ -223,7 +224,7 @@ async function createSession(
 
         // 6. Success
         sessionProvider.refresh();
-        openClaudeTerminal(trimmedName, worktreePath, prompt);
+        openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria);
         vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
 
     } catch (err: any) {
@@ -232,8 +233,28 @@ async function createSession(
     }
 }
 
+/**
+ * Combines prompt and acceptance criteria into a single formatted string.
+ * - If both are provided: "request: [prompt]\nacceptance criteria: [criteria]"
+ * - If only one is provided: use that value as-is
+ * - If neither is provided: returns empty string
+ */
+export function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: string): string {
+    const trimmedPrompt = prompt?.trim() || '';
+    const trimmedCriteria = acceptanceCriteria?.trim() || '';
+
+    if (trimmedPrompt && trimmedCriteria) {
+        return `request: ${trimmedPrompt}\nacceptance criteria: ${trimmedCriteria}`;
+    } else if (trimmedPrompt) {
+        return trimmedPrompt;
+    } else if (trimmedCriteria) {
+        return trimmedCriteria;
+    }
+    return '';
+}
+
 // THE CORE FUNCTION: Manages the Terminal Tabs
-function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string) {
+function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string) {
     const terminalName = `Claude: ${taskName}`;
 
     // A. Check if this terminal already exists to avoid duplicates
@@ -262,14 +283,18 @@ function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: str
     if (sessionData?.sessionId) {
         // Resume existing session
         terminal.sendText(`claude --resume ${sessionData.sessionId}`);
-    } else if (prompt && prompt.trim()) {
-        // Start new session with initial prompt
-        // Escape single quotes in the prompt for shell safety
-        const escapedPrompt = prompt.trim().replace(/'/g, "'\\''");
-        terminal.sendText(`claude '${escapedPrompt}'`);
     } else {
-        // Start new session without prompt
-        terminal.sendText("claude");
+        // Combine prompt and acceptance criteria
+        const combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
+        if (combinedPrompt) {
+            // Start new session with combined prompt
+            // Escape single quotes in the prompt for shell safety
+            const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+            terminal.sendText(`claude '${escapedPrompt}'`);
+        } else {
+            // Start new session without prompt
+            terminal.sendText("claude");
+        }
     }
 }
 

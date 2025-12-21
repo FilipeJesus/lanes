@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 /**
  * Callback type for when the session form is submitted
  */
-export type SessionFormSubmitCallback = (name: string, prompt: string) => void;
+export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string) => void;
 
 /**
  * Provides a webview form for creating new Claude sessions.
@@ -58,7 +58,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             switch (message.command) {
                 case 'createSession':
                     if (this._onSubmit) {
-                        this._onSubmit(message.name, message.prompt);
+                        this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '');
                     }
                     // Clear the form after submission
                     this._view?.webview.postMessage({ command: 'clearForm' });
@@ -191,6 +191,16 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             <div class="hint">Sent to Claude after the session starts</div>
         </div>
 
+        <div class="form-group">
+            <label for="acceptanceCriteria">Acceptance Criteria (optional)</label>
+            <textarea
+                id="acceptanceCriteria"
+                name="acceptanceCriteria"
+                placeholder="Define what success looks like..."
+            ></textarea>
+            <div class="hint">Criteria for Claude to meet</div>
+        </div>
+
         <button type="submit" id="submitBtn">Create Session</button>
     </form>
 
@@ -199,12 +209,14 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const form = document.getElementById('sessionForm');
         const nameInput = document.getElementById('name');
         const promptInput = document.getElementById('prompt');
+        const acceptanceCriteriaInput = document.getElementById('acceptanceCriteria');
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
             const name = nameInput.value.trim();
             const prompt = promptInput.value.trim();
+            const acceptanceCriteria = acceptanceCriteriaInput.value.trim();
 
             if (!name) {
                 nameInput.focus();
@@ -215,7 +227,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({
                 command: 'createSession',
                 name: name,
-                prompt: prompt
+                prompt: prompt,
+                acceptanceCriteria: acceptanceCriteria
             });
         });
 
@@ -226,6 +239,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 case 'clearForm':
                     nameInput.value = '';
                     promptInput.value = '';
+                    acceptanceCriteriaInput.value = '';
                     nameInput.focus();
                     break;
             }

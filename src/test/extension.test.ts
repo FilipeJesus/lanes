@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData } from '../ClaudeSessionProvider';
 import { SessionFormProvider } from '../SessionFormProvider';
+import { combinePromptAndCriteria } from '../extension';
 
 suite('Claude Lanes Extension Test Suite', () => {
 
@@ -1261,6 +1262,383 @@ suite('Claude Lanes Extension Test Suite', () => {
 				assert.ok(result, `getSessionId should accept valid sessionId: ${validId}`);
 				assert.strictEqual(result.sessionId, validId);
 			}
+		});
+	});
+
+	suite('combinePromptAndCriteria', () => {
+
+		test('should combine prompt and acceptance criteria in correct format when both provided', () => {
+			// Arrange
+			const prompt = 'Fix the login bug';
+			const acceptanceCriteria = 'Users should be able to log in successfully';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(
+				result,
+				'request: Fix the login bug\nacceptance criteria: Users should be able to log in successfully',
+				'Should combine in format: request: [prompt]\\nacceptance criteria: [criteria]'
+			);
+		});
+
+		test('should return only prompt when acceptance criteria is empty', () => {
+			// Arrange
+			const prompt = 'Implement new feature';
+			const acceptanceCriteria = '';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(result, 'Implement new feature', 'Should return prompt as-is');
+		});
+
+		test('should return only prompt when acceptance criteria is undefined', () => {
+			// Arrange
+			const prompt = 'Implement new feature';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, undefined);
+
+			// Assert
+			assert.strictEqual(result, 'Implement new feature', 'Should return prompt as-is');
+		});
+
+		test('should return only acceptance criteria when prompt is empty', () => {
+			// Arrange
+			const prompt = '';
+			const acceptanceCriteria = 'Feature should work correctly';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(result, 'Feature should work correctly', 'Should return acceptance criteria as-is');
+		});
+
+		test('should return only acceptance criteria when prompt is undefined', () => {
+			// Arrange
+			const acceptanceCriteria = 'Feature should work correctly';
+
+			// Act
+			const result = combinePromptAndCriteria(undefined, acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(result, 'Feature should work correctly', 'Should return acceptance criteria as-is');
+		});
+
+		test('should return empty string when both prompt and acceptance criteria are empty', () => {
+			// Arrange & Act
+			const result = combinePromptAndCriteria('', '');
+
+			// Assert
+			assert.strictEqual(result, '', 'Should return empty string');
+		});
+
+		test('should return empty string when both prompt and acceptance criteria are undefined', () => {
+			// Arrange & Act
+			const result = combinePromptAndCriteria(undefined, undefined);
+
+			// Assert
+			assert.strictEqual(result, '', 'Should return empty string');
+		});
+
+		test('should return empty string when both prompt and acceptance criteria are whitespace only', () => {
+			// Arrange & Act
+			const result = combinePromptAndCriteria('   ', '  \t\n  ');
+
+			// Assert
+			assert.strictEqual(result, '', 'Should return empty string for whitespace-only values');
+		});
+
+		test('should trim whitespace from prompt and acceptance criteria when combining', () => {
+			// Arrange
+			const prompt = '  Fix the bug  ';
+			const acceptanceCriteria = '  It should work  ';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(
+				result,
+				'request: Fix the bug\nacceptance criteria: It should work',
+				'Should trim whitespace from both values'
+			);
+		});
+
+		test('should trim whitespace from prompt when only prompt is provided', () => {
+			// Arrange
+			const prompt = '  Fix the bug  ';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, '');
+
+			// Assert
+			assert.strictEqual(result, 'Fix the bug', 'Should trim whitespace from prompt');
+		});
+
+		test('should trim whitespace from acceptance criteria when only criteria is provided', () => {
+			// Arrange
+			const acceptanceCriteria = '  It should work  ';
+
+			// Act
+			const result = combinePromptAndCriteria('', acceptanceCriteria);
+
+			// Assert
+			assert.strictEqual(result, 'It should work', 'Should trim whitespace from acceptance criteria');
+		});
+	});
+
+	suite('Acceptance Criteria in SessionFormProvider', () => {
+
+		let tempDir: string;
+		let extensionUri: vscode.Uri;
+
+		setup(() => {
+			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-criteria-test-'));
+			extensionUri = vscode.Uri.file(tempDir);
+		});
+
+		teardown(() => {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Helper to create a mock WebviewView for testing
+		 */
+		function createMockWebviewView(): {
+			webviewView: vscode.WebviewView;
+			capturedHtml: { value: string };
+			messageHandler: { callback: ((message: unknown) => void) | null };
+			postMessageSpy: { messages: unknown[] };
+		} {
+			const capturedHtml = { value: '' };
+			const messageHandler: { callback: ((message: unknown) => void) | null } = { callback: null };
+			const postMessageSpy: { messages: unknown[] } = { messages: [] };
+
+			const mockWebview = {
+				options: {} as vscode.WebviewOptions,
+				html: '',
+				onDidReceiveMessage: (callback: (message: unknown) => void) => {
+					messageHandler.callback = callback;
+					return { dispose: () => { messageHandler.callback = null; } };
+				},
+				postMessage: (message: unknown) => {
+					postMessageSpy.messages.push(message);
+					return Promise.resolve(true);
+				},
+				asWebviewUri: (uri: vscode.Uri) => uri,
+				cspSource: 'test-csp-source'
+			};
+
+			// Create a proxy to capture html assignment
+			const webviewProxy = new Proxy(mockWebview, {
+				set(target, prop, value) {
+					if (prop === 'html') {
+						capturedHtml.value = value as string;
+					}
+					(target as Record<string, unknown>)[prop as string] = value;
+					return true;
+				},
+				get(target, prop) {
+					return (target as Record<string, unknown>)[prop as string];
+				}
+			});
+
+			const mockWebviewView = {
+				webview: webviewProxy as unknown as vscode.Webview,
+				viewType: 'claudeSessionFormView',
+				title: undefined,
+				description: undefined,
+				badge: undefined,
+				visible: true,
+				onDidDispose: () => ({ dispose: () => {} }),
+				onDidChangeVisibility: () => ({ dispose: () => {} }),
+				show: () => {}
+			} as unknown as vscode.WebviewView;
+
+			return { webviewView: mockWebviewView, capturedHtml, messageHandler, postMessageSpy };
+		}
+
+		test('should render HTML form with acceptance criteria textarea field', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(
+				capturedHtml.value.includes('id="acceptanceCriteria"'),
+				'HTML should contain textarea with id="acceptanceCriteria"'
+			);
+		});
+
+		test('should label acceptance criteria field as optional', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(
+				capturedHtml.value.includes('Acceptance Criteria') && capturedHtml.value.includes('optional'),
+				'Acceptance criteria field should be labeled as optional'
+			);
+		});
+
+		test('should invoke onSubmit callback with acceptanceCriteria when createSession message is received', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			let capturedName = '';
+			let capturedPrompt = '';
+			let capturedAcceptanceCriteria = '';
+
+			provider.setOnSubmit((name, prompt, acceptanceCriteria) => {
+				capturedName = name;
+				capturedPrompt = prompt;
+				capturedAcceptanceCriteria = acceptanceCriteria;
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Simulate webview posting a createSession message with acceptanceCriteria
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			messageHandler.callback({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Fix the bug in login.ts',
+				acceptanceCriteria: 'User should be able to log in'
+			});
+
+			// Assert
+			assert.strictEqual(capturedName, 'test-session', 'Callback should receive the session name');
+			assert.strictEqual(capturedPrompt, 'Fix the bug in login.ts', 'Callback should receive the prompt');
+			assert.strictEqual(capturedAcceptanceCriteria, 'User should be able to log in', 'Callback should receive the acceptance criteria');
+		});
+
+		test('should invoke onSubmit callback with empty acceptanceCriteria when not provided', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			let capturedAcceptanceCriteria: string | undefined = 'not-set';
+
+			provider.setOnSubmit((_name, _prompt, acceptanceCriteria) => {
+				capturedAcceptanceCriteria = acceptanceCriteria;
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Simulate webview posting a createSession message without acceptanceCriteria
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			messageHandler.callback({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Fix the bug'
+				// Note: acceptanceCriteria not included in message
+			});
+
+			// Assert - the callback should receive empty string or undefined for missing acceptanceCriteria
+			assert.ok(
+				capturedAcceptanceCriteria === '' || capturedAcceptanceCriteria === undefined,
+				`Callback should receive empty or undefined acceptanceCriteria, got: "${capturedAcceptanceCriteria}"`
+			);
+		});
+
+		test('should clear acceptance criteria textarea when clearForm message is received', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Verify the JavaScript in the HTML handles clearForm for acceptanceCriteria
+			// The clearForm handler should reset the acceptanceCriteria field
+			assert.ok(
+				capturedHtml.value.includes('acceptanceCriteria'),
+				'HTML should reference acceptanceCriteria for form handling'
+			);
+
+			// Verify the clearForm case exists in the message handler
+			assert.ok(
+				capturedHtml.value.includes('clearForm'),
+				'HTML should handle clearForm message'
+			);
+		});
+
+		test('should include acceptanceCriteria in form submission JavaScript', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Verify the form submission includes acceptanceCriteria in the message
+			assert.ok(
+				capturedHtml.value.includes("acceptanceCriteria:"),
+				'Form submission should include acceptanceCriteria in the message payload'
+			);
+		});
+
+		test('SessionFormSubmitCallback type should accept acceptanceCriteria parameter', () => {
+			// This test verifies that the callback type includes acceptanceCriteria
+			// by setting up a callback with 3 parameters
+
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			let callbackInvoked = false;
+
+			// Act: Set a callback that accepts 3 parameters (name, prompt, acceptanceCriteria)
+			provider.setOnSubmit((name: string, prompt: string, acceptanceCriteria: string) => {
+				callbackInvoked = true;
+				// TypeScript will fail compilation if the signature is wrong
+				assert.strictEqual(typeof name, 'string');
+				assert.strictEqual(typeof prompt, 'string');
+				assert.strictEqual(typeof acceptanceCriteria, 'string');
+			});
+
+			// Assert: If we got here without TypeScript errors, the type is correct
+			// We can also trigger the callback to verify it works
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			messageHandler.callback({
+				command: 'createSession',
+				name: 'test',
+				prompt: 'test prompt',
+				acceptanceCriteria: 'test criteria'
+			});
+
+			assert.ok(callbackInvoked, 'Callback should have been invoked with 3 parameters');
 		});
 	});
 });
