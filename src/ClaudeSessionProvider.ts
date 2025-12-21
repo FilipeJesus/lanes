@@ -28,6 +28,12 @@ export interface ClaudeStatus {
 // Valid status values for validation
 const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
 
+// Session data from .claude-session file
+export interface ClaudeSessionData {
+    sessionId: string;
+    timestamp?: string;
+}
+
 /**
  * Get the Claude status from a worktree's .claude-status file
  * @param worktreePath Path to the worktree directory
@@ -53,6 +59,44 @@ export function getClaudeStatus(worktreePath: string): ClaudeStatus | null {
             status: data.status as ClaudeStatusState,
             timestamp: data.timestamp,
             message: data.message
+        };
+    } catch {
+        // Graceful fallback for any error (invalid JSON, read error, etc.)
+        return null;
+    }
+}
+
+/**
+ * Get the Claude session ID from a worktree's .claude-session file
+ * @param worktreePath Path to the worktree directory
+ * @returns ClaudeSessionData if valid file exists, null otherwise
+ */
+export function getSessionId(worktreePath: string): ClaudeSessionData | null {
+    const sessionPath = path.join(worktreePath, '.claude-session');
+
+    try {
+        if (!fs.existsSync(sessionPath)) {
+            return null;
+        }
+
+        const content = fs.readFileSync(sessionPath, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Validate sessionId field exists and is a non-empty string
+        if (!data.sessionId || typeof data.sessionId !== 'string' || data.sessionId.trim() === '') {
+            return null;
+        }
+
+        // Validate session ID format to prevent command injection
+        // Claude session IDs are alphanumeric with hyphens and underscores
+        const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+        if (!SESSION_ID_PATTERN.test(data.sessionId)) {
+            return null;
+        }
+
+        return {
+            sessionId: data.sessionId,
+            timestamp: data.timestamp
         };
     } catch {
         // Graceful fallback for any error (invalid JSON, read error, etc.)
