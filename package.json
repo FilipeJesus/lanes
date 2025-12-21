@@ -43,6 +43,11 @@
     "views": {
       "claude-lanes-sidebar": [
         {
+          "type": "webview",
+          "id": "claudeSessionFormView",
+          "name": "New Session"
+        },
+        {
           "id": "claudeSessionsView",
           "name": "Active Sessions"
         }
@@ -70,13 +75,6 @@
       }
     ],
     "menus": {
-      "view/title": [
-        {
-          "command": "claudeWorktrees.createSession",
-          "when": "view == claudeSessionsView",
-          "group": "navigation"
-        }
-      ],
       "view/item/context": [
         {
           "command": "claudeWorktrees.setupStatusHooks",

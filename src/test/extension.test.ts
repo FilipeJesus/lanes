@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData } from '../ClaudeSessionProvider';
+import { SessionFormProvider } from '../SessionFormProvider';
 
 suite('Claude Lanes Extension Test Suite', () => {
 
@@ -334,11 +335,11 @@ suite('Claude Lanes Extension Test Suite', () => {
 
 		test('commands should be registered after activation', async () => {
 			// Trigger extension activation by executing one of its commands
-			// This will fail gracefully (no workspace) but activates the extension
+			// Using openSession with no args - it will fail gracefully but activates the extension
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.createSession');
+				await vscode.commands.executeCommand('claudeWorktrees.openSession');
 			} catch {
-				// Expected to fail without a workspace, but extension is now activated
+				// Expected to fail without proper args, but extension is now activated
 			}
 
 			const commands = await vscode.commands.getCommands(true);
@@ -347,6 +348,28 @@ suite('Claude Lanes Extension Test Suite', () => {
 			assert.ok(commands.includes('claudeWorktrees.openSession'), 'openSession command should exist');
 			assert.ok(commands.includes('claudeWorktrees.deleteSession'), 'deleteSession command should exist');
 			assert.ok(commands.includes('claudeWorktrees.setupStatusHooks'), 'setupStatusHooks command should exist');
+		});
+
+		test('SessionFormProvider webview should be registered', async () => {
+			// Trigger extension activation
+			try {
+				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+			} catch {
+				// Expected to fail without proper args, but extension is now activated
+			}
+
+			// The webview view is registered with the viewType 'claudeSessionFormView'
+			// We can verify this by checking that the SessionFormProvider's viewType matches
+			// what is expected in package.json
+			assert.strictEqual(
+				SessionFormProvider.viewType,
+				'claudeSessionFormView',
+				'SessionFormProvider should use the correct view type'
+			);
+
+			// Note: VS Code does not expose a way to query registered webview views directly.
+			// The best we can do is verify the viewType constant matches what's in package.json
+			// and trust that the extension.ts registers it correctly.
 		});
 	});
 
@@ -602,6 +625,259 @@ suite('Claude Lanes Extension Test Suite', () => {
 			const themeIcon = item.iconPath as vscode.ThemeIcon;
 			assert.strictEqual(themeIcon.id, 'git-branch');
 			assert.strictEqual(item.description, 'legacy-feature');
+		});
+	});
+
+	suite('SessionFormProvider', () => {
+
+		let tempDir: string;
+		let extensionUri: vscode.Uri;
+
+		setup(() => {
+			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-form-test-'));
+			extensionUri = vscode.Uri.file(tempDir);
+		});
+
+		teardown(() => {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Helper to create a mock WebviewView for testing
+		 */
+		function createMockWebviewView(): {
+			webviewView: vscode.WebviewView;
+			capturedHtml: { value: string };
+			messageHandler: { callback: ((message: unknown) => void) | null };
+			postMessageSpy: { messages: unknown[] };
+		} {
+			const capturedHtml = { value: '' };
+			const messageHandler: { callback: ((message: unknown) => void) | null } = { callback: null };
+			const postMessageSpy: { messages: unknown[] } = { messages: [] };
+
+			const mockWebview = {
+				options: {} as vscode.WebviewOptions,
+				html: '',
+				onDidReceiveMessage: (callback: (message: unknown) => void) => {
+					messageHandler.callback = callback;
+					return { dispose: () => { messageHandler.callback = null; } };
+				},
+				postMessage: (message: unknown) => {
+					postMessageSpy.messages.push(message);
+					return Promise.resolve(true);
+				},
+				asWebviewUri: (uri: vscode.Uri) => uri,
+				cspSource: 'test-csp-source'
+			};
+
+			// Create a proxy to capture html assignment
+			const webviewProxy = new Proxy(mockWebview, {
+				set(target, prop, value) {
+					if (prop === 'html') {
+						capturedHtml.value = value as string;
+					}
+					(target as Record<string, unknown>)[prop as string] = value;
+					return true;
+				},
+				get(target, prop) {
+					return (target as Record<string, unknown>)[prop as string];
+				}
+			});
+
+			const mockWebviewView = {
+				webview: webviewProxy as unknown as vscode.Webview,
+				viewType: 'claudeSessionFormView',
+				title: undefined,
+				description: undefined,
+				badge: undefined,
+				visible: true,
+				onDidDispose: () => ({ dispose: () => {} }),
+				onDidChangeVisibility: () => ({ dispose: () => {} }),
+				show: () => {}
+			} as unknown as vscode.WebviewView;
+
+			return { webviewView: mockWebviewView, capturedHtml, messageHandler, postMessageSpy };
+		}
+
+		test('should render HTML form with name input field', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(capturedHtml.value.includes('id="name"'), 'HTML should contain input field with id="name"');
+			assert.ok(capturedHtml.value.includes('type="text"'), 'Name input should be of type text');
+		});
+
+		test('should render HTML form with prompt textarea', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(capturedHtml.value.includes('id="prompt"'), 'HTML should contain textarea with id="prompt"');
+			assert.ok(capturedHtml.value.includes('<textarea'), 'HTML should contain a textarea element');
+		});
+
+		test('should render HTML form with submit button', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(capturedHtml.value.includes('type="submit"'), 'HTML should contain a submit button');
+			assert.ok(capturedHtml.value.includes('Create Session'), 'Submit button should have "Create Session" text');
+		});
+
+		test('should use VS Code CSS variables for theming', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(
+				capturedHtml.value.includes('--vscode-input-background'),
+				'HTML should use VS Code CSS variable --vscode-input-background'
+			);
+			assert.ok(
+				capturedHtml.value.includes('--vscode-button-background'),
+				'HTML should use VS Code CSS variable --vscode-button-background'
+			);
+			assert.ok(
+				capturedHtml.value.includes('--vscode-foreground'),
+				'HTML should use VS Code CSS variable --vscode-foreground'
+			);
+		});
+
+		test('should invoke onSubmit callback when createSession message is received', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			let capturedName = '';
+			let capturedPrompt = '';
+
+			provider.setOnSubmit((name, prompt) => {
+				capturedName = name;
+				capturedPrompt = prompt;
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Simulate webview posting a createSession message
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			messageHandler.callback({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Fix the bug in login.ts'
+			});
+
+			// Assert
+			assert.strictEqual(capturedName, 'test-session', 'Callback should receive the session name');
+			assert.strictEqual(capturedPrompt, 'Fix the bug in login.ts', 'Callback should receive the prompt');
+		});
+
+		test('should post clearForm message after successful submission', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler, postMessageSpy } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			provider.setOnSubmit(() => {
+				// Empty callback
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			messageHandler.callback({
+				command: 'createSession',
+				name: 'my-session',
+				prompt: ''
+			});
+
+			// Assert
+			assert.strictEqual(postMessageSpy.messages.length, 1, 'Should post one message after submission');
+			assert.deepStrictEqual(
+				postMessageSpy.messages[0],
+				{ command: 'clearForm' },
+				'Should post clearForm command'
+			);
+		});
+
+		test('should handle createSession message without onSubmit callback set', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Note: NOT setting onSubmit callback
+
+			// Act & Assert - should not throw
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			const callback = messageHandler.callback;
+			assert.doesNotThrow(() => {
+				callback({
+					command: 'createSession',
+					name: 'test-session',
+					prompt: 'Some prompt'
+				});
+			}, 'Should handle message gracefully when no callback is set');
+		});
+
+		test('should have correct viewType static property', () => {
+			// Assert
+			assert.strictEqual(
+				SessionFormProvider.viewType,
+				'claudeSessionFormView',
+				'viewType should be claudeSessionFormView'
+			);
+		});
+
+		test('should enable scripts in webview options', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.strictEqual(
+				webviewView.webview.options.enableScripts,
+				true,
+				'Webview should have scripts enabled'
+			);
 		});
 	});
 

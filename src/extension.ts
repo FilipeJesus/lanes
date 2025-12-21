@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
-import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessionProvider'; // Import the new class
+import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessionProvider';
+import { SessionFormProvider } from './SessionFormProvider';
 
 const WORKTREE_FOLDER = '.worktrees';
 
@@ -18,9 +19,23 @@ export function activate(context: vscode.ExtensionContext) {
         console.log(`Workspace detected: ${workspaceRoot}`);
     }
 
-    // Initialize Provider
+    // Initialize Tree Data Provider
     const sessionProvider = new ClaudeSessionProvider(workspaceRoot);
     vscode.window.registerTreeDataProvider('claudeSessionsView', sessionProvider);
+
+    // Initialize Session Form Provider (webview in sidebar)
+    const sessionFormProvider = new SessionFormProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SessionFormProvider.viewType,
+            sessionFormProvider
+        )
+    );
+
+    // Handle form submission - creates a new session with optional prompt
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string) => {
+        await createSession(name, prompt, workspaceRoot, sessionProvider);
+    });
 
     // Watch for .claude-status file changes to refresh the sidebar
     if (workspaceRoot) {
@@ -58,63 +73,23 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(sessionWatcher);
     }
 
-    // 2. Register CREATE Command
+    // 2. Register CREATE Command (for command palette / keybinding usage)
     let createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
-        console.log("Create Session Command Triggered!"); // <--- LOOK FOR THIS
+        console.log("Create Session Command Triggered!");
 
-        // 1. Check Workspace
-        if (!workspaceRoot) {
-            vscode.window.showErrorMessage("Error: You must open a folder/workspace first!");
-            return;
-        }
-
-        // 2. Check Git Status
-        const isGit = fs.existsSync(path.join(workspaceRoot, '.git'));
-        if (!isGit) {
-            vscode.window.showErrorMessage("Error: Current folder is not a git repository. Run 'git init' first.");
-            return;
-        }
-
-        // 3. Get Input
-        const name = await vscode.window.showInputBox({ 
+        // Get session name via input box
+        const name = await vscode.window.showInputBox({
             prompt: "Session Name (creates new branch)",
-            placeHolder: "fix-login" 
+            placeHolder: "fix-login"
         });
-        
-        console.log(`User entered name: ${name}`);
 
         if (!name) {
             vscode.window.showInformationMessage("Creation cancelled");
             return;
         }
 
-        const worktreePath = path.join(workspaceRoot, '.worktrees', name);
-        console.log(`Target path: ${worktreePath}`);
-
-        try {
-            // 4. Create Worktree
-            vscode.window.showInformationMessage(`Creating session '${name}'...`); // Feedback to user
-            
-            await ensureWorktreeDirExists(workspaceRoot);
-            
-            // Log the command we are about to run
-            const gitCmd = `git worktree add "${worktreePath}" -b "${name}"`;
-            console.log(`Running: ${gitCmd}`);
-            
-            await execShell(gitCmd, workspaceRoot);
-
-            // 5. Setup status hooks before opening Claude
-            await setupStatusHooks(worktreePath);
-
-            // 6. Success
-            sessionProvider.refresh();
-            openClaudeTerminal(name, worktreePath);
-            vscode.window.showInformationMessage(`Session '${name}' Ready!`);
-            
-        } catch (err: any) {
-            console.error(err);
-            vscode.window.showErrorMessage(`Git Error: ${err.message}`);
-        }
+        // Use the shared createSession function (no prompt when using command palette)
+        await createSession(name, '', workspaceRoot, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -180,8 +155,85 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(setupHooksDisposable);
 }
 
+/**
+ * Creates a new Claude session with optional starting prompt.
+ * Shared logic between the form-based UI and the command palette.
+ */
+async function createSession(
+    name: string,
+    prompt: string,
+    workspaceRoot: string | undefined,
+    sessionProvider: ClaudeSessionProvider
+): Promise<void> {
+    console.log("Create Session triggered!");
+
+    // 1. Check Workspace
+    if (!workspaceRoot) {
+        vscode.window.showErrorMessage("Error: You must open a folder/workspace first!");
+        return;
+    }
+
+    // 2. Validate name
+    if (!name || !name.trim()) {
+        vscode.window.showErrorMessage("Error: Session name is required!");
+        return;
+    }
+
+    const trimmedName = name.trim();
+
+    // 2b. Validate branch name characters (git-safe)
+    const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
+    if (!branchNameRegex.test(trimmedName)) {
+        vscode.window.showErrorMessage("Error: Session name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.");
+        return;
+    }
+
+    // 2c. Prevent names that could cause git issues
+    if (trimmedName.startsWith('-') || trimmedName.startsWith('.') ||
+        trimmedName.endsWith('.') || trimmedName.includes('..') ||
+        trimmedName.endsWith('.lock')) {
+        vscode.window.showErrorMessage("Error: Session name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'");
+        return;
+    }
+
+    // 3. Check Git Status
+    const isGit = fs.existsSync(path.join(workspaceRoot, '.git'));
+    if (!isGit) {
+        vscode.window.showErrorMessage("Error: Current folder is not a git repository. Run 'git init' first.");
+        return;
+    }
+
+    const worktreePath = path.join(workspaceRoot, '.worktrees', trimmedName);
+    console.log(`Target path: ${worktreePath}`);
+
+    try {
+        // 4. Create Worktree
+        vscode.window.showInformationMessage(`Creating session '${trimmedName}'...`);
+
+        await ensureWorktreeDirExists(workspaceRoot);
+
+        // Log the command we are about to run
+        const gitCmd = `git worktree add "${worktreePath}" -b "${trimmedName}"`;
+        console.log(`Running: ${gitCmd}`);
+
+        await execShell(gitCmd, workspaceRoot);
+
+        // 5. Setup status hooks before opening Claude
+        await setupStatusHooks(worktreePath);
+
+        // 6. Success
+        sessionProvider.refresh();
+        openClaudeTerminal(trimmedName, worktreePath, prompt);
+        vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
+
+    } catch (err: any) {
+        console.error(err);
+        vscode.window.showErrorMessage(`Git Error: ${err.message}`);
+    }
+}
+
 // THE CORE FUNCTION: Manages the Terminal Tabs
-function openClaudeTerminal(taskName: string, worktreePath: string) {
+function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string) {
     const terminalName = `Claude: ${taskName}`;
 
     // A. Check if this terminal already exists to avoid duplicates
@@ -190,6 +242,8 @@ function openClaudeTerminal(taskName: string, worktreePath: string) {
     if (existingTerminal) {
         // Just bring it to the front!
         existingTerminal.show();
+        // If we have a prompt and we're reopening an existing terminal,
+        // we don't want to send the prompt again as it would interrupt
         return;
     }
 
@@ -211,6 +265,14 @@ function openClaudeTerminal(taskName: string, worktreePath: string) {
     } else {
         // Start new session
         terminal.sendText("claude");
+    }
+
+    // D. Send the starting prompt if provided (only for new sessions)
+    // We send it after a short delay to allow Claude to initialize
+    if (!sessionData?.sessionId && prompt && prompt.trim()) {
+        setTimeout(() => {
+            terminal.sendText(prompt);
+        }, 2000); // 2 second delay to allow Claude CLI to start
     }
 }
 
