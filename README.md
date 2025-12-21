@@ -1,71 +1,126 @@
-# claude-orchestra README
+# 🤖 Claude Orchestra
 
-This is the README for your extension "claude-orchestra". After writing up a brief description, we recommend including the following sections.
+**Manage multiple, isolated Claude Code sessions directly inside VS Code.**
 
-## Features
+Claude Orchestra is a VS Code extension that helps you parallelize your AI coding workflows. It uses **Git Worktrees** to give every agent session its own isolated file system and **Dedicated Terminals** to manage their lifecycle.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+No more context contamination. No more half-finished files clashing with each other.
 
 ---
 
-## Following extension guidelines
+## ✨ Features
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+* **⚡ Instant Isolation:** Automatically creates a Git Worktree in a hidden `.worktrees/` folder for every new task.
+* **🖥️ Dedicated Terminals:** Spawns a named terminal (e.g., `Claude: fix-login`) for each session, running `claude` automatically.
+* **🗂️ Session Sidebar:** View all active sessions in a dedicated "Claude Sessions" sidebar view.
+* **🔄 Context Persistence:** Closing VS Code? No problem. The extension scans your worktrees and lets you resume sessions instantly.
+* **🧹 One-Click Cleanup:** Delete the worktree and kill the terminal process with a single click (keeps your git branch safe).
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+---
 
-## Working with Markdown
+## 🚀 How It Works
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+1.  **Create:** You click **+** and name your session (e.g., `refactor-api`).
+2.  **Orchestrate:** The extension runs `git worktree add .worktrees/refactor-api -b refactor-api`.
+3.  **Launch:** It opens a new terminal tab, `cd`s into that folder, and starts `claude`.
+4.  **Code:** The agent works on files in that isolated folder. Changes are staged on the `refactor-api` branch.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+---
 
-## For more information
+## 📦 Installation (Local / DevContainer)
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+Since this extension is designed for private/internal use, you install it via VSIX.
 
-**Enjoy!**
+### Prerequisite
+You must have the Anthropic `claude` CLI installed and authenticated in your environment (or DevContainer).
+```bash
+npm install -g @anthropic-ai/claude-code
+claude login
+```
+
+### Build & Install
+
+1. Clone this repository and install dependencies:
+   ```bash
+   git clone https://github.com/your-username/claude-orchestra.git
+   cd claude-orchestra
+   npm install
+   ```
+
+2. Package the extension as a VSIX:
+   ```bash
+   npm run compile
+   npx vsce package
+   ```
+
+3. Install the VSIX in VS Code:
+   - Open VS Code
+   - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
+   - Run **Extensions: Install from VSIX...**
+   - Select the generated `.vsix` file
+
+---
+
+## 🎮 Usage
+
+### Creating a Session
+1. Open the **Claude Sessions** sidebar (robot icon in the Activity Bar)
+2. Click the **+** button
+3. Enter a session name (e.g., `fix-auth-bug`)
+4. A terminal opens automatically with `claude` running in the isolated worktree
+
+### Resuming a Session
+- Click any session in the sidebar to reopen its terminal
+- The extension reuses existing terminals if already open
+
+### Deleting a Session
+- Click the **trash icon** next to a session
+- Confirm the deletion
+- The worktree is removed and the terminal is killed
+- Your git branch remains intact for later merging
+
+---
+
+## 🔧 Commands
+
+| Command | Description |
+|---------|-------------|
+| `Claude Orchestra: Create Session` | Create a new isolated session |
+| `Claude Orchestra: Open Session` | Open/focus an existing session's terminal |
+| `Claude Orchestra: Delete Session` | Remove a session's worktree and terminal |
+
+---
+
+## 📁 Project Structure
+
+```
+your-repo/
+├── .worktrees/           # Hidden folder containing all session worktrees
+│   ├── fix-auth-bug/     # Isolated worktree for this session
+│   ├── refactor-api/     # Another isolated session
+│   └── add-tests/        # Each has its own file state
+├── src/                  # Your main codebase
+└── ...
+```
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] Session status indicators (idle, working, completed)
+- [ ] Session descriptions and metadata
+- [ ] Merge assistant (review and merge session branches)
+- [ ] Session templates for common workflows
+- [ ] Multi-repo support
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+---
+
+## 📄 License
+
+MIT
