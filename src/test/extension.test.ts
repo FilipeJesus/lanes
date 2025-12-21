@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getFeatureStatus, FeatureStatus } from '../ClaudeSessionProvider';
 
 suite('Claude Orchestra Extension Test Suite', () => {
 
@@ -85,6 +85,128 @@ suite('Claude Orchestra Extension Test Suite', () => {
 			);
 
 			assert.strictEqual(item.contextValue, 'sessionItem');
+		});
+
+		test('should show feature ID when current feature exists', () => {
+			const featureStatus: FeatureStatus = {
+				currentFeature: { id: 'feature-abc', description: 'Test feature', passes: false },
+				allComplete: false
+			};
+			const item = new SessionItem(
+				'session',
+				'/path',
+				vscode.TreeItemCollapsibleState.None,
+				featureStatus
+			);
+
+			assert.strictEqual(item.description, 'feature-abc');
+		});
+
+		test('should show "Complete" when allComplete is true', () => {
+			const featureStatus: FeatureStatus = {
+				currentFeature: null,
+				allComplete: true
+			};
+			const item = new SessionItem(
+				'session',
+				'/path',
+				vscode.TreeItemCollapsibleState.None,
+				featureStatus
+			);
+
+			assert.strictEqual(item.description, 'Complete');
+		});
+
+		test('should show "Active" when no features (featureStatus with no current and not complete)', () => {
+			const featureStatus: FeatureStatus = {
+				currentFeature: null,
+				allComplete: false
+			};
+			const item = new SessionItem(
+				'session',
+				'/path',
+				vscode.TreeItemCollapsibleState.None,
+				featureStatus
+			);
+
+			assert.strictEqual(item.description, 'Active');
+		});
+	});
+
+	suite('getFeatureStatus', () => {
+
+		test('should return first incomplete feature', () => {
+			const featuresJson = {
+				features: [
+					{ id: 'feature-1', description: 'First feature', passes: false },
+					{ id: 'feature-2', description: 'Second feature', passes: false }
+				]
+			};
+			fs.writeFileSync(path.join(tempDir, 'features.json'), JSON.stringify(featuresJson));
+
+			const result = getFeatureStatus(tempDir);
+
+			assert.ok(result.currentFeature);
+			assert.strictEqual(result.currentFeature.id, 'feature-1');
+			assert.strictEqual(result.allComplete, false);
+		});
+
+		test('should return null when all features are complete with allComplete true', () => {
+			const featuresJson = {
+				features: [
+					{ id: 'feature-1', description: 'First feature', passes: true },
+					{ id: 'feature-2', description: 'Second feature', passes: true }
+				]
+			};
+			fs.writeFileSync(path.join(tempDir, 'features.json'), JSON.stringify(featuresJson));
+
+			const result = getFeatureStatus(tempDir);
+
+			assert.strictEqual(result.currentFeature, null);
+			assert.strictEqual(result.allComplete, true);
+		});
+
+		test('should return null when features.json does not exist', () => {
+			// tempDir exists but has no features.json
+			const result = getFeatureStatus(tempDir);
+
+			assert.strictEqual(result.currentFeature, null);
+			assert.strictEqual(result.allComplete, false);
+		});
+
+		test('should return null for invalid JSON (graceful fallback)', () => {
+			fs.writeFileSync(path.join(tempDir, 'features.json'), 'not valid json {{{');
+
+			const result = getFeatureStatus(tempDir);
+
+			assert.strictEqual(result.currentFeature, null);
+			assert.strictEqual(result.allComplete, false);
+		});
+
+		test('should return null for empty features array', () => {
+			const featuresJson = { features: [] };
+			fs.writeFileSync(path.join(tempDir, 'features.json'), JSON.stringify(featuresJson));
+
+			const result = getFeatureStatus(tempDir);
+
+			assert.strictEqual(result.currentFeature, null);
+			assert.strictEqual(result.allComplete, false);
+		});
+
+		test('should skip completed features and return first incomplete', () => {
+			const featuresJson = {
+				features: [
+					{ id: 'feature-1', description: 'First', passes: true },
+					{ id: 'feature-2', description: 'Second', passes: false },
+					{ id: 'feature-3', description: 'Third', passes: false }
+				]
+			};
+			fs.writeFileSync(path.join(tempDir, 'features.json'), JSON.stringify(featuresJson));
+
+			const result = getFeatureStatus(tempDir);
+
+			assert.ok(result.currentFeature);
+			assert.strictEqual(result.currentFeature.id, 'feature-2');
 		});
 	});
 
@@ -176,6 +298,29 @@ suite('Claude Orchestra Extension Test Suite', () => {
 			});
 
 			provider.refresh();
+		});
+
+		test('should show current feature in session description (integration)', async () => {
+			// Create worktrees directory with a session
+			fs.mkdirSync(worktreesDir);
+			const sessionPath = path.join(worktreesDir, 'test-session');
+			fs.mkdirSync(sessionPath);
+
+			// Create features.json with an incomplete feature in the session worktree
+			const featuresJson = {
+				features: [
+					{ id: 'impl-feature-x', description: 'Implement feature X', passes: false },
+					{ id: 'impl-feature-y', description: 'Implement feature Y', passes: false }
+				]
+			};
+			fs.writeFileSync(path.join(sessionPath, 'features.json'), JSON.stringify(featuresJson));
+
+			const provider = new ClaudeSessionProvider(tempDir);
+			const children = await provider.getChildren();
+
+			assert.strictEqual(children.length, 1);
+			assert.strictEqual(children[0].label, 'test-session');
+			assert.strictEqual(children[0].description, 'impl-feature-x');
 		});
 	});
 

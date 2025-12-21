@@ -1,7 +1,8 @@
 {
   "name": "claude-orchestra",
   "displayName": "Claude Orchestra",
-  "description": "",
+  "publisher": "claude-orchestra",
+  "description": "Manage Claude Code sessions via Git Worktrees",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.75.0"
@@ -18,14 +19,14 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "claude-manager-container",
-          "title": "Claude Sessions",
+          "id": "claude-orchestra-sidebar",
+          "title": "Claude Orchestra",
           "icon": "$(robot)"
         }
       ]
     },
     "views": {
-      "claude-manager-container": [
+      "claude-orchestra-sidebar": [
         {
           "id": "claudeSessionsView",
           "name": "Active Sessions"
@@ -39,13 +40,13 @@
         "icon": "$(plus)"
       },
       {
-        "command": "claudeWorktrees.openSession",
-        "title": "Open Session"
-      },
-      {
         "command": "claudeWorktrees.deleteSession",
         "title": "Delete Session",
         "icon": "$(trash)"
+      },
+      {
+        "command": "claudeWorktrees.openSession",
+        "title": "Open Session"
       }
     ],
     "menus": {
@@ -63,7 +64,15 @@
           "group": "inline"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "claudeWorktrees.createSession",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "editorTextFocus"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -84,13 +93,5 @@
     "husky": "^9.1.7",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1"
-  },
-  "keybindings": [
-    {
-      "command": "claudeWorktrees.createSession",
-      "key": "ctrl+shift+c",
-      "mac": "cmd+shift+c",
-      "when": "editorTextFocus"
-    }
-  ]
+  }
 }
