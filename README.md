@@ -81,7 +81,7 @@ claude login
 
 ### Session Status Indicators
 
-The sidebar can show visual status indicators for each session:
+The sidebar shows visual status indicators for each session:
 
 | Status | Icon | Description |
 |--------|------|-------------|
@@ -90,47 +90,9 @@ The sidebar can show visual status indicators for each session:
 | Error | Error (red) | An error occurred |
 | Idle | Git branch | Default/inactive state |
 
-**To enable status indicators:**
+**New sessions** get status hooks configured automatically when created.
 
-1. Right-click on a session in the sidebar
-2. Select **"Setup Status Hooks"**
-3. This configures Claude hooks in the worktree
-
-The command merges with any existing hooks - it won't overwrite your configuration.
-
-<details>
-<summary>Manual Setup (Alternative)</summary>
-
-If you prefer to configure hooks manually, add this to `.claude/settings.json` in your worktree:
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"status\":\"waiting_for_user\"}' > .claude-status"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"status\":\"working\"}' > .claude-status"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-</details>
+**For existing sessions** (created before this feature), right-click and select **"Setup Status Hooks"**.
 
 ---
 

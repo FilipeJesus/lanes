@@ -91,8 +91,11 @@ export function activate(context: vscode.ExtensionContext) {
             console.log(`Running: ${gitCmd}`);
             
             await execShell(gitCmd, workspaceRoot);
-            
-            // 5. Success
+
+            // 5. Setup status hooks before opening Claude
+            await setupStatusHooks(worktreePath);
+
+            // 6. Success
             sessionProvider.refresh();
             openClaudeTerminal(name, worktreePath);
             vscode.window.showInformationMessage(`Session '${name}' Ready!`);
@@ -147,7 +150,11 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // 5. Register SETUP STATUS HOOKS Command
-    let setupHooksDisposable = vscode.commands.registerCommand('claudeWorktrees.setupStatusHooks', async (item: SessionItem) => {
+    let setupHooksDisposable = vscode.commands.registerCommand('claudeWorktrees.setupStatusHooks', async (item?: SessionItem) => {
+        if (!item) {
+            vscode.window.showErrorMessage('Please right-click on a session to setup status hooks.');
+            return;
+        }
         try {
             await setupStatusHooks(item.worktreePath);
             vscode.window.showInformationMessage(`Status hooks configured for '${item.label}'`);
@@ -266,12 +273,12 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
     // Define our status hooks
     const statusWriteWaiting = {
         type: 'command',
-        command: 'echo \'{"status":"waiting_for_user","timestamp":"\'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"\'"}\' > .claude-status'
+        command: "echo '{\"status\":\"waiting_for_user\"}' > .claude-status"
     };
 
     const statusWriteWorking = {
         type: 'command',
-        command: 'echo \'{"status":"working","timestamp":"\'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"\'"}\' > .claude-status'
+        command: "echo '{\"status\":\"working\"}' > .claude-status"
     };
 
     // Helper to check if our hook already exists
@@ -298,6 +305,28 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
     }
     if (!hookExists(settings.hooks.UserPromptSubmit)) {
         settings.hooks.UserPromptSubmit.push({
+            hooks: [statusWriteWorking]
+        });
+    }
+
+    // Add Notification hook for permission prompts (fires when Claude asks for permission)
+    if (!settings.hooks.Notification) {
+        settings.hooks.Notification = [];
+    }
+    if (!hookExists(settings.hooks.Notification)) {
+        settings.hooks.Notification.push({
+            matcher: 'permission_prompt',
+            hooks: [statusWriteWaiting]
+        });
+    }
+
+    // Add PreToolUse hook (fires before any tool = Claude is working)
+    if (!settings.hooks.PreToolUse) {
+        settings.hooks.PreToolUse = [];
+    }
+    if (!hookExists(settings.hooks.PreToolUse)) {
+        settings.hooks.PreToolUse.push({
+            matcher: '.*',
             hooks: [statusWriteWorking]
         });
     }
