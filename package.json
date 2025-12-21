@@ -30,6 +30,10 @@
     "Machine Learning"
   ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onView:claudeSessionFormView",
+    "onView:claudeSessionsView"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
