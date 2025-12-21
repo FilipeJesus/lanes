@@ -1,4 +1,4 @@
-# 🛣️ Claude Lanes
+# Claude Lanes
 
 **Manage multiple, isolated Claude Code sessions directly inside VS Code.**
 
@@ -6,43 +6,52 @@ Claude Lanes is a VS Code extension that helps you parallelize your AI coding wo
 
 No more context contamination. No more half-finished files clashing with each other.
 
----
-
-## ✨ Features
-
-* **⚡ Instant Isolation:** Automatically creates a Git Worktree in a hidden `.worktrees/` folder for every new task.
-* **🖥️ Dedicated Terminals:** Spawns a named terminal (e.g., `Claude: fix-login`) for each session, running `claude` automatically.
-* **🗂️ Session Sidebar:** View all active sessions in a dedicated "Claude Sessions" sidebar view.
-* **🔄 Context Persistence:** Closing VS Code? No problem. The extension scans your worktrees and lets you resume sessions instantly.
-* **🧹 One-Click Cleanup:** Delete the worktree and kill the terminal process with a single click (keeps your git branch safe).
+![Claude Lanes in action](media/screenshot.png)
 
 ---
 
-## 🚀 How It Works
+## Features
 
-1.  **Create:** You click **+** and name your session (e.g., `refactor-api`).
-2.  **laneste:** The extension runs `git worktree add .worktrees/refactor-api -b refactor-api`.
-3.  **Launch:** It opens a new terminal tab, `cd`s into that folder, and starts `claude`.
-4.  **Code:** The agent works on files in that isolated folder. Changes are staged on the `refactor-api` branch.
+- **Instant Isolation** - Automatically creates a Git Worktree in a hidden `.worktrees/` folder for every new task
+- **Form-Based Session Creation** - Create sessions with a name, starting prompt, and acceptance criteria
+- **Dedicated Terminals** - Spawns a named terminal (e.g., `Claude: fix-login`) for each session, running `claude` automatically
+- **Session Sidebar** - View all active sessions with real-time status indicators
+- **Session Resume** - Automatically resumes Claude sessions using the `--resume` flag when reopening
+- **Context Persistence** - Closing VS Code? No problem. The extension scans your worktrees and lets you resume sessions instantly
+- **One-Click Cleanup** - Delete the worktree and kill the terminal process with a single click (keeps your git branch safe)
 
 ---
 
-## 📦 Installation (Local / DevContainer)
+## How It Works
 
-Since this extension is designed for private/internal use, you install it via VSIX.
+1. **Create** - Fill in the session form with a name, optional starting prompt, and acceptance criteria
+2. **Isolate** - The extension runs `git worktree add .worktrees/<session-name> -b <session-name>`
+3. **Launch** - It opens a new terminal tab, `cd`s into that folder, and starts `claude` with your prompt
+4. **Code** - The agent works on files in that isolated folder. Changes are staged on the session's branch
+5. **Resume** - Reopen any session and it automatically resumes where you left off
 
-### Prerequisite
-You must have the Anthropic `claude` CLI installed and authenticated in your environment (or DevContainer).
+---
+
+## Installation
+
+### Prerequisites
+
+You must have [Claude Code](https://claude.com/claude-code) installed and authenticated:
+
 ```bash
 npm install -g @anthropic-ai/claude-code
 claude login
 ```
 
-### Build & Install
+### From VS Code Marketplace
+
+Search for **"Claude Lanes"** in the VS Code Extensions marketplace and click Install.
+
+### From Source (Development)
 
 1. Clone this repository and install dependencies:
    ```bash
-   git clone https://github.com/your-username/claude-lanes.git
+   git clone https://github.com/FilipeJesus/claude-lanes.git
    cd claude-lanes
    npm install
    ```
@@ -54,26 +63,33 @@ claude login
    ```
 
 3. Install the VSIX in VS Code:
-   - Open VS Code
    - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
    - Run **Extensions: Install from VSIX...**
    - Select the generated `.vsix` file
 
 ---
 
-## 🎮 Usage
+## Usage
 
 ### Creating a Session
-1. Open the **Claude Sessions** sidebar (robot icon in the Activity Bar)
-2. Click the **+** button
-3. Enter a session name (e.g., `fix-auth-bug`)
-4. A terminal opens automatically with `claude` running in the isolated worktree
+
+1. Open the **Claude Lanes** sidebar (robot icon in the Activity Bar)
+2. Fill in the **New Session** form:
+   - **Session Name** (required) - Used as the Git branch name (e.g., `fix-auth-bug`)
+   - **Starting Prompt** (optional) - Describe the task for Claude to work on
+   - **Acceptance Criteria** (optional) - Define what success looks like
+3. Click **Create Session**
+4. A terminal opens automatically with Claude running in the isolated worktree
 
 ### Resuming a Session
+
 - Click any session in the sidebar to reopen its terminal
-- The extension reuses existing terminals if already open
+- The extension automatically uses `claude --resume <session-id>` to continue where you left off
+- If the terminal is already open, it will be focused
+- **Note:** If a Claude Lanes terminal is open but Claude has exited, the extension cannot restart it automatically. To fix this, close the terminal and click the session again in the sidebar.
 
 ### Deleting a Session
+
 - Click the **trash icon** next to a session
 - Confirm the deletion
 - The worktree is removed and the terminal is killed
@@ -81,7 +97,7 @@ claude login
 
 ### Session Status Indicators
 
-The sidebar shows visual status indicators for each session:
+The sidebar shows real-time visual status indicators for each session:
 
 | Status | Icon | Description |
 |--------|------|-------------|
@@ -90,13 +106,13 @@ The sidebar shows visual status indicators for each session:
 | Error | Error (red) | An error occurred |
 | Idle | Git branch | Default/inactive state |
 
-**New sessions** get status hooks configured automatically when created.
+Status hooks are configured automatically when you create a new session.
 
-**For existing sessions** (created before this feature), right-click and select **"Setup Status Hooks"**.
+For existing sessions (created before this feature), right-click and select **"Setup Status Hooks"**.
 
 ---
 
-## 🔧 Commands
+## Commands
 
 | Command | Description |
 |---------|-------------|
@@ -107,36 +123,85 @@ The sidebar shows visual status indicators for each session:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
+
+When you create sessions, they are stored in a `.worktrees/` folder in your repository:
 
 ```
 your-repo/
 ├── .worktrees/           # Hidden folder containing all session worktrees
 │   ├── fix-auth-bug/     # Isolated worktree for this session
+│   │   ├── .claude/      # Claude settings and hooks for this session
+│   │   └── ...           # Full copy of your codebase
 │   ├── refactor-api/     # Another isolated session
 │   └── add-tests/        # Each has its own file state
 ├── src/                  # Your main codebase
 └── ...
 ```
 
+Each worktree is a complete, isolated copy of your repository on its own Git branch.
+
 ---
 
-## 🛣️ Roadmap
+## Roadmap
 
 - [x] Session status indicators (idle, working, waiting)
-- [ ] Session descriptions and metadata
+- [x] Session descriptions and metadata (starting prompt, acceptance criteria)
+- [x] Session resume functionality
 - [ ] Merge assistant (review and merge session branches)
 - [ ] Session templates for common workflows
 - [ ] Multi-repo support
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+Contributions are welcome! Here's how to get started:
+
+### Development Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/FilipeJesus/claude-lanes.git
+   cd claude-lanes
+   npm install
+   ```
+
+2. Open in VS Code and press `F5` to launch the Extension Development Host
+
+3. Make your changes and test them in the development host
+
+### Running Tests
+
+```bash
+npm test          # Run full test suite
+npm run lint      # Run ESLint
+npm run compile   # Compile TypeScript
+```
+
+### Pull Requests
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure your PR:
+- Passes all existing tests
+- Includes tests for new functionality
+- Follows the existing code style
 
 ---
 
-## 📄 License
+## License
 
-MIT
+MIT - see [LICENSE](LICENSE) for details.
+
+---
+
+## Links
+
+- [GitHub Repository](https://github.com/FilipeJesus/claude-lanes)
+- [Report Issues](https://github.com/FilipeJesus/claude-lanes/issues)
+- [Claude Code Documentation](https://claude.com/claude-code)
