@@ -364,10 +364,10 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
     };
 
     // Define our session ID capture hook
-    // $CLAUDE_SESSION_ID is an environment variable provided by Claude to hooks
+    // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
     const sessionIdCapture = {
         type: 'command',
-        command: "echo '{\"sessionId\":\"'$CLAUDE_SESSION_ID'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > .claude-session"
+        command: "jq -r --arg ts \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" '{sessionId: .session_id, timestamp: $ts}' > .claude-session"
     };
 
     // Helper to check if our status hook already exists
