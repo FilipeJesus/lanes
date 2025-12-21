@@ -30,10 +30,6 @@
     "Machine Learning"
   ],
   "main": "./out/extension.js",
-  "activationEvents": [
-    "onView:claudeSessionFormView",
-    "onView:claudeSessionsView"
-  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -49,11 +45,13 @@
         {
           "type": "webview",
           "id": "claudeSessionFormView",
-          "name": "New Session"
+          "name": "New Session",
+          "icon": "$(add)"
         },
         {
           "id": "claudeSessionsView",
-          "name": "Active Sessions"
+          "name": "Active Sessions",
+          "icon": "$(list-tree)"
         }
       ]
     },
