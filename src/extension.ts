@@ -262,17 +262,14 @@ function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: str
     if (sessionData?.sessionId) {
         // Resume existing session
         terminal.sendText(`claude --resume ${sessionData.sessionId}`);
+    } else if (prompt && prompt.trim()) {
+        // Start new session with initial prompt
+        // Escape single quotes in the prompt for shell safety
+        const escapedPrompt = prompt.trim().replace(/'/g, "'\\''");
+        terminal.sendText(`claude '${escapedPrompt}'`);
     } else {
-        // Start new session
+        // Start new session without prompt
         terminal.sendText("claude");
-    }
-
-    // D. Send the starting prompt if provided (only for new sessions)
-    // We send it after a short delay to allow Claude to initialize
-    if (!sessionData?.sessionId && prompt && prompt.trim()) {
-        setTimeout(() => {
-            terminal.sendText(prompt);
-        }, 2000); // 2 second delay to allow Claude CLI to start
     }
 }
 
