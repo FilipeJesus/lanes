@@ -51,6 +51,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
+        // Note: Form state is automatically preserved via vscode.getState/setState
+        // when the webview is hidden or recreated (e.g., switching tabs, collapsing)
+
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
@@ -211,6 +214,28 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const promptInput = document.getElementById('prompt');
         const acceptanceCriteriaInput = document.getElementById('acceptanceCriteria');
 
+        // Restore saved state when webview is recreated
+        const previousState = vscode.getState();
+        if (previousState) {
+            nameInput.value = previousState.name || '';
+            promptInput.value = previousState.prompt || '';
+            acceptanceCriteriaInput.value = previousState.acceptanceCriteria || '';
+        }
+
+        // Save state whenever form values change
+        function saveState() {
+            vscode.setState({
+                name: nameInput.value,
+                prompt: promptInput.value,
+                acceptanceCriteria: acceptanceCriteriaInput.value
+            });
+        }
+
+        // Attach change listeners to all form inputs
+        nameInput.addEventListener('input', saveState);
+        promptInput.addEventListener('input', saveState);
+        acceptanceCriteriaInput.addEventListener('input', saveState);
+
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
@@ -240,6 +265,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     nameInput.value = '';
                     promptInput.value = '';
                     acceptanceCriteriaInput.value = '';
+                    // Clear saved state after successful submission
+                    vscode.setState({
+                        name: '',
+                        prompt: '',
+                        acceptanceCriteria: ''
+                    });
                     nameInput.focus();
                     break;
             }
