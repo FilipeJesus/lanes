@@ -441,8 +441,8 @@ function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: str
             }
             const promptFilePath = path.join(lanesDir, `${taskName}.txt`);
             fs.writeFileSync(promptFilePath, combinedPrompt, 'utf-8');
-            // Use absolute path since prompt file is in main repo, not worktree
-            terminal.sendText(`claude --prompt-file "${promptFilePath}"`);
+            // Pass prompt file content as argument using command substitution
+            terminal.sendText(`claude "$(cat "${promptFilePath}")"`);
         } else {
             // Start new session without prompt
             terminal.sendText("claude");
