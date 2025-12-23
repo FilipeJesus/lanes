@@ -431,10 +431,18 @@ function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: str
         // Combine prompt and acceptance criteria
         const combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
         if (combinedPrompt) {
-            // Start new session with combined prompt
-            // Escape single quotes in the prompt for shell safety
-            const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-            terminal.sendText(`claude '${escapedPrompt}'`);
+            // Write prompt to file in main repo for history and to avoid terminal buffer issues
+            // Stored in <repo>/.claude/lanes/<session-name>.txt for user reference
+            // Derive repo root from worktree path: <repo>/.worktrees/<session-name>
+            const repoRoot = path.dirname(path.dirname(worktreePath));
+            const lanesDir = path.join(repoRoot, '.claude', 'lanes');
+            if (!fs.existsSync(lanesDir)) {
+                fs.mkdirSync(lanesDir, { recursive: true });
+            }
+            const promptFilePath = path.join(lanesDir, `${taskName}.txt`);
+            fs.writeFileSync(promptFilePath, combinedPrompt, 'utf-8');
+            // Use absolute path since prompt file is in main repo, not worktree
+            terminal.sendText(`claude --prompt-file "${promptFilePath}"`);
         } else {
             // Start new session without prompt
             terminal.sendText("claude");

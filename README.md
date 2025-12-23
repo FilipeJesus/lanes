@@ -81,6 +81,8 @@ Search for **"Claude Lanes"** in the VS Code Extensions marketplace and click In
 3. Click **Create Session**
 4. A terminal opens automatically with Claude running in the isolated worktree
 
+Your prompt is saved to `.claude/lanes/<session-name>.txt` in the main repository for future reference.
+
 ### Resuming a Session
 
 - Click any session in the sidebar to reopen its terminal
@@ -223,6 +225,10 @@ When you create sessions, they are stored in a `.worktrees/` folder in your repo
 
 ```
 your-repo/
+├── .claude/
+│   └── lanes/            # Prompt history (persisted across sessions)
+│       ├── fix-auth-bug.txt
+│       └── refactor-api.txt
 ├── .worktrees/           # Hidden folder containing all session worktrees
 │   ├── fix-auth-bug/     # Isolated worktree for this session
 │   │   ├── .claude/      # Claude settings and hooks for this session
