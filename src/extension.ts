@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
-import * as cp from 'child_process';
 import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessionProvider';
 import { SessionFormProvider } from './SessionFormProvider';
+import { initializeGitPath, execGit } from './gitService';
 
 /**
  * Helper to get error message from unknown error type
@@ -76,11 +76,14 @@ function getSessionWatchPattern(): string {
     return getWatchPattern('claudeSessionPath', '.claude-session');
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Claude Lanes" is now active!'); // Check Debug Console for this
 
+    // Initialize git path from VS Code Git Extension (with fallback to 'git')
+    await initializeGitPath();
+
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-    
+
     // DEBUG: Check if we found a workspace
     if (!workspaceRoot) {
         console.error("No workspace detected!");
@@ -193,7 +196,7 @@ export function activate(context: vscode.ExtensionContext) {
             // C. Remove Worktree
             if (workspaceRoot) {
                 // --force is required if the worktree is not clean, but usually safe for temp agent work
-                await execShell(`git worktree remove "${item.worktreePath}" --force`, workspaceRoot);
+                await execGit(['worktree', 'remove', item.worktreePath, '--force'], workspaceRoot);
             }
 
             // D. Refresh List
@@ -290,7 +293,6 @@ async function createSession(
 
             // Check if the branch already exists
             const branchAlreadyExists = await branchExists(workspaceRoot, trimmedName);
-            let gitCmd: string;
 
             if (branchAlreadyExists) {
                 // Check if the branch is already in use by another worktree
@@ -365,16 +367,13 @@ async function createSession(
                 }
 
                 // User chose to use existing branch - create worktree without -b flag
-                gitCmd = `git worktree add "${worktreePath}" "${trimmedName}"`;
+                console.log(`Running: git worktree add "${worktreePath}" "${trimmedName}"`);
+                await execGit(['worktree', 'add', worktreePath, trimmedName], workspaceRoot);
             } else {
                 // Branch doesn't exist - create new branch
-                gitCmd = `git worktree add "${worktreePath}" -b "${trimmedName}"`;
+                console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}"`);
+                await execGit(['worktree', 'add', worktreePath, '-b', trimmedName], workspaceRoot);
             }
-
-            // Log the command we are about to run
-            console.log(`Running: ${gitCmd}`);
-
-            await execShell(gitCmd, workspaceRoot);
 
             // 5. Setup status hooks before opening Claude
             await setupStatusHooks(worktreePath);
@@ -466,18 +465,6 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
     }
 }
 
-// Helper for shell commands
-function execShell(cmd: string, cwd: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        cp.exec(cmd, { cwd }, (err, stdout, stderr) => {
-            if (err) {
-                return reject(stderr || err.message);
-            }
-            resolve(stdout);
-        });
-    });
-}
-
 /**
  * Check if a branch exists in the git repository.
  * @param cwd The working directory (git repo root)
@@ -486,13 +473,13 @@ function execShell(cmd: string, cwd: string): Promise<string> {
  * @note Returns false for invalid branch names or on any git command failure
  */
 export async function branchExists(cwd: string, branchName: string): Promise<boolean> {
-    // Validate branch name to prevent command injection
+    // Validate branch name to prevent issues
     const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
     if (!branchNameRegex.test(branchName)) {
         return false;
     }
     try {
-        await execShell(`git show-ref --verify --quiet "refs/heads/${branchName}"`, cwd);
+        await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], cwd);
         return true;
     } catch {
         return false;
@@ -508,7 +495,7 @@ export async function branchExists(cwd: string, branchName: string): Promise<boo
 export async function getBranchesInWorktrees(cwd: string): Promise<Set<string>> {
     const branches = new Set<string>();
     try {
-        const output = await execShell('git worktree list --porcelain', cwd);
+        const output = await execGit(['worktree', 'list', '--porcelain'], cwd);
         // Parse the porcelain output - each worktree is separated by blank lines
         // and branch info is in "branch refs/heads/<branch-name>" format
         const lines = output.split('\n');
