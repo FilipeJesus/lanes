@@ -3296,4 +3296,68 @@ index abc1234..def5678 100644
 			assert.strictEqual(result[0].removedCount, 1, 'Should have 1 removed line total');
 		});
 	});
+
+	suite('Base Branch Configuration', () => {
+		// These tests verify that getBaseBranch correctly uses the claudeLanes.baseBranch
+		// configuration setting, and falls back to auto-detection when not set.
+
+		// Get the path to the git repository root for fallback tests
+		const repoRoot = path.resolve(__dirname, '..', '..');
+
+		teardown(async () => {
+			// Reset the baseBranch configuration to default after each test
+			const config = vscode.workspace.getConfiguration('claudeLanes');
+			await config.update('baseBranch', undefined, vscode.ConfigurationTarget.Global);
+		});
+
+		test('should return configured value when claudeLanes.baseBranch setting is set', async () => {
+			// Arrange: Set the baseBranch configuration to 'develop'
+			const config = vscode.workspace.getConfiguration('claudeLanes');
+			await config.update('baseBranch', 'develop', vscode.ConfigurationTarget.Global);
+
+			// Act: Call getBaseBranch - the cwd doesn't matter when config is set
+			// since it should return the configured value without checking git
+			const result = await getBaseBranch(repoRoot);
+
+			// Assert: Should return the configured value
+			assert.strictEqual(
+				result,
+				'develop',
+				'getBaseBranch should return the configured baseBranch value "develop"'
+			);
+		});
+
+		test('should use fallback detection when baseBranch setting is empty', async () => {
+			// Arrange: Ensure the baseBranch configuration is empty
+			const config = vscode.workspace.getConfiguration('claudeLanes');
+			await config.update('baseBranch', '', vscode.ConfigurationTarget.Global);
+
+			// Act: Call getBaseBranch with the actual repo path
+			const result = await getBaseBranch(repoRoot);
+
+			// Assert: Should return one of the fallback branches
+			// The fallback order is: origin/main, origin/master, main, master
+			const validFallbacks = ['origin/main', 'origin/master', 'main', 'master'];
+			assert.ok(
+				validFallbacks.includes(result),
+				`getBaseBranch should return a fallback branch when config is empty, got: "${result}"`
+			);
+		});
+
+		test('should treat whitespace-only setting as empty and use fallback', async () => {
+			// Arrange: Set the baseBranch configuration to whitespace only
+			const config = vscode.workspace.getConfiguration('claudeLanes');
+			await config.update('baseBranch', '   ', vscode.ConfigurationTarget.Global);
+
+			// Act: Call getBaseBranch with the actual repo path
+			const result = await getBaseBranch(repoRoot);
+
+			// Assert: Should return one of the fallback branches (treating whitespace as empty)
+			const validFallbacks = ['origin/main', 'origin/master', 'main', 'master'];
+			assert.ok(
+				validFallbacks.includes(result),
+				`getBaseBranch should use fallback when config is whitespace-only, got: "${result}"`
+			);
+		});
+	});
 });

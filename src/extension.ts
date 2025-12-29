@@ -755,11 +755,21 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
 
 /**
  * Determines the base branch for comparing changes.
- * Checks in order: origin/main, origin/master, main, master.
+ * First checks the claudeLanes.baseBranch setting.
+ * If not set, checks in order: origin/main, origin/master, main, master.
  * @param cwd The working directory (git repo or worktree)
  * @returns The name of the base branch to use for comparisons
  */
 export async function getBaseBranch(cwd: string): Promise<string> {
+    // First check if user has configured a base branch
+    const config = vscode.workspace.getConfiguration('claudeLanes');
+    const configuredBranch = config.get<string>('baseBranch', '');
+
+    if (configuredBranch && configuredBranch.trim()) {
+        return configuredBranch.trim();
+    }
+
+    // Fallback to auto-detection
     // Check for origin/main
     try {
         await execGit(['show-ref', '--verify', '--quiet', 'refs/remotes/origin/main'], cwd);
