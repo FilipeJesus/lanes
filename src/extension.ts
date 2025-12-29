@@ -240,8 +240,15 @@ export async function activate(context: vscode.ExtensionContext) {
             // Determine the base branch (main or master)
             const baseBranch = await getBaseBranch(item.worktreePath);
 
-            // Get the diff from the base branch to HEAD
-            const diffContent = await execGit(['diff', `${baseBranch}...HEAD`], item.worktreePath);
+            // Check if we should include uncommitted changes
+            const config = vscode.workspace.getConfiguration('claudeLanes');
+            const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
+
+            // Get the diff - either including working directory changes or only committed changes
+            const diffArgs = includeUncommitted
+                ? ['diff', baseBranch]  // Compare base branch to working directory
+                : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
+            const diffContent = await execGit(diffArgs, item.worktreePath);
 
             // Check if there are any changes
             if (!diffContent || diffContent.trim() === '') {

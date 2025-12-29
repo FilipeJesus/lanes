@@ -139,6 +139,11 @@
           "type": "string",
           "default": "",
           "description": "The branch to compare against when viewing Git changes. Leave empty for auto-detection (checks origin/main, origin/master, main, master in order)."
+        },
+        "claudeLanes.includeUncommittedChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "When viewing Git changes, include uncommitted local changes (staged and unstaged). If false, only shows committed changes."
         }
       }
     }

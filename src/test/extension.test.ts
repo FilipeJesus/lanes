@@ -3674,6 +3674,9 @@ index 7654321..gfedcba 100644
 				assert.ok(codeBlockMatches, 'Should have code block markers');
 				assert.strictEqual(codeBlockMatches.length, 2, 'Should have opening and closing code block markers');
 			});
+		});
+	});
+
 	suite('Base Branch Configuration', () => {
 		// These tests verify that getBaseBranch correctly uses the claudeLanes.baseBranch
 		// configuration setting, and falls back to auto-detection when not set.
