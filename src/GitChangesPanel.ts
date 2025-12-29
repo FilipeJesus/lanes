@@ -312,7 +312,7 @@ export class GitChangesPanel {
 
             return `
                 <div class="file-container" data-index="${index}">
-                    <div class="file-header" onclick="toggleFile(${index})">
+                    <div class="file-header" data-index="${index}">
                         <span class="collapse-icon" id="icon-${index}">&#9660;</span>
                         <span class="file-path">${this._escapeHtml(file.filePath)}${fileStatus}</span>
                         <span class="badges">
@@ -449,13 +449,10 @@ export class GitChangesPanel {
 
         .file-diff {
             overflow-x: auto;
-            transition: max-height 0.3s ease, opacity 0.2s ease;
         }
 
         .file-diff.collapsed {
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
+            display: none;
         }
 
         .diff-table {
@@ -559,8 +556,8 @@ export class GitChangesPanel {
     </div>
 
     <div class="toolbar">
-        <button onclick="expandAll()">Expand All</button>
-        <button onclick="collapseAll()">Collapse All</button>
+        <button id="expand-all-btn">Expand All</button>
+        <button id="collapse-all-btn">Collapse All</button>
     </div>
 
     <div class="diff-content">
@@ -568,51 +565,76 @@ export class GitChangesPanel {
     </div>
 
     <script nonce="${nonce}">
-        // Track collapsed state per file
-        const collapsedState = {};
+        (function() {
+            // Track collapsed state per file
+            const collapsedState = {};
 
-        function toggleFile(index) {
-            const diffElement = document.getElementById('diff-' + index);
-            const iconElement = document.getElementById('icon-' + index);
+            function toggleFile(index) {
+                const diffElement = document.getElementById('diff-' + index);
+                const iconElement = document.getElementById('icon-' + index);
 
-            if (diffElement.classList.contains('collapsed')) {
-                diffElement.classList.remove('collapsed');
-                iconElement.classList.remove('collapsed');
-                collapsedState[index] = false;
-            } else {
-                diffElement.classList.add('collapsed');
-                iconElement.classList.add('collapsed');
-                collapsedState[index] = true;
+                if (diffElement && iconElement) {
+                    if (diffElement.classList.contains('collapsed')) {
+                        diffElement.classList.remove('collapsed');
+                        iconElement.classList.remove('collapsed');
+                        collapsedState[index] = false;
+                    } else {
+                        diffElement.classList.add('collapsed');
+                        iconElement.classList.add('collapsed');
+                        collapsedState[index] = true;
+                    }
+                }
             }
-        }
 
-        function expandAll() {
-            const diffs = document.querySelectorAll('.file-diff');
-            const icons = document.querySelectorAll('.collapse-icon');
+            function expandAll() {
+                const diffs = document.querySelectorAll('.file-diff');
+                const icons = document.querySelectorAll('.collapse-icon');
 
-            diffs.forEach((diff, i) => {
-                diff.classList.remove('collapsed');
-                collapsedState[i] = false;
+                diffs.forEach((diff, i) => {
+                    diff.classList.remove('collapsed');
+                    collapsedState[i] = false;
+                });
+
+                icons.forEach(icon => {
+                    icon.classList.remove('collapsed');
+                });
+            }
+
+            function collapseAll() {
+                const diffs = document.querySelectorAll('.file-diff');
+                const icons = document.querySelectorAll('.collapse-icon');
+
+                diffs.forEach((diff, i) => {
+                    diff.classList.add('collapsed');
+                    collapsedState[i] = true;
+                });
+
+                icons.forEach(icon => {
+                    icon.classList.add('collapsed');
+                });
+            }
+
+            // Attach event listeners to file headers
+            document.querySelectorAll('.file-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const index = header.getAttribute('data-index');
+                    if (index !== null) {
+                        toggleFile(index);
+                    }
+                });
             });
 
-            icons.forEach(icon => {
-                icon.classList.remove('collapsed');
-            });
-        }
+            // Attach event listeners to toolbar buttons
+            const expandBtn = document.getElementById('expand-all-btn');
+            const collapseBtn = document.getElementById('collapse-all-btn');
 
-        function collapseAll() {
-            const diffs = document.querySelectorAll('.file-diff');
-            const icons = document.querySelectorAll('.collapse-icon');
-
-            diffs.forEach((diff, i) => {
-                diff.classList.add('collapsed');
-                collapsedState[i] = true;
-            });
-
-            icons.forEach(icon => {
-                icon.classList.add('collapsed');
-            });
-        }
+            if (expandBtn) {
+                expandBtn.addEventListener('click', expandAll);
+            }
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', collapseAll);
+            }
+        })();
     </script>
 </body>
 </html>`;
