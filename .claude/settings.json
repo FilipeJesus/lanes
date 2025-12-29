@@ -1,0 +1,56 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r --arg ts \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" '{sessionId: .session_id, timestamp: $ts}' > .claude-session"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"status\":\"waiting_for_user\"}' > .claude-status"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"status\":\"working\"}' > .claude-status"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"status\":\"waiting_for_user\"}' > .claude-status"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"status\":\"working\"}' > .claude-status"
+          }
+        ]
+      }
+    ]
+  }
+}
