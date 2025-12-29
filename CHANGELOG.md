@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.6.0] - 2025-12-29
+
+### Added
+
+- Git Changes viewer for sessions - view diff against base branch directly from sidebar
+- Code review comments feature in Git Changes viewer with clipboard export
+- Configurable base branch setting (`claudeLanes.baseBranch`) for Git diff comparison
+- Option to include uncommitted changes in Git diff view
+
+### Fixed
+
+- Use addEventListener for CSP-compliant collapse functionality in webviews
+- Reduce line padding in Git diff view for better readability
+
+### Changed
+
+- Exclude `.worktrees` directory from vsix package (reduces package size significantly)
+
 ## [0.5.1] - 2025-12-27
 
 ### Changed
