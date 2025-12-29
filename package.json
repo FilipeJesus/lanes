@@ -134,6 +134,11 @@
           "type": "string",
           "default": "",
           "description": "Relative path within each worktree where .claude-status file should be stored. Leave empty to use the worktree root."
+        },
+        "claudeLanes.baseBranch": {
+          "type": "string",
+          "default": "",
+          "description": "The branch to compare against when viewing Git changes. Leave empty for auto-detection (checks origin/main, origin/master, main, master in order)."
         }
       }
     }
