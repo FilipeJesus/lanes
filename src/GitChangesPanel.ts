@@ -393,18 +393,7 @@ export class GitChangesPanel {
                     // Escape line content for use in data attribute (double-escape for HTML attribute)
                     const dataContent = this._escapeHtml(line.content).replace(/'/g, '&#39;');
 
-                    return `<tr class="${line.type}" id="${lineId}"
-                            data-file-path="${this._escapeHtml(file.filePath)}"
-                            data-line-num="${displayLineNum}"
-                            data-line-type="${line.type}"
-                            data-line-content='${dataContent}'>
-                        <td class="line-num old">${oldNum}</td>
-                        <td class="line-num new">${newNum}</td>
-                        <td class="line-content">
-                            <span class="prefix">${prefix}</span>${escapedContent}
-                            <button class="comment-btn" data-line-id="${lineId}" title="Add comment">+</button>
-                        </td>
-                    </tr>
+                    return `<tr class="${line.type}" id="${lineId}" data-file-path="${this._escapeHtml(file.filePath)}" data-line-num="${displayLineNum}" data-line-type="${line.type}" data-line-content='${dataContent}'><td class="line-num old">${oldNum}</td><td class="line-num new">${newNum}</td><td class="line-content"><span class="prefix">${prefix}</span>${escapedContent}<button class="comment-btn" data-line-id="${lineId}" title="Add comment">+</button></td></tr>
                     <tr class="comment-row hidden" id="comment-row-${lineId}">
                         <td colspan="3" class="comment-cell">
                             <div class="comment-input-container" id="comment-input-${lineId}">
@@ -580,12 +569,18 @@ export class GitChangesPanel {
 
         .diff-table tr {
             border: none;
+            height: 18px;
+            max-height: 18px;
         }
 
         .diff-table td {
-            padding: 0 8px;
+            padding: 0 2px;
             white-space: pre;
-            vertical-align: top;
+            vertical-align: middle;
+            line-height: 18px;
+            height: 18px;
+            max-height: 18px;
+            overflow: hidden;
         }
 
         .line-num {
@@ -599,12 +594,12 @@ export class GitChangesPanel {
         }
 
         .line-num.old {
-            padding-right: 4px;
+            padding-right: 2px;
         }
 
         .line-num.new {
-            padding-left: 4px;
-            padding-right: 8px;
+            padding-left: 2px;
+            padding-right: 2px;
         }
 
         .line-content {
@@ -615,7 +610,7 @@ export class GitChangesPanel {
             display: inline-block;
             width: 16px;
             text-align: center;
-            margin-right: 4px;
+            margin-right: 2px;
         }
 
         tr.added {
