@@ -324,7 +324,21 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
     private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<SessionItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-    constructor(private workspaceRoot: string | undefined) {}
+    // The effective root for finding sessions - either baseRepoPath (if in worktree) or workspaceRoot
+    private readonly sessionsRoot: string | undefined;
+
+    /**
+     * Create a new ClaudeSessionProvider.
+     * @param workspaceRoot The current workspace root (may be a worktree)
+     * @param baseRepoPath Optional base repository path (used when workspaceRoot is a worktree)
+     */
+    constructor(
+        private workspaceRoot: string | undefined,
+        baseRepoPath?: string
+    ) {
+        // Use baseRepoPath for finding sessions if provided, otherwise fall back to workspaceRoot
+        this.sessionsRoot = baseRepoPath || workspaceRoot;
+    }
 
     /**
      * Dispose of resources held by this provider.
@@ -344,8 +358,9 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
     }
 
     // 3. Get the data (Scan the .worktrees folder)
+    // Uses sessionsRoot (base repo path) to ensure sessions are found even when in a worktree
     getChildren(element?: SessionItem): Thenable<SessionItem[]> {
-        if (!this.workspaceRoot) {
+        if (!this.sessionsRoot) {
             return Promise.resolve([]);
         }
 
@@ -354,11 +369,11 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
             return Promise.resolve([]);
         }
 
-        const worktreesDir = path.join(this.workspaceRoot, '.worktrees');
+        const worktreesDir = path.join(this.sessionsRoot, '.worktrees');
 
         // Check if folder exists
         if (!fs.existsSync(worktreesDir)) {
-            return Promise.resolve([]); 
+            return Promise.resolve([]);
         }
 
         return Promise.resolve(this.getSessionsInDir(worktreesDir));

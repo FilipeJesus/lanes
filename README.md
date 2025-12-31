@@ -18,6 +18,9 @@ No more context contamination. No more half-finished files clashing with each ot
 - **Session Sidebar** - View all active sessions with real-time status indicators
 - **Session Resume** - Automatically resumes Claude sessions using the `--resume` flag when reopening
 - **Context Persistence** - Closing VS Code? No problem. The extension scans your worktrees and lets you resume sessions instantly
+- **Open in New Window** - Open any session in a dedicated VS Code window with one click
+- **Project Manager Integration** - Sessions are automatically saved to [Project Manager](https://marketplace.visualstudio.com/items?itemName=alefragnani.project-manager) for quick access
+- **Worktree-Aware** - Works seamlessly when opened inside a worktree, showing all sessions from the base repository
 - **One-Click Cleanup** - Delete the worktree and kill the terminal process with a single click (keeps your git branch safe)
 
 ---
@@ -55,6 +58,12 @@ sudo apt-get install jq
 # Windows (with Chocolatey)
 choco install jq
 ```
+
+### Recommended Extensions
+
+For the best experience, we recommend installing:
+
+- **[Project Manager](https://marketplace.visualstudio.com/items?itemName=alefragnani.project-manager)** - Claude Lanes automatically saves sessions as projects, making it easy to switch between them
 
 ### From VS Code Marketplace
 

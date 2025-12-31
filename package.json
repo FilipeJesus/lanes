@@ -33,6 +33,9 @@
   "extensionDependencies": [
     "vscode.git"
   ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -83,14 +86,24 @@
         "command": "claudeWorktrees.showGitChanges",
         "title": "Show Git Changes",
         "icon": "$(git-compare)"
+      },
+      {
+        "command": "claudeWorktrees.openInNewWindow",
+        "title": "Open in New Window",
+        "icon": "$(multiple-windows)"
       }
     ],
     "menus": {
       "view/item/context": [
         {
-          "command": "claudeWorktrees.showGitChanges",
+          "command": "claudeWorktrees.openInNewWindow",
           "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "inline@0"
+        },
+        {
+          "command": "claudeWorktrees.showGitChanges",
+          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "group": "inline@1"
         },
         {
           "command": "claudeWorktrees.setupStatusHooks",
