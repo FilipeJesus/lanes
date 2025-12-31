@@ -17,6 +17,69 @@ function getErrorMessage(err: unknown): string {
 const WORKTREE_FOLDER = '.worktrees';
 
 /**
+ * Check if the given path is a git worktree and return the base repo path.
+ * Uses `git rev-parse --git-common-dir` to detect worktrees.
+ *
+ * - In a regular repo, this returns `.git` (relative) or `/path/to/repo/.git`
+ * - In a worktree, this returns `/path/to/repo/.git` (the main repo's .git dir)
+ *
+ * @param workspacePath The current workspace path
+ * @returns The base repo path if in a worktree, or the original path if not
+ */
+export async function getBaseRepoPath(workspacePath: string): Promise<string> {
+    try {
+        // Get the common git directory (shared across all worktrees)
+        const gitCommonDir = await execGit(['rev-parse', '--git-common-dir'], workspacePath);
+        const trimmedGitDir = gitCommonDir.trim();
+
+        // If we get just '.git', we're in a regular repo (not a worktree)
+        if (trimmedGitDir === '.git') {
+            return workspacePath;
+        }
+
+        // We're in a worktree - resolve the base repo path
+        // gitCommonDir will be an absolute path like:
+        // - /path/to/repo/.git (for regular repos when run with absolute paths)
+        // - /path/to/repo/.git (for worktrees - always absolute)
+
+        // Resolve to absolute path if relative
+        const absoluteGitDir = path.isAbsolute(trimmedGitDir)
+            ? trimmedGitDir
+            : path.resolve(workspacePath, trimmedGitDir);
+
+        // The base repo is the parent of the .git directory
+        // Handle both cases:
+        // - /path/to/repo/.git -> /path/to/repo
+        // - /path/to/repo/.git/worktrees/branch-name -> (needs to go up to .git, then to repo)
+
+        // Normalize the path to handle any trailing slashes
+        const normalizedGitDir = path.normalize(absoluteGitDir);
+
+        // Check if this looks like a worktree git dir (contains /worktrees/)
+        if (normalizedGitDir.includes(path.join('.git', 'worktrees'))) {
+            // This is the worktree-specific git dir, go up to the main .git
+            // e.g., /repo/.git/worktrees/branch -> /repo/.git -> /repo
+            const gitDirIndex = normalizedGitDir.indexOf(path.join('.git', 'worktrees'));
+            const mainGitDir = normalizedGitDir.substring(0, gitDirIndex + '.git'.length);
+            return path.dirname(mainGitDir);
+        }
+
+        // Standard case: just get parent of .git
+        if (normalizedGitDir.endsWith('.git') || normalizedGitDir.endsWith('.git' + path.sep)) {
+            return path.dirname(normalizedGitDir);
+        }
+
+        // Fallback: return original path if we can't determine the base
+        return workspacePath;
+
+    } catch (err) {
+        // Not a git repository or git command failed - return original path
+        console.warn('Claude Lanes: getBaseRepoPath failed:', getErrorMessage(err));
+        return workspacePath;
+    }
+}
+
+/**
  * Get the glob pattern for watching a file based on configuration.
  * Security: Validates path to prevent directory traversal in glob patterns.
  * @param configKey The configuration key to read (e.g., 'featuresJsonPath')
@@ -77,6 +140,164 @@ function getSessionWatchPattern(): string {
     return getWatchPattern('claudeSessionPath', '.claude-session');
 }
 
+/**
+ * Get the repository name from a path.
+ * @param repoPath Path to the repository
+ * @returns The repository folder name
+ */
+export function getRepoName(repoPath: string): string {
+    return path.basename(repoPath);
+}
+
+/**
+ * Get the Project Manager projects file path.
+ * Project Manager stores projects in a JSON file in the global storage.
+ * @returns Path to the projects.json file
+ */
+export function getProjectManagerFilePath(): string {
+    // Project Manager stores projects in:
+    // - Windows: %APPDATA%/Code/User/globalStorage/alefragnani.project-manager/projects.json
+    // - macOS: ~/Library/Application Support/Code/User/globalStorage/alefragnani.project-manager/projects.json
+    // - Linux: ~/.config/Code/User/globalStorage/alefragnani.project-manager/projects.json
+
+    if (process.platform === 'darwin') {
+        const homeDir = process.env.HOME;
+        if (!homeDir) {
+            console.warn('Claude Lanes: HOME environment variable not set');
+            return '';
+        }
+        return path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
+    } else if (process.platform === 'win32') {
+        const appData = process.env.APPDATA;
+        if (!appData) {
+            console.warn('Claude Lanes: APPDATA environment variable not set');
+            return '';
+        }
+        return path.join(appData, 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
+    } else {
+        // Linux
+        const homeDir = process.env.HOME;
+        if (!homeDir) {
+            console.warn('Claude Lanes: HOME environment variable not set');
+            return '';
+        }
+        return path.join(homeDir, '.config', 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
+    }
+}
+
+/**
+ * Interface for Project Manager project entry
+ */
+interface ProjectManagerEntry {
+    name: string;
+    rootPath: string;
+    enabled: boolean;
+    tags?: string[];
+}
+
+/**
+ * Add a worktree as a project in Project Manager.
+ * Uses atomic writes to prevent race conditions.
+ * @param sessionName The session/worktree name
+ * @param worktreePath Full path to the worktree
+ * @param baseRepoPath The base repository path (for deriving repo name)
+ */
+export async function addProjectToProjectManager(
+    sessionName: string,
+    worktreePath: string,
+    baseRepoPath: string
+): Promise<void> {
+    const projectsPath = getProjectManagerFilePath();
+    if (!projectsPath) {
+        console.warn('Claude Lanes: Could not determine Project Manager projects file path');
+        return;
+    }
+
+    // Sanitize repo name to remove special characters that could cause issues
+    const repoName = getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
+    const projectName = `${repoName}-${sessionName}`;
+
+    try {
+        let projects: ProjectManagerEntry[] = [];
+
+        // Read existing projects
+        try {
+            const content = await fsPromises.readFile(projectsPath, 'utf-8');
+            const parsed = JSON.parse(content);
+            // Validate that parsed JSON is an array
+            if (Array.isArray(parsed)) {
+                projects = parsed;
+            } else {
+                console.warn('Claude Lanes: projects.json is not an array, starting fresh');
+                projects = [];
+            }
+        } catch {
+            // File doesn't exist or is invalid JSON, start with empty array
+        }
+
+        // Check if project already exists
+        const existingIndex = projects.findIndex(p => p.rootPath === worktreePath);
+        if (existingIndex >= 0) {
+            // Update existing project
+            projects[existingIndex].name = projectName;
+        } else {
+            // Add new project
+            projects.push({
+                name: projectName,
+                rootPath: worktreePath,
+                enabled: true,
+                tags: ['claude-lanes']
+            });
+        }
+
+        // Ensure directory exists
+        await fsPromises.mkdir(path.dirname(projectsPath), { recursive: true });
+
+        // Write back atomically (write to temp, then rename)
+        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
+        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
+        await fsPromises.rename(tempPath, projectsPath);
+
+    } catch (err) {
+        console.error('Claude Lanes: Failed to add project to Project Manager:', err);
+    }
+}
+
+/**
+ * Remove a worktree project from Project Manager.
+ * Uses atomic writes to prevent race conditions.
+ * @param worktreePath Full path to the worktree
+ */
+export async function removeProjectFromProjectManager(worktreePath: string): Promise<void> {
+    const projectsPath = getProjectManagerFilePath();
+    if (!projectsPath) {
+        return;
+    }
+
+    try {
+        const content = await fsPromises.readFile(projectsPath, 'utf-8');
+        const parsed = JSON.parse(content);
+
+        // Validate that parsed JSON is an array
+        if (!Array.isArray(parsed)) {
+            console.warn('Claude Lanes: projects.json is not an array, nothing to remove');
+            return;
+        }
+
+        let projects: ProjectManagerEntry[] = parsed;
+
+        // Remove the project with this path
+        projects = projects.filter(p => p.rootPath !== worktreePath);
+
+        // Write back atomically (write to temp, then rename)
+        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
+        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
+        await fsPromises.rename(tempPath, projectsPath);
+    } catch {
+        // Ignore errors - project may not exist
+    }
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Claude Lanes" is now active!'); // Check Debug Console for this
 
@@ -92,8 +313,20 @@ export async function activate(context: vscode.ExtensionContext) {
         console.log(`Workspace detected: ${workspaceRoot}`);
     }
 
-    // Initialize Tree Data Provider
-    const sessionProvider = new ClaudeSessionProvider(workspaceRoot);
+    // Detect if we're in a worktree and resolve the base repository path
+    // This ensures sessions are listed from the main repo even when opened in a worktree
+    const baseRepoPath = workspaceRoot ? await getBaseRepoPath(workspaceRoot) : undefined;
+
+    // Track if we're in a worktree - we'll use this to auto-resume session after setup
+    const isInWorktree = baseRepoPath && baseRepoPath !== workspaceRoot;
+
+    if (isInWorktree) {
+        console.log(`Running in worktree. Base repo: ${baseRepoPath}`);
+    }
+
+    // Initialize Tree Data Provider with the base repo path
+    // This ensures sessions are always listed from the main repository
+    const sessionProvider = new ClaudeSessionProvider(workspaceRoot, baseRepoPath);
     vscode.window.registerTreeDataProvider('claudeSessionsView', sessionProvider);
     context.subscriptions.push(sessionProvider);
 
@@ -107,14 +340,17 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     // Handle form submission - creates a new session with optional prompt and acceptance criteria
+    // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
     sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string) => {
-        await createSession(name, prompt, acceptanceCriteria, workspaceRoot, sessionProvider);
+        await createSession(name, prompt, acceptanceCriteria, baseRepoPath, sessionProvider);
     });
 
     // Watch for .claude-status file changes to refresh the sidebar
-    if (workspaceRoot) {
+    // Use baseRepoPath for file watchers to monitor sessions in the main repo
+    const watchPath = baseRepoPath || workspaceRoot;
+    if (watchPath) {
         const statusWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(workspaceRoot, getStatusWatchPattern())
+            new vscode.RelativePattern(watchPath, getStatusWatchPattern())
         );
 
         // Refresh on any status file change
@@ -126,7 +362,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Also watch for features.json changes to refresh the sidebar
         const featuresWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(workspaceRoot, getFeaturesWatchPattern())
+            new vscode.RelativePattern(watchPath, getFeaturesWatchPattern())
         );
 
         featuresWatcher.onDidChange(() => sessionProvider.refresh());
@@ -137,7 +373,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Also watch for .claude-session file changes to refresh the sidebar
         const sessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(workspaceRoot, getSessionWatchPattern())
+            new vscode.RelativePattern(watchPath, getSessionWatchPattern())
         );
 
         sessionWatcher.onDidChange(() => sessionProvider.refresh());
@@ -163,7 +399,8 @@ export async function activate(context: vscode.ExtensionContext) {
         }
 
         // Use the shared createSession function (no prompt or acceptance criteria when using command palette)
-        await createSession(name, '', '', workspaceRoot, sessionProvider);
+        // Use baseRepoPath to create sessions in the main repo even when in a worktree
+        await createSession(name, '', '', baseRepoPath, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -194,13 +431,17 @@ export async function activate(context: vscode.ExtensionContext) {
                 terminal.dispose();
             }
 
-            // C. Remove Worktree
-            if (workspaceRoot) {
+            // C. Remove from Project Manager
+            await removeProjectFromProjectManager(item.worktreePath);
+
+            // D. Remove Worktree
+            // Use baseRepoPath to ensure git worktree command works from the main repo
+            if (baseRepoPath) {
                 // --force is required if the worktree is not clean, but usually safe for temp agent work
-                await execGit(['worktree', 'remove', item.worktreePath, '--force'], workspaceRoot);
+                await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
             }
 
-            // D. Refresh List
+            // E. Refresh List
             sessionProvider.refresh();
             vscode.window.showInformationMessage(`Deleted session: ${item.label}`);
 
@@ -263,11 +504,91 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // 7. Register OPEN IN NEW WINDOW Command
+    let openWindowDisposable = vscode.commands.registerCommand('claudeWorktrees.openInNewWindow', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please click on a session to open in new window.');
+            return;
+        }
+
+        // Verify the worktree path exists
+        if (!fs.existsSync(item.worktreePath)) {
+            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
+            return;
+        }
+
+        // Check if there's an active terminal for this session
+        const terminalName = `Claude: ${item.label}`;
+        const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
+
+        if (existingTerminal) {
+            // Session has an active terminal - ask user what to do
+            const choice = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: 'Transfer session',
+                        description: 'Close the terminal here and resume in the new window',
+                        action: 'transfer'
+                    },
+                    {
+                        label: 'Open anyway',
+                        description: 'Open new window without closing terminal (session will conflict)',
+                        action: 'open'
+                    }
+                ],
+                {
+                    placeHolder: 'This session has an active Claude terminal. What would you like to do?',
+                    title: 'Active Session Detected'
+                }
+            );
+
+            if (!choice) {
+                // User cancelled
+                return;
+            }
+
+            if (choice.action === 'transfer') {
+                // Close the terminal before opening new window
+                existingTerminal.dispose();
+                // Brief delay to ensure terminal is closed
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            // If 'open', just continue without closing the terminal
+        }
+
+        try {
+            // Ensure the project is saved in Project Manager before opening
+            // This handles the edge case where a session was created before Project Manager integration
+            if (baseRepoPath) {
+                await addProjectToProjectManager(item.label, item.worktreePath, baseRepoPath);
+            }
+
+            // Open the folder in a new VS Code window
+            // The second parameter 'true' opens in a new window
+            await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.worktreePath), true);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to open in new window: ${getErrorMessage(err)}`);
+        }
+    });
+
     context.subscriptions.push(createDisposable);
     context.subscriptions.push(openDisposable);
     context.subscriptions.push(deleteDisposable);
     context.subscriptions.push(setupHooksDisposable);
     context.subscriptions.push(showGitChangesDisposable);
+    context.subscriptions.push(openWindowDisposable);
+
+    // Auto-resume Claude session when opened in a worktree with an existing session
+    if (isInWorktree && workspaceRoot) {
+        const sessionData = getSessionId(workspaceRoot);
+        if (sessionData?.sessionId) {
+            const sessionName = path.basename(workspaceRoot);
+            // Brief delay to ensure VS Code is fully ready
+            setTimeout(() => {
+                openClaudeTerminal(sessionName, workspaceRoot);
+            }, 500);
+        }
+    }
 }
 
 /**
@@ -419,6 +740,9 @@ async function createSession(
 
             // 5. Setup status hooks before opening Claude
             await setupStatusHooks(worktreePath);
+
+            // 5b. Add worktree as a project in Project Manager
+            await addProjectToProjectManager(trimmedName, worktreePath, workspaceRoot);
 
             // 6. Success
             sessionProvider.refresh();
