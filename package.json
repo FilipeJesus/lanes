@@ -125,56 +125,77 @@
         "when": "editorTextFocus"
       }
     ],
-    "configuration": {
-      "title": "Claude Lanes",
-      "properties": {
-        "claudeLanes.featuresJsonPath": {
-          "type": "string",
-          "default": "",
-          "description": "Relative path within each worktree where features.json should be stored. Leave empty to use the worktree root."
-        },
-        "claudeLanes.testsJsonPath": {
-          "type": "string",
-          "default": "",
-          "description": "Relative path within each worktree where tests.json should be stored. Leave empty to use the worktree root."
-        },
-        "claudeLanes.claudeSessionPath": {
-          "type": "string",
-          "default": "",
-          "description": "Relative path within each worktree where .claude-session file should be stored. Leave empty to use the worktree root."
-        },
-        "claudeLanes.claudeStatusPath": {
-          "type": "string",
-          "default": "",
-          "description": "Relative path within each worktree where .claude-status file should be stored. Leave empty to use the worktree root."
-        },
-        "claudeLanes.useGlobalStorage": {
-          "type": "boolean",
-          "default": false,
-          "description": "Store session tracking files (.claude-session, .claude-status) in VS Code's global storage instead of worktree directories. This keeps worktrees clean and supports multiple repositories."
-        },
-        "claudeLanes.baseBranch": {
-          "type": "string",
-          "default": "",
-          "description": "The branch to compare against when viewing Git changes. Leave empty for auto-detection (checks origin/main, origin/master, main, master in order)."
-        },
-        "claudeLanes.includeUncommittedChanges": {
-          "type": "boolean",
-          "default": true,
-          "description": "When viewing Git changes, include uncommitted local changes (staged and unstaged). If false, only shows committed changes."
-        },
-        "claudeLanes.worktreesFolder": {
-          "type": "string",
-          "default": ".worktrees",
-          "description": "The folder name (relative to repository root) where Git worktrees are created. Default is '.worktrees'."
-        },
-        "claudeLanes.promptsFolder": {
-          "type": "string",
-          "default": ".claude/lanes",
-          "description": "The folder (relative to repository root) where session starting prompts are stored. Default is '.claude/lanes'."
+    "configuration": [
+      {
+        "title": "Claude Lanes: General",
+        "properties": {
+          "claudeLanes.worktreesFolder": {
+            "type": "string",
+            "default": ".worktrees",
+            "description": "Folder name where session worktrees are created (relative to repository root). Default: .worktrees",
+            "order": 1
+          },
+          "claudeLanes.promptsFolder": {
+            "type": "string",
+            "default": ".claude/lanes",
+            "description": "Folder where session starting prompts are stored (relative to repository root). Default: .claude/lanes",
+            "order": 2
+          }
+        }
+      },
+      {
+        "title": "Claude Lanes: Git",
+        "properties": {
+          "claudeLanes.baseBranch": {
+            "type": "string",
+            "default": "",
+            "description": "Branch to compare against when viewing changes. Leave empty for auto-detection (tries origin/main, origin/master, main, master)",
+            "order": 1
+          },
+          "claudeLanes.includeUncommittedChanges": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show uncommitted changes (staged and unstaged) when viewing session changes. Default: enabled",
+            "order": 2
+          }
+        }
+      },
+      {
+        "title": "Claude Lanes: Advanced",
+        "properties": {
+          "claudeLanes.useGlobalStorage": {
+            "type": "boolean",
+            "default": true,
+            "description": "Store session tracking files in VS Code's storage instead of worktree folders. Keeps worktrees cleaner but files are hidden from version control. Default: enabled",
+            "order": 1
+          },
+          "claudeLanes.claudeSessionPath": {
+            "type": "string",
+            "default": "",
+            "description": "Relative path for .claude-session file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root",
+            "order": 2
+          },
+          "claudeLanes.claudeStatusPath": {
+            "type": "string",
+            "default": "",
+            "description": "Relative path for .claude-status file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root",
+            "order": 3
+          },
+          "claudeLanes.featuresJsonPath": {
+            "type": "string",
+            "default": "",
+            "description": "Relative path for features.json within each worktree. Leave empty for worktree root",
+            "order": 4
+          },
+          "claudeLanes.testsJsonPath": {
+            "type": "string",
+            "default": "",
+            "description": "Relative path for tests.json within each worktree. Leave empty for worktree root",
+            "order": 5
+          }
         }
       }
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

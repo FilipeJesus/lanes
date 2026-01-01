@@ -6,6 +6,35 @@ import * as os from 'os';
 import { getFeatureStatus, getClaudeStatus, getSessionId, getFeaturesJsonPath, getTestsJsonPath, getClaudeSessionPath, getClaudeStatusPath, getRepoIdentifier, getGlobalStoragePath, isGlobalStorageEnabled, initializeGlobalStorageContext, getSessionNameFromWorktree } from '../ClaudeSessionProvider';
 import { getRepoName } from '../extension';
 
+/**
+ * Helper function to get a configuration property from the package.json configuration array.
+ * Since configuration is now an array of sections, this function searches all sections
+ * for the requested property key.
+ *
+ * @param config - The configuration array from package.json contributes.configuration
+ * @param key - The full property key (e.g., 'claudeLanes.featuresJsonPath')
+ * @returns The property configuration object, or undefined if not found
+ */
+function getConfigProperty(config: any[], key: string): any {
+	for (const section of config) {
+		if (section.properties?.[key]) {
+			return section.properties[key];
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Helper function to find a configuration section by its title.
+ *
+ * @param config - The configuration array from package.json contributes.configuration
+ * @param title - The section title to find
+ * @returns The section object, or undefined if not found
+ */
+function getConfigSection(config: any[], title: string): any {
+	return config.find((section: any) => section.title === title);
+}
+
 suite('Configuration Test Suite', () => {
 
 	let tempDir: string;
@@ -133,7 +162,7 @@ suite('Configuration Test Suite', () => {
 			);
 
 			// Assert: featuresJsonPath configuration exists with correct schema
-			const featuresConfig = packageJson.contributes.configuration.properties?.['claudeLanes.featuresJsonPath'];
+			const featuresConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.featuresJsonPath');
 			assert.ok(
 				featuresConfig,
 				'package.json should have claudeLanes.featuresJsonPath configuration'
@@ -156,7 +185,7 @@ suite('Configuration Test Suite', () => {
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
 			// Assert: testsJsonPath configuration exists with correct schema
-			const testsConfig = packageJson.contributes.configuration.properties?.['claudeLanes.testsJsonPath'];
+			const testsConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.testsJsonPath');
 			assert.ok(
 				testsConfig,
 				'package.json should have claudeLanes.testsJsonPath configuration'
@@ -520,7 +549,7 @@ suite('Configuration Test Suite', () => {
 			);
 
 			// Assert: claudeSessionPath configuration exists with correct schema
-			const sessionConfig = packageJson.contributes.configuration.properties?.['claudeLanes.claudeSessionPath'];
+			const sessionConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.claudeSessionPath');
 			assert.ok(
 				sessionConfig,
 				'package.json should have claudeLanes.claudeSessionPath configuration'
@@ -543,7 +572,7 @@ suite('Configuration Test Suite', () => {
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
 			// Assert: claudeStatusPath configuration exists with correct schema
-			const statusConfig = packageJson.contributes.configuration.properties?.['claudeLanes.claudeStatusPath'];
+			const statusConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.claudeStatusPath');
 			assert.ok(
 				statusConfig,
 				'package.json should have claudeLanes.claudeStatusPath configuration'
@@ -925,7 +954,7 @@ suite('Configuration Test Suite', () => {
 
 		suite('isGlobalStorageEnabled', () => {
 
-			test('should return false when useGlobalStorage is not set (default)', async () => {
+			test('should return true when useGlobalStorage is not set (default)', async () => {
 				// Arrange: Reset to default
 				const config = vscode.workspace.getConfiguration('claudeLanes');
 				await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
@@ -934,7 +963,7 @@ suite('Configuration Test Suite', () => {
 				const result = isGlobalStorageEnabled();
 
 				// Assert
-				assert.strictEqual(result, false, 'Should default to false');
+				assert.strictEqual(result, true, 'Should default to true');
 			});
 
 			test('should return true when useGlobalStorage is true', async () => {
@@ -977,7 +1006,7 @@ suite('Configuration Test Suite', () => {
 			);
 
 			// Assert: useGlobalStorage configuration exists with correct schema
-			const globalStorageConfig = packageJson.contributes.configuration.properties?.['claudeLanes.useGlobalStorage'];
+			const globalStorageConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.useGlobalStorage');
 			assert.ok(
 				globalStorageConfig,
 				'package.json should have claudeLanes.useGlobalStorage configuration'
@@ -989,8 +1018,8 @@ suite('Configuration Test Suite', () => {
 			);
 			assert.strictEqual(
 				globalStorageConfig.default,
-				false,
-				'useGlobalStorage should have default value of false'
+				true,
+				'useGlobalStorage should have default value of true'
 			);
 		});
 
@@ -999,7 +1028,7 @@ suite('Configuration Test Suite', () => {
 			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
-			const globalStorageConfig = packageJson.contributes.configuration.properties?.['claudeLanes.useGlobalStorage'];
+			const globalStorageConfig = getConfigProperty(packageJson.contributes.configuration, 'claudeLanes.useGlobalStorage');
 
 			assert.ok(
 				globalStorageConfig.description,
@@ -1014,6 +1043,280 @@ suite('Configuration Test Suite', () => {
 				globalStorageConfig.description.toLowerCase().includes('worktree'),
 				'Description should mention global storage or worktree'
 			);
+		});
+	});
+
+	suite('Configuration Structure', () => {
+
+		test('should verify configuration is an array with 3 sections', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			// Assert: configuration should be an array
+			assert.ok(
+				Array.isArray(packageJson.contributes?.configuration),
+				'package.json contributes.configuration should be an array'
+			);
+
+			// Assert: configuration should have exactly 3 elements
+			assert.strictEqual(
+				packageJson.contributes.configuration.length,
+				3,
+				'Configuration array should have exactly 3 sections'
+			);
+		});
+
+		test('should verify each configuration section has the correct title', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+			const config = packageJson.contributes.configuration;
+
+			// Assert: sections should have correct titles
+			const expectedTitles = [
+				'Claude Lanes: General',
+				'Claude Lanes: Git',
+				'Claude Lanes: Advanced'
+			];
+
+			const actualTitles = config.map((section: any) => section.title);
+
+			assert.deepStrictEqual(
+				actualTitles,
+				expectedTitles,
+				'Configuration sections should have correct titles in order'
+			);
+		});
+	});
+
+	suite('Configuration Sections', () => {
+
+		test('should verify General section contains correct settings', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const generalSection = getConfigSection(packageJson.contributes.configuration, 'Claude Lanes: General');
+
+			// Assert: General section should exist
+			assert.ok(generalSection, 'General section should exist');
+
+			// Assert: General section should contain worktreesFolder and promptsFolder
+			assert.ok(
+				generalSection.properties?.['claudeLanes.worktreesFolder'],
+				'General section should contain worktreesFolder'
+			);
+			assert.ok(
+				generalSection.properties?.['claudeLanes.promptsFolder'],
+				'General section should contain promptsFolder'
+			);
+
+			// Assert: Settings should have correct order
+			assert.strictEqual(
+				generalSection.properties['claudeLanes.worktreesFolder'].order,
+				1,
+				'worktreesFolder should have order 1'
+			);
+			assert.strictEqual(
+				generalSection.properties['claudeLanes.promptsFolder'].order,
+				2,
+				'promptsFolder should have order 2'
+			);
+		});
+
+		test('should verify Git section contains correct settings', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const gitSection = getConfigSection(packageJson.contributes.configuration, 'Claude Lanes: Git');
+
+			// Assert: Git section should exist
+			assert.ok(gitSection, 'Git section should exist');
+
+			// Assert: Git section should contain baseBranch and includeUncommittedChanges
+			assert.ok(
+				gitSection.properties?.['claudeLanes.baseBranch'],
+				'Git section should contain baseBranch'
+			);
+			assert.ok(
+				gitSection.properties?.['claudeLanes.includeUncommittedChanges'],
+				'Git section should contain includeUncommittedChanges'
+			);
+
+			// Assert: Settings should have correct order
+			assert.strictEqual(
+				gitSection.properties['claudeLanes.baseBranch'].order,
+				1,
+				'baseBranch should have order 1'
+			);
+			assert.strictEqual(
+				gitSection.properties['claudeLanes.includeUncommittedChanges'].order,
+				2,
+				'includeUncommittedChanges should have order 2'
+			);
+		});
+
+		test('should verify Advanced section contains correct settings', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const advancedSection = getConfigSection(packageJson.contributes.configuration, 'Claude Lanes: Advanced');
+
+			// Assert: Advanced section should exist
+			assert.ok(advancedSection, 'Advanced section should exist');
+
+			// Assert: Advanced section should contain all expected settings
+			const expectedSettings = [
+				'claudeLanes.useGlobalStorage',
+				'claudeLanes.claudeSessionPath',
+				'claudeLanes.claudeStatusPath',
+				'claudeLanes.featuresJsonPath',
+				'claudeLanes.testsJsonPath'
+			];
+
+			for (const setting of expectedSettings) {
+				assert.ok(
+					advancedSection.properties?.[setting],
+					`Advanced section should contain ${setting}`
+				);
+			}
+
+			// Assert: Settings should have correct order (1-5)
+			assert.strictEqual(
+				advancedSection.properties['claudeLanes.useGlobalStorage'].order,
+				1,
+				'useGlobalStorage should have order 1'
+			);
+			assert.strictEqual(
+				advancedSection.properties['claudeLanes.claudeSessionPath'].order,
+				2,
+				'claudeSessionPath should have order 2'
+			);
+			assert.strictEqual(
+				advancedSection.properties['claudeLanes.claudeStatusPath'].order,
+				3,
+				'claudeStatusPath should have order 3'
+			);
+			assert.strictEqual(
+				advancedSection.properties['claudeLanes.featuresJsonPath'].order,
+				4,
+				'featuresJsonPath should have order 4'
+			);
+			assert.strictEqual(
+				advancedSection.properties['claudeLanes.testsJsonPath'].order,
+				5,
+				'testsJsonPath should have order 5'
+			);
+		});
+	});
+
+	suite('Configuration Defaults', () => {
+
+		test('should verify all setting default values are preserved', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+			const config = packageJson.contributes.configuration;
+
+			// Test each setting's default value
+			const worktreesFolder = getConfigProperty(config, 'claudeLanes.worktreesFolder');
+			assert.strictEqual(
+				worktreesFolder.default,
+				'.worktrees',
+				'worktreesFolder should default to .worktrees'
+			);
+
+			const promptsFolder = getConfigProperty(config, 'claudeLanes.promptsFolder');
+			assert.strictEqual(
+				promptsFolder.default,
+				'.claude/lanes',
+				'promptsFolder should default to .claude/lanes'
+			);
+
+			const baseBranch = getConfigProperty(config, 'claudeLanes.baseBranch');
+			assert.strictEqual(
+				baseBranch.default,
+				'',
+				'baseBranch should default to empty string'
+			);
+
+			const includeUncommittedChanges = getConfigProperty(config, 'claudeLanes.includeUncommittedChanges');
+			assert.strictEqual(
+				includeUncommittedChanges.default,
+				true,
+				'includeUncommittedChanges should default to true'
+			);
+
+			const useGlobalStorage = getConfigProperty(config, 'claudeLanes.useGlobalStorage');
+			assert.strictEqual(
+				useGlobalStorage.default,
+				true,
+				'useGlobalStorage should default to true'
+			);
+
+			const claudeSessionPath = getConfigProperty(config, 'claudeLanes.claudeSessionPath');
+			assert.strictEqual(
+				claudeSessionPath.default,
+				'',
+				'claudeSessionPath should default to empty string'
+			);
+
+			const claudeStatusPath = getConfigProperty(config, 'claudeLanes.claudeStatusPath');
+			assert.strictEqual(
+				claudeStatusPath.default,
+				'',
+				'claudeStatusPath should default to empty string'
+			);
+
+			const featuresJsonPath = getConfigProperty(config, 'claudeLanes.featuresJsonPath');
+			assert.strictEqual(
+				featuresJsonPath.default,
+				'',
+				'featuresJsonPath should default to empty string'
+			);
+
+			const testsJsonPath = getConfigProperty(config, 'claudeLanes.testsJsonPath');
+			assert.strictEqual(
+				testsJsonPath.default,
+				'',
+				'testsJsonPath should default to empty string'
+			);
+		});
+	});
+
+	suite('Configuration Descriptions', () => {
+
+		test('should verify settings have user-friendly descriptions', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+			const config = packageJson.contributes.configuration;
+
+			// Expected descriptions for each setting
+			const expectedDescriptions: { [key: string]: string } = {
+				'claudeLanes.worktreesFolder': 'Folder name where session worktrees are created (relative to repository root). Default: .worktrees',
+				'claudeLanes.promptsFolder': 'Folder where session starting prompts are stored (relative to repository root). Default: .claude/lanes',
+				'claudeLanes.baseBranch': 'Branch to compare against when viewing changes. Leave empty for auto-detection (tries origin/main, origin/master, main, master)',
+				'claudeLanes.includeUncommittedChanges': 'Show uncommitted changes (staged and unstaged) when viewing session changes. Default: enabled',
+				'claudeLanes.useGlobalStorage': 'Store session tracking files in VS Code\'s storage instead of worktree folders. Keeps worktrees cleaner but files are hidden from version control. Default: enabled',
+				'claudeLanes.claudeSessionPath': 'Relative path for .claude-session file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root',
+				'claudeLanes.claudeStatusPath': 'Relative path for .claude-status file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root',
+				'claudeLanes.featuresJsonPath': 'Relative path for features.json within each worktree. Leave empty for worktree root',
+				'claudeLanes.testsJsonPath': 'Relative path for tests.json within each worktree. Leave empty for worktree root'
+			};
+
+			for (const [key, expectedDescription] of Object.entries(expectedDescriptions)) {
+				const setting = getConfigProperty(config, key);
+				assert.ok(setting, `Setting ${key} should exist`);
+				assert.strictEqual(
+					setting.description,
+					expectedDescription,
+					`${key} should have the expected description`
+				);
+			}
 		});
 	});
 });
