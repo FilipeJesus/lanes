@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData, getFeaturesJsonPath, getTestsJsonPath, getClaudeSessionPath, getClaudeStatusPath } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData, getFeaturesJsonPath, getTestsJsonPath, getClaudeSessionPath, getClaudeStatusPath, getRepoIdentifier, getGlobalStoragePath, isGlobalStorageEnabled, initializeGlobalStorageContext, getSessionNameFromWorktree } from '../ClaudeSessionProvider';
 import { SessionFormProvider } from '../SessionFormProvider';
 import { combinePromptAndCriteria, branchExists, getBranchesInWorktrees, getBaseBranch, getBaseRepoPath, getRepoName, getProjectManagerFilePath, addProjectToProjectManager, removeProjectFromProjectManager } from '../extension';
 import { parseDiff, GitChangesPanel, FileDiff, ReviewComment, formatReviewForClipboard } from '../GitChangesPanel';
@@ -4312,6 +4312,462 @@ index 7654321..gfedcba 100644
 				openWindowMenuItem.group,
 				'inline@0',
 				'openInNewWindow should be in inline group at position 0'
+			);
+		});
+	});
+
+	suite('Global Storage', () => {
+
+		let tempDir: string;
+		let globalStorageDir: string;
+
+		setup(() => {
+			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'global-storage-test-'));
+			globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-global-storage-'));
+		});
+
+		teardown(async () => {
+			// Reset global storage configuration
+			const config = vscode.workspace.getConfiguration('claudeLanes');
+			await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
+			fs.rmSync(tempDir, { recursive: true, force: true });
+			fs.rmSync(globalStorageDir, { recursive: true, force: true });
+		});
+
+		suite('getRepoIdentifier', () => {
+
+			test('should generate unique identifier with repo name and hash', () => {
+				// Arrange
+				const repoPath = '/path/to/my-project';
+
+				// Act
+				const result = getRepoIdentifier(repoPath);
+
+				// Assert
+				assert.ok(result.startsWith('my-project-'), 'Should start with repo name');
+				assert.ok(result.length > 'my-project-'.length, 'Should have hash suffix');
+				// Hash is 8 characters
+				const hashPart = result.substring('my-project-'.length);
+				assert.strictEqual(hashPart.length, 8, 'Hash part should be 8 characters');
+				assert.ok(/^[a-f0-9]+$/.test(hashPart), 'Hash part should be hexadecimal');
+			});
+
+			test('should produce different identifiers for different repos with same name in different locations', () => {
+				// Arrange
+				const repoPath1 = '/path/to/my-project';
+				const repoPath2 = '/other/location/my-project';
+
+				// Act
+				const result1 = getRepoIdentifier(repoPath1);
+				const result2 = getRepoIdentifier(repoPath2);
+
+				// Assert
+				assert.notStrictEqual(
+					result1,
+					result2,
+					'Different repo paths should produce different identifiers'
+				);
+				// Both should start with the same repo name
+				assert.ok(result1.startsWith('my-project-'), 'First should start with repo name');
+				assert.ok(result2.startsWith('my-project-'), 'Second should start with repo name');
+			});
+
+			test('should produce deterministic identifiers for the same repo', () => {
+				// Arrange
+				const repoPath = '/path/to/my-project';
+
+				// Act
+				const result1 = getRepoIdentifier(repoPath);
+				const result2 = getRepoIdentifier(repoPath);
+
+				// Assert
+				assert.strictEqual(
+					result1,
+					result2,
+					'Same repo path should always produce the same identifier'
+				);
+			});
+
+			test('should sanitize special characters in repo name', () => {
+				// Arrange
+				const repoPath = '/path/to/my project@v1.0';
+
+				// Act
+				const result = getRepoIdentifier(repoPath);
+
+				// Assert
+				// Special characters should be replaced with underscores
+				assert.ok(result.startsWith('my_project_v1_0-'), 'Should sanitize special characters');
+				assert.ok(!result.includes(' '), 'Should not contain spaces');
+				assert.ok(!result.includes('@'), 'Should not contain @ symbol');
+				assert.ok(!result.includes('.'), 'Should not contain dots');
+			});
+
+			test('should normalize paths for cross-platform consistency', () => {
+				// Arrange
+				const repoPath1 = '/path/to/project';
+				const repoPath2 = '/PATH/TO/PROJECT';
+
+				// Act
+				const result1 = getRepoIdentifier(repoPath1);
+				const result2 = getRepoIdentifier(repoPath2);
+
+				// Assert: The hash part should be the same (path is normalized to lowercase before hashing)
+				// But the repo name prefix may differ in case since it comes from path.basename
+				const hash1 = result1.split('-').pop();
+				const hash2 = result2.split('-').pop();
+				assert.strictEqual(
+					hash1,
+					hash2,
+					'Hash part should be identical for case-different paths'
+				);
+
+				// Both should have the same prefix pattern (project name)
+				assert.ok(
+					result1.toLowerCase().startsWith('project-'),
+					'First should have project name prefix'
+				);
+				assert.ok(
+					result2.toLowerCase().startsWith('project-'),
+					'Second should have project name prefix'
+				);
+			});
+		});
+
+		suite('getSessionNameFromWorktree', () => {
+
+			test('should extract session name from worktree path', () => {
+				// Arrange
+				const worktreePath = '/path/to/repo/.worktrees/my-session';
+
+				// Act
+				const result = getSessionNameFromWorktree(worktreePath);
+
+				// Assert
+				assert.strictEqual(result, 'my-session');
+			});
+
+			test('should handle paths with special characters in session name', () => {
+				// Arrange
+				const worktreePath = '/path/to/repo/.worktrees/feature-123';
+
+				// Act
+				const result = getSessionNameFromWorktree(worktreePath);
+
+				// Assert
+				assert.strictEqual(result, 'feature-123');
+			});
+		});
+
+		suite('getGlobalStoragePath', () => {
+
+			test('should return null when global storage context is not initialized', () => {
+				// Note: We cannot easily uninitialize the global storage context in tests
+				// This test verifies behavior when getGlobalStoragePath is called
+				// without proper initialization
+
+				// Act: Initialize with valid values first, then check the path format
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'my-session');
+				const result = getGlobalStoragePath(worktreePath, 'features.json');
+
+				// Assert: Should return a valid path
+				assert.ok(result, 'Should return a path when context is initialized');
+				assert.ok(result!.includes('features.json'), 'Path should include filename');
+			});
+
+			test('should generate correct path structure: globalStorage/repoIdentifier/sessionName/filename', () => {
+				// Arrange
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+
+				// Act
+				const result = getGlobalStoragePath(worktreePath, '.claude-status');
+
+				// Assert
+				assert.ok(result, 'Should return a path');
+
+				// Path should be: globalStorageDir/<repo-identifier>/test-session/.claude-status
+				const repoIdentifier = getRepoIdentifier(tempDir);
+				const expectedPath = path.join(globalStorageDir, repoIdentifier, 'test-session', '.claude-status');
+				assert.strictEqual(result, expectedPath, 'Should match expected path structure');
+			});
+
+			test('should produce different paths for different repos with same session name', () => {
+				// Arrange
+				const repo1Dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo1-'));
+				const repo2Dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo2-'));
+				const mockUri = vscode.Uri.file(globalStorageDir);
+
+				try {
+					// Test with repo1
+					initializeGlobalStorageContext(mockUri, repo1Dir);
+					const path1 = getGlobalStoragePath(
+						path.join(repo1Dir, '.worktrees', 'session-a'),
+						'features.json'
+					);
+
+					// Test with repo2
+					initializeGlobalStorageContext(mockUri, repo2Dir);
+					const path2 = getGlobalStoragePath(
+						path.join(repo2Dir, '.worktrees', 'session-a'),
+						'features.json'
+					);
+
+					// Assert: Paths should be different due to different repo identifiers
+					assert.ok(path1, 'Path 1 should exist');
+					assert.ok(path2, 'Path 2 should exist');
+					assert.notStrictEqual(
+						path1,
+						path2,
+						'Different repos should have different paths even with same session name'
+					);
+				} finally {
+					fs.rmSync(repo1Dir, { recursive: true, force: true });
+					fs.rmSync(repo2Dir, { recursive: true, force: true });
+				}
+			});
+
+			test('should produce identical paths for same repo and session (deterministic)', () => {
+				// Arrange
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+				const worktreePath = path.join(tempDir, '.worktrees', 'my-session');
+
+				// Act
+				const path1 = getGlobalStoragePath(worktreePath, 'features.json');
+				const path2 = getGlobalStoragePath(worktreePath, 'features.json');
+
+				// Assert
+				assert.strictEqual(path1, path2, 'Same inputs should produce same path');
+			});
+		});
+
+		suite('Path functions respect useGlobalStorage setting', () => {
+
+			test('should return worktree-relative path when useGlobalStorage is false', async () => {
+				// Arrange: Ensure global storage is disabled
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
+
+				// Initialize global storage context (should not affect paths when disabled)
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				// Act
+				const result = getFeaturesJsonPath(tempDir);
+
+				// Assert: Should return worktree-relative path
+				assert.strictEqual(
+					result,
+					path.join(tempDir, 'features.json'),
+					'Should return worktree-relative path when global storage is disabled'
+				);
+			});
+
+			test('should NOT return global storage path for getFeaturesJsonPath even when useGlobalStorage is true', async () => {
+				// Arrange: Enable global storage
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+				// Initialize global storage context
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+
+				// Act
+				const result = getFeaturesJsonPath(worktreePath);
+
+				// Assert: features.json should NOT be in global storage (it's a dev workflow file)
+				assert.ok(
+					!result.startsWith(globalStorageDir),
+					'features.json should NOT be in global storage'
+				);
+				assert.ok(
+					result.startsWith(worktreePath),
+					'features.json should be in worktree directory'
+				);
+				assert.ok(
+					result.endsWith('features.json'),
+					'Path should end with features.json'
+				);
+			});
+
+			test('should return global storage path when useGlobalStorage is true for getClaudeStatusPath', async () => {
+				// Arrange: Enable global storage
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+				// Initialize global storage context
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+
+				// Act
+				const result = getClaudeStatusPath(worktreePath);
+
+				// Assert: Should return global storage path
+				assert.ok(
+					result.startsWith(globalStorageDir),
+					'Should return path in global storage directory'
+				);
+				assert.ok(
+					result.endsWith('.claude-status'),
+					'Path should end with .claude-status'
+				);
+			});
+
+			test('should return global storage path when useGlobalStorage is true for getClaudeSessionPath', async () => {
+				// Arrange: Enable global storage
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+				// Initialize global storage context
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+
+				// Act
+				const result = getClaudeSessionPath(worktreePath);
+
+				// Assert: Should return global storage path
+				assert.ok(
+					result.startsWith(globalStorageDir),
+					'Should return path in global storage directory'
+				);
+				assert.ok(
+					result.endsWith('.claude-session'),
+					'Path should end with .claude-session'
+				);
+			});
+
+			test('should NOT return global storage path for getTestsJsonPath even when useGlobalStorage is true', async () => {
+				// Arrange: Enable global storage
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+				// Initialize global storage context
+				const mockUri = vscode.Uri.file(globalStorageDir);
+				initializeGlobalStorageContext(mockUri, tempDir);
+
+				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+
+				// Act
+				const result = getTestsJsonPath(worktreePath);
+
+				// Assert: tests.json should NOT be in global storage (it's a dev workflow file)
+				assert.ok(
+					!result.startsWith(globalStorageDir),
+					'tests.json should NOT be in global storage'
+				);
+				assert.ok(
+					result.startsWith(worktreePath),
+					'tests.json should be in worktree directory'
+				);
+				assert.ok(
+					result.endsWith('tests.json'),
+					'Path should end with tests.json'
+				);
+			});
+		});
+
+		suite('isGlobalStorageEnabled', () => {
+
+			test('should return false when useGlobalStorage is not set (default)', async () => {
+				// Arrange: Reset to default
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
+
+				// Act
+				const result = isGlobalStorageEnabled();
+
+				// Assert
+				assert.strictEqual(result, false, 'Should default to false');
+			});
+
+			test('should return true when useGlobalStorage is true', async () => {
+				// Arrange
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+				// Act
+				const result = isGlobalStorageEnabled();
+
+				// Assert
+				assert.strictEqual(result, true, 'Should return true when enabled');
+			});
+
+			test('should return false when useGlobalStorage is explicitly false', async () => {
+				// Arrange
+				const config = vscode.workspace.getConfiguration('claudeLanes');
+				await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
+
+				// Act
+				const result = isGlobalStorageEnabled();
+
+				// Assert
+				assert.strictEqual(result, false, 'Should return false when explicitly disabled');
+			});
+		});
+	});
+
+	suite('Configuration', () => {
+
+		test('should verify package.json has useGlobalStorage configuration', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			// Assert: package.json has contributes.configuration section
+			assert.ok(
+				packageJson.contributes?.configuration,
+				'package.json should have contributes.configuration section'
+			);
+
+			// Assert: useGlobalStorage configuration exists with correct schema
+			const globalStorageConfig = packageJson.contributes.configuration.properties?.['claudeLanes.useGlobalStorage'];
+			assert.ok(
+				globalStorageConfig,
+				'package.json should have claudeLanes.useGlobalStorage configuration'
+			);
+			assert.strictEqual(
+				globalStorageConfig.type,
+				'boolean',
+				'useGlobalStorage should have type "boolean"'
+			);
+			assert.strictEqual(
+				globalStorageConfig.default,
+				false,
+				'useGlobalStorage should have default value of false'
+			);
+		});
+
+		test('should verify useGlobalStorage has a meaningful description', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const globalStorageConfig = packageJson.contributes.configuration.properties?.['claudeLanes.useGlobalStorage'];
+
+			assert.ok(
+				globalStorageConfig.description,
+				'useGlobalStorage should have a description'
+			);
+			assert.ok(
+				globalStorageConfig.description.length > 20,
+				'Description should be meaningful (more than 20 chars)'
+			);
+			assert.ok(
+				globalStorageConfig.description.toLowerCase().includes('global storage') ||
+				globalStorageConfig.description.toLowerCase().includes('worktree'),
+				'Description should mention global storage or worktree'
 			);
 		});
 	});

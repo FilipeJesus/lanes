@@ -2,7 +2,16 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
-import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessionProvider';
+import {
+    ClaudeSessionProvider,
+    SessionItem,
+    getSessionId,
+    initializeGlobalStorageContext,
+    isGlobalStorageEnabled,
+    getGlobalStoragePath,
+    getRepoIdentifier,
+    getGlobalStorageUri
+} from './ClaudeSessionProvider';
 import { SessionFormProvider } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
 import { GitChangesPanel } from './GitChangesPanel';
@@ -324,6 +333,11 @@ export async function activate(context: vscode.ExtensionContext) {
         console.log(`Running in worktree. Base repo: ${baseRepoPath}`);
     }
 
+    // Initialize global storage context for session file storage
+    // This must be done before creating the session provider
+    initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath);
+    console.log(`Global storage initialized at: ${context.globalStorageUri.fsPath}`);
+
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
     const sessionProvider = new ClaudeSessionProvider(workspaceRoot, baseRepoPath);
@@ -383,6 +397,103 @@ export async function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(sessionWatcher);
     }
 
+    // Watch global storage directory for file changes if global storage is enabled
+    if (isGlobalStorageEnabled() && baseRepoPath) {
+        const repoIdentifier = getRepoIdentifier(baseRepoPath);
+        const globalStoragePath = path.join(context.globalStorageUri.fsPath, repoIdentifier);
+
+        // Ensure the global storage directory exists
+        fsPromises.mkdir(globalStoragePath, { recursive: true }).catch(err => {
+            console.warn('Claude Lanes: Failed to create global storage directory:', err);
+        });
+
+        const globalStorageWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(globalStoragePath, '**/.claude-status')
+        );
+
+        globalStorageWatcher.onDidChange(() => sessionProvider.refresh());
+        globalStorageWatcher.onDidCreate(() => sessionProvider.refresh());
+        globalStorageWatcher.onDidDelete(() => sessionProvider.refresh());
+
+        context.subscriptions.push(globalStorageWatcher);
+
+        // Also watch for .claude-session in global storage
+        const globalSessionWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(globalStoragePath, '**/.claude-session')
+        );
+
+        globalSessionWatcher.onDidChange(() => sessionProvider.refresh());
+        globalSessionWatcher.onDidCreate(() => sessionProvider.refresh());
+        globalSessionWatcher.onDidDelete(() => sessionProvider.refresh());
+
+        context.subscriptions.push(globalSessionWatcher);
+        // Note: features.json and tests.json are NOT stored in global storage
+        // as they are development workflow files, not extension-managed session files
+    }
+
+    // Listen for configuration changes to update hooks when storage location changes
+    // Use a flag to prevent concurrent execution during async operations
+    let isUpdatingStorageConfig = false;
+    const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
+        if (event.affectsConfiguration('claudeLanes.useGlobalStorage')) {
+            // Prevent concurrent execution
+            if (isUpdatingStorageConfig) {
+                return;
+            }
+            isUpdatingStorageConfig = true;
+
+            try {
+                // Notify user about the change
+                const useGlobal = isGlobalStorageEnabled();
+                const message = useGlobal
+                    ? 'Claude Lanes: Global storage enabled. New sessions will use global storage for tracking files.'
+                    : 'Claude Lanes: Global storage disabled. New sessions will use worktree directories for tracking files.';
+                vscode.window.showInformationMessage(message);
+
+                // Offer to update existing worktrees
+                if (baseRepoPath) {
+                    const worktreesDir = path.join(baseRepoPath, WORKTREE_FOLDER);
+                    if (fs.existsSync(worktreesDir)) {
+                        const updateExisting = await vscode.window.showQuickPick(
+                            [
+                                { label: 'Yes', description: 'Update hooks in all existing worktrees' },
+                                { label: 'No', description: 'Only apply to new sessions' }
+                            ],
+                            {
+                                placeHolder: 'Would you like to update hooks in existing worktrees?',
+                                title: 'Update Existing Sessions'
+                            }
+                        );
+
+                        if (updateExisting?.label === 'Yes') {
+                            try {
+                                const worktrees = fs.readdirSync(worktreesDir);
+                                let updated = 0;
+                                for (const worktree of worktrees) {
+                                    const worktreePath = path.join(worktreesDir, worktree);
+                                    if (fs.statSync(worktreePath).isDirectory()) {
+                                        await setupStatusHooks(worktreePath);
+                                        updated++;
+                                    }
+                                }
+                                vscode.window.showInformationMessage(`Updated hooks in ${updated} worktree(s).`);
+                            } catch (err) {
+                                vscode.window.showErrorMessage(`Failed to update some worktrees: ${getErrorMessage(err)}`);
+                            }
+                        }
+                    }
+                }
+
+                // Refresh the session provider to reflect any changes
+                sessionProvider.refresh();
+            } finally {
+                isUpdatingStorageConfig = false;
+            }
+        }
+    });
+
+    context.subscriptions.push(configChangeDisposable);
+
     // 2. Register CREATE Command (for command palette / keybinding usage)
     let createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
         console.log("Create Session Command Triggered!");
@@ -441,7 +552,18 @@ export async function activate(context: vscode.ExtensionContext) {
                 await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
             }
 
-            // E. Refresh List
+            // E. Clean up global storage files if global storage is enabled
+            if (isGlobalStorageEnabled()) {
+                const globalStoragePath = getGlobalStoragePath(item.worktreePath, '.claude-status');
+                if (globalStoragePath) {
+                    const sessionStorageDir = path.dirname(globalStoragePath);
+                    await fsPromises.rm(sessionStorageDir, { recursive: true, force: true }).catch(() => {
+                        // Ignore errors - files may not exist
+                    });
+                }
+            }
+
+            // F. Refresh List
             sessionProvider.refresh();
             vscode.window.showInformationMessage(`Deleted session: ${item.label}`);
 
@@ -940,30 +1062,60 @@ function getRelativeFilePath(configKey: string): string {
  * Sets up Claude hooks for status file updates in a worktree.
  * Merges with existing hooks without overwriting user configuration.
  * Uses atomic writes to prevent race conditions.
+ * When global storage is enabled, uses absolute paths to the global storage directory.
  */
 async function setupStatusHooks(worktreePath: string): Promise<void> {
     const claudeDir = path.join(worktreePath, '.claude');
     const settingsPath = path.join(claudeDir, 'settings.json');
     const tempSettingsPath = path.join(claudeDir, `settings.json.${Date.now()}.tmp`);
 
-    // Get configured paths for status and session files
-    const statusRelPath = getRelativeFilePath('claudeStatusPath');
-    const sessionRelPath = getRelativeFilePath('claudeSessionPath');
+    // Check if global storage is enabled
+    const useGlobalStorage = isGlobalStorageEnabled();
+
+    let statusFilePath: string;
+    let sessionFilePath: string;
+
+    if (useGlobalStorage) {
+        // Use absolute paths to global storage
+        const globalStatusPath = getGlobalStoragePath(worktreePath, '.claude-status');
+        const globalSessionPath = getGlobalStoragePath(worktreePath, '.claude-session');
+
+        if (globalStatusPath && globalSessionPath) {
+            statusFilePath = globalStatusPath;
+            sessionFilePath = globalSessionPath;
+
+            // Ensure the global storage directories exist
+            await fsPromises.mkdir(path.dirname(globalStatusPath), { recursive: true });
+            await fsPromises.mkdir(path.dirname(globalSessionPath), { recursive: true });
+        } else {
+            // Fall back to relative paths if global storage not initialized
+            const statusRelPath = getRelativeFilePath('claudeStatusPath');
+            const sessionRelPath = getRelativeFilePath('claudeSessionPath');
+            statusFilePath = `${statusRelPath}.claude-status`;
+            sessionFilePath = `${sessionRelPath}.claude-session`;
+        }
+    } else {
+        // Use relative paths within the worktree
+        const statusRelPath = getRelativeFilePath('claudeStatusPath');
+        const sessionRelPath = getRelativeFilePath('claudeSessionPath');
+        statusFilePath = `${statusRelPath}.claude-status`;
+        sessionFilePath = `${sessionRelPath}.claude-session`;
+
+        // Ensure status file directory exists if configured
+        if (statusRelPath) {
+            const statusDir = path.join(worktreePath, statusRelPath.replace(/\/$/, ''));
+            await fsPromises.mkdir(statusDir, { recursive: true });
+        }
+
+        // Ensure session file directory exists if configured
+        if (sessionRelPath) {
+            const sessionDir = path.join(worktreePath, sessionRelPath.replace(/\/$/, ''));
+            await fsPromises.mkdir(sessionDir, { recursive: true });
+        }
+    }
 
     // Ensure .claude directory exists
     await fsPromises.mkdir(claudeDir, { recursive: true });
-
-    // Ensure status file directory exists if configured
-    if (statusRelPath) {
-        const statusDir = path.join(worktreePath, statusRelPath.replace(/\/$/, ''));
-        await fsPromises.mkdir(statusDir, { recursive: true });
-    }
-
-    // Ensure session file directory exists if configured
-    if (sessionRelPath) {
-        const sessionDir = path.join(worktreePath, sessionRelPath.replace(/\/$/, ''));
-        await fsPromises.mkdir(sessionDir, { recursive: true });
-    }
 
     // Read existing settings or start fresh
     let settings: ClaudeSettings = {};
@@ -992,23 +1144,21 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
     }
 
     // Define our status hooks with configured paths
-    const statusFilePath = `${statusRelPath}.claude-status`;
     const statusWriteWaiting = {
         type: 'command',
-        command: `echo '{"status":"waiting_for_user"}' > ${statusFilePath}`
+        command: `echo '{"status":"waiting_for_user"}' > "${statusFilePath}"`
     };
 
     const statusWriteWorking = {
         type: 'command',
-        command: `echo '{"status":"working"}' > ${statusFilePath}`
+        command: `echo '{"status":"working"}' > "${statusFilePath}"`
     };
 
     // Define our session ID capture hook with configured path
     // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
-    const sessionFilePath = `${sessionRelPath}.claude-session`;
     const sessionIdCapture = {
         type: 'command',
-        command: `jq -r --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{sessionId: .session_id, timestamp: $ts}' > ${sessionFilePath}`
+        command: `jq -r --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
     };
 
     // Helper to check if our status hook already exists
@@ -1027,57 +1177,55 @@ async function setupStatusHooks(worktreePath: string): Promise<void> {
         );
     };
 
+    // Helper to remove existing hooks (used when updating paths)
+    const removeStatusHooks = (entries: HookEntry[] | undefined): HookEntry[] => {
+        if (!entries) {return [];}
+        return entries.map(entry => ({
+            ...entry,
+            hooks: entry.hooks.filter(h => !h.command.includes('.claude-status'))
+        })).filter(entry => entry.hooks.length > 0);
+    };
+
+    const removeSessionHooks = (entries: HookEntry[] | undefined): HookEntry[] => {
+        if (!entries) {return [];}
+        return entries.map(entry => ({
+            ...entry,
+            hooks: entry.hooks.filter(h => !h.command.includes('.claude-session'))
+        })).filter(entry => entry.hooks.length > 0);
+    };
+
+    // Remove existing hooks and add new ones (to handle path changes)
     // Add SessionStart hook (fires when Claude session starts = capture session ID)
-    if (!settings.hooks.SessionStart) {
-        settings.hooks.SessionStart = [];
-    }
-    if (!sessionHookExists(settings.hooks.SessionStart)) {
-        settings.hooks.SessionStart.push({
-            hooks: [sessionIdCapture]
-        });
-    }
+    settings.hooks.SessionStart = removeSessionHooks(settings.hooks.SessionStart);
+    settings.hooks.SessionStart.push({
+        hooks: [sessionIdCapture]
+    });
 
     // Add Stop hook (fires when Claude finishes responding = waiting for user)
-    if (!settings.hooks.Stop) {
-        settings.hooks.Stop = [];
-    }
-    if (!statusHookExists(settings.hooks.Stop)) {
-        settings.hooks.Stop.push({
-            hooks: [statusWriteWaiting]
-        });
-    }
+    settings.hooks.Stop = removeStatusHooks(settings.hooks.Stop);
+    settings.hooks.Stop.push({
+        hooks: [statusWriteWaiting]
+    });
 
     // Add UserPromptSubmit hook (fires when user submits = Claude starts working)
-    if (!settings.hooks.UserPromptSubmit) {
-        settings.hooks.UserPromptSubmit = [];
-    }
-    if (!statusHookExists(settings.hooks.UserPromptSubmit)) {
-        settings.hooks.UserPromptSubmit.push({
-            hooks: [statusWriteWorking]
-        });
-    }
+    settings.hooks.UserPromptSubmit = removeStatusHooks(settings.hooks.UserPromptSubmit);
+    settings.hooks.UserPromptSubmit.push({
+        hooks: [statusWriteWorking]
+    });
 
     // Add Notification hook for permission prompts (fires when Claude asks for permission)
-    if (!settings.hooks.Notification) {
-        settings.hooks.Notification = [];
-    }
-    if (!statusHookExists(settings.hooks.Notification)) {
-        settings.hooks.Notification.push({
-            matcher: 'permission_prompt',
-            hooks: [statusWriteWaiting]
-        });
-    }
+    settings.hooks.Notification = removeStatusHooks(settings.hooks.Notification);
+    settings.hooks.Notification.push({
+        matcher: 'permission_prompt',
+        hooks: [statusWriteWaiting]
+    });
 
     // Add PreToolUse hook (fires before any tool = Claude is working)
-    if (!settings.hooks.PreToolUse) {
-        settings.hooks.PreToolUse = [];
-    }
-    if (!statusHookExists(settings.hooks.PreToolUse)) {
-        settings.hooks.PreToolUse.push({
-            matcher: '.*',
-            hooks: [statusWriteWorking]
-        });
-    }
+    settings.hooks.PreToolUse = removeStatusHooks(settings.hooks.PreToolUse);
+    settings.hooks.PreToolUse.push({
+        matcher: '.*',
+        hooks: [statusWriteWorking]
+    });
 
     // Write updated settings atomically (write to temp, then rename)
     await fsPromises.writeFile(tempSettingsPath, JSON.stringify(settings, null, 2), 'utf-8');

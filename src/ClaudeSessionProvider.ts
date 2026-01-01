@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 // Feature interface representing a feature in features.json
 export interface Feature {
@@ -27,6 +28,95 @@ export interface ClaudeStatus {
 
 // Valid status values for validation
 const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
+
+// Global storage context - set during extension activation
+let globalStorageUri: vscode.Uri | undefined;
+let baseRepoPathForStorage: string | undefined;
+
+/**
+ * Initialize the global storage context.
+ * Must be called during extension activation.
+ * @param storageUri The globalStorageUri from the extension context
+ * @param baseRepoPath The base repository path for generating unique identifiers
+ */
+export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string): void {
+    globalStorageUri = storageUri;
+    baseRepoPathForStorage = baseRepoPath;
+}
+
+/**
+ * Get the global storage URI. Returns undefined if not initialized.
+ */
+export function getGlobalStorageUri(): vscode.Uri | undefined {
+    return globalStorageUri;
+}
+
+/**
+ * Get the base repo path for storage. Returns undefined if not set.
+ */
+export function getBaseRepoPathForStorage(): string | undefined {
+    return baseRepoPathForStorage;
+}
+
+/**
+ * Generate a unique identifier for a repository.
+ * Uses a hash of the normalized absolute path to ensure uniqueness across repos.
+ * @param repoPath The absolute path to the repository
+ * @returns A unique identifier string (8-character hash + repo name)
+ */
+export function getRepoIdentifier(repoPath: string): string {
+    // Normalize the path for cross-platform consistency
+    const normalizedPath = path.normalize(repoPath).toLowerCase();
+
+    // Create a short hash of the full path for uniqueness
+    const hash = crypto.createHash('sha256')
+        .update(normalizedPath)
+        .digest('hex')
+        .substring(0, 8);
+
+    // Get the repo folder name (sanitized)
+    const repoName = path.basename(repoPath).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // Combine for a readable yet unique identifier
+    return `${repoName}-${hash}`;
+}
+
+/**
+ * Get the session name from a worktree path.
+ * The session name is the last component of the worktree path.
+ * @param worktreePath Path to the worktree
+ * @returns The session name
+ */
+export function getSessionNameFromWorktree(worktreePath: string): string {
+    return path.basename(worktreePath);
+}
+
+/**
+ * Get the global storage path for a specific file.
+ * Structure: globalStorageUri/<repo-identifier>/<session-name>/<filename>
+ * @param worktreePath The worktree path (used to derive session name and repo path)
+ * @param filename The filename (e.g., '.claude-status', 'features.json')
+ * @returns The absolute path to the file in global storage, or null if global storage not initialized
+ */
+export function getGlobalStoragePath(worktreePath: string, filename: string): string | null {
+    if (!globalStorageUri || !baseRepoPathForStorage) {
+        return null;
+    }
+
+    const repoIdentifier = getRepoIdentifier(baseRepoPathForStorage);
+    const sessionName = getSessionNameFromWorktree(worktreePath);
+
+    return path.join(globalStorageUri.fsPath, repoIdentifier, sessionName, filename);
+}
+
+/**
+ * Check if global storage is enabled in configuration.
+ * @returns true if useGlobalStorage is enabled, false otherwise
+ */
+export function isGlobalStorageEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('claudeLanes');
+    return config.get<boolean>('useGlobalStorage', false);
+}
 
 /**
  * Validates and sanitizes a relative path for security.
@@ -74,6 +164,7 @@ function validateAndBuildPath(relativePath: string, worktreePath: string, filena
 /**
  * Get the configured path for features.json relative to a worktree.
  * Returns the full path to the features.json file.
+ * Note: features.json is NOT stored in global storage as it's a development workflow file.
  * Security: Validates path to prevent directory traversal attacks.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to features.json based on configuration
@@ -87,6 +178,7 @@ export function getFeaturesJsonPath(worktreePath: string): string {
 /**
  * Get the configured path for tests.json relative to a worktree.
  * Returns the full path to the tests.json file.
+ * Note: tests.json is NOT stored in global storage as it's a development workflow file.
  * Security: Validates path to prevent directory traversal attacks.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to tests.json based on configuration
@@ -100,11 +192,21 @@ export function getTestsJsonPath(worktreePath: string): string {
 /**
  * Get the configured path for .claude-session file relative to a worktree.
  * Returns the full path to the .claude-session file.
+ * If global storage is enabled, returns the path in global storage.
  * Security: Validates path to prevent directory traversal attacks.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to .claude-session based on configuration
  */
 export function getClaudeSessionPath(worktreePath: string): string {
+    // Check if global storage is enabled
+    if (isGlobalStorageEnabled()) {
+        const globalPath = getGlobalStoragePath(worktreePath, '.claude-session');
+        if (globalPath) {
+            return globalPath;
+        }
+        // Fall back to worktree path if global storage not initialized
+    }
+
     const config = vscode.workspace.getConfiguration('claudeLanes');
     const relativePath = config.get<string>('claudeSessionPath', '');
     return validateAndBuildPath(relativePath, worktreePath, '.claude-session');
@@ -113,11 +215,21 @@ export function getClaudeSessionPath(worktreePath: string): string {
 /**
  * Get the configured path for .claude-status file relative to a worktree.
  * Returns the full path to the .claude-status file.
+ * If global storage is enabled, returns the path in global storage.
  * Security: Validates path to prevent directory traversal attacks.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to .claude-status based on configuration
  */
 export function getClaudeStatusPath(worktreePath: string): string {
+    // Check if global storage is enabled
+    if (isGlobalStorageEnabled()) {
+        const globalPath = getGlobalStoragePath(worktreePath, '.claude-status');
+        if (globalPath) {
+            return globalPath;
+        }
+        // Fall back to worktree path if global storage not initialized
+    }
+
     const config = vscode.workspace.getConfiguration('claudeLanes');
     const relativePath = config.get<string>('claudeStatusPath', '');
     return validateAndBuildPath(relativePath, worktreePath, '.claude-status');

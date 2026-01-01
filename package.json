@@ -148,6 +148,11 @@
           "default": "",
           "description": "Relative path within each worktree where .claude-status file should be stored. Leave empty to use the worktree root."
         },
+        "claudeLanes.useGlobalStorage": {
+          "type": "boolean",
+          "default": false,
+          "description": "Store session tracking files (.claude-session, .claude-status) in VS Code's global storage instead of worktree directories. This keeps worktrees clean and supports multiple repositories."
+        },
         "claudeLanes.baseBranch": {
           "type": "string",
           "default": "",
