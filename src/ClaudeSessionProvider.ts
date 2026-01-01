@@ -115,7 +115,7 @@ export function getGlobalStoragePath(worktreePath: string, filename: string): st
  */
 export function isGlobalStorageEnabled(): boolean {
     const config = vscode.workspace.getConfiguration('claudeLanes');
-    return config.get<boolean>('useGlobalStorage', false);
+    return config.get<boolean>('useGlobalStorage', true);
 }
 
 /**

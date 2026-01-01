@@ -722,7 +722,7 @@ suite('Session Tests', () => {
 			);
 		});
 
-		test('should invoke onSubmit callback when createSession message is received', () => {
+		test('should invoke onSubmit callback when createSession message is received', async () => {
 			// Arrange
 			const provider = new SessionFormProvider(extensionUri);
 			const { webviewView, messageHandler } = createMockWebviewView();
@@ -742,7 +742,7 @@ suite('Session Tests', () => {
 
 			// Simulate webview posting a createSession message
 			assert.ok(messageHandler.callback, 'Message handler should be registered');
-			messageHandler.callback({
+			await messageHandler.callback({
 				command: 'createSession',
 				name: 'test-session',
 				prompt: 'Fix the bug in login.ts'
@@ -753,7 +753,7 @@ suite('Session Tests', () => {
 			assert.strictEqual(capturedPrompt, 'Fix the bug in login.ts', 'Callback should receive the prompt');
 		});
 
-		test('should post clearForm message after successful submission', () => {
+		test('should post clearForm message after successful submission', async () => {
 			// Arrange
 			const provider = new SessionFormProvider(extensionUri);
 			const { webviewView, messageHandler, postMessageSpy } = createMockWebviewView();
@@ -761,14 +761,15 @@ suite('Session Tests', () => {
 			const mockToken = new vscode.CancellationTokenSource().token;
 
 			provider.setOnSubmit(() => {
-				// Empty callback
+				// Empty callback (synchronous, returns void)
 			});
 
 			// Act
 			provider.resolveWebviewView(webviewView, mockContext, mockToken);
 
 			assert.ok(messageHandler.callback, 'Message handler should be registered');
-			messageHandler.callback({
+			// The message handler is now async, so we need to await it
+			await messageHandler.callback({
 				command: 'createSession',
 				name: 'my-session',
 				prompt: ''
@@ -1449,7 +1450,7 @@ suite('Session Tests', () => {
 			);
 		});
 
-		test('should invoke onSubmit callback with acceptanceCriteria when createSession message is received', () => {
+		test('should invoke onSubmit callback with acceptanceCriteria when createSession message is received', async () => {
 			// Arrange
 			const provider = new SessionFormProvider(extensionUri);
 			const { webviewView, messageHandler } = createMockWebviewView();
@@ -1471,7 +1472,7 @@ suite('Session Tests', () => {
 
 			// Simulate webview posting a createSession message with acceptanceCriteria
 			assert.ok(messageHandler.callback, 'Message handler should be registered');
-			messageHandler.callback({
+			await messageHandler.callback({
 				command: 'createSession',
 				name: 'test-session',
 				prompt: 'Fix the bug in login.ts',
@@ -1484,7 +1485,7 @@ suite('Session Tests', () => {
 			assert.strictEqual(capturedAcceptanceCriteria, 'User should be able to log in', 'Callback should receive the acceptance criteria');
 		});
 
-		test('should invoke onSubmit callback with empty acceptanceCriteria when not provided', () => {
+		test('should invoke onSubmit callback with empty acceptanceCriteria when not provided', async () => {
 			// Arrange
 			const provider = new SessionFormProvider(extensionUri);
 			const { webviewView, messageHandler } = createMockWebviewView();
@@ -1502,7 +1503,7 @@ suite('Session Tests', () => {
 
 			// Simulate webview posting a createSession message without acceptanceCriteria
 			assert.ok(messageHandler.callback, 'Message handler should be registered');
-			messageHandler.callback({
+			await messageHandler.callback({
 				command: 'createSession',
 				name: 'test-session',
 				prompt: 'Fix the bug'
@@ -1557,7 +1558,7 @@ suite('Session Tests', () => {
 			);
 		});
 
-		test('SessionFormSubmitCallback type should accept acceptanceCriteria parameter', () => {
+		test('SessionFormSubmitCallback type should accept acceptanceCriteria parameter', async () => {
 			// This test verifies that the callback type includes acceptanceCriteria
 			// by setting up a callback with 3 parameters
 
@@ -1583,7 +1584,7 @@ suite('Session Tests', () => {
 			provider.resolveWebviewView(webviewView, mockContext, mockToken);
 
 			assert.ok(messageHandler.callback, 'Message handler should be registered');
-			messageHandler.callback({
+			await messageHandler.callback({
 				command: 'createSession',
 				name: 'test',
 				prompt: 'test prompt',

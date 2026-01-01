@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 
 /**
- * Callback type for when the session form is submitted
+ * Callback type for when the session form is submitted.
+ * Can be async - the form will wait for completion before clearing.
  */
-export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string) => void;
+export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string) => void | Promise<void>;
 
 /**
  * Provides a webview form for creating new Claude sessions.
@@ -57,13 +58,21 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(message => {
+        webviewView.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
                 case 'createSession':
                     if (this._onSubmit) {
-                        this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '');
+                        try {
+                            // Await the callback to ensure session creation completes before clearing form
+                            await this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '');
+                        } catch (err) {
+                            // Error is already shown by createSession, but log for debugging
+                            console.error('Claude Lanes: Session creation failed:', err);
+                            // Don't clear form on error so user can retry
+                            return;
+                        }
                     }
-                    // Clear the form after submission
+                    // Clear the form after successful submission
                     this._view?.webview.postMessage({ command: 'clearForm' });
                     break;
             }
