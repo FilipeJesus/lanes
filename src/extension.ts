@@ -62,6 +62,63 @@ function getPromptsFolder(): string {
 }
 
 /**
+ * Sanitize a session name to be a valid git branch name.
+ * Git branch naming rules:
+ * - Allowed: letters, numbers, hyphens, underscores, dots, forward slashes
+ * - Cannot start with '-', '.', or '/'
+ * - Cannot end with '.', '/', or '.lock'
+ * - Cannot contain '..' or '//'
+ *
+ * @param name The raw session name from user input
+ * @returns Sanitized name safe for git branches, or empty string if nothing valid remains
+ */
+export function sanitizeSessionName(name: string): string {
+    if (!name) {
+        return '';
+    }
+
+    let result = name;
+
+    // Step 1: Replace spaces with hyphens
+    result = result.replace(/\s+/g, '-');
+
+    // Step 2: Replace invalid characters (not in [a-zA-Z0-9_\-./]) with hyphens
+    // This also handles consecutive invalid chars by replacing them all with hyphens
+    result = result.replace(/[^a-zA-Z0-9_\-./]+/g, '-');
+
+    // Step 3: Replace consecutive hyphens with single hyphen
+    result = result.replace(/-+/g, '-');
+
+    // Step 4: Replace consecutive dots with single dot
+    result = result.replace(/\.+/g, '.');
+
+    // Step 5: Replace consecutive slashes with single slash
+    result = result.replace(/\/+/g, '/');
+
+    // Step 6: Remove leading hyphens, dots, or slashes
+    result = result.replace(/^[-./]+/, '');
+
+    // Step 7: Remove trailing dots or slashes
+    result = result.replace(/[./]+$/, '');
+
+    // Step 8: Remove .lock suffix (only at the end)
+    if (result.endsWith('.lock')) {
+        result = result.slice(0, -5);
+    }
+
+    // Step 9: After removing .lock, we might have trailing dots/slashes again
+    result = result.replace(/[./]+$/, '');
+
+    // Step 10: Clean up leading chars again (in case .lock removal exposed them)
+    result = result.replace(/^[-./]+/, '');
+
+    // Step 11: Remove leading/trailing hyphens that may have been created
+    result = result.replace(/^-+/, '').replace(/-+$/, '');
+
+    return result;
+}
+
+/**
  * Check if the given path is a git worktree and return the base repo path.
  * Uses `git rev-parse --git-common-dir` to detect worktrees.
  *
@@ -640,21 +697,30 @@ async function createSession(
     const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
 
     while (true) {
-        // 2. Validate name
+        // 2. Validate name exists
         if (!currentName || !currentName.trim()) {
             vscode.window.showErrorMessage("Error: Session name is required!");
             return;
         }
 
-        const trimmedName = currentName.trim();
+        // 2a. Sanitize the name to make it git-safe
+        const sanitizedName = sanitizeSessionName(currentName);
 
-        // 2b. Validate branch name characters (git-safe)
+        // 2b. Check if sanitization resulted in an empty string
+        if (!sanitizedName) {
+            vscode.window.showErrorMessage("Error: Session name contains no valid characters. Use letters, numbers, hyphens, underscores, dots, or slashes.");
+            return;
+        }
+
+        const trimmedName = sanitizedName;
+
+        // 2c. Validate branch name characters (git-safe) - should pass after sanitization
         if (!branchNameRegex.test(trimmedName)) {
             vscode.window.showErrorMessage("Error: Session name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.");
             return;
         }
 
-        // 2c. Prevent names that could cause git issues
+        // 2d. Prevent names that could cause git issues - should pass after sanitization
         if (trimmedName.startsWith('-') || trimmedName.startsWith('.') ||
             trimmedName.endsWith('.') || trimmedName.includes('..') ||
             trimmedName.endsWith('.lock')) {
