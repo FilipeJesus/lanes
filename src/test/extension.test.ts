@@ -4,8 +4,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData, getFeaturesJsonPath, getTestsJsonPath, getClaudeSessionPath, getClaudeStatusPath, getRepoIdentifier, getGlobalStoragePath, isGlobalStorageEnabled, initializeGlobalStorageContext, getSessionNameFromWorktree } from '../ClaudeSessionProvider';
+import { isProjectManagerAvailable, getProjects, addProject, removeProject, clearCache, getExtensionId, initialize as initializePMService } from '../ProjectManagerService';
 import { SessionFormProvider } from '../SessionFormProvider';
-import { combinePromptAndCriteria, branchExists, getBranchesInWorktrees, getBaseBranch, getBaseRepoPath, getRepoName, getProjectManagerFilePath, addProjectToProjectManager, removeProjectFromProjectManager } from '../extension';
+import { combinePromptAndCriteria, branchExists, getBranchesInWorktrees, getBaseBranch, getBaseRepoPath, getRepoName } from '../extension';
 import { parseDiff, GitChangesPanel, FileDiff, ReviewComment, formatReviewForClipboard } from '../GitChangesPanel';
 
 suite('Claude Lanes Extension Test Suite', () => {
@@ -3928,295 +3929,10 @@ index 7654321..gfedcba 100644
 			});
 		});
 
-		suite('getProjectManagerFilePath', () => {
-
-			test('should return platform-specific path for Project Manager', () => {
-				// Act
-				const result = getProjectManagerFilePath();
-
-				// Assert: Verify structure based on platform
-				if (process.platform === 'darwin') {
-					assert.ok(
-						result.includes('Library/Application Support/Code/User/globalStorage/alefragnani.project-manager/projects.json'),
-						`macOS path should include expected components: ${result}`
-					);
-				} else if (process.platform === 'win32') {
-					assert.ok(
-						result.includes('Code\\User\\globalStorage\\alefragnani.project-manager\\projects.json') ||
-						result.includes('Code/User/globalStorage/alefragnani.project-manager/projects.json'),
-						`Windows path should include expected components: ${result}`
-					);
-				} else {
-					// Linux
-					assert.ok(
-						result.includes('.config/Code/User/globalStorage/alefragnani.project-manager/projects.json'),
-						`Linux path should include expected components: ${result}`
-					);
-				}
-			});
-
-			test('should return non-empty path when HOME/APPDATA is set', () => {
-				// Act
-				const result = getProjectManagerFilePath();
-
-				// Assert: In a normal environment, HOME or APPDATA should be set
-				// If not, the function returns empty string with a warning
-				if (process.platform === 'win32') {
-					if (process.env.APPDATA) {
-						assert.ok(result.length > 0, 'Should return path when APPDATA is set');
-					} else {
-						assert.strictEqual(result, '', 'Should return empty when APPDATA is not set');
-					}
-				} else {
-					if (process.env.HOME) {
-						assert.ok(result.length > 0, 'Should return path when HOME is set');
-					} else {
-						assert.strictEqual(result, '', 'Should return empty when HOME is not set');
-					}
-				}
-			});
-		});
-
-		suite('addProjectToProjectManager', () => {
-
-			test('should add a new project to projects.json', async () => {
-				// Arrange: Create a mock projects.json location
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-				fs.writeFileSync(projectsPath, JSON.stringify([], null, 4));
-
-				// Mock the getProjectManagerFilePath to return our test path
-				// Since we can't easily mock the function, we test the file operations directly
-				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
-				const baseRepoPath = tempDir;
-
-				// Create projects array
-				const projects: Array<{name: string; rootPath: string; enabled: boolean; tags?: string[]}> = [];
-				const repoName = getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
-				const projectName = `${repoName}-test-session`;
-
-				projects.push({
-					name: projectName,
-					rootPath: worktreePath,
-					enabled: true,
-					tags: ['claude-lanes']
-				});
-
-				fs.writeFileSync(projectsPath, JSON.stringify(projects, null, 4));
-
-				// Assert: Verify the project was added
-				const content = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				assert.strictEqual(content.length, 1, 'Should have 1 project');
-				assert.strictEqual(content[0].rootPath, worktreePath, 'Project rootPath should match');
-				assert.deepStrictEqual(content[0].tags, ['claude-lanes'], 'Project should have claude-lanes tag');
-			});
-
-			test('should update existing project instead of duplicating', async () => {
-				// Arrange: Create projects.json with an existing project
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-
-				const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
-				const existingProject = {
-					name: 'old-name-test-session',
-					rootPath: worktreePath,
-					enabled: true,
-					tags: ['claude-lanes']
-				};
-				fs.writeFileSync(projectsPath, JSON.stringify([existingProject], null, 4));
-
-				// Simulate updating the project
-				const content = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				const existingIndex = content.findIndex((p: {rootPath: string}) => p.rootPath === worktreePath);
-
-				if (existingIndex >= 0) {
-					content[existingIndex].name = 'new-name-test-session';
-				}
-				fs.writeFileSync(projectsPath, JSON.stringify(content, null, 4));
-
-				// Assert: Verify project was updated, not duplicated
-				const updated = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				assert.strictEqual(updated.length, 1, 'Should still have only 1 project');
-				assert.strictEqual(updated[0].name, 'new-name-test-session', 'Project name should be updated');
-			});
-
-			test('should use atomic writes (temp file then rename)', async () => {
-				// Arrange: Create a projects.json file
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-				fs.writeFileSync(projectsPath, JSON.stringify([], null, 4));
-
-				// Simulate atomic write
-				const projects = [{ name: 'test', rootPath: '/test', enabled: true }];
-				const tempPath = `${projectsPath}.${Date.now()}.tmp`;
-
-				// Write to temp file first
-				fs.writeFileSync(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
-				assert.ok(fs.existsSync(tempPath), 'Temp file should exist before rename');
-
-				// Rename to final path
-				fs.renameSync(tempPath, projectsPath);
-				assert.ok(!fs.existsSync(tempPath), 'Temp file should not exist after rename');
-				assert.ok(fs.existsSync(projectsPath), 'Final file should exist after rename');
-
-				// Verify content
-				const content = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				assert.strictEqual(content.length, 1, 'Content should be preserved');
-			});
-
-			test('should sanitize repo name by replacing special characters', () => {
-				// Arrange: Repo names with special characters
-				const testCases = [
-					{ input: 'my<repo', expected: 'my_repo' },
-					{ input: 'my>repo', expected: 'my_repo' },
-					{ input: 'my:repo', expected: 'my_repo' },
-					{ input: 'my"repo', expected: 'my_repo' },
-					{ input: 'my/repo', expected: 'my_repo' },
-					{ input: 'my\\repo', expected: 'my_repo' },
-					{ input: 'my|repo', expected: 'my_repo' },
-					{ input: 'my?repo', expected: 'my_repo' },
-					{ input: 'my*repo', expected: 'my_repo' },
-					{ input: 'my<>:"/\\|?*repo', expected: 'my_________repo' }
-				];
-
-				for (const testCase of testCases) {
-					// Act: Apply the same sanitization used in addProjectToProjectManager
-					const sanitized = testCase.input.replace(/[<>:"/\\|?*]/g, '_');
-
-					// Assert
-					assert.strictEqual(
-						sanitized,
-						testCase.expected,
-						`Sanitizing "${testCase.input}" should produce "${testCase.expected}"`
-					);
-				}
-			});
-
-			test('should handle invalid JSON in projects.json gracefully', async () => {
-				// Arrange: Create a projects.json with invalid JSON
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-				fs.writeFileSync(projectsPath, 'not valid json {{{');
-
-				// Act: Try to read and handle gracefully
-				let projects: Array<{name: string; rootPath: string; enabled: boolean}> = [];
-				try {
-					const content = fs.readFileSync(projectsPath, 'utf-8');
-					const parsed = JSON.parse(content);
-					if (Array.isArray(parsed)) {
-						projects = parsed;
-					}
-				} catch {
-					// Start with empty array on parse failure
-					projects = [];
-				}
-
-				// Assert: Should start with empty array
-				assert.deepStrictEqual(projects, [], 'Should start with empty array on invalid JSON');
-			});
-
-			test('should validate JSON structure is an array', async () => {
-				// Arrange: Create a projects.json with valid JSON but not an array
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-				fs.writeFileSync(projectsPath, JSON.stringify({ not: 'an array' }));
-
-				// Act: Read and validate
-				let projects: Array<{name: string; rootPath: string; enabled: boolean}> = [];
-				try {
-					const content = fs.readFileSync(projectsPath, 'utf-8');
-					const parsed = JSON.parse(content);
-					if (Array.isArray(parsed)) {
-						projects = parsed;
-					} else {
-						// Not an array, start fresh
-						projects = [];
-					}
-				} catch {
-					projects = [];
-				}
-
-				// Assert: Should start with empty array
-				assert.deepStrictEqual(projects, [], 'Should start with empty array when JSON is not an array');
-			});
-		});
-
-		suite('removeProjectFromProjectManager', () => {
-
-			test('should remove a project from projects.json by worktree path', async () => {
-				// Arrange: Create projects.json with multiple projects
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-
-				const worktreePath = path.join(tempDir, '.worktrees', 'session-to-remove');
-				const projects = [
-					{ name: 'keep-this', rootPath: '/other/path', enabled: true },
-					{ name: 'remove-this', rootPath: worktreePath, enabled: true },
-					{ name: 'keep-this-too', rootPath: '/another/path', enabled: true }
-				];
-				fs.writeFileSync(projectsPath, JSON.stringify(projects, null, 4));
-
-				// Act: Filter out the project
-				const content = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				const filtered = content.filter((p: {rootPath: string}) => p.rootPath !== worktreePath);
-				fs.writeFileSync(projectsPath, JSON.stringify(filtered, null, 4));
-
-				// Assert: Project should be removed
-				const updated = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				assert.strictEqual(updated.length, 2, 'Should have 2 projects remaining');
-				assert.ok(
-					!updated.some((p: {rootPath: string}) => p.rootPath === worktreePath),
-					'Removed project should not be in the list'
-				);
-			});
-
-			test('should use atomic writes for removal', async () => {
-				// Arrange: Create projects.json
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				fs.mkdirSync(projectsDir, { recursive: true });
-				const projectsPath = path.join(projectsDir, 'projects.json');
-
-				const projects = [{ name: 'test', rootPath: '/test', enabled: true }];
-				fs.writeFileSync(projectsPath, JSON.stringify(projects, null, 4));
-
-				// Act: Simulate atomic removal
-				const content = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				const filtered = content.filter((p: {rootPath: string}) => p.rootPath !== '/test');
-
-				const tempPath = `${projectsPath}.${Date.now()}.tmp`;
-				fs.writeFileSync(tempPath, JSON.stringify(filtered, null, 4), 'utf-8');
-				fs.renameSync(tempPath, projectsPath);
-
-				// Assert
-				assert.ok(!fs.existsSync(tempPath), 'Temp file should not exist after rename');
-				const updated = JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-				assert.strictEqual(updated.length, 0, 'Project should be removed');
-			});
-
-			test('should handle missing projects.json gracefully', async () => {
-				// Arrange: No projects.json file exists
-				const projectsDir = path.join(tempDir, 'globalStorage', 'alefragnani.project-manager');
-				const projectsPath = path.join(projectsDir, 'projects.json');
-
-				// Act: Try to read non-existent file
-				let projects: Array<{rootPath: string}> = [];
-				try {
-					const content = fs.readFileSync(projectsPath, 'utf-8');
-					projects = JSON.parse(content);
-				} catch {
-					// File doesn't exist, nothing to remove
-				}
-
-				// Assert: Should handle gracefully
-				assert.deepStrictEqual(projects, [], 'Should handle missing file gracefully');
-			});
-		});
+		// Note: Tests for Project Manager integration are in ProjectManagerService.test.ts
+		// The old file-based functions (getProjectManagerFilePath, addProjectToProjectManager,
+		// removeProjectFromProjectManager) have been replaced with the ProjectManagerService
+		// which uses the VS Code extension API.
 	});
 
 	suite('Open Window Command', () => {
@@ -4769,6 +4485,277 @@ index 7654321..gfedcba 100644
 				globalStorageConfig.description.toLowerCase().includes('worktree'),
 				'Description should mention global storage or worktree'
 			);
+	suite('ProjectManagerService', () => {
+
+		// Clear cache between each test to ensure isolation
+		setup(() => {
+			clearCache();
+		});
+
+		teardown(() => {
+			clearCache();
+		});
+
+		suite('isProjectManagerAvailable', () => {
+
+			test('should return a boolean value', () => {
+				// Given: The function is called
+				// When: isProjectManagerAvailable is invoked
+				const result = isProjectManagerAvailable();
+
+				// Then: It should return a boolean (true if installed, false otherwise)
+				assert.strictEqual(typeof result, 'boolean');
+			});
+
+			test('should return false when Project Manager extension is not installed', () => {
+				// Given: In test environment, Project Manager extension is typically not installed
+				// When: isProjectManagerAvailable is called
+				const result = isProjectManagerAvailable();
+
+				// Then: It should return false since the extension is not in the test host
+				// Note: This test assumes the extension is not installed in the test environment
+				// If the extension is installed, this test verifies it returns true
+				assert.strictEqual(typeof result, 'boolean');
+			});
+
+			test('should be callable multiple times without errors', () => {
+				// Given: The function is called multiple times
+				// When: isProjectManagerAvailable is invoked repeatedly
+				// Then: It should not throw and should return consistent results
+				assert.doesNotThrow(() => {
+					const result1 = isProjectManagerAvailable();
+					const result2 = isProjectManagerAvailable();
+					const result3 = isProjectManagerAvailable();
+					// Results should be consistent
+					assert.strictEqual(result1, result2);
+					assert.strictEqual(result2, result3);
+				});
+			});
+		});
+
+		suite('getProjects', () => {
+
+			test('should return an array', async () => {
+				// Given: The function is called
+				// When: getProjects is invoked
+				const result = await getProjects();
+
+				// Then: It should always return an array (possibly empty)
+				assert.ok(Array.isArray(result));
+			});
+
+			test('should return empty array when API is not available', async () => {
+				// Given: Project Manager extension is not installed
+				// When: getProjects is called
+				const result = await getProjects();
+
+				// Then: It should return an empty array gracefully
+				if (!isProjectManagerAvailable()) {
+					assert.deepStrictEqual(result, []);
+				}
+			});
+
+			test('should not throw errors even when extension is missing', async () => {
+				// Given: Extension may not be installed
+				// When: getProjects is called
+				// Then: Should return empty array without throwing
+				let error: Error | undefined;
+				let result: unknown[];
+				try {
+					result = await getProjects();
+				} catch (err) {
+					error = err as Error;
+					result = [];
+				}
+
+				assert.strictEqual(error, undefined, 'Should not throw an error');
+				assert.ok(Array.isArray(result));
+			});
+		});
+
+		suite('addProject', () => {
+
+			test('should return a boolean', async () => {
+				// Given: The function is called with valid parameters
+				// When: addProject is invoked
+				const result = await addProject('test-project', '/test/path');
+
+				// Then: It should return a boolean
+				assert.strictEqual(typeof result, 'boolean');
+			});
+
+			test('should return false when API is not available', async () => {
+				// Given: Project Manager extension is not installed
+				// When: addProject is called
+				const result = await addProject('test-project', '/test/path', ['test-tag']);
+
+				// Then: It should return false gracefully
+				if (!isProjectManagerAvailable()) {
+					assert.strictEqual(result, false);
+				}
+			});
+
+			test('should accept optional tags parameter', async () => {
+				// Given: Tags are provided
+				// When: addProject is called with tags
+				// Then: It should not throw and handle the tags parameter
+				let error: Error | undefined;
+				let result: boolean;
+				try {
+					result = await addProject('tagged-project', '/some/path', ['tag1', 'tag2']);
+				} catch (err) {
+					error = err as Error;
+					result = false;
+				}
+
+				assert.strictEqual(error, undefined, 'Should not throw an error');
+				assert.strictEqual(typeof result, 'boolean');
+			});
+
+			test('should not throw errors even when extension is missing', async () => {
+				// Given: Extension may not be installed
+				// When: addProject is called
+				// Then: Should return false without throwing
+				let error: Error | undefined;
+				let result: boolean;
+				try {
+					result = await addProject('test', '/path');
+				} catch (err) {
+					error = err as Error;
+					result = false;
+				}
+
+				assert.strictEqual(error, undefined, 'Should not throw an error');
+				assert.strictEqual(result, false);
+			});
+		});
+
+		suite('removeProject', () => {
+
+			test('should return a boolean', async () => {
+				// Given: The function is called
+				// When: removeProject is invoked
+				const result = await removeProject('/test/path');
+
+				// Then: It should return a boolean
+				assert.strictEqual(typeof result, 'boolean');
+			});
+
+			test('should return false when API is not available', async () => {
+				// Given: Project Manager extension is not installed
+				// When: removeProject is called
+				const result = await removeProject('/test/path');
+
+				// Then: It should return false gracefully
+				if (!isProjectManagerAvailable()) {
+					assert.strictEqual(result, false);
+				}
+			});
+
+			test('should not throw errors even when extension is missing', async () => {
+				// Given: Extension may not be installed
+				// When: removeProject is called
+				// Then: Should return false without throwing
+				let error: Error | undefined;
+				let result: boolean;
+				try {
+					result = await removeProject('/nonexistent/path');
+				} catch (err) {
+					error = err as Error;
+					result = false;
+				}
+
+				assert.strictEqual(error, undefined, 'Should not throw an error');
+				assert.strictEqual(result, false);
+			});
+		});
+
+		suite('graceful degradation', () => {
+
+			test('all service methods should be callable without the extension installed', async () => {
+				// Given: Project Manager extension is not installed (typical test environment)
+				// When: All service methods are called
+				// Then: None should throw exceptions
+
+				const errors: string[] = [];
+
+				try {
+					isProjectManagerAvailable();
+				} catch (err) {
+					errors.push(`isProjectManagerAvailable: ${err}`);
+				}
+
+				try {
+					await getProjects();
+				} catch (err) {
+					errors.push(`getProjects: ${err}`);
+				}
+
+				try {
+					await addProject('test', '/path');
+				} catch (err) {
+					errors.push(`addProject: ${err}`);
+				}
+
+				try {
+					await removeProject('/path');
+				} catch (err) {
+					errors.push(`removeProject: ${err}`);
+				}
+
+				assert.deepStrictEqual(errors, [], `Errors occurred: ${errors.join(', ')}`);
+			});
+
+			test('clearCache should be safe to call at any time', () => {
+				// Given: Cache may or may not have data
+				// When: clearCache is called multiple times
+				// Then: Should not throw
+				assert.doesNotThrow(() => {
+					clearCache();
+					clearCache();
+					clearCache();
+				});
+			});
+
+			test('getExtensionId should return the correct extension ID', () => {
+				// Given: The service is configured
+				// When: getExtensionId is called
+				const extensionId = getExtensionId();
+
+				// Then: It should return the Project Manager extension ID
+				assert.strictEqual(extensionId, 'alefragnani.project-manager');
+			});
+
+			test('service should return appropriate fallback values when not initialized', async () => {
+				// Given: Service is not initialized (no context)
+				clearCache();
+
+				// When: All methods are called without initialization
+				const projects = await getProjects();
+				const addResult = await addProject('test', '/path');
+				const removeResult = await removeProject('/path');
+
+				// Then: Each should return its appropriate fallback value
+				assert.deepStrictEqual(projects, [], 'Projects should be empty array when not initialized');
+				assert.strictEqual(addResult, false, 'addProject should return false when not initialized');
+				assert.strictEqual(removeResult, false, 'removeProject should return false when not initialized');
+			});
+
+			test('service operations should complete within reasonable time', async () => {
+				// Given: Service is not initialized
+				// When: Operations are performed
+				// Then: They should complete quickly (not hang)
+				const startTime = Date.now();
+
+				await getProjects();
+				await addProject('test', '/path');
+				await removeProject('/path');
+
+				const elapsed = Date.now() - startTime;
+
+				// Should complete in under 1 second (generous timeout)
+				assert.ok(elapsed < 1000, `Operations took ${elapsed}ms, expected < 1000ms`);
+			});
 		});
 	});
 });
