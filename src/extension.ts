@@ -6,6 +6,7 @@ import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessio
 import { SessionFormProvider } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
 import { GitChangesPanel } from './GitChangesPanel';
+import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 
 /**
  * Helper to get error message from unknown error type
@@ -149,160 +150,15 @@ export function getRepoName(repoPath: string): string {
     return path.basename(repoPath);
 }
 
-/**
- * Get the Project Manager projects file path.
- * Project Manager stores projects in a JSON file in the global storage.
- * @returns Path to the projects.json file
- */
-export function getProjectManagerFilePath(): string {
-    // Project Manager stores projects in:
-    // - Windows: %APPDATA%/Code/User/globalStorage/alefragnani.project-manager/projects.json
-    // - macOS: ~/Library/Application Support/Code/User/globalStorage/alefragnani.project-manager/projects.json
-    // - Linux: ~/.config/Code/User/globalStorage/alefragnani.project-manager/projects.json
-
-    if (process.platform === 'darwin') {
-        const homeDir = process.env.HOME;
-        if (!homeDir) {
-            console.warn('Claude Lanes: HOME environment variable not set');
-            return '';
-        }
-        return path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
-    } else if (process.platform === 'win32') {
-        const appData = process.env.APPDATA;
-        if (!appData) {
-            console.warn('Claude Lanes: APPDATA environment variable not set');
-            return '';
-        }
-        return path.join(appData, 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
-    } else {
-        // Linux
-        const homeDir = process.env.HOME;
-        if (!homeDir) {
-            console.warn('Claude Lanes: HOME environment variable not set');
-            return '';
-        }
-        return path.join(homeDir, '.config', 'Code', 'User', 'globalStorage', 'alefragnani.project-manager', 'projects.json');
-    }
-}
-
-/**
- * Interface for Project Manager project entry
- */
-interface ProjectManagerEntry {
-    name: string;
-    rootPath: string;
-    enabled: boolean;
-    tags?: string[];
-}
-
-/**
- * Add a worktree as a project in Project Manager.
- * Uses atomic writes to prevent race conditions.
- * @param sessionName The session/worktree name
- * @param worktreePath Full path to the worktree
- * @param baseRepoPath The base repository path (for deriving repo name)
- */
-export async function addProjectToProjectManager(
-    sessionName: string,
-    worktreePath: string,
-    baseRepoPath: string
-): Promise<void> {
-    const projectsPath = getProjectManagerFilePath();
-    if (!projectsPath) {
-        console.warn('Claude Lanes: Could not determine Project Manager projects file path');
-        return;
-    }
-
-    // Sanitize repo name to remove special characters that could cause issues
-    const repoName = getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
-    const projectName = `${repoName}-${sessionName}`;
-
-    try {
-        let projects: ProjectManagerEntry[] = [];
-
-        // Read existing projects
-        try {
-            const content = await fsPromises.readFile(projectsPath, 'utf-8');
-            const parsed = JSON.parse(content);
-            // Validate that parsed JSON is an array
-            if (Array.isArray(parsed)) {
-                projects = parsed;
-            } else {
-                console.warn('Claude Lanes: projects.json is not an array, starting fresh');
-                projects = [];
-            }
-        } catch {
-            // File doesn't exist or is invalid JSON, start with empty array
-        }
-
-        // Check if project already exists
-        const existingIndex = projects.findIndex(p => p.rootPath === worktreePath);
-        if (existingIndex >= 0) {
-            // Update existing project
-            projects[existingIndex].name = projectName;
-        } else {
-            // Add new project
-            projects.push({
-                name: projectName,
-                rootPath: worktreePath,
-                enabled: true,
-                tags: ['claude-lanes']
-            });
-        }
-
-        // Ensure directory exists
-        await fsPromises.mkdir(path.dirname(projectsPath), { recursive: true });
-
-        // Write back atomically (write to temp, then rename)
-        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
-        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
-        await fsPromises.rename(tempPath, projectsPath);
-
-    } catch (err) {
-        console.error('Claude Lanes: Failed to add project to Project Manager:', err);
-    }
-}
-
-/**
- * Remove a worktree project from Project Manager.
- * Uses atomic writes to prevent race conditions.
- * @param worktreePath Full path to the worktree
- */
-export async function removeProjectFromProjectManager(worktreePath: string): Promise<void> {
-    const projectsPath = getProjectManagerFilePath();
-    if (!projectsPath) {
-        return;
-    }
-
-    try {
-        const content = await fsPromises.readFile(projectsPath, 'utf-8');
-        const parsed = JSON.parse(content);
-
-        // Validate that parsed JSON is an array
-        if (!Array.isArray(parsed)) {
-            console.warn('Claude Lanes: projects.json is not an array, nothing to remove');
-            return;
-        }
-
-        let projects: ProjectManagerEntry[] = parsed;
-
-        // Remove the project with this path
-        projects = projects.filter(p => p.rootPath !== worktreePath);
-
-        // Write back atomically (write to temp, then rename)
-        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
-        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
-        await fsPromises.rename(tempPath, projectsPath);
-    } catch {
-        // Ignore errors - project may not exist
-    }
-}
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Claude Lanes" is now active!'); // Check Debug Console for this
 
     // Initialize git path from VS Code Git Extension (with fallback to 'git')
     await initializeGitPath();
+
+    // Initialize Project Manager service with extension context
+    initializeProjectManagerService(context);
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
 
@@ -432,7 +288,7 @@ export async function activate(context: vscode.ExtensionContext) {
             }
 
             // C. Remove from Project Manager
-            await removeProjectFromProjectManager(item.worktreePath);
+            await removeProject(item.worktreePath);
 
             // D. Remove Worktree
             // Use baseRepoPath to ensure git worktree command works from the main repo
@@ -560,7 +416,10 @@ export async function activate(context: vscode.ExtensionContext) {
             // Ensure the project is saved in Project Manager before opening
             // This handles the edge case where a session was created before Project Manager integration
             if (baseRepoPath) {
-                await addProjectToProjectManager(item.label, item.worktreePath, baseRepoPath);
+                // Get sanitized repo name for project naming
+                const repoName = getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
+                const projectName = `${repoName}-${item.label}`;
+                await addProject(projectName, item.worktreePath, ['claude-lanes']);
             }
 
             // Open the folder in a new VS Code window
@@ -742,7 +601,10 @@ async function createSession(
             await setupStatusHooks(worktreePath);
 
             // 5b. Add worktree as a project in Project Manager
-            await addProjectToProjectManager(trimmedName, worktreePath, workspaceRoot);
+            // Get sanitized repo name for project naming
+            const repoName = getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
+            const projectName = `${repoName}-${trimmedName}`;
+            await addProject(projectName, worktreePath, ['claude-lanes']);
 
             // 6. Success
             sessionProvider.refresh();
@@ -1140,8 +1002,9 @@ export async function getBaseBranch(cwd: string): Promise<string> {
 /**
  * Called when the extension is deactivated.
  * VS Code handles cleanup of subscriptions automatically,
- * but this export is provided for explicit resource cleanup if needed.
+ * but we also clear cached references to other extensions.
  */
 export function deactivate(): void {
-    // All disposables are cleaned up via context.subscriptions
+    // Clear Project Manager cache to avoid stale references
+    clearProjectManagerCache();
 }

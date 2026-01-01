@@ -12,3 +12,6 @@ tests.json
 .claude/lanes
 .claude-session
 .claude-status
+
+# Git worktrees directory
+.worktrees/
