@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.8.0] - 2026-01-01
+
+### Added
+
+- Global storage option for session tracking files - keeps `.claude-status` and `.claude-session` files outside worktrees
+- Configurable worktrees folder location (`claudeLanes.worktreesFolder`)
+- Configurable prompts folder location (`claudeLanes.promptsFolder`)
+- Local settings file (`settings.local.json`) for hooks configuration with migration prompt from legacy format
+- Session name sanitization for valid git branch names
+
+### Changed
+
+- Reorganized extension settings into logical sections (Session Management, File Locations, Git Integration, Integrations)
+- Split test suite into 6 focused test files for better maintainability
+- Improved Project Manager integration with file-based approach and proper path resolution
+
+### Fixed
+
+- Migration dialog no longer blocks new session creation
+- Project Manager integration disabled in remote development contexts (Remote-SSH, Codespaces)
+
 ## [0.7.0] - 2025-12-31
 
 ### Added
