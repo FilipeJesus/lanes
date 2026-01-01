@@ -6,7 +6,7 @@ import { ClaudeSessionProvider, SessionItem, getSessionId } from './ClaudeSessio
 import { SessionFormProvider } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
 import { GitChangesPanel } from './GitChangesPanel';
-import { addProject, removeProject, clearCache as clearProjectManagerCache } from './ProjectManagerService';
+import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 
 /**
  * Helper to get error message from unknown error type
@@ -156,6 +156,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Initialize git path from VS Code Git Extension (with fallback to 'git')
     await initializeGitPath();
+
+    // Initialize Project Manager service with extension context
+    initializeProjectManagerService(context);
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
 

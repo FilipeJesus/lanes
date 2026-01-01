@@ -1,30 +1,58 @@
 /**
  * ProjectManagerService - Integrates with the Project Manager VS Code extension
  *
- * This service provides a clean API for interacting with the Project Manager extension
- * (ID: alefragnani.project-manager) using the VS Code extension API.
+ * This service provides functions for adding/removing projects from Project Manager
+ * (ID: alefragnani.project-manager) by directly reading/writing its projects.json file.
  *
- * Note: The Project Manager extension primarily provides commands for user interaction
- * (Save Project, Edit Project, List Projects, etc.) rather than a programmatic API.
- * This service attempts to use any exported API if available, and provides methods
- * that can be extended when/if the extension adds programmatic support.
- *
- * Available Project Manager Commands:
- * - projectManager.saveProject: Save the current folder/workspace as a new project
- * - projectManager.editProjects: Edit your projects manually (projects.json)
- * - projectManager.listProjects: List all saved/detected projects and pick one
- * - projectManager.listProjectsNewWindow: List projects and open in new window
- * - projectManager.filterProjectsByTag: Filter projects by selected tags
+ * The path to projects.json is derived from our extension's globalStorageUri, ensuring
+ * we write to the correct location regardless of the VS Code installation type.
  *
  * @see https://marketplace.visualstudio.com/items?itemName=alefragnani.project-manager
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fsPromises from 'fs/promises';
 
 /**
  * The extension ID for Project Manager by Alessandro Fragnani.
  */
 const PROJECT_MANAGER_EXTENSION_ID = 'alefragnani.project-manager';
+
+/**
+ * Cached reference to our extension's global storage path.
+ * Set during initialization.
+ */
+let globalStoragePath: string | undefined;
+
+/**
+ * Initialize the service with the extension context.
+ * Must be called during extension activation.
+ *
+ * @param context The VS Code extension context
+ */
+export function initialize(context: vscode.ExtensionContext): void {
+    // Get our extension's global storage path and derive Project Manager's path from it
+    // Our path: .../globalStorage/filipeMarquesJesus.claude-lanes
+    // PM path:  .../globalStorage/alefragnani.project-manager
+    const ourStoragePath = context.globalStorageUri.fsPath;
+    const globalStorageDir = path.dirname(ourStoragePath);
+    globalStoragePath = path.join(globalStorageDir, PROJECT_MANAGER_EXTENSION_ID);
+}
+
+/**
+ * Get the path to Project Manager's projects.json file.
+ * Uses the global storage path derived from our extension's context.
+ *
+ * @returns Path to projects.json, or undefined if not initialized
+ */
+function getProjectsFilePath(): string | undefined {
+    if (!globalStoragePath) {
+        console.warn('Claude Lanes: ProjectManagerService not initialized. Call initialize() first.');
+        return undefined;
+    }
+    return path.join(globalStoragePath, 'projects.json');
+}
 
 /**
  * Represents a project entry in Project Manager.
@@ -44,177 +72,43 @@ export interface ProjectEntry {
 }
 
 /**
- * Expected API structure exported by the Project Manager extension.
- *
- * Note: The Project Manager extension may not export a programmatic API.
- * This interface defines what we would expect if it did. If the extension
- * adds API support in the future, this interface should be updated accordingly.
- */
-export interface ProjectManagerApi {
-    /**
-     * Get all saved projects
-     */
-    getProjects?: () => Promise<ProjectEntry[]>;
-
-    /**
-     * Alternative method name for getting projects
-     */
-    listProjects?: () => Promise<ProjectEntry[]>;
-
-    /**
-     * Add or save a new project
-     */
-    addProject?: (project: Partial<ProjectEntry>) => Promise<boolean | void>;
-
-    /**
-     * Alternative method name for adding projects
-     */
-    saveProject?: (project: Partial<ProjectEntry>) => Promise<boolean | void>;
-
-    /**
-     * Delete/remove a project by path
-     */
-    deleteProject?: (rootPath: string) => Promise<boolean | void>;
-
-    /**
-     * Alternative method name for deleting projects
-     */
-    removeProject?: (rootPath: string) => Promise<boolean | void>;
-
-    /**
-     * Refresh the project list (trigger UI update)
-     */
-    refresh?: () => Promise<void> | void;
-
-    /**
-     * Any other properties the extension might export
-     */
-    [key: string]: unknown;
-}
-
-/**
- * Cached reference to the Project Manager extension
- */
-let cachedExtension: vscode.Extension<ProjectManagerApi> | undefined;
-
-/**
- * Cached reference to the activated API
- */
-let cachedApi: ProjectManagerApi | undefined;
-
-/**
  * Check if the Project Manager extension is installed.
  *
  * @returns true if the extension is installed, false otherwise
  */
 export function isProjectManagerAvailable(): boolean {
-    const extension = vscode.extensions.getExtension<ProjectManagerApi>(PROJECT_MANAGER_EXTENSION_ID);
+    const extension = vscode.extensions.getExtension(PROJECT_MANAGER_EXTENSION_ID);
     return extension !== undefined;
 }
 
 /**
- * Get the Project Manager extension instance.
- * Uses caching to avoid repeated lookups.
- *
- * @returns The extension instance or undefined if not installed
- */
-function getExtension(): vscode.Extension<ProjectManagerApi> | undefined {
-    if (cachedExtension) {
-        return cachedExtension;
-    }
-
-    cachedExtension = vscode.extensions.getExtension<ProjectManagerApi>(PROJECT_MANAGER_EXTENSION_ID);
-    return cachedExtension;
-}
-
-/**
- * Get the Project Manager API, activating the extension if needed.
- *
- * Note: The Project Manager extension may not export a programmatic API.
- * This function will return undefined if no API is available, even if the
- * extension is installed.
- *
- * @returns The Project Manager API, or undefined if not available
- */
-export async function getProjectManagerApi(): Promise<ProjectManagerApi | undefined> {
-    // Return cached API if available and extension is still active
-    if (cachedApi) {
-        const extension = getExtension();
-        if (extension?.isActive) {
-            return cachedApi;
-        }
-        // Extension was deactivated, clear cache
-        cachedApi = undefined;
-    }
-
-    const extension = getExtension();
-
-    if (!extension) {
-        console.warn('Claude Lanes: Project Manager extension is not installed. ' +
-            `Install extension '${PROJECT_MANAGER_EXTENSION_ID}' for enhanced project management.`);
-        return undefined;
-    }
-
-    try {
-        // Activate the extension if not already active
-        if (!extension.isActive) {
-            console.log('Claude Lanes: Activating Project Manager extension...');
-            await extension.activate();
-        }
-
-        // Get the exported API
-        const api = extension.exports;
-
-        // Check if there's actually an API exported
-        if (!api || (typeof api === 'object' && Object.keys(api).length === 0)) {
-            console.warn('Claude Lanes: Project Manager extension does not export a programmatic API. ' +
-                'Project management features may be limited.');
-            return undefined;
-        }
-
-        // Cache the API for future use
-        cachedApi = api;
-        return api;
-
-    } catch (err) {
-        console.error('Claude Lanes: Failed to activate Project Manager extension:', err);
-        return undefined;
-    }
-}
-
-/**
  * Get all projects from Project Manager.
+ * Reads directly from projects.json file.
  *
  * @returns Array of projects, or empty array if not available
  */
 export async function getProjects(): Promise<ProjectEntry[]> {
-    const api = await getProjectManagerApi();
-
-    if (!api) {
+    const projectsPath = getProjectsFilePath();
+    if (!projectsPath) {
         return [];
     }
 
     try {
-        // Try different method names that the API might use
-        if (typeof api.getProjects === 'function') {
-            return await api.getProjects();
+        const content = await fsPromises.readFile(projectsPath, 'utf-8');
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+            return parsed;
         }
-
-        if (typeof api.listProjects === 'function') {
-            return await api.listProjects();
-        }
-
-        console.warn('Claude Lanes: Project Manager API does not have a getProjects or listProjects method.');
         return [];
-
-    } catch (err) {
-        console.error('Claude Lanes: Failed to get projects from Project Manager:', err);
+    } catch {
+        // File doesn't exist or is invalid - return empty array
         return [];
     }
 }
 
 /**
  * Add a project to Project Manager.
+ * Writes directly to projects.json file using atomic writes.
  *
  * @param name Display name for the project
  * @param rootPath Absolute path to the project root
@@ -237,47 +131,49 @@ export async function addProject(
         return false;
     }
 
-    const api = await getProjectManagerApi();
-
-    if (!api) {
+    const projectsPath = getProjectsFilePath();
+    if (!projectsPath) {
         return false;
     }
 
-    const project: Partial<ProjectEntry> = {
-        name,
-        rootPath,
-        enabled: true,
-        tags: tags || ['claude-lanes']
-    };
-
     try {
-        // Try different method names that the API might use
-        if (typeof api.addProject === 'function') {
-            const result = await api.addProject(project);
-            // If the method returns void, assume success
-            if (result === undefined) {
-                // Trigger a refresh if available to update the UI
-                if (typeof api.refresh === 'function') {
-                    await api.refresh();
-                }
-                return true;
+        // Read existing projects
+        let projects: ProjectEntry[] = [];
+        try {
+            const content = await fsPromises.readFile(projectsPath, 'utf-8');
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) {
+                projects = parsed;
             }
-            return !!result;
+        } catch {
+            // File doesn't exist or is invalid - start with empty array
         }
 
-        if (typeof api.saveProject === 'function') {
-            const result = await api.saveProject(project);
-            if (result === undefined) {
-                if (typeof api.refresh === 'function') {
-                    await api.refresh();
-                }
-                return true;
-            }
-            return !!result;
+        // Check if project already exists (by path)
+        const existingIndex = projects.findIndex(p => p.rootPath === rootPath);
+        if (existingIndex >= 0) {
+            // Update existing project
+            projects[existingIndex].name = name;
+            projects[existingIndex].tags = tags || ['claude-lanes'];
+        } else {
+            // Add new project
+            projects.push({
+                name,
+                rootPath,
+                enabled: true,
+                tags: tags || ['claude-lanes']
+            });
         }
 
-        console.warn('Claude Lanes: Project Manager API does not have an addProject or saveProject method.');
-        return false;
+        // Ensure directory exists
+        await fsPromises.mkdir(path.dirname(projectsPath), { recursive: true });
+
+        // Write back atomically (write to temp, then rename)
+        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
+        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
+        await fsPromises.rename(tempPath, projectsPath);
+
+        return true;
 
     } catch (err) {
         console.error('Claude Lanes: Failed to add project to Project Manager:', err);
@@ -287,6 +183,7 @@ export async function addProject(
 
 /**
  * Remove a project from Project Manager by its root path.
+ * Writes directly to projects.json file using atomic writes.
  *
  * @param rootPath Absolute path to the project root
  * @returns true if the project was removed successfully, false otherwise
@@ -298,52 +195,41 @@ export async function removeProject(rootPath: string): Promise<boolean> {
         return false;
     }
 
-    const api = await getProjectManagerApi();
-
-    if (!api) {
+    const projectsPath = getProjectsFilePath();
+    if (!projectsPath) {
         return false;
     }
 
     try {
-        // Try different method names that the API might use
-        if (typeof api.deleteProject === 'function') {
-            const result = await api.deleteProject(rootPath);
-            if (result === undefined) {
-                if (typeof api.refresh === 'function') {
-                    await api.refresh();
-                }
-                return true;
-            }
-            return !!result;
+        const content = await fsPromises.readFile(projectsPath, 'utf-8');
+        const parsed = JSON.parse(content);
+
+        if (!Array.isArray(parsed)) {
+            return false;
         }
 
-        if (typeof api.removeProject === 'function') {
-            const result = await api.removeProject(rootPath);
-            if (result === undefined) {
-                if (typeof api.refresh === 'function') {
-                    await api.refresh();
-                }
-                return true;
-            }
-            return !!result;
-        }
+        // Remove the project with this path
+        const projects = parsed.filter((p: ProjectEntry) => p.rootPath !== rootPath);
 
-        console.warn('Claude Lanes: Project Manager API does not have a deleteProject or removeProject method.');
-        return false;
+        // Write back atomically (write to temp, then rename)
+        const tempPath = `${projectsPath}.${Date.now()}.tmp`;
+        await fsPromises.writeFile(tempPath, JSON.stringify(projects, null, 4), 'utf-8');
+        await fsPromises.rename(tempPath, projectsPath);
 
-    } catch (err) {
-        console.error('Claude Lanes: Failed to remove project from Project Manager:', err);
+        return true;
+
+    } catch {
+        // Ignore errors - project may not exist
         return false;
     }
 }
 
 /**
- * Clear the cached extension and API references.
+ * Clear the cached global storage path.
  * Useful for testing or when the extension is reinstalled/updated.
  */
 export function clearCache(): void {
-    cachedExtension = undefined;
-    cachedApi = undefined;
+    globalStoragePath = undefined;
 }
 
 /**

@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData, getFeaturesJsonPath, getTestsJsonPath, getClaudeSessionPath, getClaudeStatusPath } from '../ClaudeSessionProvider';
-import { isProjectManagerAvailable, getProjectManagerApi, getProjects, addProject, removeProject, clearCache, getExtensionId } from '../ProjectManagerService';
+import { isProjectManagerAvailable, getProjects, addProject, removeProject, clearCache, getExtensionId, initialize as initializePMService } from '../ProjectManagerService';
 import { SessionFormProvider } from '../SessionFormProvider';
 import { combinePromptAndCriteria, branchExists, getBranchesInWorktrees, getBaseBranch, getBaseRepoPath, getRepoName } from '../extension';
 import { parseDiff, GitChangesPanel, FileDiff, ReviewComment, formatReviewForClipboard } from '../GitChangesPanel';
@@ -4080,57 +4080,6 @@ index 7654321..gfedcba 100644
 			});
 		});
 
-		suite('getProjectManagerApi', () => {
-
-			test('should return undefined or API object without throwing', async () => {
-				// Given: The function is called
-				// When: getProjectManagerApi is invoked
-				const result = await getProjectManagerApi();
-
-				// Then: It should return undefined (if not installed) or an API object (if installed)
-				assert.ok(result === undefined || typeof result === 'object');
-			});
-
-			test('should return undefined when extension is not installed', async () => {
-				// Given: Project Manager extension is not installed in test environment
-				// When: getProjectManagerApi is called
-				const result = await getProjectManagerApi();
-
-				// Then: It should return undefined gracefully without throwing
-				// Note: In test environment, the extension is typically not installed
-				if (!isProjectManagerAvailable()) {
-					assert.strictEqual(result, undefined);
-				}
-			});
-
-			test('should be safe to call multiple times', async () => {
-				// Given: The function uses caching
-				// When: Called multiple times
-				// Then: Should return consistent results and use cache properly
-				const result1 = await getProjectManagerApi();
-				const result2 = await getProjectManagerApi();
-
-				// Both should be the same (either both undefined or both the same API object)
-				assert.strictEqual(result1, result2);
-			});
-
-			test('should not throw when extension activation fails', async () => {
-				// Given: Extension is not installed
-				// When: getProjectManagerApi is called
-				// Then: Should handle gracefully without throwing
-				let error: Error | undefined;
-				let result: unknown;
-				try {
-					result = await getProjectManagerApi();
-				} catch (err) {
-					error = err as Error;
-				}
-
-				assert.strictEqual(error, undefined, 'Should not throw an error');
-				assert.ok(result === undefined || typeof result === 'object');
-			});
-		});
-
 		suite('getProjects', () => {
 
 			test('should return an array', async () => {
@@ -4284,12 +4233,6 @@ index 7654321..gfedcba 100644
 				}
 
 				try {
-					await getProjectManagerApi();
-				} catch (err) {
-					errors.push(`getProjectManagerApi: ${err}`);
-				}
-
-				try {
 					await getProjects();
 				} catch (err) {
 					errors.push(`getProjects: ${err}`);
@@ -4330,33 +4273,27 @@ index 7654321..gfedcba 100644
 				assert.strictEqual(extensionId, 'alefragnani.project-manager');
 			});
 
-			test('service should return appropriate fallback values when extension is unavailable', async () => {
-				// Given: Extension is not installed
+			test('service should return appropriate fallback values when not initialized', async () => {
+				// Given: Service is not initialized (no context)
 				clearCache();
 
-				// When: All getter methods are called
-				const isAvailable = isProjectManagerAvailable();
-				const api = await getProjectManagerApi();
+				// When: All methods are called without initialization
 				const projects = await getProjects();
 				const addResult = await addProject('test', '/path');
 				const removeResult = await removeProject('/path');
 
 				// Then: Each should return its appropriate fallback value
-				if (!isAvailable) {
-					assert.strictEqual(api, undefined, 'API should be undefined when extension not installed');
-					assert.deepStrictEqual(projects, [], 'Projects should be empty array when extension not installed');
-					assert.strictEqual(addResult, false, 'addProject should return false when extension not installed');
-					assert.strictEqual(removeResult, false, 'removeProject should return false when extension not installed');
-				}
+				assert.deepStrictEqual(projects, [], 'Projects should be empty array when not initialized');
+				assert.strictEqual(addResult, false, 'addProject should return false when not initialized');
+				assert.strictEqual(removeResult, false, 'removeProject should return false when not initialized');
 			});
 
 			test('service operations should complete within reasonable time', async () => {
-				// Given: Extension is not available
+				// Given: Service is not initialized
 				// When: Operations are performed
 				// Then: They should complete quickly (not hang)
 				const startTime = Date.now();
 
-				await getProjectManagerApi();
 				await getProjects();
 				await addProject('test', '/path');
 				await removeProject('/path');
