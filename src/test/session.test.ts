@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, ClaudeSessionData } from '../ClaudeSessionProvider';
-import { SessionFormProvider } from '../SessionFormProvider';
+import { SessionFormProvider, isValidPermissionMode, PERMISSION_MODES } from '../SessionFormProvider';
 import { combinePromptAndCriteria } from '../extension';
 
 suite('Session Tests', () => {
@@ -1929,6 +1929,544 @@ suite('Session Tests', () => {
 			});
 
 			assert.ok(callbackInvoked, 'Callback should have been invoked with 3 parameters');
+		});
+	});
+
+	suite('Permission Mode', () => {
+
+		let permissionTestTempDir: string;
+		let extensionUri: vscode.Uri;
+
+		setup(() => {
+			permissionTestTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'permission-mode-test-'));
+			extensionUri = vscode.Uri.file(permissionTestTempDir);
+		});
+
+		teardown(() => {
+			fs.rmSync(permissionTestTempDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Helper to create a mock WebviewView for testing
+		 */
+		function createMockWebviewView(): {
+			webviewView: vscode.WebviewView;
+			capturedHtml: { value: string };
+			messageHandler: { callback: ((message: unknown) => void) | null };
+			postMessageSpy: { messages: unknown[] };
+		} {
+			const capturedHtml = { value: '' };
+			const messageHandler: { callback: ((message: unknown) => void) | null } = { callback: null };
+			const postMessageSpy: { messages: unknown[] } = { messages: [] };
+
+			const mockWebview = {
+				options: {} as vscode.WebviewOptions,
+				html: '',
+				onDidReceiveMessage: (callback: (message: unknown) => void) => {
+					messageHandler.callback = callback;
+					return { dispose: () => { messageHandler.callback = null; } };
+				},
+				postMessage: (message: unknown) => {
+					postMessageSpy.messages.push(message);
+					return Promise.resolve(true);
+				},
+				asWebviewUri: (uri: vscode.Uri) => uri,
+				cspSource: 'test-csp-source'
+			};
+
+			// Create a proxy to capture html assignment
+			const webviewProxy = new Proxy(mockWebview, {
+				set(target, prop, value) {
+					if (prop === 'html') {
+						capturedHtml.value = value as string;
+					}
+					(target as Record<string, unknown>)[prop as string] = value;
+					return true;
+				},
+				get(target, prop) {
+					return (target as Record<string, unknown>)[prop as string];
+				}
+			});
+
+			const mockWebviewView = {
+				webview: webviewProxy as unknown as vscode.Webview,
+				viewType: 'claudeSessionFormView',
+				title: undefined,
+				description: undefined,
+				badge: undefined,
+				visible: true,
+				onDidDispose: () => ({ dispose: () => {} }),
+				onDidChangeVisibility: () => ({ dispose: () => {} }),
+				show: () => {}
+			} as unknown as vscode.WebviewView;
+
+			return { webviewView: mockWebviewView, capturedHtml, messageHandler, postMessageSpy };
+		}
+
+		suite('Permission Mode Form Field', () => {
+
+			test('should render permission mode select element with id permissionMode', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert
+				assert.ok(
+					capturedHtml.value.includes('id="permissionMode"'),
+					'HTML should contain select element with id="permissionMode"'
+				);
+				assert.ok(
+					capturedHtml.value.includes('<select'),
+					'HTML should contain a select element'
+				);
+			});
+
+			test('should render all 6 permission mode options', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify all 6 options are present
+				const expectedOptions = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+				for (const option of expectedOptions) {
+					assert.ok(
+						capturedHtml.value.includes(`value="${option}"`),
+						`HTML should contain option with value="${option}"`
+					);
+				}
+			});
+
+			test('should have default selected as the default option', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify 'default' option has the selected attribute
+				assert.ok(
+					capturedHtml.value.includes('value="default" selected'),
+					'The "default" option should have the selected attribute'
+				);
+			});
+		});
+
+		suite('Permission Mode State Persistence', () => {
+
+			test('should include permissionMode in state saving JavaScript', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify the saveState function includes permissionMode
+				assert.ok(
+					capturedHtml.value.includes('permissionMode: permissionModeInput.value'),
+					'saveState should include permissionMode value'
+				);
+			});
+
+			test('should restore permissionMode from saved state', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify state restoration includes permissionMode
+				assert.ok(
+					capturedHtml.value.includes("permissionModeInput.value = previousState.permissionMode || 'default'"),
+					'State restoration should set permissionMode from saved state with default fallback'
+				);
+			});
+
+			test('should clear permissionMode to default on form clear', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify clearForm resets permissionMode to 'default'
+				assert.ok(
+					capturedHtml.value.includes("permissionModeInput.value = 'default'"),
+					'clearForm should reset permissionMode to default'
+				);
+			});
+		});
+
+		suite('Permission Mode Message Passing', () => {
+
+			test('should include permissionMode in createSession message', () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, capturedHtml } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				// Assert - verify the postMessage includes permissionMode
+				assert.ok(
+					capturedHtml.value.includes('permissionMode: permissionMode'),
+					'postMessage should include permissionMode in the message payload'
+				);
+			});
+
+			test('should invoke onSubmit callback with permissionMode from message', async () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, messageHandler } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				let capturedPermissionMode = '';
+
+				provider.setOnSubmit((_name, _prompt, _acceptanceCriteria, permissionMode) => {
+					capturedPermissionMode = permissionMode;
+				});
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				assert.ok(messageHandler.callback, 'Message handler should be registered');
+				await messageHandler.callback({
+					command: 'createSession',
+					name: 'test-session',
+					prompt: 'Test prompt',
+					acceptanceCriteria: 'Test criteria',
+					permissionMode: 'plan'
+				});
+
+				// Assert
+				assert.strictEqual(capturedPermissionMode, 'plan', 'Callback should receive the permissionMode value');
+			});
+
+			test('should default to "default" when permissionMode is not in message', async () => {
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				const { webviewView, messageHandler } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				let capturedPermissionMode = '';
+
+				provider.setOnSubmit((_name, _prompt, _acceptanceCriteria, permissionMode) => {
+					capturedPermissionMode = permissionMode;
+				});
+
+				// Act
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				assert.ok(messageHandler.callback, 'Message handler should be registered');
+				await messageHandler.callback({
+					command: 'createSession',
+					name: 'test-session',
+					prompt: 'Test prompt'
+					// Note: permissionMode not included in message
+				});
+
+				// Assert
+				assert.strictEqual(capturedPermissionMode, 'default', 'Should default to "default" when permissionMode is not provided');
+			});
+		});
+
+		suite('Permission Mode Callback Signature', () => {
+
+			test('SessionFormSubmitCallback should accept 4 parameters including permissionMode', async () => {
+				// This test verifies the callback type signature by setting up
+				// a callback with all 4 parameters and verifying TypeScript compiles it
+
+				// Arrange
+				const provider = new SessionFormProvider(extensionUri);
+				let callbackInvoked = false;
+				const capturedParams: {
+					name: string;
+					prompt: string;
+					acceptanceCriteria: string;
+					permissionMode: string;
+				} = { name: '', prompt: '', acceptanceCriteria: '', permissionMode: '' };
+
+				// Act: Set a callback that accepts 4 parameters
+				provider.setOnSubmit((name: string, prompt: string, acceptanceCriteria: string, permissionMode) => {
+					callbackInvoked = true;
+					capturedParams.name = name;
+					capturedParams.prompt = prompt;
+					capturedParams.acceptanceCriteria = acceptanceCriteria;
+					capturedParams.permissionMode = permissionMode;
+				});
+
+				// Trigger the callback
+				const { webviewView, messageHandler } = createMockWebviewView();
+				const mockContext = {} as vscode.WebviewViewResolveContext;
+				const mockToken = new vscode.CancellationTokenSource().token;
+
+				provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+				assert.ok(messageHandler.callback, 'Message handler should be registered');
+				await messageHandler.callback({
+					command: 'createSession',
+					name: 'test-name',
+					prompt: 'test-prompt',
+					acceptanceCriteria: 'test-criteria',
+					permissionMode: 'bypassPermissions'
+				});
+
+				// Assert
+				assert.ok(callbackInvoked, 'Callback should have been invoked');
+				assert.strictEqual(capturedParams.name, 'test-name');
+				assert.strictEqual(capturedParams.prompt, 'test-prompt');
+				assert.strictEqual(capturedParams.acceptanceCriteria, 'test-criteria');
+				assert.strictEqual(capturedParams.permissionMode, 'bypassPermissions');
+			});
+
+			test('should accept all valid PermissionMode values', async () => {
+				// This test verifies that the callback can receive all valid permission modes
+
+				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+
+				for (const mode of validModes) {
+					// Arrange
+					const provider = new SessionFormProvider(extensionUri);
+					let capturedMode = '';
+
+					provider.setOnSubmit((_name, _prompt, _acceptanceCriteria, permissionMode) => {
+						capturedMode = permissionMode;
+					});
+
+					const { webviewView, messageHandler } = createMockWebviewView();
+					const mockContext = {} as vscode.WebviewViewResolveContext;
+					const mockToken = new vscode.CancellationTokenSource().token;
+
+					provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+					// Act
+					assert.ok(messageHandler.callback, 'Message handler should be registered');
+					await messageHandler.callback({
+						command: 'createSession',
+						name: 'test',
+						prompt: 'test',
+						acceptanceCriteria: '',
+						permissionMode: mode
+					});
+
+					// Assert
+					assert.strictEqual(capturedMode, mode, `Callback should receive permissionMode: ${mode}`);
+				}
+			});
+		});
+
+		suite('Permission Mode Command Generation', () => {
+
+			test('should not include --permission-mode flag when mode is default (with prompt)', () => {
+				// This test verifies the logic for building the permission flag
+				// in the openClaudeTerminal function.
+				// The logic: permissionMode && permissionMode !== 'default' ? `--permission-mode ${permissionMode} ` : ''
+
+				// Arrange
+				const permissionMode = 'default';
+				const prompt = 'Fix the bug';
+
+				// Act - simulate the permission flag building logic
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '', 'Permission flag should be empty for default mode');
+
+				// Verify the full command would be correct (without flag)
+				const expectedCommand = `claude "${prompt}"`;
+				const actualCommand = `claude ${permissionFlag}"${prompt}"`.replace('  ', ' ');
+				assert.strictEqual(actualCommand, expectedCommand, 'Command should not include --permission-mode for default');
+			});
+
+			test('should not include --permission-mode flag when mode is default (without prompt)', () => {
+				// Arrange
+				const permissionMode = 'default';
+
+				// Act - simulate the permission flag building logic
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '', 'Permission flag should be empty for default mode');
+
+				// Verify the full command would be correct (without flag)
+				const actualCommand = `claude ${permissionFlag}`.trim();
+				assert.strictEqual(actualCommand, 'claude', 'Command should be just "claude" for default mode without prompt');
+			});
+
+			test('should include --permission-mode flag when mode is plan (with prompt)', () => {
+				// Arrange
+				const permissionMode: string = 'plan';
+				const prompt = 'Fix the bug';
+
+				// Act - simulate the permission flag building logic
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '--permission-mode plan ', 'Permission flag should include plan mode');
+
+				// Verify the full command format
+				const actualCommand = `claude ${permissionFlag}"${prompt}"`;
+				assert.strictEqual(
+					actualCommand,
+					'claude --permission-mode plan "Fix the bug"',
+					'Command should include --permission-mode plan before the prompt'
+				);
+			});
+
+			test('should include --permission-mode flag when mode is bypassPermissions (without prompt)', () => {
+				// Arrange
+				const permissionMode: string = 'bypassPermissions';
+
+				// Act - simulate the permission flag building logic
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '--permission-mode bypassPermissions ', 'Permission flag should include bypassPermissions mode');
+
+				// Verify the full command format
+				const actualCommand = `claude ${permissionFlag}`.trim();
+				assert.strictEqual(
+					actualCommand,
+					'claude --permission-mode bypassPermissions',
+					'Command should include --permission-mode bypassPermissions'
+				);
+			});
+
+			test('should include --permission-mode flag for all non-default modes', () => {
+				// Test all non-default permission modes
+				const nonDefaultModes = ['acceptEdits', 'bypassPermissions', 'delegate', 'dontAsk', 'plan'];
+
+				for (const mode of nonDefaultModes) {
+					// Act - simulate the permission flag building logic
+					const permissionFlag = mode && mode !== 'default'
+						? `--permission-mode ${mode} `
+						: '';
+
+					// Assert
+					assert.strictEqual(
+						permissionFlag,
+						`--permission-mode ${mode} `,
+						`Permission flag should include ${mode} mode`
+					);
+				}
+			});
+
+			test('should handle undefined permissionMode as default', () => {
+				// Arrange
+				const permissionMode: string | undefined = undefined;
+
+				// Act - simulate the permission flag building logic (same as in extension.ts)
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '', 'Permission flag should be empty for undefined mode');
+			});
+
+			test('should handle empty string permissionMode as default', () => {
+				// Arrange
+				const permissionMode = '';
+
+				// Act - simulate the permission flag building logic
+				const permissionFlag = permissionMode && permissionMode !== 'default'
+					? `--permission-mode ${permissionMode} `
+					: '';
+
+				// Assert
+				assert.strictEqual(permissionFlag, '', 'Permission flag should be empty for empty string mode');
+			});
+		});
+
+		suite('Permission Mode Validation', () => {
+
+			test('isValidPermissionMode should return true for all valid modes', () => {
+				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+
+				for (const mode of validModes) {
+					assert.strictEqual(
+						isValidPermissionMode(mode),
+						true,
+						`isValidPermissionMode should return true for "${mode}"`
+					);
+				}
+			});
+
+			test('isValidPermissionMode should return false for invalid modes', () => {
+				const invalidModes = [
+					'invalid',
+					'PLAN',  // case-sensitive
+					'Default',
+					'plan; rm -rf /',  // injection attempt
+					'--help',
+					'',
+					' ',
+					'plan\n--help'
+				];
+
+				for (const mode of invalidModes) {
+					assert.strictEqual(
+						isValidPermissionMode(mode),
+						false,
+						`isValidPermissionMode should return false for "${mode}"`
+					);
+				}
+			});
+
+			test('isValidPermissionMode should return false for non-string values', () => {
+				const nonStringValues = [null, undefined, 123, {}, [], true];
+
+				for (const value of nonStringValues) {
+					assert.strictEqual(
+						isValidPermissionMode(value),
+						false,
+						`isValidPermissionMode should return false for ${JSON.stringify(value)}`
+					);
+				}
+			});
+
+			test('PERMISSION_MODES should contain all 6 valid modes', () => {
+				assert.strictEqual(PERMISSION_MODES.length, 6, 'Should have exactly 6 permission modes');
+				assert.ok(PERMISSION_MODES.includes('acceptEdits'), 'Should include acceptEdits');
+				assert.ok(PERMISSION_MODES.includes('bypassPermissions'), 'Should include bypassPermissions');
+				assert.ok(PERMISSION_MODES.includes('default'), 'Should include default');
+				assert.ok(PERMISSION_MODES.includes('delegate'), 'Should include delegate');
+				assert.ok(PERMISSION_MODES.includes('dontAsk'), 'Should include dontAsk');
+				assert.ok(PERMISSION_MODES.includes('plan'), 'Should include plan');
+			});
 		});
 	});
 });

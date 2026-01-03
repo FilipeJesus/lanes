@@ -12,7 +12,7 @@ import {
     getRepoIdentifier,
     getWorktreesFolder
 } from './ClaudeSessionProvider';
-import { SessionFormProvider } from './SessionFormProvider';
+import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
 import { GitChangesPanel } from './GitChangesPanel';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
@@ -304,8 +304,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Handle form submission - creates a new session with optional prompt and acceptance criteria
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string) => {
-        await createSession(name, prompt, acceptanceCriteria, sourceBranch, baseRepoPath, sessionProvider);
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, permissionMode: PermissionMode, sourceBranch: string) => {
+        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, baseRepoPath, sessionProvider);
     });
 
     // Watch for .claude-status file changes to refresh the sidebar
@@ -460,7 +460,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Use the shared createSession function (no prompt, acceptance criteria, or source branch when using command palette)
         // Use baseRepoPath to create sessions in the main repo even when in a worktree
-        await createSession(name, '', '', '', baseRepoPath, sessionProvider);
+        await createSession(name, '', '', 'default', '', baseRepoPath, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -753,6 +753,7 @@ async function createSession(
     name: string,
     prompt: string,
     acceptanceCriteria: string,
+    permissionMode: PermissionMode,
     sourceBranch: string,
     workspaceRoot: string | undefined,
     sessionProvider: ClaudeSessionProvider
@@ -944,7 +945,7 @@ async function createSession(
 
             // 6. Success
             sessionProvider.refresh();
-            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria);
+            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode);
             vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
 
             // Exit the loop on success
@@ -979,7 +980,7 @@ export function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: s
 }
 
 // THE CORE FUNCTION: Manages the Terminal Tabs
-async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string): Promise<void> {
+async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode): Promise<void> {
     const terminalName = `Claude: ${taskName}`;
 
     // A. Check if this terminal already exists to avoid duplicates
@@ -1009,6 +1010,13 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
         // Resume existing session
         terminal.sendText(`claude --resume ${sessionData.sessionId}`);
     } else {
+        // Build the permission mode flag if not using default
+        // Validate permissionMode to prevent command injection from untrusted webview input
+        const validatedMode = isValidPermissionMode(permissionMode) ? permissionMode : 'default';
+        const permissionFlag = validatedMode !== 'default'
+            ? `--permission-mode ${validatedMode} `
+            : '';
+
         // Combine prompt and acceptance criteria
         const combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
         if (combinedPrompt) {
@@ -1021,10 +1029,10 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
             const promptFilePath = path.join(lanesDir, `${taskName}.txt`);
             await fsPromises.writeFile(promptFilePath, combinedPrompt, 'utf-8');
             // Pass prompt file content as argument using command substitution
-            terminal.sendText(`claude "$(cat "${promptFilePath}")"`);
+            terminal.sendText(`claude ${permissionFlag}"$(cat "${promptFilePath}")"`);
         } else {
             // Start new session without prompt
-            terminal.sendText("claude");
+            terminal.sendText(`claude ${permissionFlag}`.trim());
         }
     }
 }

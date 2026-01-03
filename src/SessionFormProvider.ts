@@ -1,10 +1,25 @@
 import * as vscode from 'vscode';
 
 /**
+ * Valid permission modes for Claude CLI
+ */
+export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'] as const;
+export type PermissionMode = typeof PERMISSION_MODES[number];
+
+/**
+ * Validates that a string is a valid PermissionMode.
+ * Used to prevent command injection from untrusted input.
+ */
+export function isValidPermissionMode(mode: unknown): mode is PermissionMode {
+    return typeof mode === 'string' && PERMISSION_MODES.includes(mode as PermissionMode);
+}
+
+/**
  * Callback type for when the session form is submitted.
  * Can be async - the form will wait for completion before clearing.
  */
-export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string) => void | Promise<void>;
+
+export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode) => void | Promise<void>;
 
 /**
  * Provides a webview form for creating new Claude sessions.
@@ -64,7 +79,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     if (this._onSubmit) {
                         try {
                             // Await the callback to ensure session creation completes before clearing form
-                            await this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '', message.sourceBranch || '');
+                            await this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '', message.permissionMode || 'default', message.sourceBranch || '');
                         } catch (err) {
                             // Error is already shown by createSession, but log for debugging
                             console.error('Claude Lanes: Session creation failed:', err);
@@ -118,7 +133,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         }
 
         input[type="text"],
-        textarea {
+        textarea,
+        select {
             width: 100%;
             padding: 6px 8px;
             border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
@@ -130,7 +146,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         }
 
         input[type="text"]:focus,
-        textarea:focus {
+        textarea:focus,
+        select:focus {
             outline: 1px solid var(--vscode-focusBorder);
             border-color: var(--vscode-focusBorder);
         }
@@ -225,6 +242,19 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             <div class="hint">Criteria for Claude to meet</div>
         </div>
 
+        <div class="form-group">
+            <label for="permissionMode">Permission Mode</label>
+            <select id="permissionMode" name="permissionMode">
+                <option value="default" selected>default</option>
+                <option value="acceptEdits">acceptEdits</option>
+                <option value="bypassPermissions">bypassPermissions</option>
+                <option value="delegate">delegate</option>
+                <option value="dontAsk">dontAsk</option>
+                <option value="plan">plan</option>
+            </select>
+            <div class="hint">Controls Claude's permission behavior</div>
+        </div>
+
         <button type="submit" id="submitBtn">Create Session</button>
     </form>
 
@@ -235,6 +265,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const sourceBranchInput = document.getElementById('sourceBranch');
         const promptInput = document.getElementById('prompt');
         const acceptanceCriteriaInput = document.getElementById('acceptanceCriteria');
+        const permissionModeInput = document.getElementById('permissionMode');
 
         // Restore saved state when webview is recreated
         const previousState = vscode.getState();
@@ -243,6 +274,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             sourceBranchInput.value = previousState.sourceBranch || '';
             promptInput.value = previousState.prompt || '';
             acceptanceCriteriaInput.value = previousState.acceptanceCriteria || '';
+            permissionModeInput.value = previousState.permissionMode || 'default';
         }
 
         // Save state whenever form values change
@@ -251,7 +283,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 name: nameInput.value,
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
-                acceptanceCriteria: acceptanceCriteriaInput.value
+                acceptanceCriteria: acceptanceCriteriaInput.value,
+                permissionMode: permissionModeInput.value
             });
         }
 
@@ -260,6 +293,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         sourceBranchInput.addEventListener('input', saveState);
         promptInput.addEventListener('input', saveState);
         acceptanceCriteriaInput.addEventListener('input', saveState);
+        permissionModeInput.addEventListener('change', saveState);
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -268,6 +302,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             const sourceBranch = sourceBranchInput.value.trim();
             const prompt = promptInput.value.trim();
             const acceptanceCriteria = acceptanceCriteriaInput.value.trim();
+            const permissionMode = permissionModeInput.value;
 
             if (!name) {
                 nameInput.focus();
@@ -276,11 +311,13 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
             // Send message to extension
             vscode.postMessage({
-                command: 'createSession',
+                command: '
+                ',
                 name: name,
                 sourceBranch: sourceBranch,
                 prompt: prompt,
-                acceptanceCriteria: acceptanceCriteria
+                acceptanceCriteria: acceptanceCriteria,
+                permissionMode: permissionMode
             });
         });
 
@@ -293,12 +330,14 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     sourceBranchInput.value = '';
                     promptInput.value = '';
                     acceptanceCriteriaInput.value = '';
+                    permissionModeInput.value = 'default';
                     // Clear saved state after successful submission
                     vscode.setState({
                         name: '',
                         sourceBranch: '',
                         prompt: '',
-                        acceptanceCriteria: ''
+                        acceptanceCriteria: '',
+                        permissionMode: 'default'
                     });
                     nameInput.focus();
                     break;
