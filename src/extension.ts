@@ -560,7 +560,79 @@ export async function activate(context: vscode.ExtensionContext) {
             const diffArgs = includeUncommitted
                 ? ['diff', baseBranch]  // Compare base branch to working directory
                 : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
-            const diffContent = await execGit(diffArgs, item.worktreePath);
+            let diffContent = await execGit(diffArgs, item.worktreePath);
+
+            // If including uncommitted changes, also get untracked files
+            if (includeUncommitted) {
+                try {
+                    // git status --porcelain respects .gitignore by default
+                    const statusOutput = await execGit(['status', '--porcelain'], item.worktreePath);
+                    const untrackedFiles = parseUntrackedFiles(statusOutput);
+
+                    // Process each untracked file
+                    const untrackedDiffs: string[] = [];
+                    for (const filePath of untrackedFiles) {
+                        try {
+                            const fullPath = path.join(item.worktreePath, filePath);
+
+                            // Skip directories (git status can list directories with trailing /)
+                            if (filePath.endsWith('/')) {
+                                continue;
+                            }
+
+                            // Check if it's a file (not a directory) and not too large
+                            const stat = await fsPromises.stat(fullPath);
+                            if (!stat.isFile()) {
+                                continue;
+                            }
+
+                            // Skip very large files to avoid memory issues (5MB limit)
+                            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+                            if (stat.size > MAX_FILE_SIZE) {
+                                untrackedDiffs.push([
+                                    `diff --git a/${filePath} b/${filePath}`,
+                                    'new file mode 100644',
+                                    `File too large (${Math.round(stat.size / 1024 / 1024)}MB)`
+                                ].join('\n'));
+                                continue;
+                            }
+
+                            // Read file content
+                            const content = await fsPromises.readFile(fullPath, 'utf-8');
+
+                            // Skip binary files
+                            if (isBinaryContent(content)) {
+                                // Add a placeholder for binary files
+                                untrackedDiffs.push([
+                                    `diff --git a/${filePath} b/${filePath}`,
+                                    'new file mode 100644',
+                                    'Binary file'
+                                ].join('\n'));
+                                continue;
+                            }
+
+                            // Synthesize diff for the untracked file
+                            const synthesizedDiff = synthesizeUntrackedFileDiff(filePath, content);
+                            untrackedDiffs.push(synthesizedDiff);
+                        } catch (fileErr) {
+                            // Skip files that can't be read (permissions, etc.)
+                            console.warn(`Claude Lanes: Could not read untracked file ${filePath}:`, getErrorMessage(fileErr));
+                        }
+                    }
+
+                    // Append untracked file diffs to the main diff
+                    if (untrackedDiffs.length > 0) {
+                        if (diffContent && diffContent.trim() !== '') {
+                            diffContent = diffContent + '\n' + untrackedDiffs.join('\n');
+                        } else {
+                            diffContent = untrackedDiffs.join('\n');
+                        }
+                    }
+                } catch (statusErr) {
+                    // If git status fails, continue with just the diff
+                    console.warn('Claude Lanes: Could not get untracked files:', getErrorMessage(statusErr));
+                }
+            }
 
             // Check if there are any changes
             if (!diffContent || diffContent.trim() === '') {
@@ -1362,6 +1434,94 @@ async function setupStatusHooks(worktreePath: string, isNewSession: boolean = fa
     // Write updated settings atomically (write to temp, then rename)
     await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
     await fsPromises.rename(tempPath, targetPath);
+}
+
+/**
+ * Parse untracked files from git status --porcelain output.
+ * Untracked files are indicated by '??' prefix.
+ * @param statusOutput The raw output from git status --porcelain
+ * @returns Array of file paths for untracked files
+ */
+export function parseUntrackedFiles(statusOutput: string): string[] {
+    const files: string[] = [];
+    const lines = statusOutput.split('\n');
+
+    for (const line of lines) {
+        // Untracked files start with '?? '
+        if (line.startsWith('?? ')) {
+            // Extract the file path (everything after '?? ')
+            const filePath = line.substring(3).trim();
+            // Handle quoted paths (git uses C-style escaping for paths with special characters)
+            const unquotedPath = filePath.startsWith('"') && filePath.endsWith('"')
+                ? filePath.slice(1, -1)
+                    .replace(/\\"/g, '"')
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\t/g, '\t')
+                    .replace(/\\\\/g, '\\')  // Must be last to avoid double-unescaping
+                : filePath;
+            if (unquotedPath) {
+                files.push(unquotedPath);
+            }
+        }
+    }
+
+    return files;
+}
+
+/**
+ * Check if content appears to be binary (contains null bytes).
+ * @param content The string content to check
+ * @returns true if the content appears to be binary
+ */
+export function isBinaryContent(content: string): boolean {
+    // Check for null bytes which indicate binary content
+    return content.includes('\0');
+}
+
+/**
+ * Synthesize a unified diff format entry for an untracked (new) file.
+ * @param filePath The path to the file (relative to repo root)
+ * @param content The file content
+ * @returns A string in unified diff format representing a new file
+ */
+export function synthesizeUntrackedFileDiff(filePath: string, content: string): string {
+    const lines = content.split('\n');
+
+    // Handle empty files
+    if (content === '' || (lines.length === 1 && lines[0] === '')) {
+        return [
+            `diff --git a/${filePath} b/${filePath}`,
+            'new file mode 100644',
+            '--- /dev/null',
+            `+++ b/${filePath}`,
+            ''
+        ].join('\n');
+    }
+
+    // Handle files that don't end with a newline
+    const hasTrailingNewline = content.endsWith('\n');
+    const contentLines = hasTrailingNewline ? lines.slice(0, -1) : lines;
+    const lineCount = contentLines.length;
+
+    const diffLines = [
+        `diff --git a/${filePath} b/${filePath}`,
+        'new file mode 100644',
+        '--- /dev/null',
+        `+++ b/${filePath}`,
+        `@@ -0,0 +1,${lineCount} @@`
+    ];
+
+    // Add each line with a '+' prefix
+    for (const line of contentLines) {
+        diffLines.push(`+${line}`);
+    }
+
+    // Add marker for missing newline at end of file
+    if (!hasTrailingNewline) {
+        diffLines.push('\\ No newline at end of file');
+    }
+
+    return diffLines.join('\n');
 }
 
 /**
