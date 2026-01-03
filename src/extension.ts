@@ -304,8 +304,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Handle form submission - creates a new session with optional prompt and acceptance criteria
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, permissionMode: PermissionMode) => {
-        await createSession(name, prompt, acceptanceCriteria, permissionMode, baseRepoPath, sessionProvider);
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, permissionMode: PermissionMode, sourceBranch: string) => {
+        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, baseRepoPath, sessionProvider);
     });
 
     // Watch for .claude-status file changes to refresh the sidebar
@@ -458,9 +458,9 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Use the shared createSession function (no prompt or acceptance criteria when using command palette)
+        // Use the shared createSession function (no prompt, acceptance criteria, or source branch when using command palette)
         // Use baseRepoPath to create sessions in the main repo even when in a worktree
-        await createSession(name, '', '', 'default', baseRepoPath, sessionProvider);
+        await createSession(name, '', '', 'default', '', baseRepoPath, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -560,7 +560,79 @@ export async function activate(context: vscode.ExtensionContext) {
             const diffArgs = includeUncommitted
                 ? ['diff', baseBranch]  // Compare base branch to working directory
                 : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
-            const diffContent = await execGit(diffArgs, item.worktreePath);
+            let diffContent = await execGit(diffArgs, item.worktreePath);
+
+            // If including uncommitted changes, also get untracked files
+            if (includeUncommitted) {
+                try {
+                    // git status --porcelain respects .gitignore by default
+                    const statusOutput = await execGit(['status', '--porcelain'], item.worktreePath);
+                    const untrackedFiles = parseUntrackedFiles(statusOutput);
+
+                    // Process each untracked file
+                    const untrackedDiffs: string[] = [];
+                    for (const filePath of untrackedFiles) {
+                        try {
+                            const fullPath = path.join(item.worktreePath, filePath);
+
+                            // Skip directories (git status can list directories with trailing /)
+                            if (filePath.endsWith('/')) {
+                                continue;
+                            }
+
+                            // Check if it's a file (not a directory) and not too large
+                            const stat = await fsPromises.stat(fullPath);
+                            if (!stat.isFile()) {
+                                continue;
+                            }
+
+                            // Skip very large files to avoid memory issues (5MB limit)
+                            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+                            if (stat.size > MAX_FILE_SIZE) {
+                                untrackedDiffs.push([
+                                    `diff --git a/${filePath} b/${filePath}`,
+                                    'new file mode 100644',
+                                    `File too large (${Math.round(stat.size / 1024 / 1024)}MB)`
+                                ].join('\n'));
+                                continue;
+                            }
+
+                            // Read file content
+                            const content = await fsPromises.readFile(fullPath, 'utf-8');
+
+                            // Skip binary files
+                            if (isBinaryContent(content)) {
+                                // Add a placeholder for binary files
+                                untrackedDiffs.push([
+                                    `diff --git a/${filePath} b/${filePath}`,
+                                    'new file mode 100644',
+                                    'Binary file'
+                                ].join('\n'));
+                                continue;
+                            }
+
+                            // Synthesize diff for the untracked file
+                            const synthesizedDiff = synthesizeUntrackedFileDiff(filePath, content);
+                            untrackedDiffs.push(synthesizedDiff);
+                        } catch (fileErr) {
+                            // Skip files that can't be read (permissions, etc.)
+                            console.warn(`Claude Lanes: Could not read untracked file ${filePath}:`, getErrorMessage(fileErr));
+                        }
+                    }
+
+                    // Append untracked file diffs to the main diff
+                    if (untrackedDiffs.length > 0) {
+                        if (diffContent && diffContent.trim() !== '') {
+                            diffContent = diffContent + '\n' + untrackedDiffs.join('\n');
+                        } else {
+                            diffContent = untrackedDiffs.join('\n');
+                        }
+                    }
+                } catch (statusErr) {
+                    // If git status fails, continue with just the diff
+                    console.warn('Claude Lanes: Could not get untracked files:', getErrorMessage(statusErr));
+                }
+            }
 
             // Check if there are any changes
             if (!diffContent || diffContent.trim() === '') {
@@ -669,12 +741,20 @@ export async function activate(context: vscode.ExtensionContext) {
  * Creates a new Claude session with optional starting prompt and acceptance criteria.
  * Shared logic between the form-based UI and the command palette.
  * Uses iterative approach to handle name conflicts instead of recursion.
+ *
+ * @param name Session name (used as branch name)
+ * @param prompt Optional starting prompt for Claude
+ * @param acceptanceCriteria Optional acceptance criteria for Claude
+ * @param sourceBranch Optional source branch to create worktree from (empty = use default behavior)
+ * @param workspaceRoot The workspace root path
+ * @param sessionProvider The session provider for refreshing the UI
  */
 async function createSession(
     name: string,
     prompt: string,
     acceptanceCriteria: string,
     permissionMode: PermissionMode,
+    sourceBranch: string,
     workspaceRoot: string | undefined,
     sessionProvider: ClaudeSessionProvider
 ): Promise<void> {
@@ -818,8 +898,40 @@ async function createSession(
                 await execGit(['worktree', 'add', worktreePath, trimmedName], workspaceRoot);
             } else {
                 // Branch doesn't exist - create new branch
-                console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}"`);
-                await execGit(['worktree', 'add', worktreePath, '-b', trimmedName], workspaceRoot);
+                // If sourceBranch is provided, use it as the starting point
+                const trimmedSourceBranch = sourceBranch.trim();
+                if (trimmedSourceBranch) {
+                    // Validate branch name format before checking existence
+                    if (!branchNameRegex.test(trimmedSourceBranch)) {
+                        vscode.window.showErrorMessage("Error: Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.");
+                        return;
+                    }
+
+                    // Verify the source branch exists before using it
+                    const sourceBranchExists = await branchExists(workspaceRoot, trimmedSourceBranch);
+                    // Also check for remote branches (origin/branch-name format)
+                    let remoteSourceExists = false;
+                    if (!sourceBranchExists) {
+                        try {
+                            await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${trimmedSourceBranch}`], workspaceRoot);
+                            remoteSourceExists = true;
+                        } catch {
+                            // Remote doesn't exist either
+                        }
+                    }
+
+                    if (!sourceBranchExists && !remoteSourceExists) {
+                        vscode.window.showErrorMessage(`Source branch '${trimmedSourceBranch}' does not exist.`);
+                        return;
+                    }
+
+                    console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}" "${trimmedSourceBranch}"`);
+                    await execGit(['worktree', 'add', worktreePath, '-b', trimmedName, trimmedSourceBranch], workspaceRoot);
+                } else {
+                    // No source branch specified - use HEAD as starting point (default behavior)
+                    console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}"`);
+                    await execGit(['worktree', 'add', worktreePath, '-b', trimmedName], workspaceRoot);
+                }
             }
 
             // 5. Setup status hooks before opening Claude (auto-migrate for new sessions)
@@ -1330,6 +1442,94 @@ async function setupStatusHooks(worktreePath: string, isNewSession: boolean = fa
     // Write updated settings atomically (write to temp, then rename)
     await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
     await fsPromises.rename(tempPath, targetPath);
+}
+
+/**
+ * Parse untracked files from git status --porcelain output.
+ * Untracked files are indicated by '??' prefix.
+ * @param statusOutput The raw output from git status --porcelain
+ * @returns Array of file paths for untracked files
+ */
+export function parseUntrackedFiles(statusOutput: string): string[] {
+    const files: string[] = [];
+    const lines = statusOutput.split('\n');
+
+    for (const line of lines) {
+        // Untracked files start with '?? '
+        if (line.startsWith('?? ')) {
+            // Extract the file path (everything after '?? ')
+            const filePath = line.substring(3).trim();
+            // Handle quoted paths (git uses C-style escaping for paths with special characters)
+            const unquotedPath = filePath.startsWith('"') && filePath.endsWith('"')
+                ? filePath.slice(1, -1)
+                    .replace(/\\"/g, '"')
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\t/g, '\t')
+                    .replace(/\\\\/g, '\\')  // Must be last to avoid double-unescaping
+                : filePath;
+            if (unquotedPath) {
+                files.push(unquotedPath);
+            }
+        }
+    }
+
+    return files;
+}
+
+/**
+ * Check if content appears to be binary (contains null bytes).
+ * @param content The string content to check
+ * @returns true if the content appears to be binary
+ */
+export function isBinaryContent(content: string): boolean {
+    // Check for null bytes which indicate binary content
+    return content.includes('\0');
+}
+
+/**
+ * Synthesize a unified diff format entry for an untracked (new) file.
+ * @param filePath The path to the file (relative to repo root)
+ * @param content The file content
+ * @returns A string in unified diff format representing a new file
+ */
+export function synthesizeUntrackedFileDiff(filePath: string, content: string): string {
+    const lines = content.split('\n');
+
+    // Handle empty files
+    if (content === '' || (lines.length === 1 && lines[0] === '')) {
+        return [
+            `diff --git a/${filePath} b/${filePath}`,
+            'new file mode 100644',
+            '--- /dev/null',
+            `+++ b/${filePath}`,
+            ''
+        ].join('\n');
+    }
+
+    // Handle files that don't end with a newline
+    const hasTrailingNewline = content.endsWith('\n');
+    const contentLines = hasTrailingNewline ? lines.slice(0, -1) : lines;
+    const lineCount = contentLines.length;
+
+    const diffLines = [
+        `diff --git a/${filePath} b/${filePath}`,
+        'new file mode 100644',
+        '--- /dev/null',
+        `+++ b/${filePath}`,
+        `@@ -0,0 +1,${lineCount} @@`
+    ];
+
+    // Add each line with a '+' prefix
+    for (const line of contentLines) {
+        diffLines.push(`+${line}`);
+    }
+
+    // Add marker for missing newline at end of file
+    if (!hasTrailingNewline) {
+        diffLines.push('\\ No newline at end of file');
+    }
+
+    return diffLines.join('\n');
 }
 
 /**

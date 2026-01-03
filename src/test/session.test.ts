@@ -1345,6 +1345,343 @@ suite('Session Tests', () => {
 		});
 	});
 
+	suite('Source Branch Input', () => {
+
+		let sbTestTempDir: string;
+		let extensionUri: vscode.Uri;
+
+		setup(() => {
+			sbTestTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'source-branch-test-'));
+			extensionUri = vscode.Uri.file(sbTestTempDir);
+		});
+
+		teardown(() => {
+			fs.rmSync(sbTestTempDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Helper to create a mock WebviewView for testing
+		 */
+		function createMockWebviewView(): {
+			webviewView: vscode.WebviewView;
+			capturedHtml: { value: string };
+			messageHandler: { callback: ((message: unknown) => void) | null };
+			postMessageSpy: { messages: unknown[] };
+		} {
+			const capturedHtml = { value: '' };
+			const messageHandler: { callback: ((message: unknown) => void) | null } = { callback: null };
+			const postMessageSpy: { messages: unknown[] } = { messages: [] };
+
+			const mockWebview = {
+				options: {} as vscode.WebviewOptions,
+				html: '',
+				onDidReceiveMessage: (callback: (message: unknown) => void) => {
+					messageHandler.callback = callback;
+					return { dispose: () => { messageHandler.callback = null; } };
+				},
+				postMessage: (message: unknown) => {
+					postMessageSpy.messages.push(message);
+					return Promise.resolve(true);
+				},
+				asWebviewUri: (uri: vscode.Uri) => uri,
+				cspSource: 'test-csp-source'
+			};
+
+			// Create a proxy to capture html assignment
+			const webviewProxy = new Proxy(mockWebview, {
+				set(target, prop, value) {
+					if (prop === 'html') {
+						capturedHtml.value = value as string;
+					}
+					(target as Record<string, unknown>)[prop as string] = value;
+					return true;
+				},
+				get(target, prop) {
+					return (target as Record<string, unknown>)[prop as string];
+				}
+			});
+
+			const mockWebviewView = {
+				webview: webviewProxy as unknown as vscode.Webview,
+				viewType: 'claudeSessionFormView',
+				title: undefined,
+				description: undefined,
+				badge: undefined,
+				visible: true,
+				onDidDispose: () => ({ dispose: () => {} }),
+				onDidChangeVisibility: () => ({ dispose: () => {} }),
+				show: () => {}
+			} as unknown as vscode.WebviewView;
+
+			return { webviewView: mockWebviewView, capturedHtml, messageHandler, postMessageSpy };
+		}
+
+		test('should render HTML form with sourceBranch input field', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			assert.ok(
+				capturedHtml.value.includes('id="sourceBranch"'),
+				'HTML should contain input field with id="sourceBranch"'
+			);
+		});
+
+		test('should position sourceBranch input after session name and before starting prompt', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Find the positions of the relevant input fields
+			const html = capturedHtml.value;
+			const nameFieldIndex = html.indexOf('id="name"');
+			const sourceBranchFieldIndex = html.indexOf('id="sourceBranch"');
+			const promptFieldIndex = html.indexOf('id="prompt"');
+
+			assert.ok(nameFieldIndex !== -1, 'Name field should exist');
+			assert.ok(sourceBranchFieldIndex !== -1, 'Source branch field should exist');
+			assert.ok(promptFieldIndex !== -1, 'Prompt field should exist');
+
+			assert.ok(
+				nameFieldIndex < sourceBranchFieldIndex,
+				'Source branch field should appear after session name field'
+			);
+			assert.ok(
+				sourceBranchFieldIndex < promptFieldIndex,
+				'Source branch field should appear before starting prompt field'
+			);
+		});
+
+		test('should invoke onSubmit callback with sourceBranch when createSession message is received', async () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			let capturedName = '';
+			let capturedPrompt = '';
+			let capturedAcceptanceCriteria = '';
+			let capturedSourceBranch = '';
+
+			provider.setOnSubmit((name, prompt, acceptanceCriteria, sourceBranch) => {
+				capturedName = name;
+				capturedPrompt = prompt;
+				capturedAcceptanceCriteria = acceptanceCriteria;
+				capturedSourceBranch = sourceBranch;
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Simulate webview posting a createSession message with sourceBranch
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			await messageHandler.callback({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Fix the bug',
+				acceptanceCriteria: 'It should work',
+				sourceBranch: 'develop'
+			});
+
+			// Assert
+			assert.strictEqual(capturedName, 'test-session', 'Callback should receive the session name');
+			assert.strictEqual(capturedPrompt, 'Fix the bug', 'Callback should receive the prompt');
+			assert.strictEqual(capturedAcceptanceCriteria, 'It should work', 'Callback should receive the acceptance criteria');
+			assert.strictEqual(capturedSourceBranch, 'develop', 'Callback should receive the source branch');
+		});
+
+		test('should invoke onSubmit callback with empty sourceBranch when not provided', async () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			let capturedSourceBranch: string | undefined = 'not-set';
+
+			provider.setOnSubmit((_name, _prompt, _acceptanceCriteria, sourceBranch) => {
+				capturedSourceBranch = sourceBranch;
+			});
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Simulate webview posting a createSession message without sourceBranch
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			await messageHandler.callback({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Fix the bug'
+				// Note: sourceBranch not included in message
+			});
+
+			// Assert - the callback should receive empty string for missing sourceBranch
+			assert.strictEqual(
+				capturedSourceBranch,
+				'',
+				'Callback should receive empty string for missing sourceBranch'
+			);
+		});
+
+		test('should have hint explaining sourceBranch is optional and branches from HEAD by default', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert
+			const html = capturedHtml.value;
+
+			// Find the sourceBranch field and its hint
+			assert.ok(
+				html.includes('Source Branch') && html.includes('optional'),
+				'Source branch field should be labeled as optional'
+			);
+
+			// The hint should mention that leaving it empty uses HEAD
+			assert.ok(
+				html.includes('Leave empty') || html.includes('empty'),
+				'Hint should mention leaving the field empty'
+			);
+			assert.ok(
+				html.includes('HEAD') || html.includes('current'),
+				'Hint should mention branching from current HEAD'
+			);
+		});
+
+		test('should include sourceBranch in state save function', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Verify the JavaScript saveState function includes sourceBranch
+			const html = capturedHtml.value;
+
+			// The saveState function should include sourceBranch in the state object
+			assert.ok(
+				html.includes('saveState') && html.includes('sourceBranch'),
+				'saveState function should include sourceBranch'
+			);
+
+			// Verify the setState call includes sourceBranch
+			assert.ok(
+				html.includes('setState') && html.includes('sourceBranch'),
+				'setState call should include sourceBranch property'
+			);
+		});
+
+		test('should restore sourceBranch from previous state', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Verify the JavaScript restores sourceBranch from previous state
+			const html = capturedHtml.value;
+
+			// The state restore logic should include sourceBranch
+			assert.ok(
+				html.includes('previousState') && html.includes('sourceBranch'),
+				'State restore logic should reference sourceBranch'
+			);
+
+			// Verify sourceBranchInput.value is set from previousState
+			assert.ok(
+				html.includes('sourceBranchInput.value'),
+				'sourceBranchInput.value should be restored from state'
+			);
+		});
+
+		test('should clear sourceBranch when clearForm message is received', () => {
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			const { webviewView, capturedHtml } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			// Act
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			// Assert: Verify the clearForm handler clears sourceBranch
+			const html = capturedHtml.value;
+
+			// The clearForm case should set sourceBranchInput.value to empty
+			assert.ok(
+				html.includes("case 'clearForm'") || html.includes('clearForm'),
+				'HTML should handle clearForm message'
+			);
+
+			// Verify sourceBranchInput is cleared in the clearForm handler
+			assert.ok(
+				html.includes("sourceBranchInput.value = ''"),
+				'clearForm handler should clear sourceBranchInput.value'
+			);
+		});
+
+		test('SessionFormSubmitCallback type should accept 4 parameters including sourceBranch', async () => {
+			// This test verifies that the callback type includes sourceBranch as the 4th parameter
+			// by setting up a callback with 4 parameters
+
+			// Arrange
+			const provider = new SessionFormProvider(extensionUri);
+			let callbackInvoked = false;
+
+			// Act: Set a callback that accepts 4 parameters (name, prompt, acceptanceCriteria, sourceBranch)
+			provider.setOnSubmit((name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string) => {
+				callbackInvoked = true;
+				// TypeScript will fail compilation if the signature is wrong
+				assert.strictEqual(typeof name, 'string');
+				assert.strictEqual(typeof prompt, 'string');
+				assert.strictEqual(typeof acceptanceCriteria, 'string');
+				assert.strictEqual(typeof sourceBranch, 'string');
+			});
+
+			// Assert: If we got here without TypeScript errors, the type is correct
+			// We can also trigger the callback to verify it works
+			const { webviewView, messageHandler } = createMockWebviewView();
+			const mockContext = {} as vscode.WebviewViewResolveContext;
+			const mockToken = new vscode.CancellationTokenSource().token;
+
+			provider.resolveWebviewView(webviewView, mockContext, mockToken);
+
+			assert.ok(messageHandler.callback, 'Message handler should be registered');
+			await messageHandler.callback({
+				command: 'createSession',
+				name: 'test',
+				prompt: 'test prompt',
+				acceptanceCriteria: 'test criteria',
+				sourceBranch: 'feature-branch'
+			});
+
+			assert.ok(callbackInvoked, 'Callback should have been invoked with 4 parameters');
+		});
+	});
+
 	suite('Acceptance Criteria in SessionFormProvider', () => {
 
 		let acTestTempDir: string;
