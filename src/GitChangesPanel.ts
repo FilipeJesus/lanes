@@ -237,6 +237,11 @@ export function parseDiff(diffContent: string): FileDiff[] {
 }
 
 /**
+ * Callback type for handling branch change requests from the webview.
+ */
+export type OnBranchChangeCallback = (branchName: string, worktreePath: string) => Promise<{ diffContent: string; baseBranch: string } | null>;
+
+/**
  * Provides a webview panel that displays git diff in a GitLab-style format.
  * Features collapsible file sections, context lines, and VS Code theme integration.
  */
@@ -247,17 +252,33 @@ export class GitChangesPanel {
 
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
+    private _worktreePath: string = '';
+    private _currentBaseBranch: string = '';
+    private static _onBranchChange: OnBranchChangeCallback | undefined;
+
+    /**
+     * Sets the callback for handling branch change requests.
+     * This should be called once during extension activation.
+     * @param callback The callback to invoke when the user changes the base branch
+     */
+    public static setOnBranchChange(callback: OnBranchChangeCallback): void {
+        GitChangesPanel._onBranchChange = callback;
+    }
 
     /**
      * Creates or shows the git changes panel.
      * @param extensionUri The URI of the extension
      * @param sessionName The name of the session (used in panel title)
      * @param diffContent The raw unified diff content to display
+     * @param worktreePath The path to the worktree (needed to regenerate diff)
+     * @param currentBaseBranch The current base branch used for the diff
      */
     public static createOrShow(
         extensionUri: vscode.Uri,
         sessionName: string,
-        diffContent: string
+        diffContent: string,
+        worktreePath?: string,
+        currentBaseBranch?: string
     ): void {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
@@ -266,7 +287,13 @@ export class GitChangesPanel {
         // If we already have a panel, show it
         if (GitChangesPanel.currentPanel) {
             GitChangesPanel.currentPanel._panel.reveal(column);
-            GitChangesPanel.currentPanel._update(sessionName, diffContent);
+            if (worktreePath) {
+                GitChangesPanel.currentPanel._worktreePath = worktreePath;
+            }
+            if (currentBaseBranch) {
+                GitChangesPanel.currentPanel._currentBaseBranch = currentBaseBranch;
+            }
+            GitChangesPanel.currentPanel._update(sessionName, diffContent, currentBaseBranch);
             return;
         }
 
@@ -282,19 +309,23 @@ export class GitChangesPanel {
             }
         );
 
-        GitChangesPanel.currentPanel = new GitChangesPanel(panel, extensionUri, sessionName, diffContent);
+        GitChangesPanel.currentPanel = new GitChangesPanel(panel, extensionUri, sessionName, diffContent, worktreePath, currentBaseBranch);
     }
 
     private constructor(
         panel: vscode.WebviewPanel,
         _extensionUri: vscode.Uri,
         sessionName: string,
-        diffContent: string
+        diffContent: string,
+        worktreePath?: string,
+        currentBaseBranch?: string
     ) {
         this._panel = panel;
+        this._worktreePath = worktreePath || '';
+        this._currentBaseBranch = currentBaseBranch || '';
 
         // Set initial content
-        this._update(sessionName, diffContent);
+        this._update(sessionName, diffContent, currentBaseBranch);
 
         // Listen for when the panel is disposed
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -309,11 +340,42 @@ export class GitChangesPanel {
                             await this._handleSubmitReview(message.comments as ReviewComment[]);
                         }
                         break;
+                    case 'changeBranch':
+                        // Validate that branchName is a string before processing
+                        if (typeof message.branchName === 'string') {
+                            await this._handleChangeBranch(message.branchName);
+                        }
+                        break;
                 }
             },
             null,
             this._disposables
         );
+    }
+
+    /**
+     * Handle the change branch message from the webview.
+     * Validates the branch and regenerates the diff.
+     */
+    private async _handleChangeBranch(branchName: string): Promise<void> {
+        if (!this._worktreePath) {
+            vscode.window.showErrorMessage('Cannot change branch: worktree path not available.');
+            return;
+        }
+
+        if (!GitChangesPanel._onBranchChange) {
+            vscode.window.showErrorMessage('Cannot change branch: handler not registered.');
+            return;
+        }
+
+        const result = await GitChangesPanel._onBranchChange(branchName, this._worktreePath);
+        if (result) {
+            this._currentBaseBranch = result.baseBranch;
+            // Re-render the webview with the new diff content
+            // Extract session name from panel title (format: "Changes: sessionName")
+            const sessionName = this._panel.title.replace('Changes: ', '');
+            this._update(sessionName, result.diffContent, result.baseBranch);
+        }
     }
 
     /**
@@ -342,9 +404,9 @@ export class GitChangesPanel {
         }
     }
 
-    private _update(sessionName: string, diffContent: string): void {
+    private _update(sessionName: string, diffContent: string, baseBranch?: string): void {
         this._panel.title = `Changes: ${sessionName}`;
-        this._panel.webview.html = this._getHtmlForWebview(diffContent);
+        this._panel.webview.html = this._getHtmlForWebview(diffContent, baseBranch || this._currentBaseBranch);
     }
 
     /**
@@ -432,10 +494,11 @@ export class GitChangesPanel {
         }).join('\n');
     }
 
-    private _getHtmlForWebview(diffContent: string): string {
+    private _getHtmlForWebview(diffContent: string, baseBranch?: string): string {
         const nonce = this._getNonce();
         const files = parseDiff(diffContent);
         const diffHtml = this._generateDiffHtml(files);
+        const escapedBaseBranch = this._escapeHtml(baseBranch || '');
 
         // Calculate totals
         const totalAdded = files.reduce((sum, f) => sum + f.addedCount, 0);
@@ -673,6 +736,39 @@ export class GitChangesPanel {
             flex: 1;
         }
 
+        /* Base branch selector */
+        .branch-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .branch-selector label {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .branch-selector input {
+            padding: 4px 8px;
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 2px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: 12px;
+            width: 150px;
+        }
+
+        .branch-selector input:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .branch-selector input::placeholder {
+            color: var(--vscode-input-placeholderForeground);
+        }
+
         /* Comment button on lines */
         .line-content {
             position: relative;
@@ -844,6 +940,11 @@ export class GitChangesPanel {
     <div class="toolbar">
         <button id="expand-all-btn">Expand All</button>
         <button id="collapse-all-btn">Collapse All</button>
+        <div class="branch-selector">
+            <label for="base-branch-input">Base branch:</label>
+            <input type="text" id="base-branch-input" value="${escapedBaseBranch}" placeholder="e.g., main, origin/main">
+            <button id="refresh-diff-btn">Update Diff</button>
+        </div>
         <div class="spacer"></div>
         <span id="total-comment-count" class="review-comment-count"></span>
         <button id="submit-review-btn" class="primary" disabled>Submit Review</button>
@@ -1157,6 +1258,19 @@ export class GitChangesPanel {
                 });
             }
 
+            function changeBranch() {
+                const branchInput = document.getElementById('base-branch-input');
+                if (branchInput) {
+                    const branchName = branchInput.value.trim();
+                    if (branchName) {
+                        vscode.postMessage({
+                            command: 'changeBranch',
+                            branchName: branchName
+                        });
+                    }
+                }
+            }
+
             // Attach event listeners to file headers
             document.querySelectorAll('.file-header').forEach(header => {
                 header.addEventListener('click', () => {
@@ -1171,6 +1285,8 @@ export class GitChangesPanel {
             const expandBtn = document.getElementById('expand-all-btn');
             const collapseBtn = document.getElementById('collapse-all-btn');
             const submitBtn = document.getElementById('submit-review-btn');
+            const refreshBtn = document.getElementById('refresh-diff-btn');
+            const branchInput = document.getElementById('base-branch-input');
 
             if (expandBtn) {
                 expandBtn.addEventListener('click', expandAll);
@@ -1180,6 +1296,17 @@ export class GitChangesPanel {
             }
             if (submitBtn) {
                 submitBtn.addEventListener('click', submitReview);
+            }
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', changeBranch);
+            }
+            // Allow pressing Enter in the branch input to trigger refresh
+            if (branchInput) {
+                branchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        changeBranch();
+                    }
+                });
             }
 
             // Attach comment button listeners

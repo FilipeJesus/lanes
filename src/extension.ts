@@ -14,7 +14,7 @@ import {
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
-import { GitChangesPanel } from './GitChangesPanel';
+import { GitChangesPanel, OnBranchChangeCallback } from './GitChangesPanel';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 
 /**
@@ -863,6 +863,158 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     // 6. Register SHOW GIT CHANGES Command
+    // Helper function to generate diff content for a worktree
+    async function generateDiffContent(worktreePath: string, baseBranch: string): Promise<string> {
+        // Check if we should include uncommitted changes
+        const config = vscode.workspace.getConfiguration('claudeLanes');
+        const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
+
+        // Get the diff - either including working directory changes or only committed changes
+        const diffArgs = includeUncommitted
+            ? ['diff', baseBranch]  // Compare base branch to working directory
+            : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
+        let diffContent = await execGit(diffArgs, worktreePath);
+
+        // If including uncommitted changes, also get untracked files
+        if (includeUncommitted) {
+            try {
+                // git status --porcelain respects .gitignore by default
+                const statusOutput = await execGit(['status', '--porcelain'], worktreePath);
+                const untrackedFiles = parseUntrackedFiles(statusOutput);
+
+                // Process each untracked file
+                const untrackedDiffs: string[] = [];
+                for (const filePath of untrackedFiles) {
+                    try {
+                        const fullPath = path.join(worktreePath, filePath);
+
+                        // Skip directories (git status can list directories with trailing /)
+                        if (filePath.endsWith('/')) {
+                            continue;
+                        }
+
+                        // Check if it's a file (not a directory) and not too large
+                        const stat = await fsPromises.stat(fullPath);
+                        if (!stat.isFile()) {
+                            continue;
+                        }
+
+                        // Skip very large files to avoid memory issues (5MB limit)
+                        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+                        if (stat.size > MAX_FILE_SIZE) {
+                            untrackedDiffs.push([
+                                `diff --git a/${filePath} b/${filePath}`,
+                                'new file mode 100644',
+                                `File too large (${Math.round(stat.size / 1024 / 1024)}MB)`
+                            ].join('\n'));
+                            continue;
+                        }
+
+                        // Read file content
+                        const content = await fsPromises.readFile(fullPath, 'utf-8');
+
+                        // Skip binary files
+                        if (isBinaryContent(content)) {
+                            // Add a placeholder for binary files
+                            untrackedDiffs.push([
+                                `diff --git a/${filePath} b/${filePath}`,
+                                'new file mode 100644',
+                                'Binary file'
+                            ].join('\n'));
+                            continue;
+                        }
+
+                        // Synthesize diff for the untracked file
+                        const synthesizedDiff = synthesizeUntrackedFileDiff(filePath, content);
+                        untrackedDiffs.push(synthesizedDiff);
+                    } catch (fileErr) {
+                        // Skip files that can't be read (permissions, etc.)
+                        console.warn(`Claude Lanes: Could not read untracked file ${filePath}:`, getErrorMessage(fileErr));
+                    }
+                }
+
+                // Append untracked file diffs to the main diff
+                if (untrackedDiffs.length > 0) {
+                    if (diffContent && diffContent.trim() !== '') {
+                        diffContent = diffContent + '\n' + untrackedDiffs.join('\n');
+                    } else {
+                        diffContent = untrackedDiffs.join('\n');
+                    }
+                }
+            } catch (statusErr) {
+                // If git status fails, continue with just the diff
+                console.warn('Claude Lanes: Could not get untracked files:', getErrorMessage(statusErr));
+            }
+        }
+
+        return diffContent;
+    }
+
+    // Register the branch change callback for GitChangesPanel
+    // This handles when users change the base branch in the diff viewer
+    GitChangesPanel.setOnBranchChange(async (branchName: string, worktreePath: string) => {
+        try {
+            // Validate the branch exists (check local branches, remote branches, and tags)
+            let actualBranch = branchName.trim();
+            const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
+
+            // Validate branch name format to prevent issues
+            if (!branchNameRegex.test(actualBranch)) {
+                vscode.window.showWarningMessage(`Invalid branch name format: '${branchName}'. Using default base branch.`);
+                actualBranch = await getBaseBranch(worktreePath);
+            } else {
+                // Check if the branch/ref exists
+                let refExists = false;
+
+                // Check local branch
+                try {
+                    await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${actualBranch}`], worktreePath);
+                    refExists = true;
+                } catch {
+                    // Not a local branch
+                }
+
+                // Check remote branch (exact match)
+                if (!refExists) {
+                    try {
+                        await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${actualBranch}`], worktreePath);
+                        refExists = true;
+                    } catch {
+                        // Not a remote branch
+                    }
+                }
+
+                // Check if it's a valid ref (commit, tag, etc.)
+                if (!refExists) {
+                    try {
+                        await execGit(['rev-parse', '--verify', `${actualBranch}^{commit}`], worktreePath);
+                        refExists = true;
+                    } catch {
+                        // Not a valid ref
+                    }
+                }
+
+                if (!refExists) {
+                    vscode.window.showWarningMessage(`Branch '${branchName}' not found. Using default base branch.`);
+                    actualBranch = await getBaseBranch(worktreePath);
+                }
+            }
+
+            // Generate new diff content
+            const diffContent = await generateDiffContent(worktreePath, actualBranch);
+
+            if (!diffContent || diffContent.trim() === '') {
+                vscode.window.showInformationMessage('No changes when comparing to this branch.');
+                return { diffContent: '', baseBranch: actualBranch };
+            }
+
+            return { diffContent, baseBranch: actualBranch };
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to change branch: ${getErrorMessage(err)}`);
+            return null;
+        }
+    });
+
     let showGitChangesDisposable = vscode.commands.registerCommand('claudeWorktrees.showGitChanges', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please right-click on a session to view git changes.');
@@ -879,87 +1031,8 @@ export async function activate(context: vscode.ExtensionContext) {
             // Determine the base branch (main or master)
             const baseBranch = await getBaseBranch(item.worktreePath);
 
-            // Check if we should include uncommitted changes
-            const config = vscode.workspace.getConfiguration('claudeLanes');
-            const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
-
-            // Get the diff - either including working directory changes or only committed changes
-            const diffArgs = includeUncommitted
-                ? ['diff', baseBranch]  // Compare base branch to working directory
-                : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
-            let diffContent = await execGit(diffArgs, item.worktreePath);
-
-            // If including uncommitted changes, also get untracked files
-            if (includeUncommitted) {
-                try {
-                    // git status --porcelain respects .gitignore by default
-                    const statusOutput = await execGit(['status', '--porcelain'], item.worktreePath);
-                    const untrackedFiles = parseUntrackedFiles(statusOutput);
-
-                    // Process each untracked file
-                    const untrackedDiffs: string[] = [];
-                    for (const filePath of untrackedFiles) {
-                        try {
-                            const fullPath = path.join(item.worktreePath, filePath);
-
-                            // Skip directories (git status can list directories with trailing /)
-                            if (filePath.endsWith('/')) {
-                                continue;
-                            }
-
-                            // Check if it's a file (not a directory) and not too large
-                            const stat = await fsPromises.stat(fullPath);
-                            if (!stat.isFile()) {
-                                continue;
-                            }
-
-                            // Skip very large files to avoid memory issues (5MB limit)
-                            const MAX_FILE_SIZE = 5 * 1024 * 1024;
-                            if (stat.size > MAX_FILE_SIZE) {
-                                untrackedDiffs.push([
-                                    `diff --git a/${filePath} b/${filePath}`,
-                                    'new file mode 100644',
-                                    `File too large (${Math.round(stat.size / 1024 / 1024)}MB)`
-                                ].join('\n'));
-                                continue;
-                            }
-
-                            // Read file content
-                            const content = await fsPromises.readFile(fullPath, 'utf-8');
-
-                            // Skip binary files
-                            if (isBinaryContent(content)) {
-                                // Add a placeholder for binary files
-                                untrackedDiffs.push([
-                                    `diff --git a/${filePath} b/${filePath}`,
-                                    'new file mode 100644',
-                                    'Binary file'
-                                ].join('\n'));
-                                continue;
-                            }
-
-                            // Synthesize diff for the untracked file
-                            const synthesizedDiff = synthesizeUntrackedFileDiff(filePath, content);
-                            untrackedDiffs.push(synthesizedDiff);
-                        } catch (fileErr) {
-                            // Skip files that can't be read (permissions, etc.)
-                            console.warn(`Claude Lanes: Could not read untracked file ${filePath}:`, getErrorMessage(fileErr));
-                        }
-                    }
-
-                    // Append untracked file diffs to the main diff
-                    if (untrackedDiffs.length > 0) {
-                        if (diffContent && diffContent.trim() !== '') {
-                            diffContent = diffContent + '\n' + untrackedDiffs.join('\n');
-                        } else {
-                            diffContent = untrackedDiffs.join('\n');
-                        }
-                    }
-                } catch (statusErr) {
-                    // If git status fails, continue with just the diff
-                    console.warn('Claude Lanes: Could not get untracked files:', getErrorMessage(statusErr));
-                }
-            }
+            // Generate the diff content
+            const diffContent = await generateDiffContent(item.worktreePath, baseBranch);
 
             // Check if there are any changes
             if (!diffContent || diffContent.trim() === '') {
@@ -967,8 +1040,8 @@ export async function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            // Open the GitChangesPanel with the diff content
-            GitChangesPanel.createOrShow(context.extensionUri, item.label, diffContent);
+            // Open the GitChangesPanel with the diff content, worktree path, and base branch
+            GitChangesPanel.createOrShow(context.extensionUri, item.label, diffContent, item.worktreePath, baseBranch);
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to get git changes: ${getErrorMessage(err)}`);
         }
