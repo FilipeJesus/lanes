@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://claudelanes.com">
+  <a href="https://lanes.pro">
     <img src="media/lanes-default-256px.png" alt="Lanes Logo" width="128" />
   </a>
 </p>
@@ -22,7 +22,7 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **Built-in Diff Viewer** - Review all changes before merging back
 - **One-Click Cleanup** - Delete the worktree when done, keep the branch for merging
 
-Visit [our website](https://claudelanes.com) for more information.
+Visit [our website](https://lanes.pro) for more information.
 
 ---
 
@@ -86,7 +86,7 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 ## Advanced
 
 - **[Claude Harness](docs/CLAUDE-HARNESS.md)** - Structured task management for long-running sessions
-- **[Website](https://claudelanes.com)** - Full documentation and guides
+- **[Website](https://lanes.pro)** - Full documentation and guides
 
 ---
 
@@ -160,7 +160,7 @@ MIT - see [LICENSE](LICENSE) for details.
 
 ## Links
 
-- [Website](https://claudelanes.com)
+- [Website](https://lanes.pro)
 - [GitHub Repository](https://github.com/FilipeJesus/lanes)
 - [Report Issues](https://github.com/FilipeJesus/lanes/issues)
 - [Claude Code Documentation](https://claude.com/claude-code)

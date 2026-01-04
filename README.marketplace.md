@@ -8,7 +8,7 @@ Run multiple Claude Code sessions in parallel, each in its own isolated Git work
 - **Built-in diff viewer**: Review all changes before merging back to your main branch
 - **One-click cleanup**: Delete the worktree when done, keep the branch for merging
 
-Visit [www.claudelanes.com](https://claudelanes.com) to learn more about Lanes.
+Visit [www.lanes.pro](https://lanes.pro) to learn more about Lanes.
 
 ## Example View
 
