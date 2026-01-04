@@ -3,7 +3,7 @@
   "displayName": "Lanes: AI Project Management",
   "publisher": "FilipeMarquesJesus",
   "description": "Manage parallel Claude Code sessions via Git Worktrees",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "license": "MIT",
   "repository": {
     "type": "git",
