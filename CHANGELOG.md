@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.10.1] - 2026-01-04
+
+### Changed
+
+- New logo design with default, dark, and mono variants
+- Sidebar icon now uses `currentColor` for proper theme adaptation
+- Streamlined README for GitHub (moved detailed docs to separate files)
+- Separate README for VS Code Marketplace (user-focused)
+- Release script now swaps READMEs during packaging
+
+### Added
+
+- Light/dark mode toggle on website (claudelanes.com)
+- Claude Harness documentation moved to `docs/CLAUDE-HARNESS.md`
+- Platform support section (macOS/Linux supported, Windows not yet)
+- Dev Containers documentation in marketplace README
+
+### Removed
+
+- Old icon files replaced with new logo variants
+
 ## [0.10.0] - 2026-01-04
 
 ### Added

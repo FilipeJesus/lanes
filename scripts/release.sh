@@ -53,7 +53,20 @@ echo "🔨 Building extension..."
 npm run compile
 
 echo "📦 Packaging extension..."
+# Swap README for marketplace (user-focused version)
+if [[ -f "README.marketplace.md" ]]; then
+  echo "   Swapping README for marketplace version..."
+  cp README.md README.github.md
+  cp README.marketplace.md README.md
+fi
+
 npx vsce package
+
+# Restore original README
+if [[ -f "README.github.md" ]]; then
+  echo "   Restoring GitHub README..."
+  mv README.github.md README.md
+fi
 
 # Show what will be published
 VSIX_FILE="claude-lanes-${NEW_VERSION#v}.vsix"

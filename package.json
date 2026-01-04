@@ -22,7 +22,7 @@
     "sessions",
     "anthropic"
   ],
-  "icon": "media/icon.png",
+  "icon": "media/claude-lanes-default-128px.png",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -43,7 +43,7 @@
         {
           "id": "claude-lanes-sidebar",
           "title": "Claude Lanes",
-          "icon": "media/sidebar-icon.svg"
+          "icon": "media/claude-lanes-mono-transparent.svg"
         }
       ]
     },
