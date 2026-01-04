@@ -50,7 +50,7 @@ export function initialize(context: vscode.ExtensionContext): void {
     }
 
     // Get our extension's global storage path and derive Project Manager's path from it
-    // Our path: .../globalStorage/FilipeMarquesJesus.lanes
+    // Our path: .../globalStorage/FilipeMarquesJesus.claude-lanes
     // PM path:  .../globalStorage/alefragnani.project-manager
     const ourStoragePath = context.globalStorageUri.fsPath;
     const globalStorageDir = path.dirname(ourStoragePath);

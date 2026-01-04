@@ -103,4 +103,4 @@ fi
 
 echo ""
 echo "✅ Release $NEW_VERSION complete!"
-echo "   Marketplace: https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes"
+echo "   Marketplace: https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.claude-lanes"

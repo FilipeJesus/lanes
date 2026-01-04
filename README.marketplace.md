@@ -32,7 +32,7 @@ Session tracking files are stored in VS Code's global storage, which is destroye
 ```json
 {
   "mounts": [
-    "source=lanes-storage,target=/root/.vscode-server/data/User/globalStorage/FilipeMarquesJesus.lanes,type=volume"
+    "source=lanes-storage,target=/root/.vscode-server/data/User/globalStorage/FilipeMarquesJesus.claude-lanes,type=volume"
   ]
 }
 ```
