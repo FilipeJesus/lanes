@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.10.0] - 2026-01-04
+
+### Added
+
+- Previous Sessions view in sidebar - shows inactive sessions with saved prompts for easy restart
+- Prompts now stored in VS Code global storage by default - keeps repository clean
+- Claude Code settings (`--settings` flag) stored in extension storage for persistence across containers
+
+### Documentation
+
+- Added devcontainer storage persistence guide for Docker/container users
+
 ## [0.9.0] - 2026-01-03
 
 ### Added
