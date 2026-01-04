@@ -69,7 +69,7 @@ if [[ -f "README.github.md" ]]; then
 fi
 
 # Show what will be published
-VSIX_FILE="lanes-${NEW_VERSION#v}.vsix"
+VSIX_FILE="claude-lanes-${NEW_VERSION#v}.vsix"
 echo ""
 echo "📋 Package contents:"
 unzip -l "$VSIX_FILE" | head -20
