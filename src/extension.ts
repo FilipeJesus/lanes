@@ -10,7 +10,8 @@ import {
     isGlobalStorageEnabled,
     getGlobalStoragePath,
     getRepoIdentifier,
-    getWorktreesFolder
+    getWorktreesFolder,
+    getPromptsPath
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -343,42 +344,6 @@ export async function checkAndRepairBrokenWorktrees(baseRepoPath: string): Promi
     }
 }
 
-/**
- * Get the configured prompts folder path.
- * Security: Validates path to prevent directory traversal.
- * @returns The prompts folder path (default: '.claude/lanes')
- */
-function getPromptsFolder(): string {
-    const config = vscode.workspace.getConfiguration('claudeLanes');
-    const folder = config.get<string>('promptsFolder', '.claude/lanes');
-
-    if (!folder || !folder.trim()) {
-        return '.claude/lanes';
-    }
-
-    const trimmedFolder = folder.trim()
-        .replace(/\\/g, '/') // Normalize backslashes
-        .replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
-
-    // Security: Reject empty result after normalization
-    if (!trimmedFolder) {
-        return '.claude/lanes';
-    }
-
-    // Security: Reject absolute paths
-    if (path.isAbsolute(trimmedFolder)) {
-        console.warn('Claude Lanes: Absolute paths not allowed in promptsFolder. Using default.');
-        return '.claude/lanes';
-    }
-
-    // Security: Reject parent directory traversal
-    if (trimmedFolder.includes('..')) {
-        console.warn('Claude Lanes: Invalid promptsFolder path. Using default.');
-        return '.claude/lanes';
-    }
-
-    return trimmedFolder;
-}
 
 /**
  * Sanitize a session name to be a valid git branch name.
@@ -1428,16 +1393,24 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
         // Combine prompt and acceptance criteria
         const combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
         if (combinedPrompt) {
-            // Write prompt to file in main repo for history and to avoid terminal buffer issues
-            // Stored in <repo>/<promptsFolder>/<session-name>.txt for user reference
+            // Write prompt to file for history and to avoid terminal buffer issues
+            // Location depends on settings:
+            // - Default (empty promptsFolder): global storage at globalStorageUri/<repoIdentifier>/prompts/<sessionName>.txt
+            // - User override: repo-relative at <repoRoot>/<promptsFolder>/<sessionName>.txt
             // Derive repo root from worktree path: <repo>/<worktreesFolder>/<session-name>
             const repoRoot = path.dirname(path.dirname(worktreePath));
-            const lanesDir = path.join(repoRoot, getPromptsFolder());
-            await fsPromises.mkdir(lanesDir, { recursive: true });
-            const promptFilePath = path.join(lanesDir, `${taskName}.txt`);
-            await fsPromises.writeFile(promptFilePath, combinedPrompt, 'utf-8');
-            // Pass prompt file content as argument using command substitution
-            terminal.sendText(`claude ${permissionFlag}"$(cat "${promptFilePath}")"`);
+            const promptPathInfo = getPromptsPath(taskName, repoRoot);
+            if (promptPathInfo) {
+                await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
+                await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
+                // Pass prompt file content as argument using command substitution
+                terminal.sendText(`claude ${permissionFlag}"$(cat "${promptPathInfo.path}")"`);
+            } else {
+                // Fallback: pass prompt directly if path resolution failed
+                // Escape single quotes in the prompt for shell safety
+                const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                terminal.sendText(`claude ${permissionFlag}'${escapedPrompt}'`);
+            }
         } else {
             // Start new session without prompt
             terminal.sendText(`claude ${permissionFlag}`.trim());

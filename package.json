@@ -137,8 +137,8 @@
           },
           "claudeLanes.promptsFolder": {
             "type": "string",
-            "default": ".claude/lanes",
-            "description": "Folder where session starting prompts are stored (relative to repository root). Default: .claude/lanes",
+            "default": "",
+            "description": "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.claude/lanes' for repo-relative storage.",
             "order": 2
           }
         }

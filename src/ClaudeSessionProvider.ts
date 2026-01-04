@@ -92,6 +92,80 @@ export function getSessionNameFromWorktree(worktreePath: string): string {
 }
 
 /**
+ * Get the path for storing a session's prompt file.
+ *
+ * By default (when promptsFolder setting is empty), stores in global storage:
+ *   globalStorageUri/<repoIdentifier>/prompts/<sessionName>.txt
+ *
+ * When user specifies promptsFolder setting, stores repo-relative:
+ *   <repoRoot>/<promptsFolder>/<sessionName>.txt
+ *
+ * Fallback chain:
+ * 1. User-specified promptsFolder (if valid) -> repo-relative storage
+ * 2. Global storage (if initialized) -> extension storage
+ * 3. Legacy default (.claude/lanes) -> repo-relative fallback
+ *
+ * Security: Validates both sessionName and user-provided paths to prevent directory traversal.
+ *
+ * @param sessionName The name of the session (used as filename)
+ * @param repoRoot The repository root path (for repo-relative storage)
+ * @returns Object with path and directory to create, or null if sessionName is invalid
+ */
+export function getPromptsPath(sessionName: string, repoRoot: string): { path: string; needsDir: string } | null {
+    // Security: Validate sessionName to prevent path traversal
+    if (!sessionName || sessionName.includes('..') || sessionName.includes('/') || sessionName.includes('\\')) {
+        console.warn('Claude Lanes: Invalid session name for prompts path');
+        return null;
+    }
+
+    const config = vscode.workspace.getConfiguration('claudeLanes');
+    const promptsFolder = config.get<string>('promptsFolder', '');
+
+    // If user has specified a promptsFolder, use repo-relative storage
+    if (promptsFolder && promptsFolder.trim()) {
+        const trimmedFolder = promptsFolder.trim()
+            .replace(/\\/g, '/') // Normalize backslashes
+            .replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+
+        // Security: Reject empty result after normalization
+        if (!trimmedFolder) {
+            // Fall through to global storage
+        }
+        // Security: Reject absolute paths
+        else if (path.isAbsolute(trimmedFolder)) {
+            console.warn('Claude Lanes: Absolute paths not allowed in promptsFolder. Using global storage.');
+            // Fall through to global storage
+        }
+        // Security: Reject parent directory traversal
+        else if (trimmedFolder.includes('..')) {
+            console.warn('Claude Lanes: Invalid promptsFolder path (contains ..). Using global storage.');
+            // Fall through to global storage
+        }
+        else {
+            // Valid user-specified path - use repo-relative storage
+            const promptsDir = path.join(repoRoot, trimmedFolder);
+            const promptFilePath = path.join(promptsDir, `${sessionName}.txt`);
+            return { path: promptFilePath, needsDir: promptsDir };
+        }
+    }
+
+    // Default: Use global storage
+    if (!globalStorageUri || !baseRepoPathForStorage) {
+        // Global storage not initialized - fall back to legacy default
+        console.warn('Claude Lanes: Global storage not initialized. Using legacy prompts location (.claude/lanes).');
+        const legacyDir = path.join(repoRoot, '.claude', 'lanes');
+        const legacyPath = path.join(legacyDir, `${sessionName}.txt`);
+        return { path: legacyPath, needsDir: legacyDir };
+    }
+
+    const repoIdentifier = getRepoIdentifier(baseRepoPathForStorage);
+    const promptsDir = path.join(globalStorageUri.fsPath, repoIdentifier, 'prompts');
+    const promptFilePath = path.join(promptsDir, `${sessionName}.txt`);
+
+    return { path: promptFilePath, needsDir: promptsDir };
+}
+
+/**
  * Get the global storage path for a specific file.
  * Structure: globalStorageUri/<repo-identifier>/<session-name>/<filename>
  * @param worktreePath The worktree path (used to derive session name and repo path)
