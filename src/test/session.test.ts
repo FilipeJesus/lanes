@@ -837,20 +837,11 @@ suite('Session Tests', () => {
 
 	suite('Session ID Tracking', () => {
 
-		test('should verify setupStatusHooks adds SessionStart hook with session ID capture', async () => {
-			// This test verifies that when setupStatusHooks is called on a worktree,
-			// the resulting .claude/settings.json contains a SessionStart hook
-			// that writes session ID to .claude-session file.
+		test('should verify extension settings file SessionStart hook structure', async () => {
+			// This test verifies the expected structure of settings created by getOrCreateExtensionSettingsFile.
+			// The actual function tests are in extension.test.ts. Here we verify the expected hook structure.
 
-			// Arrange: Create a temporary worktree-like directory
-			const sessionPath = path.join(tempDir, 'test-worktree');
-			fs.mkdirSync(sessionPath);
-
-			// Act: Simulate what setupStatusHooks would create by writing the expected settings
-			// Since setupStatusHooks is not exported, we verify the expected structure
-			const claudeDir = path.join(sessionPath, '.claude');
-			fs.mkdirSync(claudeDir, { recursive: true });
-
+			// The settings file (created in extension's global storage) should have this structure:
 			const expectedSettings = {
 				hooks: {
 					SessionStart: [
@@ -858,27 +849,22 @@ suite('Session Tests', () => {
 							hooks: [
 								{
 									type: 'command',
-									command: "jq -r --arg ts \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" '{sessionId: .session_id, timestamp: $ts}' > .claude-session"
+									command: 'jq -r --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \'{sessionId: .session_id, timestamp: $ts}\' > "/path/to/.claude-session"'
 								}
 							]
 						}
 					]
 				}
 			};
-			fs.writeFileSync(path.join(claudeDir, 'settings.json'), JSON.stringify(expectedSettings, null, 2));
 
-			// Assert: Verify the settings.json structure
-			const settingsPath = path.join(claudeDir, 'settings.json');
-			assert.ok(fs.existsSync(settingsPath), '.claude/settings.json should exist');
+			// Verify the expected structure
+			assert.ok(expectedSettings.hooks, 'settings should have hooks object');
+			assert.ok(expectedSettings.hooks.SessionStart, 'hooks should have SessionStart array');
+			assert.ok(Array.isArray(expectedSettings.hooks.SessionStart), 'SessionStart should be an array');
+			assert.ok(expectedSettings.hooks.SessionStart.length > 0, 'SessionStart should have at least one entry');
 
-			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-			assert.ok(settings.hooks, 'settings should have hooks object');
-			assert.ok(settings.hooks.SessionStart, 'hooks should have SessionStart array');
-			assert.ok(Array.isArray(settings.hooks.SessionStart), 'SessionStart should be an array');
-			assert.ok(settings.hooks.SessionStart.length > 0, 'SessionStart should have at least one entry');
-
-			// Verify the hook command writes to .claude-session
-			const sessionStartHook = settings.hooks.SessionStart[0];
+			// Verify the hook structure and command format
+			const sessionStartHook = expectedSettings.hooks.SessionStart[0];
 			assert.ok(sessionStartHook.hooks, 'SessionStart entry should have hooks array');
 			const hookCommand = sessionStartHook.hooks[0].command;
 			assert.ok(hookCommand.includes('.claude-session'), 'Hook command should write to .claude-session');
@@ -983,74 +969,31 @@ suite('Session Tests', () => {
 			assert.strictEqual(fullData.timestamp, '2025-12-21T12:00:00Z');
 		});
 
-		test('should merge SessionStart hook with existing hooks without overwriting', () => {
-			// This test verifies that when adding SessionStart hook,
-			// existing hooks are preserved (not overwritten)
+		test('should verify extension settings file contains all required hooks', () => {
+			// This test verifies that the extension settings file has all required hooks.
+			// The actual getOrCreateExtensionSettingsFile tests are in extension.test.ts.
 
-			// Arrange: Create a .claude directory with existing settings
-			const sessionPath = path.join(tempDir, 'test-worktree-merge');
-			fs.mkdirSync(sessionPath);
-			const claudeDir = path.join(sessionPath, '.claude');
-			fs.mkdirSync(claudeDir, { recursive: true });
+			// The extension's settings file should contain these hook types:
+			const expectedHookTypes = ['SessionStart', 'Stop', 'UserPromptSubmit', 'Notification', 'PreToolUse'];
 
-			// Create settings with existing hooks
-			const existingSettings = {
+			// Verify the expected structure
+			const settings = {
 				hooks: {
-					Stop: [
-						{
-							hooks: [
-								{ type: 'command', command: 'echo "existing stop hook"' }
-							]
-						}
-					],
-					UserPromptSubmit: [
-						{
-							hooks: [
-								{ type: 'command', command: 'echo "existing submit hook"' }
-							]
-						}
-					]
-				},
-				someOtherSetting: 'should be preserved'
+					SessionStart: [{ hooks: [{ type: 'command', command: 'jq ... > .claude-session' }] }],
+					Stop: [{ hooks: [{ type: 'command', command: 'echo ... > .claude-status' }] }],
+					UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'echo ... > .claude-status' }] }],
+					Notification: [{ matcher: 'permission_prompt', hooks: [{ type: 'command', command: 'echo ... > .claude-status' }] }],
+					PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: 'echo ... > .claude-status' }] }]
+				}
 			};
-			fs.writeFileSync(path.join(claudeDir, 'settings.json'), JSON.stringify(existingSettings, null, 2));
 
-			// Act: Simulate adding SessionStart hook while preserving existing hooks
-			const settings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8'));
-
-			// Add SessionStart hook (simulating what setupStatusHooks does)
-			if (!settings.hooks.SessionStart) {
-				settings.hooks.SessionStart = [];
+			// Check all expected hook types are present
+			for (const hookType of expectedHookTypes) {
+				assert.ok(settings.hooks[hookType as keyof typeof settings.hooks], `${hookType} hooks should exist`);
 			}
-			settings.hooks.SessionStart.push({
-				hooks: [
-					{
-						type: 'command',
-						command: "jq -r '{sessionId: .session_id}' > .claude-session"
-					}
-				]
-			});
 
-			fs.writeFileSync(path.join(claudeDir, 'settings.json'), JSON.stringify(settings, null, 2));
-
-			// Assert: Verify existing hooks are preserved
-			const updatedSettings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8'));
-
-			// Check existing hooks are still there
-			assert.ok(updatedSettings.hooks.Stop, 'Stop hooks should be preserved');
-			assert.strictEqual(updatedSettings.hooks.Stop.length, 1, 'Stop hooks count should be unchanged');
-			assert.strictEqual(updatedSettings.hooks.Stop[0].hooks[0].command, 'echo "existing stop hook"');
-
-			assert.ok(updatedSettings.hooks.UserPromptSubmit, 'UserPromptSubmit hooks should be preserved');
-			assert.strictEqual(updatedSettings.hooks.UserPromptSubmit.length, 1, 'UserPromptSubmit hooks count should be unchanged');
-
-			// Check SessionStart hook was added
-			assert.ok(updatedSettings.hooks.SessionStart, 'SessionStart hooks should exist');
-			assert.strictEqual(updatedSettings.hooks.SessionStart.length, 1, 'SessionStart should have one entry');
-			assert.ok(updatedSettings.hooks.SessionStart[0].hooks[0].command.includes('.claude-session'));
-
-			// Check other settings are preserved
-			assert.strictEqual(updatedSettings.someOtherSetting, 'should be preserved');
+			// Note: Extension settings file is separate from user's settings.json/settings.local.json
+			// The --settings flag is used to load extension hooks without modifying user settings
 		});
 	});
 
