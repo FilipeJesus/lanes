@@ -1,0 +1,103 @@
+# Default workflow template for the Lanes extension.
+# This workflow implements the standard development cycle:
+# 1. Plan - break down the task
+# 2. Implement - code and test each feature
+# 3. Cleanup - finalize and clean up
+
+name: default
+description: Standard development workflow with planning, implementation, and cleanup phases
+
+agents:
+  coder:
+    description: Implements features and writes code
+    tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+    cannot:
+      - commit without review
+      - skip tests
+
+  test-engineer:
+    description: Writes and runs tests for implemented features
+    tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+    cannot:
+      - modify feature code
+      - skip test execution
+
+  code-reviewer:
+    description: Reviews code quality and provides feedback
+    tools:
+      - Read
+      - Grep
+      - Glob
+    cannot:
+      - modify code directly
+      - approve own code
+
+loops:
+  implement:
+    - id: code
+      agent: coder
+      instructions: |
+        Implement feature: {task.title}
+
+        1. Read relevant files to understand context
+        2. Plan the implementation
+        3. Write/edit code
+        4. Verify it compiles
+      on_fail: retry
+
+    - id: test
+      agent: test-engineer
+      instructions: |
+        Write tests for feature: {task.title}
+
+        1. Create test cases based on acceptance criteria
+        2. Implement tests
+        3. Run tests and verify they pass
+      on_fail: retry
+
+    - id: review
+      agent: code-reviewer
+      instructions: |
+        Review implementation of: {task.title}
+
+        1. Check code quality and patterns
+        2. Verify test coverage
+        3. Provide feedback or approve
+      on_fail: skip
+
+steps:
+  - id: plan
+    type: action
+    instructions: |
+      Analyze the user's request and break it down into discrete features.
+
+      For each feature, identify:
+      - A unique ID
+      - A clear title
+      - Acceptance criteria
+
+      Then call workflow_set_tasks with the features as tasks.
+
+  - id: implement
+    type: loop
+    agent: coder
+
+  - id: cleanup
+    type: action
+    instructions: |
+      Finalize the implementation:
+
+      1. Run all tests one final time
+      2. Update any documentation
+      3. Clean up temporary files (features.json, tests.json)
+      4. Summarize what was accomplished

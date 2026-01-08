@@ -10,9 +10,12 @@ import {
 	getRepoIdentifier,
 	getSessionNameFromWorktree,
 	isGlobalStorageEnabled,
-	getGlobalStoragePath
+	getGlobalStoragePath,
+	SessionItem,
+	getWorkflowStatus,
+	WorkflowStatus
 } from '../ClaudeSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../extension';
+import { getOrCreateExtensionSettingsFile, combinePromptAndCriteria } from '../extension';
 
 suite('Extension Settings File', () => {
 
@@ -565,6 +568,405 @@ suite('Extension Settings File', () => {
 			// Assert: Paths should be the same, and both should be valid
 			assert.strictEqual(settingsPath, newSettingsPath, 'Should return the same path');
 			assert.doesNotThrow(() => JSON.parse(secondContent), 'New content should be valid JSON');
+		});
+	});
+
+	suite('Extension Settings MCP Configuration', () => {
+
+		test('should include MCP server config when workflow is provided', async () => {
+			// Arrange
+			const sessionName = 'mcp-workflow-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+			const workflowName = 'feature';
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowName);
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+			// Assert
+			assert.ok(settings.mcpServers, 'Settings should have mcpServers object');
+			assert.ok(settings.mcpServers['lanes-workflow'], 'Should have lanes-workflow MCP server');
+
+			const mcpConfig = settings.mcpServers['lanes-workflow'];
+			assert.strictEqual(mcpConfig.command, 'node', 'MCP server command should be node');
+			assert.ok(Array.isArray(mcpConfig.args), 'MCP server args should be an array');
+			assert.ok(mcpConfig.args.some((arg: string) => arg.includes('server.js')), 'Args should include server.js path');
+			assert.ok(mcpConfig.args.includes('--worktree'), 'Args should include --worktree flag');
+			assert.ok(mcpConfig.args.includes(worktreePath), 'Args should include worktree path');
+			assert.ok(mcpConfig.args.includes('--workflow'), 'Args should include --workflow flag');
+			assert.ok(mcpConfig.args.includes(workflowName), 'Args should include workflow name');
+		});
+
+		test('should NOT include MCP config when workflow is null', async () => {
+			// Arrange
+			const sessionName = 'no-workflow-null-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, null);
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+			// Assert
+			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers when workflow is null');
+		});
+
+		test('should NOT include MCP config when workflow is undefined', async () => {
+			// Arrange
+			const sessionName = 'no-workflow-undefined-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, undefined);
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+			// Assert
+			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers when workflow is undefined');
+		});
+
+		test('should NOT include MCP config when workflow parameter is omitted', async () => {
+			// Arrange
+			const sessionName = 'no-workflow-omitted-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+			// Assert
+			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers when workflow is omitted');
+		});
+
+		test('should still include hooks when workflow is provided', async () => {
+			// Arrange
+			const sessionName = 'workflow-with-hooks-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, 'feature');
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+			// Assert: Both hooks and mcpServers should be present
+			assert.ok(settings.hooks, 'Settings should still have hooks');
+			assert.ok(settings.mcpServers, 'Settings should have mcpServers');
+			assert.ok(settings.hooks.SessionStart, 'Hooks should have SessionStart');
+			assert.ok(settings.hooks.Stop, 'Hooks should have Stop');
+		});
+
+		test('should reject invalid workflow names with path separators', async () => {
+			// Arrange
+			const sessionName = 'invalid-workflow-path-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act & Assert
+			await assert.rejects(
+				async () => await getOrCreateExtensionSettingsFile(worktreePath, 'bad/workflow'),
+				/Invalid workflow name/,
+				'Should reject workflow name with forward slash'
+			);
+		});
+
+		test('should reject workflow names with parent directory traversal', async () => {
+			// Arrange
+			const sessionName = 'invalid-workflow-traversal-test';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act & Assert
+			await assert.rejects(
+				async () => await getOrCreateExtensionSettingsFile(worktreePath, '..'),
+				/Invalid workflow name/,
+				'Should reject workflow name with parent directory traversal'
+			);
+		});
+	});
+});
+
+suite('Session Provider', () => {
+
+	let tempDir: string;
+
+	setup(() => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-session-provider-test-'));
+	});
+
+	teardown(() => {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	suite('Workflow Status Display', () => {
+
+		test('getWorkflowStatus returns null when no workflow-state.json exists', () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, 'no-workflow');
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act
+			const status = getWorkflowStatus(worktreePath);
+
+			// Assert
+			assert.strictEqual(status, null, 'Should return null when workflow-state.json does not exist');
+		});
+
+		test('getWorkflowStatus returns workflow status from valid state file', () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, 'with-workflow');
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			const workflowState = {
+				status: 'running',
+				workflow: 'feature',
+				step: 'implement',
+				task: { index: 1 }
+			};
+			fs.writeFileSync(
+				path.join(worktreePath, 'workflow-state.json'),
+				JSON.stringify(workflowState),
+				'utf-8'
+			);
+
+			// Act
+			const status = getWorkflowStatus(worktreePath);
+
+			// Assert
+			assert.ok(status, 'Should return workflow status');
+			assert.strictEqual(status.active, true, 'Should be active when status is running');
+			assert.strictEqual(status.workflow, 'feature', 'Should include workflow name');
+			assert.strictEqual(status.step, 'implement', 'Should include current step');
+			assert.strictEqual(status.progress, 'Task 2', 'Should include task progress (1-indexed)');
+		});
+
+		test('getWorkflowStatus returns inactive for completed workflow', () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, 'completed-workflow');
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			const workflowState = {
+				status: 'complete',
+				workflow: 'feature',
+				step: 'review'
+			};
+			fs.writeFileSync(
+				path.join(worktreePath, 'workflow-state.json'),
+				JSON.stringify(workflowState),
+				'utf-8'
+			);
+
+			// Act
+			const status = getWorkflowStatus(worktreePath);
+
+			// Assert
+			assert.ok(status, 'Should return workflow status');
+			assert.strictEqual(status.active, false, 'Should be inactive when status is complete');
+		});
+
+		test('getWorkflowStatus returns null for invalid JSON', () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, 'invalid-json');
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			fs.writeFileSync(
+				path.join(worktreePath, 'workflow-state.json'),
+				'not valid json',
+				'utf-8'
+			);
+
+			// Act
+			const status = getWorkflowStatus(worktreePath);
+
+			// Assert
+			assert.strictEqual(status, null, 'Should return null for invalid JSON');
+		});
+
+		test('getWorkflowStatus returns null for missing status field', () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, 'missing-status');
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			const workflowState = {
+				workflow: 'feature',
+				step: 'implement'
+			};
+			fs.writeFileSync(
+				path.join(worktreePath, 'workflow-state.json'),
+				JSON.stringify(workflowState),
+				'utf-8'
+			);
+
+			// Act
+			const status = getWorkflowStatus(worktreePath);
+
+			// Assert
+			assert.strictEqual(status, null, 'Should return null when status field is missing');
+		});
+
+		test('SessionItem shows workflow step in description when working', () => {
+			// Arrange
+			const workflowStatus: WorkflowStatus = {
+				active: true,
+				workflow: 'feature',
+				step: 'implement',
+				progress: 'Task 1'
+			};
+
+			const claudeStatus = { status: 'working' as const };
+
+			// Act
+			const sessionItem = new SessionItem(
+				'test-session',
+				'/path/to/worktree',
+				vscode.TreeItemCollapsibleState.None,
+				undefined,
+				claudeStatus,
+				workflowStatus
+			);
+
+			// Assert
+			const description = String(sessionItem.description || '');
+			assert.ok(
+				description.includes('implement'),
+				`Description should include workflow step. Got: ${description}`
+			);
+			assert.ok(
+				description.includes('Task 1'),
+				`Description should include task progress. Got: ${description}`
+			);
+		});
+
+		test('SessionItem shows workflow step in description when waiting', () => {
+			// Arrange
+			const workflowStatus: WorkflowStatus = {
+				active: true,
+				workflow: 'feature',
+				step: 'review'
+			};
+
+			const claudeStatus = { status: 'waiting_for_user' as const };
+
+			// Act
+			const sessionItem = new SessionItem(
+				'test-session',
+				'/path/to/worktree',
+				vscode.TreeItemCollapsibleState.None,
+				undefined,
+				claudeStatus,
+				workflowStatus
+			);
+
+			// Assert
+			const description = String(sessionItem.description || '');
+			assert.ok(
+				description.includes('Waiting'),
+				`Description should include Waiting. Got: ${description}`
+			);
+			assert.ok(
+				description.includes('review'),
+				`Description should include workflow step. Got: ${description}`
+			);
+		});
+
+		test('SessionItem falls back to feature ID when no workflow status', () => {
+			// Arrange
+			const featureStatus = {
+				currentFeature: { id: 'feat-123', description: 'Test feature', passes: false },
+				allComplete: false
+			};
+
+			const claudeStatus = { status: 'working' as const };
+
+			// Act
+			const sessionItem = new SessionItem(
+				'test-session',
+				'/path/to/worktree',
+				vscode.TreeItemCollapsibleState.None,
+				featureStatus,
+				claudeStatus,
+				null
+			);
+
+			// Assert
+			const description = String(sessionItem.description || '');
+			assert.ok(
+				description.includes('feat-123'),
+				`Description should include feature ID when no workflow. Got: ${description}`
+			);
+		});
+	});
+});
+
+suite('Extension Integration', () => {
+
+	suite('Workflow Prompt Instructions', () => {
+
+		test('combinePromptAndCriteria returns combined format when both provided', () => {
+			// Arrange
+			const prompt = 'Implement feature X';
+			const criteria = 'Must pass all tests';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, criteria);
+
+			// Assert
+			assert.ok(result.includes('request:'), 'Should include request prefix');
+			assert.ok(result.includes(prompt), 'Should include the prompt');
+			assert.ok(result.includes('acceptance criteria:'), 'Should include acceptance criteria prefix');
+			assert.ok(result.includes(criteria), 'Should include the criteria');
+		});
+
+		test('combinePromptAndCriteria returns prompt only when no criteria', () => {
+			// Arrange
+			const prompt = 'Implement feature X';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, '');
+
+			// Assert
+			assert.strictEqual(result, prompt, 'Should return just the prompt');
+		});
+
+		test('combinePromptAndCriteria returns criteria only when no prompt', () => {
+			// Arrange
+			const criteria = 'Must pass all tests';
+
+			// Act
+			const result = combinePromptAndCriteria('', criteria);
+
+			// Assert
+			assert.strictEqual(result, criteria, 'Should return just the criteria');
+		});
+
+		test('combinePromptAndCriteria returns empty string when neither provided', () => {
+			// Act
+			const result = combinePromptAndCriteria('', '');
+
+			// Assert
+			assert.strictEqual(result, '', 'Should return empty string');
+		});
+
+		test('combinePromptAndCriteria handles undefined values', () => {
+			// Act
+			const result = combinePromptAndCriteria(undefined, undefined);
+
+			// Assert
+			assert.strictEqual(result, '', 'Should return empty string for undefined');
+		});
+
+		test('combinePromptAndCriteria trims whitespace', () => {
+			// Arrange
+			const prompt = '  trimmed prompt  ';
+			const criteria = '  trimmed criteria  ';
+
+			// Act
+			const result = combinePromptAndCriteria(prompt, criteria);
+
+			// Assert
+			assert.ok(!result.includes('  trimmed'), 'Should trim leading whitespace');
+			assert.ok(!result.includes('trimmed  '), 'Should trim trailing whitespace');
 		});
 	});
 });

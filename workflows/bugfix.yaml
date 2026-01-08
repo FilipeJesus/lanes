@@ -1,0 +1,143 @@
+# Bug fix workflow for the Lanes extension.
+# This workflow implements a structured approach to fixing bugs:
+# 1. Investigate - understand the root cause
+# 2. Define fixes - plan the fix strategy
+# 3. Fix cycle - fix, verify, review for each identified issue
+# 4. Final verify - run full test suite
+# 5. Cleanup - prepare for commit
+
+name: bugfix
+description: Investigate and fix a bug
+
+agents:
+  orchestrator:
+    description: Coordinates investigation and fix
+    tools:
+      - Read
+      - Glob
+      - Grep
+      - Task
+    cannot:
+      - Write
+      - Edit
+      - Bash
+      - commit
+
+  investigator:
+    description: Investigates bug root cause
+    tools:
+      - Read
+      - Glob
+      - Grep
+      - Bash
+    cannot:
+      - Write
+      - Edit
+      - commit
+
+  fixer:
+    description: Implements bug fixes
+    tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Glob
+      - Grep
+    cannot:
+      - commit
+      - Task
+
+  verifier:
+    description: Verifies fixes work correctly
+    tools:
+      - Read
+      - Bash
+    cannot:
+      - Write
+      - Edit
+      - commit
+
+loops:
+  fix_cycle:
+    - id: fix
+      agent: fixer
+      instructions: |
+        Fix: {task.title}
+        Description: {task.description}
+
+        1. Read the affected code
+        2. Understand the issue context
+        3. Implement the fix
+        4. Verify the fix compiles
+
+    - id: verify
+      agent: verifier
+      instructions: |
+        Verify the fix for: {task.title}
+
+        1. Run relevant tests
+        2. Confirm the bug is resolved
+        3. Check for regressions
+        4. Test edge cases related to the fix
+      on_fail: retry
+
+    - id: review
+      instructions: |
+        Review the fix for: {task.title}
+
+        1. Verify the fix is correct
+        2. Check for side effects
+        3. Ensure no regressions were introduced
+        4. Confirm the root cause was addressed
+
+steps:
+  - id: investigate
+    type: action
+    agent: investigator
+    instructions: |
+      Investigate the bug:
+
+      1. Reproduce the issue if possible
+      2. Identify the root cause
+      3. Document affected code paths
+      4. Determine the scope of the fix needed
+
+      Be thorough - understanding the bug is crucial to fixing it correctly.
+
+  - id: define_fixes
+    type: action
+    agent: orchestrator
+    instructions: |
+      Based on the investigation, define fix tasks.
+
+      For each fix needed, define:
+      - id: A unique identifier
+      - title: Description of the fix
+      - description: Details about what to change and why
+
+      Call workflow_set_tasks('fix_cycle', tasks) when done.
+
+  - id: fix_cycle
+    type: loop
+
+  - id: final_verify
+    type: action
+    agent: verifier
+    instructions: |
+      Run full test suite to verify no regressions.
+
+      1. Run all tests in the project
+      2. Check edge cases related to the fix
+      3. Verify the original bug is resolved
+      4. Confirm no new issues were introduced
+
+  - id: cleanup
+    type: action
+    instructions: |
+      Clean up and prepare for commit.
+
+      1. Remove any debug code
+      2. Clean up temporary files
+      3. Ensure code is properly formatted
+      4. Summarize what was fixed and how

@@ -606,8 +606,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Handle form submission - creates a new session with optional prompt and acceptance criteria
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode) => {
-        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, baseRepoPath, sessionProvider);
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null) => {
+        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider);
     });
 
     // Watch for .claude-status file changes to refresh the sidebar
@@ -797,9 +797,9 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Use the shared createSession function (no prompt, acceptance criteria, or source branch when using command palette)
+        // Use the shared createSession function (no prompt, acceptance criteria, source branch, or workflow when using command palette)
         // Use baseRepoPath to create sessions in the main repo even when in a worktree
-        await createSession(name, '', '', 'default', '', baseRepoPath, sessionProvider);
+        await createSession(name, '', '', 'default', '', null, baseRepoPath, sessionProvider);
     });
 
     // 3. Register OPEN/RESUME Command
@@ -1175,7 +1175,9 @@ export async function activate(context: vscode.ExtensionContext) {
  * @param name Session name (used as branch name)
  * @param prompt Optional starting prompt for Claude
  * @param acceptanceCriteria Optional acceptance criteria for Claude
+ * @param permissionMode Permission mode for Claude CLI
  * @param sourceBranch Optional source branch to create worktree from (empty = use default behavior)
+ * @param workflow Optional workflow template name to guide Claude through structured phases
  * @param workspaceRoot The workspace root path
  * @param sessionProvider The session provider for refreshing the UI
  */
@@ -1185,6 +1187,7 @@ async function createSession(
     acceptanceCriteria: string,
     permissionMode: PermissionMode,
     sourceBranch: string,
+    workflow: string | null,
     workspaceRoot: string | undefined,
     sessionProvider: ClaudeSessionProvider
 ): Promise<void> {
@@ -1379,7 +1382,7 @@ async function createSession(
 
             // 6. Success
             sessionProvider.refresh();
-            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode);
+            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow);
             vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
 
             // Exit the loop on success
@@ -1414,8 +1417,45 @@ export function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: s
     return '';
 }
 
+/**
+ * Generates the workflow orchestrator instructions to prepend to a prompt.
+ * These instructions guide Claude through the structured workflow phases.
+ */
+function getWorkflowOrchestratorInstructions(): string {
+    return `You are an orchestrator agent following a structured workflow.
+
+## CRITICAL RULES
+
+1. **Always check workflow_status first** to see your current step
+2. **Follow the agent restrictions** - only use tools you're allowed to use
+3. **For implementation/test/review steps**, spawn sub-agents using the Task tool
+4. **Call workflow_advance** after completing each step
+5. **Never skip steps** - complete each one before advancing
+
+## Workflow
+
+1. Call workflow_start to begin
+2. In planning phase: analyze the goal, then call workflow_set_tasks
+3. In executing phase: follow instructions for each step
+4. When complete: review all work and commit if approved
+
+## Sub-Agent Spawning
+
+When the current step requires an agent other than orchestrator:
+- Use the Task tool to spawn a sub-agent
+- Include the agent's tool restrictions in the prompt
+- Wait for the sub-agent to complete
+- Call workflow_advance with a summary
+
+---
+
+## User Request
+
+`;
+}
+
 // THE CORE FUNCTION: Manages the Terminal Tabs
-async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode): Promise<void> {
+async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null): Promise<void> {
     const terminalName = `Claude: ${taskName}`;
 
     // A. Check if this terminal already exists to avoid duplicates
@@ -1439,10 +1479,10 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
 
     terminal.show();
 
-    // C. Get or create the extension settings file with hooks
+    // C. Get or create the extension settings file with hooks (and MCP config if workflow)
     let settingsFlag = '';
     try {
-        const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
+        const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflow);
         settingsFlag = `--settings "${settingsPath}" `;
     } catch (err) {
         console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
@@ -1463,7 +1503,16 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
             : '';
 
         // Combine prompt and acceptance criteria
-        const combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
+        let combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
+
+        // For workflow sessions, prepend orchestrator instructions
+        if (workflow && combinedPrompt) {
+            combinedPrompt = getWorkflowOrchestratorInstructions() + combinedPrompt;
+        } else if (workflow) {
+            // Even without a user prompt, workflow sessions need orchestrator instructions
+            combinedPrompt = getWorkflowOrchestratorInstructions() + 'Start the workflow and follow the steps.';
+        }
+
         if (combinedPrompt) {
             // Write prompt to file for history and to avoid terminal buffer issues
             // Location depends on settings:
@@ -1560,6 +1609,12 @@ interface ClaudeSettings {
         PreToolUse?: HookEntry[];
         [key: string]: HookEntry[] | undefined;
     };
+    mcpServers?: {
+        [name: string]: {
+            command: string;
+            args: string[];
+        };
+    };
     [key: string]: unknown;
 }
 
@@ -1598,12 +1653,14 @@ function getRelativeFilePath(configKey: string): string {
 /**
  * Creates or updates the extension settings file in global storage.
  * This file contains hooks for status tracking and session ID capture.
+ * When a workflow is specified, it also includes MCP server configuration.
  * The file is stored at: globalStorageUri/<repo-identifier>/<session-name>/claude-settings.json
  *
  * @param worktreePath Path to the worktree
+ * @param workflow Optional workflow template name. When provided, includes MCP server config.
  * @returns The absolute path to the settings file
  */
-export async function getOrCreateExtensionSettingsFile(worktreePath: string): Promise<string> {
+export async function getOrCreateExtensionSettingsFile(worktreePath: string, workflow?: string | null): Promise<string> {
     // Get the session name from the worktree path
     const sessionName = getSessionNameFromWorktree(worktreePath);
 
@@ -1697,6 +1754,27 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string): Pr
             PreToolUse: [{ matcher: '.*', hooks: [statusWriteWorking] }]
         }
     };
+
+    // Add MCP server configuration if workflow is specified
+    if (workflow) {
+        // Validate workflow name to prevent command injection
+        // Workflow names must be simple alphanumeric names (like 'feature', 'bugfix', 'refactor')
+        // Only allow letters, numbers, underscores, and hyphens
+        if (!/^[a-zA-Z0-9_-]+$/.test(workflow)) {
+            throw new Error(`Invalid workflow name: ${workflow}. Only letters, numbers, underscores, and hyphens are allowed.`);
+        }
+
+        // Get extension path to find the compiled MCP server
+        // __dirname will be the out/ directory when compiled
+        const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+
+        settings.mcpServers = {
+            'lanes-workflow': {
+                command: 'node',
+                args: [mcpServerPath, '--worktree', worktreePath, '--workflow', workflow]
+            }
+        };
+    }
 
     // Write the settings file atomically with cleanup on failure
     const tempPath = path.join(settingsDir, `claude-settings.json.${Date.now()}.tmp`);

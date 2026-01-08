@@ -1052,7 +1052,7 @@ suite('Configuration Test Suite', () => {
 
 	suite('Configuration Structure', () => {
 
-		test('should verify configuration is an array with 3 sections', () => {
+		test('should verify configuration is an array with 4 sections', () => {
 			// Read and parse package.json from the project root
 			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -1063,11 +1063,11 @@ suite('Configuration Test Suite', () => {
 				'package.json contributes.configuration should be an array'
 			);
 
-			// Assert: configuration should have exactly 3 elements
+			// Assert: configuration should have exactly 4 elements
 			assert.strictEqual(
 				packageJson.contributes.configuration.length,
-				3,
-				'Configuration array should have exactly 3 sections'
+				4,
+				'Configuration array should have exactly 4 sections'
 			);
 		});
 
@@ -1081,7 +1081,8 @@ suite('Configuration Test Suite', () => {
 			const expectedTitles = [
 				'Lanes: General',
 				'Lanes: Git',
-				'Lanes: Advanced'
+				'Lanes: Advanced',
+				'Lanes: Workflows'
 			];
 
 			const actualTitles = config.map((section: any) => section.title);
@@ -1213,6 +1214,66 @@ suite('Configuration Test Suite', () => {
 				advancedSection.properties['lanes.testsJsonPath'].order,
 				5,
 				'testsJsonPath should have order 5'
+			);
+		});
+
+		test('should verify Workflows section contains correct settings', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const workflowsSection = getConfigSection(packageJson.contributes.configuration, 'Lanes: Workflows');
+
+			// Assert: Workflows section should exist
+			assert.ok(workflowsSection, 'Workflows section should exist');
+
+			// Assert: Workflows section should contain all expected settings
+			const expectedSettings = [
+				'lanes.workflowsEnabled',
+				'lanes.workflowsFolder'
+			];
+
+			for (const setting of expectedSettings) {
+				assert.ok(
+					workflowsSection.properties?.[setting],
+					`Workflows section should contain ${setting}`
+				);
+			}
+
+			// Assert: Settings should have correct order (1-2)
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsEnabled'].order,
+				1,
+				'workflowsEnabled should have order 1'
+			);
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsFolder'].order,
+				2,
+				'workflowsFolder should have order 2'
+			);
+
+			// Assert: workflowsEnabled should be boolean with default true
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsEnabled'].type,
+				'boolean',
+				'workflowsEnabled should have type boolean'
+			);
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsEnabled'].default,
+				true,
+				'workflowsEnabled should default to true'
+			);
+
+			// Assert: workflowsFolder should be string with default .claude/workflows
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsFolder'].type,
+				'string',
+				'workflowsFolder should have type string'
+			);
+			assert.strictEqual(
+				workflowsSection.properties['lanes.workflowsFolder'].default,
+				'.claude/workflows',
+				'workflowsFolder should default to .claude/workflows'
 			);
 		});
 	});

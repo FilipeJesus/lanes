@@ -19,7 +19,14 @@ export function isValidPermissionMode(mode: unknown): mode is PermissionMode {
  * Can be async - the form will wait for completion before clearing.
  */
 
-export type SessionFormSubmitCallback = (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode) => void | Promise<void>;
+export type SessionFormSubmitCallback = (
+    name: string,
+    prompt: string,
+    acceptanceCriteria: string,
+    sourceBranch: string,
+    permissionMode: PermissionMode,
+    workflow: string | null
+) => void | Promise<void>;
 
 /**
  * Provides a webview form for creating new Claude sessions.
@@ -79,7 +86,14 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     if (this._onSubmit) {
                         try {
                             // Await the callback to ensure session creation completes before clearing form
-                            await this._onSubmit(message.name, message.prompt, message.acceptanceCriteria || '', message.sourceBranch || '', message.permissionMode || 'default');
+                            await this._onSubmit(
+                                message.name,
+                                message.prompt,
+                                message.acceptanceCriteria || '',
+                                message.sourceBranch || '',
+                                message.permissionMode || 'default',
+                                message.workflow || null
+                            );
                         } catch (err) {
                             // Error is already shown by createSession, but log for debugging
                             console.error('Lanes: Session creation failed:', err);
@@ -255,6 +269,17 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             <div class="hint">Controls Claude's permission behavior</div>
         </div>
 
+        <div class="form-group">
+            <label for="workflow">Workflow Template</label>
+            <select id="workflow" name="workflow">
+                <option value="" selected>None (ad-hoc mode)</option>
+                <option value="feature">Feature Development</option>
+                <option value="bugfix">Bug Fix</option>
+                <option value="refactor">Refactoring</option>
+            </select>
+            <div class="hint">Optional: Select a workflow to guide Claude through structured phases</div>
+        </div>
+
         <button type="submit" id="submitBtn">Create Session</button>
     </form>
 
@@ -266,6 +291,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const promptInput = document.getElementById('prompt');
         const acceptanceCriteriaInput = document.getElementById('acceptanceCriteria');
         const permissionModeInput = document.getElementById('permissionMode');
+        const workflowInput = document.getElementById('workflow');
 
         // Restore saved state when webview is recreated
         const previousState = vscode.getState();
@@ -275,6 +301,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             promptInput.value = previousState.prompt || '';
             acceptanceCriteriaInput.value = previousState.acceptanceCriteria || '';
             permissionModeInput.value = previousState.permissionMode || 'default';
+            workflowInput.value = previousState.workflow || '';
         }
 
         // Save state whenever form values change
@@ -284,7 +311,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
                 acceptanceCriteria: acceptanceCriteriaInput.value,
-                permissionMode: permissionModeInput.value
+                permissionMode: permissionModeInput.value,
+                workflow: workflowInput.value
             });
         }
 
@@ -294,6 +322,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         promptInput.addEventListener('input', saveState);
         acceptanceCriteriaInput.addEventListener('input', saveState);
         permissionModeInput.addEventListener('change', saveState);
+        workflowInput.addEventListener('change', saveState);
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -303,6 +332,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             const prompt = promptInput.value.trim();
             const acceptanceCriteria = acceptanceCriteriaInput.value.trim();
             const permissionMode = permissionModeInput.value;
+            const workflow = workflowInput.value;
 
             if (!name) {
                 nameInput.focus();
@@ -316,7 +346,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 sourceBranch: sourceBranch,
                 prompt: prompt,
                 acceptanceCriteria: acceptanceCriteria,
-                permissionMode: permissionMode
+                permissionMode: permissionMode,
+                workflow: workflow || null
             });
         });
 
@@ -330,13 +361,15 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     promptInput.value = '';
                     acceptanceCriteriaInput.value = '';
                     permissionModeInput.value = 'default';
+                    workflowInput.value = '';
                     // Clear saved state after successful submission
                     vscode.setState({
                         name: '',
                         sourceBranch: '',
                         prompt: '',
                         acceptanceCriteria: '',
-                        permissionMode: 'default'
+                        permissionMode: 'default',
+                        workflow: ''
                     });
                     nameInput.focus();
                     break;

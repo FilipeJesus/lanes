@@ -461,6 +461,58 @@ export function getFeatureStatus(worktreePath: string): FeatureStatus {
     }
 }
 
+// Workflow status interface for display purposes
+export interface WorkflowStatus {
+    active: boolean;
+    workflow?: string;
+    step?: string;
+    progress?: string;
+}
+
+/**
+ * Get the workflow status from a worktree's workflow-state.json file.
+ * @param worktreePath Path to the worktree directory
+ * @returns WorkflowStatus if valid file exists, null otherwise
+ */
+export function getWorkflowStatus(worktreePath: string): WorkflowStatus | null {
+    const statePath = path.join(worktreePath, 'workflow-state.json');
+
+    try {
+        if (!fs.existsSync(statePath)) {
+            return null;
+        }
+
+        const content = fs.readFileSync(statePath, 'utf-8');
+        const state = JSON.parse(content);
+
+        // Validate required fields
+        if (!state.status || typeof state.status !== 'string') {
+            return null;
+        }
+
+        // Extract workflow step info
+        const isActive = state.status === 'running';
+        const workflow = state.workflow || undefined;
+        const step = state.step || undefined;
+
+        // Build progress string from task info if available
+        let progress: string | undefined;
+        if (state.task && typeof state.task.index === 'number') {
+            progress = `Task ${state.task.index + 1}`;
+        }
+
+        return {
+            active: isActive,
+            workflow,
+            step,
+            progress
+        };
+    } catch {
+        // Graceful fallback for any error (invalid JSON, read error, etc.)
+        return null;
+    }
+}
+
 // Define the shape of our Tree Item
 export class SessionItem extends vscode.TreeItem {
     constructor(
@@ -468,15 +520,16 @@ export class SessionItem extends vscode.TreeItem {
         public readonly worktreePath: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         featureStatus?: FeatureStatus,
-        claudeStatus?: ClaudeStatus | null
+        claudeStatus?: ClaudeStatus | null,
+        workflowStatus?: WorkflowStatus | null
     ) {
         super(label, collapsibleState);
 
         // Tooltip shown on hover
         this.tooltip = `Path: ${this.worktreePath}`;
 
-        // Set description based on Claude status and feature status
-        this.description = this.getDescriptionForStatus(claudeStatus, featureStatus);
+        // Set description based on Claude status, feature status, and workflow status
+        this.description = this.getDescriptionForStatus(claudeStatus, featureStatus, workflowStatus);
 
         // Set the icon based on Claude status
         this.iconPath = this.getIconForStatus(claudeStatus);
@@ -513,25 +566,40 @@ export class SessionItem extends vscode.TreeItem {
     }
 
     /**
-     * Get the description text based on Claude status and feature status
-     * Priority: waiting_for_user > working > feature ID > "Complete" > "Active"
+     * Get the description text based on Claude status, feature status, and workflow status
+     * Priority: waiting_for_user > working > workflow step > feature ID > "Complete" > "Active"
      */
     private getDescriptionForStatus(
         claudeStatus?: ClaudeStatus | null,
-        featureStatus?: FeatureStatus
+        featureStatus?: FeatureStatus,
+        workflowStatus?: WorkflowStatus | null
     ): string {
         const featureId = featureStatus?.currentFeature?.id;
 
+        // Build workflow step info string if available
+        let workflowStepInfo: string | undefined;
+        if (workflowStatus?.active && workflowStatus.step) {
+            workflowStepInfo = workflowStatus.progress
+                ? `${workflowStatus.step} (${workflowStatus.progress})`
+                : workflowStatus.step;
+        }
+
         if (claudeStatus?.status === 'waiting_for_user') {
-            return featureId ? `Waiting - ${featureId}` : 'Waiting for input';
+            // Prefer workflow step info, then feature ID
+            const detail = workflowStepInfo || featureId;
+            return detail ? `Waiting - ${detail}` : 'Waiting for input';
         }
 
         if (claudeStatus?.status === 'working') {
-            return featureId ? `Working - ${featureId}` : 'Working...';
+            // Prefer workflow step info, then feature ID
+            const detail = workflowStepInfo || featureId;
+            return detail ? `Working - ${detail}` : 'Working...';
         }
 
-        // Fall back to feature-based description (original behavior)
-        if (featureId) {
+        // Fall back to workflow step info, then feature-based description
+        if (workflowStepInfo) {
+            return workflowStepInfo;
+        } else if (featureId) {
             return featureId;
         } else if (featureStatus?.allComplete) {
             return "Complete";
@@ -610,12 +678,14 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
             if (fs.statSync(fullPath).isDirectory()) {
                 const featureStatus = getFeatureStatus(fullPath);
                 const claudeStatus = getClaudeStatus(fullPath);
+                const workflowStatus = getWorkflowStatus(fullPath);
                 return new SessionItem(
                     folderName,
                     fullPath,
                     vscode.TreeItemCollapsibleState.None, // No nested items
                     featureStatus,
-                    claudeStatus
+                    claudeStatus,
+                    workflowStatus
                 );
             }
         }).filter(item => item !== undefined) as SessionItem[];

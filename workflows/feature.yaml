@@ -1,0 +1,157 @@
+# Feature development workflow for the Lanes extension.
+# This workflow implements a complete feature development cycle:
+# 1. Plan - analyze the goal and break it into discrete tasks
+# 2. Define tasks - create task list for the development loop
+# 3. Feature development loop - implement, test, review, resolve for each task
+# 4. Final review - review the implementation as a whole
+# 5. Final resolution - address any issues from the final review
+
+name: feature
+description: Plan and implement a new feature
+
+agents:
+  orchestrator:
+    description: Plans work and coordinates sub-agents
+    tools:
+      - Read
+      - Glob
+      - Grep
+      - Task
+    cannot:
+      - Write
+      - Edit
+      - Bash
+      - commit
+
+  implementer:
+    description: Writes code to implement features
+    tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Glob
+      - Grep
+    cannot:
+      - commit
+      - Task
+
+  tester:
+    description: Runs tests and fixes failures
+    tools:
+      - Read
+      - Edit
+      - Bash
+    cannot:
+      - commit
+      - Task
+
+  reviewer:
+    description: Reviews code for quality
+    tools:
+      - Read
+      - Glob
+      - Grep
+    cannot:
+      - Write
+      - Edit
+      - Bash
+      - commit
+
+loops:
+  feature_development:
+    - id: implement
+      agent: implementer
+      instructions: |
+        Implement: {task.title}
+        Description: {task.description}
+
+        1. Read relevant files to understand context
+        2. Plan the implementation approach
+        3. Write the code
+        4. Verify it compiles
+
+        Do NOT run tests yet - that will be handled in the next step.
+
+    - id: test
+      agent: tester
+      instructions: |
+        Run tests for: {task.title}
+
+        1. Run the existing test suite
+        2. Identify any failing tests
+        3. Fix any test failures
+        4. Ensure all tests pass
+      on_fail: retry
+
+    - id: review
+      agent: reviewer
+      instructions: |
+        Review implementation of: {task.title}
+
+        Check for:
+        1. Security vulnerabilities
+        2. Proper error handling
+        3. Code quality and patterns
+        4. Edge cases and potential bugs
+        5. Consistency with existing code style
+
+    - id: resolution
+      instructions: |
+        Check the review of: {task.title}
+
+        1. Read the review feedback
+        2. Identify any critical issues raised
+        3. Address critical issues if present
+        4. Mark the task as complete
+
+steps:
+  - id: plan
+    type: action
+    agent: orchestrator
+    instructions: |
+      Analyze the goal and break it into discrete tasks.
+
+      Consider:
+      1. What are the individual features or changes needed?
+      2. What are the dependencies between tasks?
+      3. What is the optimal order of implementation?
+
+      Document your analysis before proceeding.
+
+  - id: define_tasks
+    type: action
+    agent: orchestrator
+    instructions: |
+      For each task identified in the planning phase, define:
+      - id: A unique identifier (e.g., 'add-login-form', 'fix-validation')
+      - title: A clear, concise title
+      - description: Detailed description of what needs to be done
+
+      Call workflow_set_tasks('feature_development', tasks) when done.
+
+  - id: feature_development
+    type: loop
+
+  - id: final_review
+    type: action
+    agent: reviewer
+    instructions: |
+      Review the implementation as a whole.
+
+      Check for:
+      1. Consistency across all changes
+      2. Any missed requirements
+      3. Integration issues between features
+      4. Overall code quality
+      5. Documentation completeness
+
+  - id: final_resolution
+    type: action
+    instructions: |
+      Address any issues from the final review.
+
+      1. Review the feedback from the final review
+      2. Make any necessary adjustments
+      3. Prepare the changes for commit
+      4. Summarize what was accomplished

@@ -1,0 +1,147 @@
+# Refactoring workflow for the Lanes extension.
+# This workflow implements a structured approach to code refactoring:
+# 1. Analyze - identify refactoring opportunities
+# 2. Define tasks - plan refactoring changes
+# 3. Refactor cycle - refactor, test, review for each change
+# 4. Final test - ensure all tests pass
+# 5. Cleanup - prepare for commit
+
+name: refactor
+description: Refactor code for improved quality
+
+agents:
+  orchestrator:
+    description: Coordinates refactoring effort
+    tools:
+      - Read
+      - Glob
+      - Grep
+      - Task
+    cannot:
+      - Write
+      - Edit
+      - Bash
+      - commit
+
+  analyzer:
+    description: Analyzes code for refactoring opportunities
+    tools:
+      - Read
+      - Glob
+      - Grep
+    cannot:
+      - Write
+      - Edit
+      - Bash
+      - commit
+
+  refactorer:
+    description: Implements refactoring changes
+    tools:
+      - Read
+      - Write
+      - Edit
+      - Glob
+      - Grep
+    cannot:
+      - Bash
+      - commit
+      - Task
+
+  tester:
+    description: Ensures refactoring preserves behavior
+    tools:
+      - Read
+      - Bash
+    cannot:
+      - Write
+      - Edit
+      - commit
+
+loops:
+  refactor_cycle:
+    - id: refactor
+      agent: refactorer
+      instructions: |
+        Refactor: {task.title}
+        Description: {task.description}
+
+        1. Read the code to be refactored
+        2. Plan the changes carefully
+        3. Make the refactoring changes
+        4. Preserve existing behavior
+
+        IMPORTANT: Refactoring should NOT change functionality.
+
+    - id: test
+      agent: tester
+      instructions: |
+        Run tests after refactoring: {task.title}
+
+        1. Run the full test suite
+        2. Ensure all existing tests pass
+        3. Verify no behavior changes occurred
+        4. Check for any performance impacts
+      on_fail: retry
+
+    - id: review
+      instructions: |
+        Review the refactoring of: {task.title}
+
+        1. Verify behavior is preserved
+        2. Confirm the code is cleaner
+        3. Check that the refactoring achieves its goal
+        4. Ensure code style is consistent
+
+steps:
+  - id: analyze
+    type: action
+    agent: analyzer
+    instructions: |
+      Analyze the code for refactoring:
+
+      1. Identify code smells (duplication, long methods, etc.)
+      2. Find opportunities for improvement
+      3. Plan the refactoring approach
+      4. List files that will be affected
+
+      Focus on changes that improve maintainability without changing behavior.
+
+  - id: define_tasks
+    type: action
+    agent: orchestrator
+    instructions: |
+      Based on the analysis, define refactoring tasks.
+
+      For each refactoring, define:
+      - id: A unique identifier
+      - title: Description of the refactoring
+      - description: What will be changed and why
+
+      Order tasks to minimize conflicts between changes.
+
+      Call workflow_set_tasks('refactor_cycle', tasks) when done.
+
+  - id: refactor_cycle
+    type: loop
+
+  - id: final_test
+    type: action
+    agent: tester
+    instructions: |
+      Run full test suite.
+
+      1. Execute all tests in the project
+      2. Verify all tests pass after refactoring
+      3. Check for any performance regressions
+      4. Confirm no functionality was changed
+
+  - id: cleanup
+    type: action
+    instructions: |
+      Review all changes and prepare for commit.
+
+      1. Review the cumulative changes
+      2. Ensure code is properly formatted
+      3. Clean up any temporary files
+      4. Summarize what was refactored and the improvements made
