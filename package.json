@@ -64,6 +64,11 @@
           "id": "previousSessionsView",
           "name": "Previous Sessions",
           "icon": "$(history)"
+        },
+        {
+          "id": "workflowsView",
+          "name": "Workflows",
+          "icon": "$(symbol-event)"
         }
       ]
     },
@@ -101,9 +106,26 @@
         "command": "claudeWorktrees.openPreviousSessionPrompt",
         "title": "Open Session Prompt",
         "icon": "$(file)"
+      },
+      {
+        "command": "lanes.createWorkflow",
+        "title": "Lanes: Create Workflow Template",
+        "icon": "$(add)"
+      },
+      {
+        "command": "lanes.validateWorkflow",
+        "title": "Lanes: Validate Workflow Template",
+        "icon": "$(check)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "lanes.createWorkflow",
+          "when": "view == workflowsView",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "claudeWorktrees.openInNewWindow",
@@ -217,8 +239,14 @@
           "lanes.workflowsFolder": {
             "type": "string",
             "default": ".claude/workflows",
-            "description": "Workspace folder for custom workflow templates",
+            "description": "Workspace folder for built-in workflow templates",
             "order": 2
+          },
+          "lanes.customWorkflowsFolder": {
+            "type": "string",
+            "default": ".claude/lanes/workflows",
+            "description": "Workspace folder for custom workflow templates (relative to workspace root)",
+            "order": 3
           }
         }
       }
