@@ -1,10 +1,55 @@
-# Feature development workflow for the Lanes extension.
+# =============================================================================
+# WORKFLOW TEMPLATE: Feature Development
+# =============================================================================
+#
+# This is a TEMPLATE file for reference. Built-in workflows are not selectable
+# in the workflow dropdown - only custom workflows appear there.
+#
+# TO USE THIS TEMPLATE:
+# ---------------------
+# 1. Copy this file to your project's .claude/lanes/workflows/ directory
+# 2. Customize the workflow for your project's needs
+# 3. The workflow will appear in the "Custom" section of the dropdown
+#
+# AGENTS
+# ------
+# Agent names used in this workflow (in the `agents:` section and `agent:`
+# fields on steps) must match agent definition files in your project's
+# .claude/agents/ directory. For example:
+#   - `agent: orchestrator` requires .claude/agents/orchestrator.md
+#   - `agent: implementer` requires .claude/agents/implementer.md
+#
+# You can define agents inline in this file (as shown below) or reference
+# external agent files. Inline definitions take precedence.
+#
+# OPTIONAL AGENT FIELD
+# --------------------
+# The `agent:` field on steps and sub-steps is OPTIONAL. If you omit it,
+# the main Claude agent will handle that step directly instead of delegating
+# to a specialized sub-agent. This is useful for simpler workflows or steps
+# that don't require specialized capabilities.
+#
+# Example without agent (main Claude handles it):
+#   - id: resolution
+#     instructions: |
+#       Check the review feedback and address issues...
+#
+# Example with agent (delegated to sub-agent):
+#   - id: implement
+#     agent: implementer
+#     instructions: |
+#       Implement the feature...
+#
+# WORKFLOW STRUCTURE
+# ------------------
 # This workflow implements a complete feature development cycle:
 # 1. Plan - analyze the goal and break it into discrete tasks
 # 2. Define tasks - create task list for the development loop
 # 3. Feature development loop - implement, test, review, resolve for each task
 # 4. Final review - review the implementation as a whole
 # 5. Final resolution - address any issues from the final review
+#
+# =============================================================================
 
 name: feature
 description: Plan and implement a new feature

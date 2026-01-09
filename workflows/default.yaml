@@ -1,8 +1,54 @@
-# Default workflow template for the Lanes extension.
+# =============================================================================
+# WORKFLOW TEMPLATE: Default (Standard Development)
+# =============================================================================
+#
+# This is a TEMPLATE file for reference. Built-in workflows are not selectable
+# in the workflow dropdown - only custom workflows appear there.
+#
+# TO USE THIS TEMPLATE:
+# ---------------------
+# 1. Copy this file to your project's .claude/lanes/workflows/ directory
+# 2. Customize the workflow for your project's needs
+# 3. The workflow will appear in the "Custom" section of the dropdown
+#
+# AGENTS
+# ------
+# Agent names used in this workflow (in the `agents:` section and `agent:`
+# fields on steps) must match agent definition files in your project's
+# .claude/agents/ directory. For example:
+#   - `agent: coder` requires .claude/agents/coder.md
+#   - `agent: test-engineer` requires .claude/agents/test-engineer.md
+#   - `agent: code-reviewer` requires .claude/agents/code-reviewer.md
+#
+# You can define agents inline in this file (as shown below) or reference
+# external agent files. Inline definitions take precedence.
+#
+# OPTIONAL AGENT FIELD
+# --------------------
+# The `agent:` field on steps and sub-steps is OPTIONAL. If you omit it,
+# the main Claude agent will handle that step directly instead of delegating
+# to a specialized sub-agent. This is useful for simpler workflows or steps
+# that don't require specialized capabilities.
+#
+# Example without agent (main Claude handles it):
+#   - id: plan
+#     instructions: |
+#       Analyze the request and break it down...
+#
+# Example with agent (delegated to sub-agent):
+#   - id: code
+#     agent: coder
+#     instructions: |
+#       Implement the feature...
+#
+# WORKFLOW STRUCTURE
+# ------------------
 # This workflow implements the standard development cycle:
-# 1. Plan - break down the task
-# 2. Implement - code and test each feature
-# 3. Cleanup - finalize and clean up
+# 1. Plan - break down the task into discrete features
+# 2. Implement - code and test each feature in a loop
+# 3. Cleanup - finalize, run tests, and clean up
+#
+# =============================================================================
 
 name: default
 description: Standard development workflow with planning, implementation, and cleanup phases
