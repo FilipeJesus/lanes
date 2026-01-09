@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { WorkflowMetadata } from './workflow';
 
 /**
  * Valid permission modes for Claude CLI
@@ -37,14 +38,77 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
     private _view?: vscode.WebviewView;
     private _onSubmit?: SessionFormSubmitCallback;
+    private _workflows: WorkflowMetadata[] = [];
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
+
+    /**
+     * Update the available workflows and refresh the webview
+     */
+    public updateWorkflows(workflows: WorkflowMetadata[]): void {
+        this._workflows = workflows;
+        // Send updated workflows to the webview if it exists
+        if (this._view) {
+            this._view.webview.postMessage({
+                command: 'updateWorkflows',
+                workflows: workflows.map(w => ({
+                    name: w.name,
+                    description: w.description,
+                    isBuiltIn: w.isBuiltIn
+                }))
+            });
+        }
+    }
 
     /**
      * Set the callback to be invoked when the form is submitted
      */
     public setOnSubmit(callback: SessionFormSubmitCallback): void {
         this._onSubmit = callback;
+    }
+
+    /**
+     * Generate HTML options for workflow dropdown
+     */
+    private _getWorkflowOptionsHtml(): string {
+        if (this._workflows.length === 0) {
+            return '';
+        }
+
+        const builtIn = this._workflows.filter(w => w.isBuiltIn);
+        const custom = this._workflows.filter(w => !w.isBuiltIn);
+
+        let html = '';
+
+        if (builtIn.length > 0) {
+            html += '<optgroup label="Built-in">';
+            for (const w of builtIn) {
+                html += `<option value="${this._escapeHtml(w.name)}">${this._escapeHtml(w.name)}</option>`;
+            }
+            html += '</optgroup>';
+        }
+
+        if (custom.length > 0) {
+            html += '<optgroup label="Custom">';
+            for (const w of custom) {
+                html += `<option value="${this._escapeHtml(w.name)}">${this._escapeHtml(w.name)}</option>`;
+            }
+            html += '</optgroup>';
+        }
+
+        return html;
+    }
+
+    /**
+     * Escape HTML special characters
+     */
+    private _escapeHtml(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
@@ -273,9 +337,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             <label for="workflow">Workflow Template</label>
             <select id="workflow" name="workflow">
                 <option value="" selected>None (ad-hoc mode)</option>
-                <option value="feature">Feature Development</option>
-                <option value="bugfix">Bug Fix</option>
-                <option value="refactor">Refactoring</option>
+                ${this._getWorkflowOptionsHtml()}
             </select>
             <div class="hint">Optional: Select a workflow to guide Claude through structured phases</div>
         </div>
@@ -351,6 +413,59 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             });
         });
 
+        // Helper function to update workflow dropdown options
+        function updateWorkflowDropdown(workflows) {
+            const currentValue = workflowInput.value;
+
+            // Clear existing options except the first "None" option
+            while (workflowInput.options.length > 1) {
+                workflowInput.remove(1);
+            }
+
+            // Remove any existing optgroups
+            const optgroups = workflowInput.querySelectorAll('optgroup');
+            optgroups.forEach(og => og.remove());
+
+            if (!workflows || workflows.length === 0) {
+                return;
+            }
+
+            const builtIn = workflows.filter(w => w.isBuiltIn);
+            const custom = workflows.filter(w => !w.isBuiltIn);
+
+            if (builtIn.length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = 'Built-in';
+                builtIn.forEach(w => {
+                    const option = document.createElement('option');
+                    option.value = w.name;
+                    option.textContent = w.name;
+                    group.appendChild(option);
+                });
+                workflowInput.appendChild(group);
+            }
+
+            if (custom.length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = 'Custom';
+                custom.forEach(w => {
+                    const option = document.createElement('option');
+                    option.value = w.name;
+                    option.textContent = w.name;
+                    group.appendChild(option);
+                });
+                workflowInput.appendChild(group);
+            }
+
+            // Restore previous selection if it still exists
+            if (currentValue) {
+                const optionExists = Array.from(workflowInput.options).some(opt => opt.value === currentValue);
+                if (optionExists) {
+                    workflowInput.value = currentValue;
+                }
+            }
+        }
+
         // Handle messages from extension
         window.addEventListener('message', (event) => {
             const message = event.data;
@@ -372,6 +487,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                         workflow: ''
                     });
                     nameInput.focus();
+                    break;
+                case 'updateWorkflows':
+                    updateWorkflowDropdown(message.workflows);
                     break;
             }
         });

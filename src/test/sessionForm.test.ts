@@ -82,7 +82,7 @@ suite('Session Form', () => {
 	});
 
 	suite('Workflow Dropdown', () => {
-		test('Session form includes workflow dropdown with options', () => {
+		test('Session form includes workflow dropdown with None option', () => {
 			// Arrange & Act
 			const html = getFormHtml(provider);
 
@@ -112,34 +112,46 @@ suite('Session Form', () => {
 				'None option should indicate ad-hoc mode'
 			);
 
-			// Assert: Feature workflow option exists
+			// Assert: JavaScript handler for updateWorkflows message exists
 			assert.ok(
-				html.includes('<option value="feature">'),
-				'Form should have feature workflow option'
+				html.includes('updateWorkflowDropdown'),
+				'Form should have updateWorkflowDropdown function for dynamic updates'
 			);
 			assert.ok(
-				html.includes('Feature Development'),
-				'Feature option should have readable label'
+				html.includes("case 'updateWorkflows'"),
+				'Form should handle updateWorkflows message'
+			);
+		});
+
+		test('Session form populates workflow options when updateWorkflows is called', () => {
+			// Arrange
+			const mockWorkflows = [
+				{ name: 'Feature', description: 'Feature workflow', path: '/path/feature.yaml', isBuiltIn: true },
+				{ name: 'Custom', description: 'Custom workflow', path: '/path/custom.yaml', isBuiltIn: false }
+			];
+
+			// Act
+			provider.updateWorkflows(mockWorkflows);
+			const html = getFormHtml(provider);
+
+			// Assert: Built-in workflow options are rendered
+			assert.ok(
+				html.includes('<optgroup label="Built-in">'),
+				'Form should have Built-in optgroup when built-in workflows exist'
+			);
+			assert.ok(
+				html.includes('<option value="Feature">Feature</option>'),
+				'Form should have Feature workflow option'
 			);
 
-			// Assert: Bugfix workflow option exists
+			// Assert: Custom workflow options are rendered
 			assert.ok(
-				html.includes('<option value="bugfix">'),
-				'Form should have bugfix workflow option'
+				html.includes('<optgroup label="Custom">'),
+				'Form should have Custom optgroup when custom workflows exist'
 			);
 			assert.ok(
-				html.includes('Bug Fix'),
-				'Bugfix option should have readable label'
-			);
-
-			// Assert: Refactor workflow option exists
-			assert.ok(
-				html.includes('<option value="refactor">'),
-				'Form should have refactor workflow option'
-			);
-			assert.ok(
-				html.includes('Refactoring'),
-				'Refactor option should have readable label'
+				html.includes('<option value="Custom">Custom</option>'),
+				'Form should have Custom workflow option'
 			);
 		});
 

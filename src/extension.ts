@@ -698,6 +698,19 @@ export async function activate(context: vscode.ExtensionContext) {
         await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider);
     });
 
+    // Helper function to refresh workflows in both the tree view and the session form
+    async function refreshWorkflows(): Promise<void> {
+        workflowsProvider.refresh();
+        // Wait for the tree to update, then get the workflows
+        // We need to trigger getChildren to populate the workflows list
+        await workflowsProvider.getChildren();
+        const workflows = workflowsProvider.getWorkflows();
+        sessionFormProvider.updateWorkflows(workflows);
+    }
+
+    // Initial workflow load
+    refreshWorkflows();
+
     // Watch for .claude-status file changes to refresh the sidebar
     // Use baseRepoPath for file watchers to monitor sessions in the main repo
     const watchPath = baseRepoPath || workspaceRoot;
@@ -785,6 +798,23 @@ export async function activate(context: vscode.ExtensionContext) {
 
             context.subscriptions.push(promptsWatcher);
         }
+    }
+
+    // Watch for changes to the custom workflows folder to refresh workflows
+    if (workspaceRoot) {
+        const config = vscode.workspace.getConfiguration('lanes');
+        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.claude/lanes/workflows');
+        const customWorkflowsPath = path.join(workspaceRoot, customWorkflowsFolder);
+
+        const workflowsWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(customWorkflowsPath, '*.yaml')
+        );
+
+        workflowsWatcher.onDidChange(() => refreshWorkflows());
+        workflowsWatcher.onDidCreate(() => refreshWorkflows());
+        workflowsWatcher.onDidDelete(() => refreshWorkflows());
+
+        context.subscriptions.push(workflowsWatcher);
     }
 
     // Watch for worktree folder changes to refresh both active and previous sessions
@@ -1271,6 +1301,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // 9. Register CREATE WORKFLOW Command
     let createWorkflowDisposable = vscode.commands.registerCommand('lanes.createWorkflow', async () => {
         await createWorkflow(context.extensionPath, workspaceRoot, workflowsProvider);
+        // Refresh workflows in both the tree view and the session form dropdown
+        await refreshWorkflows();
     });
 
     // 10. Register VALIDATE WORKFLOW Command

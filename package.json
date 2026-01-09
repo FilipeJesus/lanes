@@ -36,7 +36,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/extension.bundle.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -254,7 +254,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:mcp",
+    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp",
+    "bundle:extension": "node scripts/bundle-extension.mjs",
     "bundle:mcp": "node scripts/bundle-mcp.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
