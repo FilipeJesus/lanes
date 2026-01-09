@@ -101,7 +101,7 @@ export class WorkflowsProvider implements vscode.TreeDataProvider<WorkflowItem>,
                 customWorkflowsFolder
             });
 
-            return this.workflows.map(wf => new WorkflowItem(wf));
+            return this.workflows.filter(wf => !wf.isBuiltIn).map(wf => new WorkflowItem(wf));
         } catch (err) {
             console.error('Lanes: Failed to discover workflows:', err);
             return [];
