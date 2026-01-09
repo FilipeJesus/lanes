@@ -27,6 +27,7 @@ import { WorkflowsProvider } from './WorkflowsProvider';
 import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from './workflow';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage } from './utils';
+import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
@@ -544,7 +545,8 @@ export function getRepoName(repoPath: string): string {
 async function processPendingSession(
     configPath: string,
     workspaceRoot: string | undefined,
-    sessionProvider: ClaudeSessionProvider
+    sessionProvider: ClaudeSessionProvider,
+    codeAgent?: CodeAgent
 ): Promise<void> {
     try {
         // Read and parse the config file
@@ -575,7 +577,7 @@ async function processPendingSession(
 
         // Use the existing createSession logic
         // Note: createSession expects these parameters:
-        // name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, workspaceRoot, sessionProvider
+        // name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, workspaceRoot, sessionProvider, codeAgent
         await createSession(
             config.name,
             config.prompt || '',
@@ -584,7 +586,8 @@ async function processPendingSession(
             config.sourceBranch,
             config.workflow || null, // workflow - optional workflow template from MCP request
             workspaceRoot,
-            sessionProvider
+            sessionProvider,
+            codeAgent
         );
 
     } catch (err) {
@@ -605,7 +608,8 @@ async function processPendingSession(
  */
 async function checkPendingSessions(
     workspaceRoot: string | undefined,
-    sessionProvider: ClaudeSessionProvider
+    sessionProvider: ClaudeSessionProvider,
+    codeAgent?: CodeAgent
 ): Promise<void> {
     try {
         // Ensure directory exists
@@ -618,7 +622,7 @@ async function checkPendingSessions(
 
         for (const file of jsonFiles) {
             const configPath = path.join(PENDING_SESSIONS_DIR, file);
-            await processPendingSession(configPath, workspaceRoot, sessionProvider);
+            await processPendingSession(configPath, workspaceRoot, sessionProvider, codeAgent);
         }
     } catch (err) {
         console.error('Failed to check pending sessions:', err);
@@ -662,9 +666,14 @@ export async function activate(context: vscode.ExtensionContext) {
         });
     }
 
+    // Create the global code agent instance
+    // This provides agent-specific behavior for terminal commands, file naming, etc.
+    const codeAgent = new ClaudeCodeAgent();
+    console.log(`Code agent initialized: ${codeAgent.displayName}`);
+
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
-    initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath);
+    initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath, codeAgent);
     console.log(`Global storage initialized at: ${context.globalStorageUri.fsPath}`);
 
     // Initialize Tree Data Provider with the base repo path
@@ -695,7 +704,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Handle form submission - creates a new session with optional prompt and acceptance criteria
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
     sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null) => {
-        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider);
+        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider, codeAgent);
     });
 
     // Helper function to refresh workflows in both the tree view and the session form
@@ -863,13 +872,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
     pendingSessionWatcher.onDidCreate(async (uri) => {
         console.log(`Pending session file detected: ${uri.fsPath}`);
-        await processPendingSession(uri.fsPath, workspaceRoot, sessionProvider);
+        await processPendingSession(uri.fsPath, workspaceRoot, sessionProvider, codeAgent);
     });
 
     context.subscriptions.push(pendingSessionWatcher);
 
     // Check for any pending sessions on startup
-    checkPendingSessions(workspaceRoot, sessionProvider);
+    checkPendingSessions(workspaceRoot, sessionProvider, codeAgent);
 
     // Listen for configuration changes to update hooks when storage location changes
     // Use a flag to prevent concurrent execution during async operations
@@ -951,12 +960,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Use the shared createSession function (no prompt, acceptance criteria, source branch, or workflow when using command palette)
         // Use baseRepoPath to create sessions in the main repo even when in a worktree
-        await createSession(name, '', '', 'default', '', null, baseRepoPath, sessionProvider);
+        await createSession(name, '', '', 'default', '', null, baseRepoPath, sessionProvider, codeAgent);
     });
 
     // 3. Register OPEN/RESUME Command
     let openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath);
+        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent);
     });
 
     // ---------------------------------------------------------
@@ -1356,7 +1365,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const sessionName = path.basename(workspaceRoot);
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openClaudeTerminal(sessionName, workspaceRoot);
+                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, undefined, codeAgent);
             }, 500);
         }
     }
@@ -1384,7 +1393,8 @@ async function createSession(
     sourceBranch: string,
     workflow: string | null,
     workspaceRoot: string | undefined,
-    sessionProvider: ClaudeSessionProvider
+    sessionProvider: ClaudeSessionProvider,
+    codeAgent?: CodeAgent
 ): Promise<void> {
     console.log("Create Session triggered!");
 
@@ -1577,7 +1587,7 @@ async function createSession(
 
             // 6. Success
             sessionProvider.refresh();
-            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow);
+            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent);
             vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
 
             // Exit the loop on success
@@ -1650,8 +1660,9 @@ When the current step requires an agent other than orchestrator:
 }
 
 // THE CORE FUNCTION: Manages the Terminal Tabs
-async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null): Promise<void> {
-    const terminalName = `Claude: ${taskName}`;
+async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent): Promise<void> {
+    // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
+    const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
 
     // A. Check if this terminal already exists to avoid duplicates
     const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
@@ -1665,18 +1676,20 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
     }
 
     // B. Create a Brand New Terminal Tab
+    // Use CodeAgent for terminal icon configuration if available
+    const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
     const terminal = vscode.window.createTerminal({
         name: terminalName,      // <--- This sets the tab name in the UI
         cwd: worktreePath,       // <--- Starts shell directly inside the isolated worktree
-        iconPath: new vscode.ThemeIcon('robot'), // Gives it a cool robot icon
-        color: new vscode.ThemeColor('terminal.ansiGreen') // Optional: Color code the tab
+        iconPath: new vscode.ThemeIcon(iconConfig.id), // Terminal icon
+        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen') // Color code the tab
     });
 
     terminal.show();
 
     // C. Get or create the extension settings file with hooks
-    let settingsFlag = '';
-    let mcpConfigFlag = '';
+    let settingsPath: string | undefined;
+    let mcpConfigPath: string | undefined;
 
     // Determine effective workflow: use provided workflow or restore from session data
     let effectiveWorkflow = workflow;
@@ -1688,45 +1701,69 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
     }
 
     try {
-        const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflow);
-        settingsFlag = `--settings "${settingsPath}" `;
+        settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
 
-        // If workflow is active (provided or restored), add MCP config flag separately
-        // (--settings only loads hooks, not mcpServers)
+        // If workflow is active (provided or restored), add MCP config
         if (effectiveWorkflow) {
-            const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-            // MCP config file must have mcpServers as root key (same format as .mcp.json)
-            const mcpConfig = {
-                mcpServers: {
-                    'lanes-workflow': {
-                        command: 'node',
-                        args: [mcpServerPath, '--worktree', worktreePath, '--workflow', effectiveWorkflow]
-                    }
+            // Use CodeAgent to get MCP config if available and supported
+            if (codeAgent && codeAgent.supportsMcp()) {
+                const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow);
+                if (mcpConfig) {
+                    // Write MCP config to a file (inline JSON escaping is problematic)
+                    mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
                 }
-            };
-            // Write MCP config to a file (inline JSON escaping is problematic)
-            const mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-            await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
-            mcpConfigFlag = `--mcp-config "${mcpConfigPath}" `;
+            } else {
+                // Fallback to hardcoded Claude-specific MCP config
+                const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+                const mcpConfig = {
+                    mcpServers: {
+                        'lanes-workflow': {
+                            command: 'node',
+                            args: [mcpServerPath, '--worktree', worktreePath, '--workflow', effectiveWorkflow]
+                        }
+                    }
+                };
+                mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+            }
         }
     } catch (err) {
         console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
-        // Continue without the settings flag - hooks won't work but Claude will still run
+        // Continue without the settings - hooks/MCP won't work but Claude will still run
     }
 
     // D. Auto-start Claude - resume if session ID exists, otherwise start fresh
-    // Note: --mcp-config must come before --settings due to Claude Code argument parsing
     const sessionData = getSessionId(worktreePath);
+    let shouldStartFresh = true;
+
     if (sessionData?.sessionId) {
-        // Resume existing session
-        terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
-    } else {
-        // Build the permission mode flag if not using default
+        // Try to resume existing session
+        if (codeAgent) {
+            try {
+                // Use CodeAgent to build resume command
+                const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
+                    settingsPath,
+                    mcpConfigPath
+                });
+                terminal.sendText(resumeCommand);
+                shouldStartFresh = false;
+            } catch (err) {
+                // Invalid session ID format - log and start fresh session
+                console.error('Failed to build resume command, starting fresh session:', getErrorMessage(err));
+            }
+        } else {
+            // Fallback to hardcoded command construction
+            const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
+            const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+            terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
+            shouldStartFresh = false;
+        }
+    }
+
+    if (shouldStartFresh) {
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(permissionMode) ? permissionMode : 'default';
-        const permissionFlag = validatedMode !== 'default'
-            ? `--permission-mode ${validatedMode} `
-            : '';
 
         // Combine prompt and acceptance criteria
         let combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
@@ -1739,28 +1776,60 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
             combinedPrompt = getWorkflowOrchestratorInstructions() + 'Start the workflow and follow the steps.';
         }
 
+        // Write prompt to file for history and to avoid terminal buffer issues
+        // This applies to both CodeAgent and fallback paths
+        let promptFileCommand: string | undefined;
         if (combinedPrompt) {
-            // Write prompt to file for history and to avoid terminal buffer issues
-            // Location depends on settings:
-            // - Default (empty promptsFolder): global storage at globalStorageUri/<repoIdentifier>/prompts/<sessionName>.txt
-            // - User override: repo-relative at <repoRoot>/<promptsFolder>/<sessionName>.txt
-            // Derive repo root from worktree path: <repo>/<worktreesFolder>/<session-name>
             const repoRoot = path.dirname(path.dirname(worktreePath));
             const promptPathInfo = getPromptsPath(taskName, repoRoot);
             if (promptPathInfo) {
                 await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
                 await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
-                // Pass prompt file content as argument using command substitution
-                terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}"$(cat "${promptPathInfo.path}")"`);
+                // Use command substitution to read prompt from file
+                promptFileCommand = `"$(cat "${promptPathInfo.path}")"`;
+            }
+        }
+
+        if (codeAgent) {
+            // Use CodeAgent to build start command
+            // Note: When using prompt file, we don't pass prompt to buildStartCommand
+            // Instead, we append the prompt file command to the generated command
+            const startCommand = codeAgent.buildStartCommand({
+                permissionMode: validatedMode,
+                settingsPath,
+                mcpConfigPath
+                // Don't pass prompt here - we handle it via file
+            });
+
+            if (promptFileCommand) {
+                terminal.sendText(`${startCommand} ${promptFileCommand}`);
+            } else if (combinedPrompt) {
+                // Fallback: prompt exists but file creation failed - pass escaped prompt
+                const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                terminal.sendText(`${startCommand} '${escapedPrompt}'`);
             } else {
+                terminal.sendText(startCommand);
+            }
+        } else {
+            // Fallback to hardcoded command construction
+            const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
+            const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+            const permissionFlag = validatedMode !== 'default'
+                ? `--permission-mode ${validatedMode} `
+                : '';
+
+            if (promptFileCommand) {
+                // Pass prompt file content as argument using command substitution
+                terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}${promptFileCommand}`);
+            } else if (combinedPrompt) {
                 // Fallback: pass prompt directly if path resolution failed
                 // Escape single quotes in the prompt for shell safety
                 const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
                 terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}'${escapedPrompt}'`);
+            } else {
+                // Start new session without prompt
+                terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
             }
-        } else {
-            // Start new session without prompt
-            terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
         }
     }
 }
@@ -1884,9 +1953,10 @@ function getRelativeFilePath(configKey: string): string {
  *
  * @param worktreePath Path to the worktree
  * @param workflow Optional workflow template name. When provided, includes MCP server config.
+ * @param codeAgent Optional CodeAgent instance for agent-specific configuration
  * @returns The absolute path to the settings file
  */
-export async function getOrCreateExtensionSettingsFile(worktreePath: string, workflow?: string | null): Promise<string> {
+export async function getOrCreateExtensionSettingsFile(worktreePath: string, workflow?: string | null, codeAgent?: CodeAgent): Promise<string> {
     // Get the session name from the worktree path
     const sessionName = getSessionNameFromWorktree(worktreePath);
 
@@ -1915,7 +1985,9 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
 
     const repoIdentifier = getRepoIdentifier(baseRepoPath);
     const settingsDir = path.join(globalStorageUriObj.fsPath, repoIdentifier, sessionName);
-    const settingsFilePath = path.join(settingsDir, 'claude-settings.json');
+    // Use CodeAgent for settings file naming if available, otherwise fallback to hardcoded
+    const settingsFileName = codeAgent ? codeAgent.getSettingsFileName() : 'claude-settings.json';
+    const settingsFilePath = path.join(settingsDir, settingsFileName);
 
     // Ensure the directory exists
     await fsPromises.mkdir(settingsDir, { recursive: true });
@@ -1963,33 +2035,59 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         }
     }
 
-    // Define the hooks
-    const statusWriteWaiting = {
-        type: 'command',
-        command: `echo '{"status":"waiting_for_user"}' > "${statusFilePath}"`
-    };
+    // Build hooks configuration
+    let hooks: ClaudeSettings['hooks'];
 
-    const statusWriteWorking = {
-        type: 'command',
-        command: `echo '{"status":"working"}' > "${statusFilePath}"`
-    };
+    if (codeAgent) {
+        // Use CodeAgent to generate hooks
+        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath);
 
-    // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
-    // The hook merges with existing file data to preserve workflow and other metadata
-    const sessionIdCapture = {
-        type: 'command',
-        command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
-    };
+        // Convert HookConfig[] to ClaudeSettings hooks format
+        hooks = {};
+        for (const hookConfig of hookConfigs) {
+            const entry: HookEntry = {
+                hooks: hookConfig.commands
+            };
+            if (hookConfig.matcher) {
+                entry.matcher = hookConfig.matcher;
+            }
 
-    // Build the settings object
-    const settings: ClaudeSettings = {
-        hooks: {
+            if (!hooks[hookConfig.event]) {
+                hooks[hookConfig.event] = [];
+            }
+            hooks[hookConfig.event]!.push(entry);
+        }
+    } else {
+        // Fallback to hardcoded hooks for backward compatibility
+        const statusWriteWaiting = {
+            type: 'command',
+            command: `echo '{"status":"waiting_for_user"}' > "${statusFilePath}"`
+        };
+
+        const statusWriteWorking = {
+            type: 'command',
+            command: `echo '{"status":"working"}' > "${statusFilePath}"`
+        };
+
+        // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
+        // The hook merges with existing file data to preserve workflow and other metadata
+        const sessionIdCapture = {
+            type: 'command',
+            command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
+        };
+
+        hooks = {
             SessionStart: [{ hooks: [sessionIdCapture] }],
             Stop: [{ hooks: [statusWriteWaiting] }],
             UserPromptSubmit: [{ hooks: [statusWriteWorking] }],
             Notification: [{ matcher: 'permission_prompt', hooks: [statusWriteWaiting] }],
             PreToolUse: [{ matcher: '.*', hooks: [statusWriteWorking] }]
-        }
+        };
+    }
+
+    // Build the settings object
+    const settings: ClaudeSettings = {
+        hooks
     };
 
     // Save workflow to session file for future restoration (MCP is passed via --mcp-config flag)
@@ -2011,7 +2109,7 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     }
 
     // Write the settings file atomically with cleanup on failure
-    const tempPath = path.join(settingsDir, `claude-settings.json.${Date.now()}.tmp`);
+    const tempPath = path.join(settingsDir, `${settingsFileName}.${Date.now()}.tmp`);
     try {
         await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
         await fsPromises.rename(tempPath, settingsFilePath);

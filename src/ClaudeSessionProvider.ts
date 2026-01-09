@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { CodeAgent, SessionData, AgentStatus } from './codeAgents';
 
 // Feature interface representing a feature in features.json
 export interface Feature {
@@ -32,16 +33,19 @@ const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user',
 // Global storage context - set during extension activation
 let globalStorageUri: vscode.Uri | undefined;
 let baseRepoPathForStorage: string | undefined;
+let globalCodeAgent: CodeAgent | undefined;
 
 /**
  * Initialize the global storage context.
  * Must be called during extension activation.
  * @param storageUri The globalStorageUri from the extension context
  * @param baseRepoPath The base repository path for generating unique identifiers
+ * @param codeAgent Optional CodeAgent instance for agent-specific behavior
  */
-export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string): void {
+export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string, codeAgent?: CodeAgent): void {
     globalStorageUri = storageUri;
     baseRepoPathForStorage = baseRepoPath;
+    globalCodeAgent = codeAgent;
 }
 
 /**
@@ -56,6 +60,13 @@ export function getGlobalStorageUri(): vscode.Uri | undefined {
  */
 export function getBaseRepoPathForStorage(): string | undefined {
     return baseRepoPathForStorage;
+}
+
+/**
+ * Get the global CodeAgent instance. Returns undefined if not set.
+ */
+export function getGlobalCodeAgent(): CodeAgent | undefined {
+    return globalCodeAgent;
 }
 
 /**
@@ -309,9 +320,12 @@ export function getTestsJsonPath(worktreePath: string): string {
  * @returns Full path to .claude-session based on configuration
  */
 export function getClaudeSessionPath(worktreePath: string): string {
+    // Determine the session file name
+    const sessionFileName = globalCodeAgent?.getSessionFileName() || '.claude-session';
+
     // Check if global storage is enabled
     if (isGlobalStorageEnabled()) {
-        const globalPath = getGlobalStoragePath(worktreePath, '.claude-session');
+        const globalPath = getGlobalStoragePath(worktreePath, sessionFileName);
         if (globalPath) {
             return globalPath;
         }
@@ -320,7 +334,7 @@ export function getClaudeSessionPath(worktreePath: string): string {
 
     const config = vscode.workspace.getConfiguration('lanes');
     const relativePath = config.get<string>('claudeSessionPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, '.claude-session');
+    return validateAndBuildPath(relativePath, worktreePath, sessionFileName);
 }
 
 /**
@@ -332,9 +346,12 @@ export function getClaudeSessionPath(worktreePath: string): string {
  * @returns Full path to .claude-status based on configuration
  */
 export function getClaudeStatusPath(worktreePath: string): string {
+    // Determine the status file name
+    const statusFileName = globalCodeAgent?.getStatusFileName() || '.claude-status';
+
     // Check if global storage is enabled
     if (isGlobalStorageEnabled()) {
-        const globalPath = getGlobalStoragePath(worktreePath, '.claude-status');
+        const globalPath = getGlobalStoragePath(worktreePath, statusFileName);
         if (globalPath) {
             return globalPath;
         }
@@ -343,7 +360,7 @@ export function getClaudeStatusPath(worktreePath: string): string {
 
     const config = vscode.workspace.getConfiguration('lanes');
     const relativePath = config.get<string>('claudeStatusPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, '.claude-status');
+    return validateAndBuildPath(relativePath, worktreePath, statusFileName);
 }
 
 // Session data from .claude-session file
@@ -429,6 +446,29 @@ export function getClaudeStatus(worktreePath: string): ClaudeStatus | null {
         }
 
         const content = fs.readFileSync(statusPath, 'utf-8');
+
+        // Use CodeAgent parsing if available
+        if (globalCodeAgent) {
+            const agentStatus = globalCodeAgent.parseStatus(content);
+            if (!agentStatus) {
+                return null;
+            }
+
+            // Validate status against agent's valid states
+            const validStates = globalCodeAgent.getValidStatusStates();
+            if (!validStates.includes(agentStatus.status)) {
+                return null;
+            }
+
+            // Convert AgentStatus to ClaudeStatus
+            return {
+                status: agentStatus.status as ClaudeStatusState,
+                timestamp: agentStatus.timestamp,
+                message: agentStatus.message
+            };
+        }
+
+        // Fallback to hardcoded Claude behavior
         const data = JSON.parse(content);
 
         // Validate status field exists and is a valid value
@@ -461,6 +501,23 @@ export function getSessionId(worktreePath: string): ClaudeSessionData | null {
         }
 
         const content = fs.readFileSync(sessionPath, 'utf-8');
+
+        // Use CodeAgent parsing if available
+        if (globalCodeAgent) {
+            const sessionData = globalCodeAgent.parseSessionData(content);
+            if (!sessionData) {
+                return null;
+            }
+
+            // Convert SessionData to ClaudeSessionData
+            return {
+                sessionId: sessionData.sessionId,
+                timestamp: sessionData.timestamp,
+                workflow: sessionData.workflow
+            };
+        }
+
+        // Fallback to hardcoded Claude behavior
         const data = JSON.parse(content);
 
         // Validate sessionId field exists and is a non-empty string
@@ -477,7 +534,8 @@ export function getSessionId(worktreePath: string): ClaudeSessionData | null {
 
         return {
             sessionId: data.sessionId,
-            timestamp: data.timestamp
+            timestamp: data.timestamp,
+            workflow: data.workflow
         };
     } catch {
         // Graceful fallback for any error (invalid JSON, read error, etc.)
@@ -740,10 +798,12 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
      * Create a new ClaudeSessionProvider.
      * @param workspaceRoot The current workspace root (may be a worktree)
      * @param baseRepoPath Optional base repository path (used when workspaceRoot is a worktree)
+     * @param codeAgent Optional CodeAgent instance for agent-specific behavior
      */
     constructor(
         private workspaceRoot: string | undefined,
-        baseRepoPath?: string
+        baseRepoPath?: string,
+        private codeAgent?: CodeAgent
     ) {
         // Use baseRepoPath for finding sessions if provided, otherwise fall back to workspaceRoot
         this.sessionsRoot = baseRepoPath || workspaceRoot;
