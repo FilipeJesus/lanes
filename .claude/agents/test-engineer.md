@@ -2,7 +2,7 @@
 name: test-engineer
 description: QA/Test expert. Implements tests from tests.json created by the coder agent.
 tools: Bash, Read, Edit, Write, Glob
-model: opus
+model: sonnet
 ---
 
 You are a QA Automation Engineer specializing in the VS Code Test Adapter.

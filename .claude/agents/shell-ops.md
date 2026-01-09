@@ -2,7 +2,7 @@
 name: shell-ops
 description: Git & Shell specialist. Use for git commands, path handling, and child_process.
 tools: Bash, Read, Edit, Grep
-model: opus
+model: sonnet
 ---
 
 You are a Node.js Systems Engineer specializing in child_process and Git internals.

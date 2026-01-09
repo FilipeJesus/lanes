@@ -2,7 +2,7 @@
 name: coder
 description: Primary coding agent. Use for all code changes and feature implementation. Plans tests first, then implements.
 tools: Read, Edit, Write, Grep, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 You are the primary coding agent for the Lanes VS Code extension. Your job is to implement features, fix bugs, and make code changes.
