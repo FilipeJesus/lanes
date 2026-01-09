@@ -573,7 +573,7 @@ suite('Extension Settings File', () => {
 
 	suite('Extension Settings MCP Configuration', () => {
 
-		test('should include MCP server config when workflow is provided', async () => {
+		test('should save workflow to session data when workflow is provided', async () => {
 			// Arrange
 			const sessionName = 'mcp-workflow-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
@@ -584,18 +584,13 @@ suite('Extension Settings File', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowName);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert
-			assert.ok(settings.mcpServers, 'Settings should have mcpServers object');
-			assert.ok(settings.mcpServers['lanes-workflow'], 'Should have lanes-workflow MCP server');
+			// Assert: Settings file should NOT have mcpServers (now passed via --mcp-config flag)
+			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers (now passed via --mcp-config)');
 
-			const mcpConfig = settings.mcpServers['lanes-workflow'];
-			assert.strictEqual(mcpConfig.command, 'node', 'MCP server command should be node');
-			assert.ok(Array.isArray(mcpConfig.args), 'MCP server args should be an array');
-			assert.ok(mcpConfig.args.some((arg: string) => arg.includes('server.js')), 'Args should include server.js path');
-			assert.ok(mcpConfig.args.includes('--worktree'), 'Args should include --worktree flag');
-			assert.ok(mcpConfig.args.includes(worktreePath), 'Args should include worktree path');
-			assert.ok(mcpConfig.args.includes('--workflow'), 'Args should include --workflow flag');
-			assert.ok(mcpConfig.args.includes(workflowName), 'Args should include workflow name');
+			// Assert: Workflow should be saved to session data for restoration
+			const { getSessionWorkflow } = await import('../ClaudeSessionProvider.js');
+			const savedWorkflow = getSessionWorkflow(worktreePath);
+			assert.strictEqual(savedWorkflow, workflowName, 'Workflow should be saved to session data');
 		});
 
 		test('should NOT include MCP config when workflow is null', async () => {
@@ -650,9 +645,9 @@ suite('Extension Settings File', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, 'feature');
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Both hooks and mcpServers should be present
+			// Assert: Hooks should be present (mcpServers is now passed via --mcp-config flag)
 			assert.ok(settings.hooks, 'Settings should still have hooks');
-			assert.ok(settings.mcpServers, 'Settings should have mcpServers');
+			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers (now passed via --mcp-config)');
 			assert.ok(settings.hooks.SessionStart, 'Hooks should have SessionStart');
 			assert.ok(settings.hooks.Stop, 'Hooks should have Stop');
 		});

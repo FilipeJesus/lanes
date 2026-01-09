@@ -14,7 +14,9 @@ import {
     getSessionNameFromWorktree,
     getRepoIdentifier,
     getWorktreesFolder,
-    getPromptsPath
+    getPromptsPath,
+    getSessionWorkflow,
+    saveSessionWorkflow
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -1479,21 +1481,52 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
 
     terminal.show();
 
-    // C. Get or create the extension settings file with hooks (and MCP config if workflow)
+    // C. Get or create the extension settings file with hooks
     let settingsFlag = '';
+    let mcpConfigFlag = '';
+
+    // Determine effective workflow: use provided workflow or restore from session data
+    let effectiveWorkflow = workflow;
+    if (!effectiveWorkflow) {
+        const savedWorkflow = getSessionWorkflow(worktreePath);
+        if (savedWorkflow) {
+            effectiveWorkflow = savedWorkflow;
+        }
+    }
+
     try {
         const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflow);
         settingsFlag = `--settings "${settingsPath}" `;
+
+        // If workflow is active (provided or restored), add MCP config flag separately
+        // (--settings only loads hooks, not mcpServers)
+        if (effectiveWorkflow) {
+            const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+            // MCP config file must have mcpServers as root key (same format as .mcp.json)
+            const mcpConfig = {
+                mcpServers: {
+                    'lanes-workflow': {
+                        command: 'node',
+                        args: [mcpServerPath, '--worktree', worktreePath, '--workflow', effectiveWorkflow]
+                    }
+                }
+            };
+            // Write MCP config to a file (inline JSON escaping is problematic)
+            const mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+            await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+            mcpConfigFlag = `--mcp-config "${mcpConfigPath}" `;
+        }
     } catch (err) {
         console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
         // Continue without the settings flag - hooks won't work but Claude will still run
     }
 
     // D. Auto-start Claude - resume if session ID exists, otherwise start fresh
+    // Note: --mcp-config must come before --settings due to Claude Code argument parsing
     const sessionData = getSessionId(worktreePath);
     if (sessionData?.sessionId) {
         // Resume existing session
-        terminal.sendText(`claude ${settingsFlag}--resume ${sessionData.sessionId}`.trim());
+        terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
     } else {
         // Build the permission mode flag if not using default
         // Validate permissionMode to prevent command injection from untrusted webview input
@@ -1525,16 +1558,16 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
                 await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
                 await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
                 // Pass prompt file content as argument using command substitution
-                terminal.sendText(`claude ${settingsFlag}${permissionFlag}"$(cat "${promptPathInfo.path}")"`);
+                terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}"$(cat "${promptPathInfo.path}")"`);
             } else {
                 // Fallback: pass prompt directly if path resolution failed
                 // Escape single quotes in the prompt for shell safety
                 const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-                terminal.sendText(`claude ${settingsFlag}${permissionFlag}'${escapedPrompt}'`);
+                terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}'${escapedPrompt}'`);
             }
         } else {
             // Start new session without prompt
-            terminal.sendText(`claude ${settingsFlag}${permissionFlag}`.trim());
+            terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
         }
     }
 }
@@ -1670,6 +1703,16 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         throw new Error(`Invalid session name derived from worktree path: ${sessionName}`);
     }
 
+    // If workflow not provided, try to restore from saved session data
+    let effectiveWorkflow = workflow;
+    if (!effectiveWorkflow) {
+        const savedWorkflow = getSessionWorkflow(worktreePath);
+        if (savedWorkflow) {
+            effectiveWorkflow = savedWorkflow;
+            console.log(`Lanes: Restored workflow '${effectiveWorkflow}' from session data`);
+        }
+    }
+
     const globalStorageUriObj = getGlobalStorageUri();
     const baseRepoPath = getBaseRepoPathForStorage();
 
@@ -1739,9 +1782,10 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     };
 
     // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
+    // The hook merges with existing file data to preserve workflow and other metadata
     const sessionIdCapture = {
         type: 'command',
-        command: `jq -r --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
+        command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
     };
 
     // Build the settings object
@@ -1755,25 +1799,22 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         }
     };
 
-    // Add MCP server configuration if workflow is specified
-    if (workflow) {
+    // Save workflow to session file for future restoration (MCP is passed via --mcp-config flag)
+    if (effectiveWorkflow) {
         // Validate workflow name to prevent command injection
         // Workflow names must be simple alphanumeric names (like 'feature', 'bugfix', 'refactor')
         // Only allow letters, numbers, underscores, and hyphens
-        if (!/^[a-zA-Z0-9_-]+$/.test(workflow)) {
-            throw new Error(`Invalid workflow name: ${workflow}. Only letters, numbers, underscores, and hyphens are allowed.`);
+        if (!/^[a-zA-Z0-9_-]+$/.test(effectiveWorkflow)) {
+            throw new Error(`Invalid workflow name: ${effectiveWorkflow}. Only letters, numbers, underscores, and hyphens are allowed.`);
         }
 
-        // Get extension path to find the compiled MCP server
-        // __dirname will be the out/ directory when compiled
-        const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-
-        settings.mcpServers = {
-            'lanes-workflow': {
-                command: 'node',
-                args: [mcpServerPath, '--worktree', worktreePath, '--workflow', workflow]
-            }
-        };
+        // Save workflow to session file for future restoration
+        // Only save if this is a new workflow (not restored from session data)
+        if (workflow) {
+            saveSessionWorkflow(worktreePath, effectiveWorkflow);
+        }
+        // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
+        // instead of being included in the settings file
     }
 
     // Write the settings file atomically with cleanup on failure

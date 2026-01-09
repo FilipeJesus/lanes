@@ -350,6 +350,69 @@ export function getClaudeStatusPath(worktreePath: string): string {
 export interface ClaudeSessionData {
     sessionId: string;
     timestamp?: string;
+    workflow?: string;
+}
+
+/**
+ * Save workflow metadata to the .claude-session file.
+ * This pre-writes the workflow before Claude starts, which will be preserved
+ * when the SessionStart hook merges in the sessionId.
+ * @param worktreePath Path to the worktree directory
+ * @param workflow The workflow template name
+ */
+export function saveSessionWorkflow(worktreePath: string, workflow: string): void {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+
+    try {
+        // Ensure directory exists
+        const dir = path.dirname(sessionPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Read existing data if present
+        let existingData: Record<string, unknown> = {};
+        if (fs.existsSync(sessionPath)) {
+            try {
+                const content = fs.readFileSync(sessionPath, 'utf-8');
+                existingData = JSON.parse(content);
+            } catch {
+                // Ignore parse errors, start fresh
+            }
+        }
+
+        // Merge workflow into existing data
+        const mergedData = { ...existingData, workflow };
+        fs.writeFileSync(sessionPath, JSON.stringify(mergedData, null, 2), 'utf-8');
+    } catch (err) {
+        console.warn('Lanes: Failed to save session workflow:', err);
+    }
+}
+
+/**
+ * Get the workflow from a worktree's .claude-session file
+ * @param worktreePath Path to the worktree directory
+ * @returns The workflow name if present, null otherwise
+ */
+export function getSessionWorkflow(worktreePath: string): string | null {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+
+    try {
+        if (!fs.existsSync(sessionPath)) {
+            return null;
+        }
+
+        const content = fs.readFileSync(sessionPath, 'utf-8');
+        const data = JSON.parse(content);
+
+        if (typeof data.workflow === 'string' && data.workflow.trim() !== '') {
+            return data.workflow;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
 }
 
 /**
