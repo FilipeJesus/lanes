@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+import * as os from 'os';
 import {
     ClaudeSessionProvider,
     SessionItem,
@@ -23,13 +24,24 @@ import { initializeGitPath, execGit } from './gitService';
 import { GitChangesPanel, OnBranchChangeCallback } from './GitChangesPanel';
 import { PreviousSessionProvider, PreviousSessionItem, getPromptsDir } from './PreviousSessionProvider';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
+import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage } from './utils';
+// Use local reference for internal use
+const sanitizeSessionName = _sanitizeSessionName;
 
 /**
- * Helper to get error message from unknown error type
+ * Pending session request from MCP server.
  */
-function getErrorMessage(err: unknown): string {
-    return err instanceof Error ? err.message : String(err);
+export interface PendingSessionConfig {
+    name: string;
+    sourceBranch: string;
+    prompt?: string;
+    requestedAt: string;
 }
+
+/**
+ * Directory where MCP server writes pending session requests.
+ */
+const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
 
 /**
  * Represents a broken worktree that needs repair.
@@ -352,62 +364,8 @@ export async function checkAndRepairBrokenWorktrees(baseRepoPath: string): Promi
 
 // getPromptsDir is imported from PreviousSessionProvider.ts
 
-/**
- * Sanitize a session name to be a valid git branch name.
- * Git branch naming rules:
- * - Allowed: letters, numbers, hyphens, underscores, dots, forward slashes
- * - Cannot start with '-', '.', or '/'
- * - Cannot end with '.', '/', or '.lock'
- * - Cannot contain '..' or '//'
- *
- * @param name The raw session name from user input
- * @returns Sanitized name safe for git branches, or empty string if nothing valid remains
- */
-export function sanitizeSessionName(name: string): string {
-    if (!name) {
-        return '';
-    }
-
-    let result = name;
-
-    // Step 1: Replace spaces with hyphens
-    result = result.replace(/\s+/g, '-');
-
-    // Step 2: Replace invalid characters (not in [a-zA-Z0-9_\-./]) with hyphens
-    // This also handles consecutive invalid chars by replacing them all with hyphens
-    result = result.replace(/[^a-zA-Z0-9_\-./]+/g, '-');
-
-    // Step 3: Replace consecutive hyphens with single hyphen
-    result = result.replace(/-+/g, '-');
-
-    // Step 4: Replace consecutive dots with single dot
-    result = result.replace(/\.+/g, '.');
-
-    // Step 5: Replace consecutive slashes with single slash
-    result = result.replace(/\/+/g, '/');
-
-    // Step 6: Remove leading hyphens, dots, or slashes
-    result = result.replace(/^[-./]+/, '');
-
-    // Step 7: Remove trailing dots or slashes
-    result = result.replace(/[./]+$/, '');
-
-    // Step 8: Remove .lock suffix (only at the end)
-    if (result.endsWith('.lock')) {
-        result = result.slice(0, -5);
-    }
-
-    // Step 9: After removing .lock, we might have trailing dots/slashes again
-    result = result.replace(/[./]+$/, '');
-
-    // Step 10: Clean up leading chars again (in case .lock removal exposed them)
-    result = result.replace(/^[-./]+/, '');
-
-    // Step 11: Remove leading/trailing hyphens that may have been created
-    result = result.replace(/^-+/, '').replace(/-+$/, '');
-
-    return result;
-}
+// Re-export sanitizeSessionName from utils for backwards compatibility
+export { sanitizeSessionName } from './utils';
 
 /**
  * Check if the given path is a git worktree and return the base repo path.
@@ -543,6 +501,76 @@ export function getRepoName(repoPath: string): string {
     return path.basename(repoPath);
 }
 
+/**
+ * Process a pending session request from the MCP server.
+ * Creates the session and opens the terminal, then deletes the config file.
+ */
+async function processPendingSession(
+    configPath: string,
+    workspaceRoot: string | undefined,
+    sessionProvider: ClaudeSessionProvider
+): Promise<void> {
+    try {
+        // Read and parse the config file
+        const configContent = await fsPromises.readFile(configPath, 'utf-8');
+        const config: PendingSessionConfig = JSON.parse(configContent);
+
+        console.log(`Processing pending session request: ${config.name}`);
+
+        // Delete the config file first to prevent re-processing
+        await fsPromises.unlink(configPath);
+
+        // Use the existing createSession logic
+        // Note: createSession expects these parameters:
+        // name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, workspaceRoot, sessionProvider
+        await createSession(
+            config.name,
+            config.prompt || '',
+            '', // acceptanceCriteria
+            'default' as PermissionMode, // permissionMode
+            config.sourceBranch,
+            null, // workflow - not specified in pending session config
+            workspaceRoot,
+            sessionProvider
+        );
+
+    } catch (err) {
+        console.error(`Failed to process pending session ${configPath}:`, err);
+        // Try to delete the config file even on error to prevent infinite retries
+        try {
+            await fsPromises.unlink(configPath);
+        } catch {
+            // Ignore deletion errors
+        }
+        vscode.window.showErrorMessage(`Failed to create session from MCP request: ${getErrorMessage(err)}`);
+    }
+}
+
+/**
+ * Check for and process any pending session requests.
+ * Called on startup and when new files are detected.
+ */
+async function checkPendingSessions(
+    workspaceRoot: string | undefined,
+    sessionProvider: ClaudeSessionProvider
+): Promise<void> {
+    try {
+        // Ensure directory exists
+        if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
+            return;
+        }
+
+        const files = await fsPromises.readdir(PENDING_SESSIONS_DIR);
+        const jsonFiles = files.filter(f => f.endsWith('.json'));
+
+        for (const file of jsonFiles) {
+            const configPath = path.join(PENDING_SESSIONS_DIR, file);
+            await processPendingSession(configPath, workspaceRoot, sessionProvider);
+        }
+    } catch (err) {
+        console.error('Failed to check pending sessions:', err);
+    }
+}
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Lanes" is now active!'); // Check Debug Console for this
@@ -720,6 +748,26 @@ export async function activate(context: vscode.ExtensionContext) {
 
         context.subscriptions.push(worktreeFolderWatcher);
     }
+
+    // Watch for pending session requests from MCP
+    // Ensure the directory exists for the watcher
+    if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
+        fs.mkdirSync(PENDING_SESSIONS_DIR, { recursive: true });
+    }
+
+    const pendingSessionWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(PENDING_SESSIONS_DIR, '*.json')
+    );
+
+    pendingSessionWatcher.onDidCreate(async (uri) => {
+        console.log(`Pending session file detected: ${uri.fsPath}`);
+        await processPendingSession(uri.fsPath, workspaceRoot, sessionProvider);
+    });
+
+    context.subscriptions.push(pendingSessionWatcher);
+
+    // Check for any pending sessions on startup
+    checkPendingSessions(workspaceRoot, sessionProvider);
 
     // Listen for configuration changes to update hooks when storage location changes
     // Use a flag to prevent concurrent execution during async operations
