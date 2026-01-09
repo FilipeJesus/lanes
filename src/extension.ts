@@ -37,6 +37,7 @@ export interface PendingSessionConfig {
     name: string;
     sourceBranch: string;
     prompt?: string;
+    workflow?: string;
     requestedAt: string;
 }
 
@@ -44,6 +45,39 @@ export interface PendingSessionConfig {
  * Directory where MCP server writes pending session requests.
  */
 const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+
+/**
+ * Directory containing bundled workflow templates.
+ * Located at extension root/workflows/ (from compiled code in out/, go up one level)
+ */
+const WORKFLOWS_DIR = path.join(__dirname, '..', 'workflows');
+
+/**
+ * Get available workflow template names from the workflows directory.
+ * @returns Array of workflow names (without .yaml extension)
+ */
+async function getAvailableWorkflows(): Promise<string[]> {
+    try {
+        const files = await fsPromises.readdir(WORKFLOWS_DIR);
+        return files
+            .filter(f => f.endsWith('.yaml'))
+            .map(f => f.replace('.yaml', ''));
+    } catch {
+        // If workflows directory doesn't exist, return empty array
+        return [];
+    }
+}
+
+/**
+ * Validate that a workflow template exists.
+ * @param workflow The workflow name to validate
+ * @returns Object with isValid flag and available workflows if invalid
+ */
+async function validateWorkflow(workflow: string): Promise<{ isValid: boolean; availableWorkflows: string[] }> {
+    const availableWorkflows = await getAvailableWorkflows();
+    const isValid = availableWorkflows.includes(workflow);
+    return { isValid, availableWorkflows };
+}
 
 /**
  * Represents a broken worktree that needs repair.
@@ -519,6 +553,23 @@ async function processPendingSession(
 
         console.log(`Processing pending session request: ${config.name}`);
 
+        // Validate workflow if provided
+        if (config.workflow) {
+            const { isValid, availableWorkflows } = await validateWorkflow(config.workflow);
+            if (!isValid) {
+                // Delete config file to prevent re-processing
+                await fsPromises.unlink(configPath);
+                const availableList = availableWorkflows.length > 0
+                    ? availableWorkflows.join(', ')
+                    : 'none found';
+                vscode.window.showErrorMessage(
+                    `Invalid workflow '${config.workflow}'. Available workflows: ${availableList}. ` +
+                    `Session '${config.name}' was not created.`
+                );
+                return;
+            }
+        }
+
         // Delete the config file first to prevent re-processing
         await fsPromises.unlink(configPath);
 
@@ -531,7 +582,7 @@ async function processPendingSession(
             '', // acceptanceCriteria
             'default' as PermissionMode, // permissionMode
             config.sourceBranch,
-            null, // workflow - not specified in pending session config
+            config.workflow || null, // workflow - optional workflow template from MCP request
             workspaceRoot,
             sessionProvider
         );

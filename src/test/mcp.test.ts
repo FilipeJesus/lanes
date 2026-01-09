@@ -19,6 +19,8 @@ import {
 	saveState,
 	loadState,
 	getStatePath,
+	createSession,
+	PendingSessionConfig,
 } from '../mcp/tools';
 import {
 	WorkflowStateMachine,
@@ -671,5 +673,124 @@ suite('MCP State', () => {
 			// Assert
 			assert.strictEqual(statePath, path.join(tempDir, 'workflow-state.json'));
 		});
+	});
+});
+
+/**
+ * Tests for MCP createSession with workflow parameter.
+ */
+suite('MCP Session Creation with Workflow', () => {
+	const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+
+	// Clean up pending sessions after each test
+	teardown(async () => {
+		// Clean up any test session files
+		try {
+			const files = fs.readdirSync(PENDING_SESSIONS_DIR);
+			for (const file of files) {
+				if (file.startsWith('test-session-')) {
+					fs.unlinkSync(path.join(PENDING_SESSIONS_DIR, file));
+				}
+			}
+		} catch {
+			// Directory might not exist, that's fine
+		}
+	});
+
+	test('createSession accepts workflow parameter and includes it in config', async () => {
+		// Act
+		const result = await createSession('test-session-workflow', 'main', 'Test prompt', 'feature');
+
+		// Assert
+		assert.ok(result.success, 'createSession should succeed');
+		assert.ok(result.configPath, 'Should have a config path');
+
+		// Read the config file
+		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
+		const config: PendingSessionConfig = JSON.parse(configContent);
+
+		assert.strictEqual(config.workflow, 'feature', 'Workflow should be included in config');
+		assert.strictEqual(config.name, 'test-session-workflow');
+		assert.strictEqual(config.sourceBranch, 'main');
+		assert.strictEqual(config.prompt, 'Test prompt');
+
+		// Clean up
+		fs.unlinkSync(result.configPath!);
+	});
+
+	test('createSession works without workflow (undefined)', async () => {
+		// Act
+		const result = await createSession('test-session-no-workflow', 'main', 'Test prompt');
+
+		// Assert
+		assert.ok(result.success, 'createSession should succeed');
+		assert.ok(result.configPath, 'Should have a config path');
+
+		// Read the config file
+		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
+		const config: PendingSessionConfig = JSON.parse(configContent);
+
+		assert.strictEqual(config.workflow, undefined, 'Workflow should be undefined');
+		assert.strictEqual(config.name, 'test-session-no-workflow');
+
+		// Clean up
+		fs.unlinkSync(result.configPath!);
+	});
+
+	test('createSession trims workflow parameter', async () => {
+		// Act
+		const result = await createSession('test-session-trim', 'main', undefined, '  feature  ');
+
+		// Assert
+		assert.ok(result.success, 'createSession should succeed');
+		assert.ok(result.configPath, 'Should have a config path');
+
+		// Read the config file
+		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
+		const config: PendingSessionConfig = JSON.parse(configContent);
+
+		assert.strictEqual(config.workflow, 'feature', 'Workflow should be trimmed');
+
+		// Clean up
+		fs.unlinkSync(result.configPath!);
+	});
+
+	test('createSession handles empty workflow string as undefined', async () => {
+		// Act
+		const result = await createSession('test-session-empty', 'main', undefined, '   ');
+
+		// Assert
+		assert.ok(result.success, 'createSession should succeed');
+		assert.ok(result.configPath, 'Should have a config path');
+
+		// Read the config file
+		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
+		const config: PendingSessionConfig = JSON.parse(configContent);
+
+		assert.strictEqual(config.workflow, undefined, 'Empty workflow should become undefined');
+
+		// Clean up
+		fs.unlinkSync(result.configPath!);
+	});
+
+	test('createSession includes requestedAt timestamp', async () => {
+		// Act
+		const beforeTime = new Date().toISOString();
+		const result = await createSession('test-session-timestamp', 'main');
+		const afterTime = new Date().toISOString();
+
+		// Assert
+		assert.ok(result.success);
+		assert.ok(result.configPath);
+
+		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
+		const config: PendingSessionConfig = JSON.parse(configContent);
+
+		assert.ok(config.requestedAt, 'Should have requestedAt timestamp');
+		assert.ok(config.requestedAt >= beforeTime, 'Timestamp should be after test start');
+		assert.ok(config.requestedAt <= afterTime, 'Timestamp should be before test end');
+
+		// Clean up
+		fs.unlinkSync(result.configPath!);
 	});
 });

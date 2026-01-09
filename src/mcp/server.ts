@@ -203,6 +203,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: 'string',
             description: 'Optional starting prompt for Claude',
           },
+          workflow: {
+            type: 'string',
+            description:
+              'Workflow template to use for this session. Ask the user which workflow they want. ' +
+              'IMPORTANT: Must be an exact match of one of: feature, bugfix, refactor, default. ' +
+              'If the workflow name is incorrect, session creation will fail.',
+          },
         },
         required: ['name', 'sourceBranch'],
       },
@@ -325,17 +332,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'session_create': {
-        const { name: sessionName, sourceBranch, prompt } = toolArgs as {
+        const { name: sessionName, sourceBranch, prompt, workflow } = toolArgs as {
           name: string;
           sourceBranch: string;
           prompt?: string;
+          workflow?: string;
         };
 
         if (!sessionName || !sourceBranch) {
           throw new Error('name and sourceBranch are required');
         }
 
-        const result = await tools.createSession(sessionName, sourceBranch, prompt);
+        const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };
