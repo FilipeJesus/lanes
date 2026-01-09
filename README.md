@@ -159,6 +159,14 @@ MIT - see [LICENSE](LICENSE) for details.
 
 ---
 
+## Support
+
+Enjoying Lanes? Consider supporting its development with a voluntary donation.
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?business=JEYBHRR3E4PEU&no_recurring=0&item_name=Loving+Lanes?+I+am+too%21+Thank+you+so+much+for+supporting+it%27s+development.&currency_code=GBP)
+
+---
+
 ## Links
 
 - [Website](https://lanes.pro)
