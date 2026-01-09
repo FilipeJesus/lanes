@@ -43,3 +43,9 @@ Session tracking files are stored in VS Code's global storage, which is destroye
 ## Known Issues
 
 This is an early release and may contain bugs or incomplete features. Please [report issues](https://github.com/FilipeJesus/lanes/issues) on GitHub.
+
+## Support
+
+Enjoying Lanes? Consider supporting its development with a voluntary donation.
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?business=JEYBHRR3E4PEU&no_recurring=0&item_name=Loving+Lanes?+I+am+too%21+Thank+you+so+much+for+supporting+it%27s+development.&currency_code=GBP)
