@@ -584,17 +584,62 @@ export function getWorkflowStatus(worktreePath: string): WorkflowStatus | null {
     }
 }
 
+/**
+ * SessionDetailItem displays workflow step and task information as a child of SessionItem.
+ * This item is not clickable and serves as a visual indicator of the current workflow state.
+ */
+export class SessionDetailItem extends vscode.TreeItem {
+    constructor(
+        public readonly worktreePath: string,
+        step: string,
+        progress?: string
+    ) {
+        // Build the label: "step (progress)" or just "step"
+        const label = progress ? `${step} (${progress})` : step;
+        super(label, vscode.TreeItemCollapsibleState.None);
+
+        // Visual indicator for sub-item
+        this.iconPath = new vscode.ThemeIcon('arrow-small-right');
+
+        // Tooltip with more context
+        this.tooltip = `Workflow step: ${step}${progress ? ` - ${progress}` : ''}`;
+
+        // No command - this item should not be clickable
+        this.command = undefined;
+
+        // Context value to distinguish from sessionItem
+        this.contextValue = 'sessionDetailItem';
+    }
+}
+
 // Define the shape of our Tree Item
 export class SessionItem extends vscode.TreeItem {
+    /** Workflow status for this session, stored for getChildren to create child items */
+    public readonly workflowStatus: WorkflowStatus | null;
+
     constructor(
         public readonly label: string,
         public readonly worktreePath: string,
-        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        collapsibleState: vscode.TreeItemCollapsibleState,
         featureStatus?: FeatureStatus,
         claudeStatus?: ClaudeStatus | null,
         workflowStatus?: WorkflowStatus | null
     ) {
-        super(label, collapsibleState);
+        // Store workflow status for later access by getChildren
+        const storedWorkflowStatus = workflowStatus ?? null;
+
+        // Determine if we have workflow step info to show as child items
+        const hasWorkflowStepInfo = storedWorkflowStatus?.active && storedWorkflowStatus.step;
+
+        // Use Expanded state when there's workflow step info, otherwise None
+        const effectiveCollapsibleState = hasWorkflowStepInfo
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.None;
+
+        super(label, effectiveCollapsibleState);
+
+        // Store workflow status as public property
+        this.workflowStatus = storedWorkflowStatus;
 
         // Tooltip shown on hover
         this.tooltip = `Path: ${this.worktreePath}`;
@@ -638,7 +683,9 @@ export class SessionItem extends vscode.TreeItem {
 
     /**
      * Get the description text based on Claude status, feature status, and workflow status.
-     * Priority: waiting_for_user > working > workflow step > feature ID > "Complete" > "Active"
+     * Shows status (Working/Waiting) and summary on the main line.
+     * Workflow step/task info is now shown in child SessionDetailItem items.
+     * Priority: waiting_for_user > working > feature ID > "Complete" > "Active"
      * Summary is appended when available using bullet separator.
      */
     private getDescriptionForStatus(
@@ -649,37 +696,25 @@ export class SessionItem extends vscode.TreeItem {
         const featureId = featureStatus?.currentFeature?.id;
         const summary = workflowStatus?.summary;
 
-        // Build workflow step info string if available
-        let workflowStepInfo: string | undefined;
-        if (workflowStatus?.active && workflowStatus.step) {
-            workflowStepInfo = workflowStatus.progress
-                ? `${workflowStatus.step} (${workflowStatus.progress})`
-                : workflowStatus.step;
-        }
-
         // Helper to append summary if available
         const withSummary = (base: string): string => {
             return summary ? `${base} - ${summary}` : base;
         };
 
         if (claudeStatus?.status === 'waiting_for_user') {
-            // Prefer workflow step info, then feature ID
-            const detail = workflowStepInfo || featureId;
-            const base = detail ? `Waiting - ${detail}` : 'Waiting for input';
+            // Show only status and summary; step/task info moved to child items
+            const base = 'Waiting';
             return withSummary(base);
         }
 
         if (claudeStatus?.status === 'working') {
-            // Prefer workflow step info, then feature ID
-            const detail = workflowStepInfo || featureId;
-            const base = detail ? `Working - ${detail}` : 'Working...';
+            // Show only status and summary; step/task info moved to child items
+            const base = 'Working';
             return withSummary(base);
         }
 
-        // Fall back to workflow step info, then feature-based description
-        if (workflowStepInfo) {
-            return withSummary(workflowStepInfo);
-        } else if (featureId) {
+        // Fall back to feature-based description (no workflow step info on main line)
+        if (featureId) {
             return withSummary(featureId);
         } else if (featureStatus?.allComplete) {
             return withSummary("Complete");
@@ -692,11 +727,11 @@ export class SessionItem extends vscode.TreeItem {
     }
 }
 
-export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionItem>, vscode.Disposable {
+export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionItem | SessionDetailItem>, vscode.Disposable {
 
     // Event Emitter to notify VS Code when the tree changes (e.g. new session added)
-    private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | undefined | null | void>();
-    readonly onDidChangeTreeData: vscode.Event<SessionItem | undefined | null | void> = this._onDidChangeTreeData.event;
+    private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
     // The effective root for finding sessions - either baseRepoPath (if in worktree) or workspaceRoot
     private readonly sessionsRoot: string | undefined;
@@ -727,19 +762,30 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
     }
 
     // 2. Get the visual representation of the item
-    getTreeItem(element: SessionItem): vscode.TreeItem {
+    getTreeItem(element: SessionItem | SessionDetailItem): vscode.TreeItem {
         return element;
     }
 
     // 3. Get the data (Scan the worktrees folder)
     // Uses sessionsRoot (base repo path) to ensure sessions are found even when in a worktree
-    getChildren(element?: SessionItem): Thenable<SessionItem[]> {
+    getChildren(element?: SessionItem | SessionDetailItem): Thenable<(SessionItem | SessionDetailItem)[]> {
         if (!this.sessionsRoot) {
             return Promise.resolve([]);
         }
 
-        // We only have a flat list, so if element exists, it has no children
+        // Handle child elements for SessionItem with workflow step info
         if (element) {
+            // If it's a SessionItem with workflow step info, return SessionDetailItem child
+            if (element instanceof SessionItem && element.workflowStatus?.active && element.workflowStatus.step) {
+                return Promise.resolve([
+                    new SessionDetailItem(
+                        element.worktreePath,
+                        element.workflowStatus.step,
+                        element.workflowStatus.progress
+                    )
+                ]);
+            }
+            // SessionDetailItem or SessionItem without workflow info has no children
             return Promise.resolve([]);
         }
 

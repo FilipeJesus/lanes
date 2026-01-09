@@ -503,7 +503,7 @@ suite('Session Tests', () => {
 			assert.strictEqual(themeIcon.id, 'git-branch');
 		});
 
-		test('should display "Waiting for input" description for waiting_for_user status without feature', () => {
+		test('should display "Waiting" description for waiting_for_user status without feature', () => {
 			// Arrange
 			const claudeStatus: ClaudeStatus = { status: 'waiting_for_user' };
 
@@ -516,11 +516,11 @@ suite('Session Tests', () => {
 				claudeStatus
 			);
 
-			// Assert
-			assert.strictEqual(item.description, 'Waiting for input');
+			// Assert - step/task info now shown in child SessionDetailItem, main line shows only status
+			assert.strictEqual(item.description, 'Waiting');
 		});
 
-		test('should display "Waiting - {feature-id}" for waiting_for_user status with current feature', () => {
+		test('should display "Waiting" for waiting_for_user status (feature info no longer shown on main line)', () => {
 			// Arrange
 			const claudeStatus: ClaudeStatus = { status: 'waiting_for_user' };
 			const featureStatus: FeatureStatus = {
@@ -537,11 +537,11 @@ suite('Session Tests', () => {
 				claudeStatus
 			);
 
-			// Assert
-			assert.strictEqual(item.description, 'Waiting - feature-abc');
+			// Assert - step/task info now shown in child SessionDetailItem, main line shows only status
+			assert.strictEqual(item.description, 'Waiting');
 		});
 
-		test('should display "Working..." description for working status without feature', () => {
+		test('should display "Working" description for working status without feature', () => {
 			// Arrange
 			const claudeStatus: ClaudeStatus = { status: 'working' };
 
@@ -554,8 +554,8 @@ suite('Session Tests', () => {
 				claudeStatus
 			);
 
-			// Assert
-			assert.strictEqual(item.description, 'Working...');
+			// Assert - step/task info now shown in child SessionDetailItem, main line shows only status
+			assert.strictEqual(item.description, 'Working');
 		});
 
 		test('should work correctly when claudeStatus is undefined (backwards compatibility)', () => {

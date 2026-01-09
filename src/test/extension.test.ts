@@ -803,7 +803,7 @@ suite('Session Provider', () => {
 			assert.strictEqual(status, null, 'Should return null when status field is missing');
 		});
 
-		test('SessionItem shows workflow step in description when working', () => {
+		test('SessionItem shows Working status in description (step/task info moved to child items)', () => {
 			// Arrange
 			const workflowStatus: WorkflowStatus = {
 				active: true,
@@ -824,19 +824,24 @@ suite('Session Provider', () => {
 				workflowStatus
 			);
 
-			// Assert
+			// Assert - step/task info is now shown in child SessionDetailItem, main line shows only status
 			const description = String(sessionItem.description || '');
 			assert.ok(
-				description.includes('implement'),
-				`Description should include workflow step. Got: ${description}`
+				description.includes('Working'),
+				`Description should include Working status. Got: ${description}`
+			);
+			// Step and progress info moved to child items - verify workflowStatus is stored for child creation
+			assert.ok(
+				sessionItem.workflowStatus?.step === 'implement',
+				'workflowStatus should be stored for child items'
 			);
 			assert.ok(
-				description.includes('Task 1'),
-				`Description should include task progress. Got: ${description}`
+				sessionItem.workflowStatus?.progress === 'Task 1',
+				'workflowStatus progress should be stored for child items'
 			);
 		});
 
-		test('SessionItem shows workflow step in description when waiting', () => {
+		test('SessionItem shows Waiting status in description (step info moved to child items)', () => {
 			// Arrange
 			const workflowStatus: WorkflowStatus = {
 				active: true,
@@ -856,19 +861,20 @@ suite('Session Provider', () => {
 				workflowStatus
 			);
 
-			// Assert
+			// Assert - step info is now shown in child SessionDetailItem, main line shows only status
 			const description = String(sessionItem.description || '');
 			assert.ok(
 				description.includes('Waiting'),
 				`Description should include Waiting. Got: ${description}`
 			);
+			// Step info moved to child items - verify workflowStatus is stored for child creation
 			assert.ok(
-				description.includes('review'),
-				`Description should include workflow step. Got: ${description}`
+				sessionItem.workflowStatus?.step === 'review',
+				'workflowStatus should be stored for child items'
 			);
 		});
 
-		test('SessionItem falls back to feature ID when no workflow status', () => {
+		test('SessionItem shows Working status when feature ID present but no workflow', () => {
 			// Arrange
 			const featureStatus = {
 				currentFeature: { id: 'feat-123', description: 'Test feature', passes: false },
@@ -887,11 +893,11 @@ suite('Session Provider', () => {
 				null
 			);
 
-			// Assert
+			// Assert - when working, shows "Working" regardless of feature ID
 			const description = String(sessionItem.description || '');
 			assert.ok(
-				description.includes('feat-123'),
-				`Description should include feature ID when no workflow. Got: ${description}`
+				description.includes('Working'),
+				`Description should include Working when status is working. Got: ${description}`
 			);
 		});
 	});
@@ -1236,7 +1242,7 @@ steps:
 
 	suite('SessionItem Summary Display', () => {
 
-		test('SessionItem description includes summary when working with step info', () => {
+		test('SessionItem description includes status and summary (step/task info moved to child items)', () => {
 			// Arrange
 			const workflowStatus: WorkflowStatus = {
 				active: true,
@@ -1258,23 +1264,24 @@ steps:
 				workflowStatus
 			);
 
-			// Assert
+			// Assert - step/task info is now shown in child SessionDetailItem, main line shows status + summary
 			const description = String(sessionItem.description || '');
 			assert.ok(
 				description.includes('Working'),
 				`Description should include Working. Got: ${description}`
 			);
 			assert.ok(
-				description.includes('implement'),
-				`Description should include step name. Got: ${description}`
-			);
-			assert.ok(
-				description.includes('Task 1'),
-				`Description should include task progress. Got: ${description}`
-			);
-			assert.ok(
 				description.includes('Add dark mode toggle'),
 				`Description should include summary. Got: ${description}`
+			);
+			// Step and progress info moved to child items - verify workflowStatus is stored
+			assert.ok(
+				sessionItem.workflowStatus?.step === 'implement',
+				'workflowStatus step should be stored for child items'
+			);
+			assert.ok(
+				sessionItem.workflowStatus?.progress === 'Task 1',
+				'workflowStatus progress should be stored for child items'
 			);
 		});
 
@@ -1305,7 +1312,7 @@ steps:
 			);
 		});
 
-		test('SessionItem description does not include summary separator when no summary', () => {
+		test('SessionItem description shows only status when no summary (step info moved to child items)', () => {
 			// Arrange
 			const workflowStatus: WorkflowStatus = {
 				active: true,
@@ -1325,15 +1332,16 @@ steps:
 				workflowStatus
 			);
 
-			// Assert
+			// Assert - step info is now in child items, main line shows only status
 			const description = String(sessionItem.description || '');
 			assert.ok(
 				description.includes('Waiting'),
 				`Description should include Waiting. Got: ${description}`
 			);
+			// Step info moved to child items - verify workflowStatus is stored
 			assert.ok(
-				description.includes('review'),
-				`Description should include step. Got: ${description}`
+				sessionItem.workflowStatus?.step === 'review',
+				'workflowStatus step should be stored for child items'
 			);
 			// The description should not end with " - " or have trailing separator patterns
 			assert.ok(
