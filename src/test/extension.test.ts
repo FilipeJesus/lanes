@@ -581,19 +581,20 @@ suite('Extension Settings File', () => {
 			const sessionName = 'mcp-workflow-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
-			const workflowName = 'feature';
+			// Workflow is now a full path to the YAML file
+			const workflowPath = '/path/to/workflows/feature.yaml';
 
 			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowName);
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowPath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
 			// Assert: Settings file should NOT have mcpServers (now passed via --mcp-config flag)
 			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers (now passed via --mcp-config)');
 
-			// Assert: Workflow should be saved to session data for restoration
+			// Assert: Workflow path should be saved to session data for restoration
 			const { getSessionWorkflow } = await import('../ClaudeSessionProvider.js');
 			const savedWorkflow = getSessionWorkflow(worktreePath);
-			assert.strictEqual(savedWorkflow, workflowName, 'Workflow should be saved to session data');
+			assert.strictEqual(savedWorkflow, workflowPath, 'Workflow path should be saved to session data');
 		});
 
 		test('should NOT include MCP config when workflow is null', async () => {
@@ -643,9 +644,11 @@ suite('Extension Settings File', () => {
 			const sessionName = 'workflow-with-hooks-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
+			// Workflow is now a full path to the YAML file
+			const workflowPath = '/path/to/workflows/feature.yaml';
 
 			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, 'feature');
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowPath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
 			// Assert: Hooks should be present (mcpServers is now passed via --mcp-config flag)
@@ -655,31 +658,31 @@ suite('Extension Settings File', () => {
 			assert.ok(settings.hooks.Stop, 'Hooks should have Stop');
 		});
 
-		test('should reject invalid workflow names with path separators', async () => {
+		test('should reject relative workflow paths', async () => {
 			// Arrange
 			const sessionName = 'invalid-workflow-path-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
 
-			// Act & Assert
+			// Act & Assert: Workflow path must be absolute
 			await assert.rejects(
-				async () => await getOrCreateExtensionSettingsFile(worktreePath, 'bad/workflow'),
-				/Invalid workflow name/,
-				'Should reject workflow name with forward slash'
+				async () => await getOrCreateExtensionSettingsFile(worktreePath, 'relative/workflow.yaml'),
+				/Invalid workflow path.*Must be an absolute path/,
+				'Should reject relative workflow path'
 			);
 		});
 
-		test('should reject workflow names with parent directory traversal', async () => {
+		test('should reject workflow paths without .yaml extension', async () => {
 			// Arrange
-			const sessionName = 'invalid-workflow-traversal-test';
+			const sessionName = 'invalid-workflow-ext-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
 
-			// Act & Assert
+			// Act & Assert: Workflow path must end with .yaml
 			await assert.rejects(
-				async () => await getOrCreateExtensionSettingsFile(worktreePath, '..'),
-				/Invalid workflow name/,
-				'Should reject workflow name with parent directory traversal'
+				async () => await getOrCreateExtensionSettingsFile(worktreePath, '/path/to/workflow'),
+				/Invalid workflow path.*Must end with .yaml/,
+				'Should reject workflow path without .yaml extension'
 			);
 		});
 	});

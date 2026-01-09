@@ -21,17 +21,17 @@ import {
 import * as path from 'path';
 
 // Parse command-line arguments
-// Expected: node server.js --worktree <path> --workflow <name>
+// Expected: node server.js --worktree <path> --workflow-path <path>
 const args = process.argv.slice(2);
 let worktreePath = '';
-let workflowName = '';
+let workflowPath = '';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--worktree' && args[i + 1]) {
     worktreePath = args[i + 1];
     i++;
-  } else if (args[i] === '--workflow' && args[i + 1]) {
-    workflowName = args[i + 1];
+  } else if (args[i] === '--workflow-path' && args[i + 1]) {
+    workflowPath = args[i + 1];
     i++;
   }
 }
@@ -41,8 +41,8 @@ if (!worktreePath) {
   process.exit(1);
 }
 
-if (!workflowName) {
-  console.error('Error: --workflow <name> is required');
+if (!workflowPath) {
+  console.error('Error: --workflow-path <path> is required');
   process.exit(1);
 }
 
@@ -52,26 +52,24 @@ if (!path.isAbsolute(worktreePath)) {
   process.exit(1);
 }
 
-// Validate workflowName - must be a simple name without path separators
-if (
-  workflowName.includes('/') ||
-  workflowName.includes('\\') ||
-  workflowName.includes('..') ||
-  workflowName.includes('\0')
-) {
-  console.error('Error: --workflow must be a simple name without path separators');
+// Validate workflowPath - must be an absolute path
+if (!path.isAbsolute(workflowPath)) {
+  console.error('Error: --workflow-path must be an absolute path');
+  process.exit(1);
+}
+
+// Validate workflowPath - must end with .yaml
+if (!workflowPath.endsWith('.yaml')) {
+  console.error('Error: --workflow-path must end with .yaml');
   process.exit(1);
 }
 
 // Global state
 let machine: WorkflowStateMachine | null = null;
 
-// Determine templates directory (relative to server location)
-// In production, this will be in the out/ directory, so we need to go up one level
-const templatesDir = path.join(__dirname, '../../workflows');
-
 /**
  * Initializes or restores the workflow state machine.
+ * Uses the workflow path provided via --workflow-path argument.
  * @param summary - Optional brief summary of the user's request (max 10 words)
  */
 async function initializeMachine(summary?: string): Promise<WorkflowStateMachine> {
@@ -79,14 +77,13 @@ async function initializeMachine(summary?: string): Promise<WorkflowStateMachine
   const existingState = await tools.loadState(worktreePath);
 
   if (existingState) {
-    // Restore from existing state
-    const templatePath = path.join(templatesDir, `${workflowName}.yaml`);
-    const template = await loadWorkflowTemplate(templatePath);
+    // Restore from existing state - use the workflow path directly
+    const template = await loadWorkflowTemplate(workflowPath);
     return WorkflowStateMachine.fromState(template, existingState);
   }
 
-  // Start fresh
-  const result = await tools.workflowStart(worktreePath, workflowName, templatesDir, summary);
+  // Start fresh - use the workflow path directly
+  const result = await tools.workflowStartFromPath(worktreePath, workflowPath, summary);
   return result.machine;
 }
 
@@ -368,8 +365,7 @@ async function main() {
   // Use stderr for logging so it doesn't interfere with stdio protocol
   console.error(`Lanes workflow MCP server started`);
   console.error(`  Worktree: ${worktreePath}`);
-  console.error(`  Workflow: ${workflowName}`);
-  console.error(`  Templates: ${templatesDir}`);
+  console.error(`  Workflow: ${workflowPath}`);
 }
 
 main().catch((error) => {

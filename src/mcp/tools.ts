@@ -137,6 +137,7 @@ export async function loadState(worktreePath: string): Promise<WorkflowState | n
  * @param templatesDir - Directory containing workflow templates
  * @param summary - Optional brief summary of the user's request (max 10 words)
  * @returns The created state machine and initial status
+ * @deprecated Use workflowStartFromPath instead for explicit path handling
  */
 export async function workflowStart(
   worktreePath: string,
@@ -147,6 +148,40 @@ export async function workflowStart(
   // Load the workflow template
   const templatePath = path.join(templatesDir, `${workflowName}.yaml`);
   const template = await loadWorkflowTemplate(templatePath);
+
+  // Create new state machine
+  const machine = new WorkflowStateMachine(template);
+
+  // Start the workflow
+  const status = machine.start();
+
+  // Set summary if provided and non-empty
+  if (summary && summary.trim()) {
+    machine.setSummary(summary.trim());
+  }
+
+  // Save initial state
+  await saveState(worktreePath, machine.getState());
+
+  return { machine, status };
+}
+
+/**
+ * Initialize workflow from a direct file path.
+ * Creates a new WorkflowStateMachine from the specified template path.
+ *
+ * @param worktreePath - The worktree root path for state persistence
+ * @param workflowPath - Absolute path to the workflow YAML file
+ * @param summary - Optional brief summary of the user's request (max 10 words)
+ * @returns The created state machine and initial status
+ */
+export async function workflowStartFromPath(
+  worktreePath: string,
+  workflowPath: string,
+  summary?: string
+): Promise<WorkflowStartResult> {
+  // Load the workflow template directly from the path
+  const template = await loadWorkflowTemplate(workflowPath);
 
   // Create new state machine
   const machine = new WorkflowStateMachine(template);

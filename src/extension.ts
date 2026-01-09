@@ -1693,6 +1693,7 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
 
         // If workflow is active (provided or restored), add MCP config flag separately
         // (--settings only loads hooks, not mcpServers)
+        // effectiveWorkflow is now the full path to the workflow YAML file
         if (effectiveWorkflow) {
             const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
             // MCP config file must have mcpServers as root key (same format as .mcp.json)
@@ -1700,7 +1701,7 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
                 mcpServers: {
                     'lanes-workflow': {
                         command: 'node',
-                        args: [mcpServerPath, '--worktree', worktreePath, '--workflow', effectiveWorkflow]
+                        args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow]
                     }
                 }
             };
@@ -1992,16 +1993,19 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         }
     };
 
-    // Save workflow to session file for future restoration (MCP is passed via --mcp-config flag)
+    // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
+    // effectiveWorkflow is now the full path to the workflow YAML file
     if (effectiveWorkflow) {
-        // Validate workflow name to prevent command injection
-        // Workflow names must be simple alphanumeric names (like 'feature', 'bugfix', 'refactor')
-        // Only allow letters, numbers, underscores, and hyphens
-        if (!/^[a-zA-Z0-9_-]+$/.test(effectiveWorkflow)) {
-            throw new Error(`Invalid workflow name: ${effectiveWorkflow}. Only letters, numbers, underscores, and hyphens are allowed.`);
+        // Validate workflow path to prevent command injection
+        // Must be an absolute path ending in .yaml
+        if (!path.isAbsolute(effectiveWorkflow)) {
+            throw new Error(`Invalid workflow path: ${effectiveWorkflow}. Must be an absolute path.`);
+        }
+        if (!effectiveWorkflow.endsWith('.yaml')) {
+            throw new Error(`Invalid workflow path: ${effectiveWorkflow}. Must end with .yaml`);
         }
 
-        // Save workflow to session file for future restoration
+        // Save workflow path to session file for future restoration
         // Only save if this is a new workflow (not restored from session data)
         if (workflow) {
             saveSessionWorkflow(worktreePath, effectiveWorkflow);

@@ -54,6 +54,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 workflows: workflows.map(w => ({
                     name: w.name,
                     description: w.description,
+                    path: w.path,
                     isBuiltIn: w.isBuiltIn
                 }))
             });
@@ -70,6 +71,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     /**
      * Generate HTML options for workflow dropdown
      * Only shows custom workflows (built-in workflows are filtered out)
+     * Uses the full path as the value so MCP server can find the workflow file
      */
     private _getWorkflowOptionsHtml(): string {
         // Filter to only include custom workflows
@@ -81,7 +83,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         let html = '';
         for (const w of custom) {
-            html += `<option value="${this._escapeHtml(w.name)}">${this._escapeHtml(w.name)}</option>`;
+            html += `<option value="${this._escapeHtml(w.path)}">${this._escapeHtml(w.name)}</option>`;
         }
 
         return html;
@@ -139,6 +141,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 workflows: this._workflows.map(w => ({
                     name: w.name,
                     description: w.description,
+                    path: w.path,
                     isBuiltIn: w.isBuiltIn
                 }))
             });
@@ -416,6 +419,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         // Helper function to update workflow dropdown options
         // Only shows custom workflows (built-in workflows are filtered out)
+        // Uses the full path as the value so MCP server can find the workflow file
         function updateWorkflowDropdown(workflows) {
             const currentValue = workflowInput.value;
 
@@ -440,9 +444,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             }
 
             // Add custom workflow options directly (no optgroup needed)
+            // Use the path as value (for MCP server) and name as display text
             custom.forEach(w => {
                 const option = document.createElement('option');
-                option.value = w.name;
+                option.value = w.path;
                 option.textContent = w.name;
                 workflowInput.appendChild(option);
             });

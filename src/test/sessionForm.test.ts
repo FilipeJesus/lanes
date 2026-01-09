@@ -149,9 +149,10 @@ suite('Session Form', () => {
 				!html.includes('<optgroup label="Custom">'),
 				'Form should NOT have Custom optgroup (custom workflows added directly)'
 			);
+			// Option value is now the path, display text is the name
 			assert.ok(
-				html.includes('<option value="Custom">Custom</option>'),
-				'Form should have Custom workflow option'
+				html.includes('<option value="/path/custom.yaml">Custom</option>'),
+				'Form should have Custom workflow option with path as value'
 			);
 		});
 
