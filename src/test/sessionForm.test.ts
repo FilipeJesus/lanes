@@ -134,20 +134,20 @@ suite('Session Form', () => {
 			provider.updateWorkflows(mockWorkflows);
 			const html = getFormHtml(provider);
 
-			// Assert: Built-in workflow options are rendered
+			// Assert: Built-in workflows are filtered out (only custom workflows shown)
 			assert.ok(
-				html.includes('<optgroup label="Built-in">'),
-				'Form should have Built-in optgroup when built-in workflows exist'
+				!html.includes('<optgroup label="Built-in">'),
+				'Form should NOT have Built-in optgroup (built-in workflows are filtered out)'
 			);
 			assert.ok(
-				html.includes('<option value="Feature">Feature</option>'),
-				'Form should have Feature workflow option'
+				!html.includes('<option value="Feature">Feature</option>'),
+				'Form should NOT have Feature workflow option (built-in workflows are filtered out)'
 			);
 
-			// Assert: Custom workflow options are rendered
+			// Assert: Custom workflow options are rendered directly (no optgroup needed)
 			assert.ok(
-				html.includes('<optgroup label="Custom">'),
-				'Form should have Custom optgroup when custom workflows exist'
+				!html.includes('<optgroup label="Custom">'),
+				'Form should NOT have Custom optgroup (custom workflows added directly)'
 			);
 			assert.ok(
 				html.includes('<option value="Custom">Custom</option>'),

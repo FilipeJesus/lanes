@@ -1,10 +1,56 @@
-# Refactoring workflow for the Lanes extension.
+# =============================================================================
+# WORKFLOW TEMPLATE: Refactoring
+# =============================================================================
+#
+# This is a TEMPLATE file for reference. Built-in workflows are not selectable
+# in the workflow dropdown - only custom workflows appear there.
+#
+# TO USE THIS TEMPLATE:
+# ---------------------
+# 1. Copy this file to your project's .claude/lanes/workflows/ directory
+# 2. Customize the workflow for your project's needs
+# 3. The workflow will appear in the "Custom" section of the dropdown
+#
+# AGENTS
+# ------
+# Agent names used in this workflow (in the `agents:` section and `agent:`
+# fields on steps) must match agent definition files in your project's
+# .claude/agents/ directory. For example:
+#   - `agent: orchestrator` requires .claude/agents/orchestrator.md
+#   - `agent: analyzer` requires .claude/agents/analyzer.md
+#   - `agent: refactorer` requires .claude/agents/refactorer.md
+#
+# You can define agents inline in this file (as shown below) or reference
+# external agent files. Inline definitions take precedence.
+#
+# OPTIONAL AGENT FIELD
+# --------------------
+# The `agent:` field on steps and sub-steps is OPTIONAL. If you omit it,
+# the main Claude agent will handle that step directly instead of delegating
+# to a specialized sub-agent. This is useful for simpler workflows or steps
+# that don't require specialized capabilities.
+#
+# Example without agent (main Claude handles it):
+#   - id: cleanup
+#     instructions: |
+#       Review all changes and prepare for commit...
+#
+# Example with agent (delegated to sub-agent):
+#   - id: refactor
+#     agent: refactorer
+#     instructions: |
+#       Refactor the code...
+#
+# WORKFLOW STRUCTURE
+# ------------------
 # This workflow implements a structured approach to code refactoring:
 # 1. Analyze - identify refactoring opportunities
 # 2. Define tasks - plan refactoring changes
 # 3. Refactor cycle - refactor, test, review for each change
 # 4. Final test - ensure all tests pass
 # 5. Cleanup - prepare for commit
+#
+# =============================================================================
 
 name: refactor
 description: Refactor code for improved quality
