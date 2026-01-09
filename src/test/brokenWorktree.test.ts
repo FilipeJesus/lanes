@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { detectBrokenWorktrees, repairWorktree, BrokenWorktree } from '../extension';
-import { execGit } from '../gitService';
+import { execGit, ExecGitOptions } from '../gitService';
 
 suite('Broken Worktree Detection', () => {
 
@@ -186,6 +186,20 @@ suite('Broken Worktree Repair', () => {
 	let tempDir: string;
 	let worktreesDir: string;
 	let isRealGitRepo: boolean = false;
+	let gitEnv: ExecGitOptions;
+
+	// Helper to get isolated git environment options
+	// This prevents test git operations from affecting the main repo
+	function getIsolatedGitEnv(repoPath: string): ExecGitOptions {
+		return {
+			env: {
+				GIT_DIR: path.join(repoPath, '.git'),
+				GIT_WORK_TREE: repoPath,
+				// Prevent git from searching parent directories for a repo
+				GIT_CEILING_DIRECTORIES: repoPath
+			}
+		};
+	}
 
 	// Create a real git repository for integration tests
 	setup(async () => {
@@ -198,14 +212,17 @@ suite('Broken Worktree Repair', () => {
 
 		// Try to initialize a real git repository for integration tests
 		try {
+			// Initialize git repo first (this creates the .git directory)
 			await execGit(['init'], tempDir);
+			// Now use isolated env for all subsequent operations
+			gitEnv = getIsolatedGitEnv(tempDir);
 			// Configure git for the test repo
-			await execGit(['config', 'user.email', 'test@test.com'], tempDir);
-			await execGit(['config', 'user.name', 'Test User'], tempDir);
+			await execGit(['config', 'user.email', 'test@test.com'], tempDir, gitEnv);
+			await execGit(['config', 'user.name', 'Test User'], tempDir, gitEnv);
 			// Create an initial commit (required for worktrees)
 			fs.writeFileSync(path.join(tempDir, 'README.md'), '# Test Repo');
-			await execGit(['add', '.'], tempDir);
-			await execGit(['commit', '-m', 'Initial commit'], tempDir);
+			await execGit(['add', '.'], tempDir, gitEnv);
+			await execGit(['commit', '-m', 'Initial commit'], tempDir, gitEnv);
 			isRealGitRepo = true;
 		} catch {
 			// Git not available - skip integration tests
@@ -236,9 +253,9 @@ suite('Broken Worktree Repair', () => {
 		const worktreePath = path.join(worktreesDir, sessionName);
 
 		// Create a branch and worktree
-		await execGit(['branch', sessionName], tempDir);
+		await execGit(['branch', sessionName], tempDir, gitEnv);
 		fs.mkdirSync(worktreesDir, { recursive: true });
-		await execGit(['worktree', 'add', worktreePath, sessionName], tempDir);
+		await execGit(['worktree', 'add', worktreePath, sessionName], tempDir, gitEnv);
 
 		// Verify worktree was created
 		assert.ok(fs.existsSync(worktreePath), 'Worktree should exist');
@@ -334,7 +351,7 @@ suite('Broken Worktree Repair', () => {
 		fs.mkdirSync(worktreePath, { recursive: true });
 
 		// Create the branch
-		await execGit(['branch', sessionName], tempDir);
+		await execGit(['branch', sessionName], tempDir, gitEnv);
 
 		// Create a test file (should be preserved)
 		const testFilePath = path.join(worktreePath, 'untracked-file.txt');

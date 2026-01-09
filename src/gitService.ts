@@ -51,31 +51,47 @@ export function getGitPath(): string {
 }
 
 /**
+ * Options for execGit function
+ */
+export interface ExecGitOptions {
+    /** Environment variables to set for the git process */
+    env?: Record<string, string>;
+}
+
+/**
  * Execute a git command using spawn (no shell).
  * @param args The git command arguments
  * @param cwd The working directory
+ * @param options Optional settings including environment variables
  * @returns The stdout output
  * @throws Error if the command fails
  */
-export function execGit(args: string[], cwd: string): Promise<string> {
+export function execGit(args: string[], cwd: string, options?: ExecGitOptions): Promise<string> {
     return new Promise((resolve, reject) => {
-        const process = spawn(gitPath, args, { cwd });
+        const spawnOptions: { cwd: string; env?: NodeJS.ProcessEnv } = { cwd };
+
+        // Merge custom env vars with existing process env
+        if (options?.env) {
+            spawnOptions.env = { ...process.env, ...options.env };
+        }
+
+        const childProcess = spawn(gitPath, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 
-        process.stdout.on('data', (data: Buffer) => {
+        childProcess.stdout.on('data', (data: Buffer) => {
             stdout += data.toString();
         });
 
-        process.stderr.on('data', (data: Buffer) => {
+        childProcess.stderr.on('data', (data: Buffer) => {
             stderr += data.toString();
         });
 
-        process.on('error', (err: Error) => {
+        childProcess.on('error', (err: Error) => {
             reject(new Error(`Failed to spawn git process: ${err.message}`));
         });
 
-        process.on('close', (code: number | null) => {
+        childProcess.on('close', (code: number | null) => {
             if (code === 0) {
                 resolve(stdout);
             } else {
