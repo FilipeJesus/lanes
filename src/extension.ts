@@ -1641,6 +1641,7 @@ function getWorkflowOrchestratorInstructions(): string {
 3. **For implementation/test/review steps**, spawn sub-agents using the Task tool
 4. **Call workflow_advance** after completing each step
 5. **Never skip steps** - complete each one before advancing
+6. **Only perform actions for the CURRENT step** - do NOT call workflow tools that belong to future steps. If you are unsure about a parameter value (like a loop name), read the workflow file or wait for the step that provides that information instead of guessing.
 
 ## Workflow
 
