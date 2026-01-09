@@ -177,6 +177,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: [],
       },
     },
+    {
+      name: 'session_create',
+      description:
+        'Request creation of a new Lanes session. Writes a config file that the ' +
+        'VS Code extension will process to create the worktree and open the terminal.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Session name (will be sanitized for git branch)',
+          },
+          sourceBranch: {
+            type: 'string',
+            description: 'Source branch to create worktree from',
+          },
+          prompt: {
+            type: 'string',
+            description: 'Optional starting prompt for Claude',
+          },
+        },
+        required: ['name', 'sourceBranch'],
+      },
+    },
   ],
 }));
 
@@ -284,6 +308,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const context = tools.workflowContext(machine);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(context, null, 2) }],
+        };
+      }
+
+      case 'session_create': {
+        const { name: sessionName, sourceBranch, prompt } = toolArgs as {
+          name: string;
+          sourceBranch: string;
+          prompt?: string;
+        };
+
+        if (!sessionName || !sourceBranch) {
+          throw new Error('name and sourceBranch are required');
+        }
+
+        const result = await tools.createSession(sessionName, sourceBranch, prompt);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };
       }
 

@@ -12,6 +12,8 @@ import {
 } from '../workflow';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { sanitizeSessionName } from '../utils';
 
 /**
  * Interface for features.json file structure.
@@ -268,4 +270,99 @@ export async function workflowAdvance(
  */
 export function workflowContext(machine: WorkflowStateMachine): Record<string, string> {
   return machine.getContext();
+}
+
+// =============================================================================
+// Session Creation Tools
+// =============================================================================
+
+/**
+ * Directory where pending session configs are written.
+ * The VS Code extension monitors this directory and processes the configs.
+ */
+const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+
+/**
+ * Result of a session creation request.
+ */
+export interface CreateSessionResult {
+  success: boolean;
+  configPath?: string;
+  error?: string;
+}
+
+/**
+ * Configuration for a pending session.
+ * Written to a JSON file for the VS Code extension to process.
+ */
+export interface PendingSessionConfig {
+  name: string;
+  sourceBranch: string;
+  prompt?: string;
+  requestedAt: string;
+}
+
+/**
+ * Request creation of a new Lanes session.
+ * Writes a config file that the VS Code extension will process.
+ *
+ * @param name Session name (will be sanitized for git branch)
+ * @param sourceBranch Source branch to create worktree from
+ * @param prompt Optional starting prompt for Claude
+ * @returns Result object with success status, config path, or error
+ */
+export async function createSession(
+  name: string,
+  sourceBranch: string,
+  prompt?: string
+): Promise<CreateSessionResult> {
+  try {
+    // 1. Validate and sanitize the session name
+    const sanitizedName = sanitizeSessionName(name);
+    if (!sanitizedName) {
+      return {
+        success: false,
+        error: 'Session name contains no valid characters after sanitization. Use letters, numbers, hyphens, underscores, dots, or slashes.'
+      };
+    }
+
+    // 2. Validate source branch format
+    const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
+    if (!branchNameRegex.test(sourceBranch)) {
+      return {
+        success: false,
+        error: 'Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.'
+      };
+    }
+
+    // 3. Ensure pending sessions directory exists
+    if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
+      fs.mkdirSync(PENDING_SESSIONS_DIR, { recursive: true });
+    }
+
+    // 4. Create config object
+    const config: PendingSessionConfig = {
+      name: sanitizedName,
+      sourceBranch,
+      prompt: prompt?.trim() || undefined,
+      requestedAt: new Date().toISOString()
+    };
+
+    // 5. Write config file with unique name
+    const configId = `${sanitizedName}-${Date.now()}`;
+    const configPath = path.join(PENDING_SESSIONS_DIR, `${configId}.json`);
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    // 6. Return success
+    return {
+      success: true,
+      configPath
+    };
+
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to create session request: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
 }
