@@ -226,7 +226,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run bundle:mcp",
+    "bundle:mcp": "node scripts/bundle-mcp.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -244,6 +245,7 @@
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
     "typescript": "^5.9.3",
