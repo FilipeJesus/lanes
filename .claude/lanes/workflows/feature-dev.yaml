@@ -150,6 +150,9 @@ steps:
 
       Document your analysis before proceeding.
 
+      IMPORTANT: Do NOT call workflow_set_tasks in this step - that happens in the next step.
+      When done analyzing, call workflow_advance with your analysis summary.
+
   - id: define_tasks
     type: action
     instructions: |
@@ -159,6 +162,8 @@ steps:
       - description: Detailed description of what needs to be done
 
       Call workflow_set_tasks('feature_development', tasks) when done.
+
+      IMPORTANT: The loop is named 'feature_development' - use exactly this name.
 
   - id: feature_development
     type: loop
