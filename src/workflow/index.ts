@@ -27,3 +27,11 @@ export {
 
 // Export state machine
 export { WorkflowStateMachine } from './state';
+
+// Export discovery functions
+export {
+  discoverWorkflows,
+  discoverWorkflowsWithConfig,
+  type WorkflowMetadata,
+  type DiscoverWorkflowsOptions,
+} from './discovery';
