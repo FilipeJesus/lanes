@@ -45,13 +45,58 @@
         /* Sidebar styling */
         .sidebar-link {
             transition: all 0.2s ease;
+            color: #6b7280;
+        }
+        .dark .sidebar-link {
+            color: #9ca3af;
         }
         .sidebar-link:hover {
-            transform: translateX(4px);
+            background-color: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
+        .dark .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
         }
         .sidebar-link.active {
-            border-left-color: #007acc;
-            background-color: rgba(0, 122, 204, 0.1);
+            background-color: #007acc;
+            color: #ffffff !important;
+        }
+        .sidebar-link.active svg {
+            color: #ffffff;
+        }
+
+        /* Mobile nav link styling */
+        .mobile-nav-link {
+            transition: all 0.2s ease;
+            color: #6b7280;
+        }
+        .dark .mobile-nav-link {
+            color: #9ca3af;
+        }
+        .mobile-nav-link:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
+        .dark .mobile-nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+        }
+        .mobile-nav-link.active {
+            background-color: #007acc;
+            color: #ffffff !important;
+        }
+        .mobile-nav-link.active svg {
+            color: #ffffff;
+        }
+
+        /* Section transitions */
+        .doc-section {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* Sticky sidebar */
@@ -129,55 +174,84 @@
                 <!-- Sidebar Navigation -->
                 <aside class="hidden lg:block lg:col-span-3 docs-sidebar">
                     <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-4">
-                        <h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Documentation</h3>
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Documentation</h3>
                         <nav class="space-y-1">
-                            <a href="#create-session" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Create a New Session
-                            </a>
-                            <a href="#worktrees" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Understanding Worktrees
-                            </a>
-                            <a href="#permission-modes" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Permission Modes
-                            </a>
-                            <a href="#workflows-intro" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Introduction to Workflows
-                            </a>
-                            <a href="#workflow-templates" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Workflow Templates Deep Dive
-                            </a>
-                            <a href="#lanes-mcp" class="sidebar-link block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded border-l-2 border-transparent">
-                                Lanes MCP Deep Dive
-                            </a>
+                            <button data-section="create-session" class="sidebar-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Create a New Session</span>
+                            </button>
+                            <button data-section="worktrees" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                <span>Understanding Worktrees</span>
+                            </button>
+                            <button data-section="permission-modes" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Permission Modes</span>
+                            </button>
                         </nav>
+
+                        <!-- Workflow Section Group -->
+                        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-white/10">
+                            <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Workflows</h3>
+                            <nav class="space-y-1">
+                                <button data-section="workflows-intro" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    <span>Introduction to Workflows</span>
+                                </button>
+                                <button data-section="workflow-templates" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                                    <span>Workflow Templates</span>
+                                </button>
+                                <button data-section="lanes-mcp" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Lanes MCP</span>
+                                </button>
+                            </nav>
+                        </div>
                     </div>
                 </aside>
 
                 <!-- Mobile Navigation (collapsible) -->
                 <div class="lg:hidden mb-8">
                     <button id="mobile-nav-toggle" class="w-full bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-4 flex items-center justify-between text-gray-900 dark:text-white font-medium">
-                        <span>Jump to Section</span>
+                        <span id="mobile-nav-current">Create a New Session</span>
                         <svg class="w-5 h-5 transition-transform" id="mobile-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
-                    <nav id="mobile-nav" class="hidden mt-2 bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-1">
-                        <a href="#create-session" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Create a New Session
-                        </a>
-                        <a href="#worktrees" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Understanding Worktrees
-                        </a>
-                        <a href="#permission-modes" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Permission Modes
-                        </a>
-                        <a href="#workflows-intro" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Introduction to Workflows
-                        </a>
-                        <a href="#workflow-templates" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Workflow Templates Deep Dive
-                        </a>
-                        <a href="#lanes-mcp" class="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded hover:bg-gray-100 dark:hover:bg-white/5">
-                            Lanes MCP Deep Dive
-                        </a>
+                    <nav id="mobile-nav" class="hidden mt-2 bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-4">
+                        <!-- Getting Started -->
+                        <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-3">Documentation</p>
+                        <div class="space-y-1 mb-4">
+                            <button data-section="create-session" class="mobile-nav-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Create a New Session</span>
+                            </button>
+                            <button data-section="worktrees" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                <span>Understanding Worktrees</span>
+                            </button>
+                            <button data-section="permission-modes" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Permission Modes</span>
+                            </button>
+                        </div>
+                        <!-- Workflows -->
+                        <div class="border-t border-gray-200 dark:border-white/10 pt-3">
+                            <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-3">Workflows</p>
+                            <div class="space-y-1">
+                                <button data-section="workflows-intro" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    <span>Introduction to Workflows</span>
+                                </button>
+                                <button data-section="workflow-templates" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                                    <span>Workflow Templates</span>
+                                </button>
+                                <button data-section="lanes-mcp" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Lanes MCP</span>
+                                </button>
+                            </div>
+                        </div>
                     </nav>
                 </div>
 
@@ -186,17 +260,22 @@
                     <div class="prose prose-gray dark:prose-invert max-w-none">
 
                         <!-- Page Header -->
-                        <div class="mb-12">
-                            <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">Documentation</h1>
+                        <div class="mb-8">
+                            <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Documentation</h1>
                             <p class="text-lg text-gray-600 dark:text-gray-400">
-                                Complete guide to using Lanes for managing multiple Claude Code sessions in VS Code.
+                                Everything you need to get started with Lanes.
                             </p>
                         </div>
 
                         <!-- Section 1: Create a New Session -->
-                        <section id="create-session" class="mb-16 scroll-mt-24">
+                        <section id="create-session" class="doc-section mb-16 scroll-mt-24">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Create a New Session</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Create a New Session</h2>
+                                </div>
                                 <p class="text-gray-600 dark:text-gray-400 mb-6">
                                     Creating a new session in Lanes is straightforward. Each session is isolated and runs in its own Git worktree, giving Claude Code a clean workspace to work in without affecting your main codebase.
                                 </p>
@@ -523,9 +602,14 @@
                         </section>
 
                         <!-- Section 2: Understanding Worktrees -->
-                        <section id="worktrees" class="mb-16 scroll-mt-24">
+                        <section id="worktrees" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Understanding Worktrees</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Understanding Worktrees</h2>
+                                </div>
                                 <p class="text-gray-600 dark:text-gray-400 mb-6">
                                     Git worktrees are the foundation of Lanes' isolation strategy. They allow you to have multiple working directories attached to the same repository, enabling you to work on multiple tasks simultaneously without conflicts.
                                 </p>
@@ -854,9 +938,14 @@
                         </section>
 
                         <!-- Section 3: Permission Modes -->
-                        <section id="permission-modes" class="mb-16 scroll-mt-24">
+                        <section id="permission-modes" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Permission Modes</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Permission Modes</h2>
+                                </div>
 
                                 <div class="mb-8">
                                     <p class="text-gray-600 dark:text-gray-400 mb-4">
@@ -1138,9 +1227,14 @@
                         </section>
 
                         <!-- Section 4: Introduction to Workflows -->
-                        <section id="workflows-intro" class="mb-16 scroll-mt-24">
+                        <section id="workflows-intro" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Introduction to Workflows</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Introduction to Workflows</h2>
+                                </div>
 
                                 <p class="text-gray-600 dark:text-gray-400 mb-8 text-lg">
                                     Workflows are structured development processes that guide Claude through proven phases like planning, implementation, testing, and review. Built on research from <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents" class="text-vscode-accent hover:underline">Anthropic's long-running agent harnesses</a>, they bring consistency and quality to complex development tasks.
@@ -1527,13 +1621,13 @@
                                                 <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                                 </svg>
-                                                <a href="#workflow-templates" class="text-vscode-accent hover:underline">Workflow Templates Deep Dive</a> - Learn YAML syntax and create custom workflows
+                                                <a href="#workflow-templates" class="text-vscode-accent hover:underline">Workflow Templates</a> - Learn YAML syntax and create custom workflows
                                             </li>
                                             <li class="flex items-center gap-2">
                                                 <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                                 </svg>
-                                                <a href="#lanes-mcp" class="text-vscode-accent hover:underline">Lanes MCP Deep Dive</a> - Understand how workflows use Model Context Protocol
+                                                <a href="#lanes-mcp" class="text-vscode-accent hover:underline">Lanes MCP</a> - Understand how workflows use Model Context Protocol
                                             </li>
                                             <li class="flex items-center gap-2">
                                                 <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1547,12 +1641,17 @@
                             </div>
                         </section>
 
-                        <!-- Section 5: Workflow Templates Deep Dive -->
-                        <section id="workflow-templates" class="mb-16 scroll-mt-24">
+                        <!-- Section 5: Workflow Templates -->
+                        <section id="workflow-templates" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Workflow Templates Deep Dive</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Workflow Templates</h2>
+                                </div>
                                 <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                    This technical deep dive covers the YAML structure of workflow templates, how to define agents, create loops, and build custom workflows for your projects.
+                                    This technical covers the YAML structure of workflow templates, how to define agents, create loops, and build custom workflows for your projects.
                                 </p>
 
                                 <div class="space-y-10">
@@ -2354,12 +2453,17 @@
                             </div>
                         </section>
 
-                        <!-- Section 6: Lanes MCP Deep Dive -->
-                        <section id="lanes-mcp" class="mb-16 scroll-mt-24">
+                        <!-- Section 6: Lanes MCP -->
+                        <section id="lanes-mcp" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
-                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Lanes MCP Deep Dive</h2>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Lanes MCP</h2>
+                                </div>
                                 <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                    The Lanes Model Context Protocol (MCP) server enables workflows to maintain state, track progress, and coordinate between agents across context windows. This technical deep dive explains how the MCP integration works under the hood.
+                                    The Lanes Model Context Protocol (MCP) server enables workflows to maintain state, track progress, and coordinate between agents across context windows. This technical explains how the MCP integration works under the hood.
                                 </p>
 
                                 <div class="space-y-8">
@@ -3083,49 +3187,101 @@
             });
         });
 
+        // Section names for mobile nav display
+        const sectionNames = {
+            'create-session': 'Create a New Session',
+            'worktrees': 'Understanding Worktrees',
+            'permission-modes': 'Permission Modes',
+            'workflows-intro': 'Introduction to Workflows',
+            'workflow-templates': 'Workflow Templates',
+            'lanes-mcp': 'Lanes MCP'
+        };
+
         // Docs sidebar mobile navigation toggle
         const mobileNavToggle = document.getElementById('mobile-nav-toggle');
         const mobileNav = document.getElementById('mobile-nav');
         const mobileNavIcon = document.getElementById('mobile-nav-icon');
+        const mobileNavCurrent = document.getElementById('mobile-nav-current');
 
         mobileNavToggle.addEventListener('click', () => {
             mobileNav.classList.toggle('hidden');
             mobileNavIcon.style.transform = mobileNav.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
         });
 
-        // Close mobile nav when clicking a link
-        document.querySelectorAll('#mobile-nav a').forEach(link => {
-            link.addEventListener('click', () => {
-                mobileNav.classList.add('hidden');
-                mobileNavIcon.style.transform = 'rotate(0deg)';
+        // Section navigation functionality
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+        const sections = document.querySelectorAll('.doc-section');
+
+        function showSection(sectionId) {
+            // Hide all sections
+            sections.forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Show the target section
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('hidden');
+            }
+
+            // Update sidebar active state
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.section === sectionId) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update mobile nav active state
+            mobileNavLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.section === sectionId) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update mobile nav current section text
+            if (mobileNavCurrent && sectionNames[sectionId]) {
+                mobileNavCurrent.textContent = sectionNames[sectionId];
+            }
+
+            // Close mobile nav
+            mobileNav.classList.add('hidden');
+            mobileNavIcon.style.transform = 'rotate(0deg)';
+
+            // Scroll to top of content area
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Update URL hash without triggering scroll
+            history.replaceState(null, null, `#${sectionId}`);
+        }
+
+        // Add click handlers to sidebar links
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.dataset.section;
+                showSection(sectionId);
             });
         });
 
-        // Sidebar active link tracking
-        const sidebarLinks = document.querySelectorAll('.sidebar-link');
-        const sections = document.querySelectorAll('section[id]');
-
-        function updateActiveLink() {
-            const scrollPosition = window.scrollY + 150; // Offset for better UX
-
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                const sectionHeight = section.offsetHeight;
-                const sectionId = section.getAttribute('id');
-
-                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
-                    sidebarLinks.forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('href') === `#${sectionId}`) {
-                            link.classList.add('active');
-                        }
-                    });
-                }
+        // Add click handlers to mobile nav links
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.dataset.section;
+                showSection(sectionId);
             });
-        }
+        });
 
-        window.addEventListener('scroll', updateActiveLink);
-        window.addEventListener('load', updateActiveLink);
+        // Handle initial load with hash in URL
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.slice(1);
+            if (hash && sectionNames[hash]) {
+                showSection(hash);
+            }
+        });
     </script>
 </body>
 </html>
