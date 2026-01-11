@@ -48,6 +48,20 @@
 # 2. Implement - code and test each feature in a loop
 # 3. Cleanup - finalize, run tests, and clean up
 #
+# REQUIRED vs OPTIONAL FIELDS
+# ---------------------------
+# Required:
+#   - name: Unique identifier for the workflow
+#   - description: Brief description of purpose
+#   - steps: The main workflow sequence
+#
+# Optional:
+#   - agents: Only needed for complex workflows with specialized sub-agents
+#   - loops: Only needed for workflows that iterate over multiple tasks
+#
+# Simple workflows can omit agents and loops. When omitted, the main Claude
+# agent handles all steps directly.
+#
 # =============================================================================
 
 name: default

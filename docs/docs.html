@@ -1419,7 +1419,7 @@
                                     <div>
                                         <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">YAML Structure Overview</h3>
                                         <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            Workflow templates are YAML files with four top-level sections:
+                                            Workflow templates are YAML files. Simple workflows only need <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">name</code>, <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">description</code>, and <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">steps</code>. The <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">agents</code> and <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">loops</code> sections are optional for more complex workflows:
                                         </p>
 
                                         <div class="space-y-4">
@@ -1445,8 +1445,8 @@
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">agents</h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">
                                                     <strong>Type:</strong> object<br>
-                                                    <strong>Required:</strong> Yes<br>
-                                                    <strong>Purpose:</strong> Defines specialized agents with tool permissions and restrictions.
+                                                    <strong>Required:</strong> No (optional)<br>
+                                                    <strong>Purpose:</strong> Defines specialized agents with tool permissions and restrictions. Only needed for complex workflows requiring sub-agents.
                                                 </p>
                                             </div>
 
@@ -1454,8 +1454,8 @@
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">loops</h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">
                                                     <strong>Type:</strong> object<br>
-                                                    <strong>Required:</strong> Yes<br>
-                                                    <strong>Purpose:</strong> Reusable sub-workflows that iterate over tasks.
+                                                    <strong>Required:</strong> No (optional)<br>
+                                                    <strong>Purpose:</strong> Reusable sub-workflows that iterate over tasks. Only needed for workflows that process multiple items.
                                                 </p>
                                             </div>
 
@@ -1841,11 +1841,52 @@
 
                                     </div>
 
+                                    <!-- Simple Workflow Example -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Simple Workflow Example</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            For straightforward tasks, you can create a workflow with just steps—no agents or loops required. The main Claude agent handles all steps directly:
+                                        </p>
+
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg overflow-hidden mb-4">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-200 dark:bg-black/40">
+                                                <span class="text-xs text-gray-600 dark:text-gray-500 font-mono">simple-workflow.yaml</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-gray-500"># A minimal workflow - just name, description, and steps</span>
+<span class="text-purple-400">name:</span> simple-task
+<span class="text-purple-400">description:</span> Execute a straightforward task
+
+<span class="text-purple-400">steps:</span>
+  - <span class="text-green-400">id:</span> analyze
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Analyze the codebase and identify what needs to be done.
+
+  - <span class="text-green-400">id:</span> implement
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Implement the required changes.
+      Ensure all tests pass.
+
+  - <span class="text-green-400">id:</span> verify
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Run tests and verify the implementation.
+      Update documentation if needed.</code></pre>
+                                        </div>
+
+                                        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                                            <p class="text-sm text-blue-800 dark:text-blue-200">
+                                                <strong>Tip:</strong> Simple workflows are great for quick prototypes, single-developer tasks, or when you don't need tool restrictions between phases.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <!-- Complete Annotated Example -->
                                     <div>
-                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Complete Annotated Example</h3>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Complete Annotated Example (with Agents and Loops)</h3>
                                         <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            Here's a complete workflow template with detailed annotations explaining each section:
+                                            For complex workflows that need specialized agents and iteration over tasks, here's a complete template with detailed annotations:
                                         </p>
 
                                         <div class="bg-gray-100 dark:bg-black/30 rounded-lg overflow-hidden">

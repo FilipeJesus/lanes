@@ -33,20 +33,53 @@ The MCP Workflow System guides Claude through structured development phases usin
 
 #### 1. Workflow Templates
 
-Workflow templates are YAML files that define:
-- **Agents** - Specialized roles with allowed/disallowed tools
-- **Loops** - Reusable sub-workflows that iterate over tasks
-- **Steps** - The main workflow sequence
+Workflow templates are YAML files that define the sequence of steps in a development workflow.
+
+**Required Fields:**
+- **name** - Unique identifier for the workflow
+- **description** - Brief description of the workflow's purpose
+- **steps** - The main workflow sequence
+
+**Optional Fields:**
+- **agents** - Specialized roles with allowed/disallowed tools (for complex workflows)
+- **loops** - Reusable sub-workflows that iterate over tasks (for multi-task workflows)
+
+Simple workflows can be defined with just `name`, `description`, and `steps`. The `agents` and `loops` fields are only needed for more complex workflows that require specialized sub-agents or iteration over multiple tasks.
 
 **Template Locations:**
 - Built-in templates: `workflows/` (feature, bugfix, refactor, default)
 - Custom templates: `.lanes/workflows/` (appear in VS Code dropdown)
 
-**Example Template Structure:**
+**Example: Simple Workflow (no agents or loops):**
+
+```yaml
+name: simple-task
+description: Execute a straightforward task without specialized agents
+
+steps:
+  - id: analyze
+    type: action
+    instructions: |
+      Analyze the codebase and identify what needs to be done.
+
+  - id: implement
+    type: action
+    instructions: |
+      Implement the required changes.
+      Ensure all tests pass.
+
+  - id: verify
+    type: action
+    instructions: |
+      Run tests and verify the implementation.
+      Update documentation if needed.
+```
+
+**Example: Complex Workflow (with agents and loops):**
 
 ```yaml
 name: feature
-description: Plan and implement a new feature
+description: Plan and implement a new feature with specialized agents
 
 agents:
   orchestrator:

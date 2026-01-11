@@ -50,6 +50,20 @@
 # 4. Final test - ensure all tests pass
 # 5. Cleanup - prepare for commit
 #
+# REQUIRED vs OPTIONAL FIELDS
+# ---------------------------
+# Required:
+#   - name: Unique identifier for the workflow
+#   - description: Brief description of purpose
+#   - steps: The main workflow sequence
+#
+# Optional:
+#   - agents: Only needed for complex workflows with specialized sub-agents
+#   - loops: Only needed for workflows that iterate over multiple tasks
+#
+# Simple workflows can omit agents and loops. When omitted, the main Claude
+# agent handles all steps directly.
+#
 # =============================================================================
 
 name: refactor

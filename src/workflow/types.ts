@@ -55,9 +55,9 @@ export interface WorkflowTemplate {
   /** Human-readable description of what this workflow accomplishes */
   description: string;
   /** Available agents and their configurations */
-  agents: Record<string, AgentConfig>;
+  agents?: Record<string, AgentConfig>;
   /** Reusable sub-workflows (loops) */
-  loops: Record<string, LoopStep[]>;
+  loops?: Record<string, LoopStep[]>;
   /** Main workflow steps */
   steps: WorkflowStep[];
 }

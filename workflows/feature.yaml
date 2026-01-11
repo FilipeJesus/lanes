@@ -49,6 +49,20 @@
 # 4. Final review - review the implementation as a whole
 # 5. Final resolution - address any issues from the final review
 #
+# REQUIRED vs OPTIONAL FIELDS
+# ---------------------------
+# Required:
+#   - name: Unique identifier for the workflow
+#   - description: Brief description of purpose
+#   - steps: The main workflow sequence
+#
+# Optional:
+#   - agents: Only needed for complex workflows with specialized sub-agents
+#   - loops: Only needed for workflows that iterate over multiple tasks
+#
+# Simple workflows can omit agents and loops. When omitted, the main Claude
+# agent handles all steps directly.
+#
 # =============================================================================
 
 name: feature

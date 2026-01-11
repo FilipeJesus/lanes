@@ -73,6 +73,9 @@ export class WorkflowStateMachine {
    * Gets the loop definition for a loop step.
    */
   private getLoopSteps(stepId: string): LoopStep[] {
+    if (!this.template.loops) {
+      throw new Error(`No loops defined in template`);
+    }
     const loopSteps = this.template.loops[stepId];
     if (!loopSteps) {
       throw new Error(`Loop '${stepId}' not found in template`);
@@ -115,7 +118,7 @@ export class WorkflowStateMachine {
    * Gets the agent configuration for a given agent ID.
    */
   private getAgentConfig(agentId: string | undefined): AgentConfig | undefined {
-    if (!agentId) {
+    if (!agentId || !this.template.agents) {
       return undefined;
     }
     return this.template.agents[agentId];
@@ -298,7 +301,7 @@ export class WorkflowStateMachine {
    */
   setTasks(loopId: string, tasks: Task[]): void {
     // Validate the loop exists
-    if (!this.template.loops[loopId]) {
+    if (!this.template.loops || !this.template.loops[loopId]) {
       throw new Error(`Loop '${loopId}' not found in template`);
     }
 

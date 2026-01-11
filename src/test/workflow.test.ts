@@ -185,6 +185,7 @@ suite('Workflow Loader', () => {
 			assert.strictEqual(template.description, 'A test workflow');
 
 			// Check agents
+			assert.ok(template.agents);
 			assert.ok(template.agents.orchestrator);
 			assert.strictEqual(template.agents.orchestrator.description, 'Main orchestrator');
 			assert.deepStrictEqual(template.agents.orchestrator.tools, ['read', 'glob']);
@@ -196,6 +197,7 @@ suite('Workflow Loader', () => {
 			assert.deepStrictEqual(template.agents.implementer.cannot, ['commit']);
 
 			// Check loops
+			assert.ok(template.loops);
 			assert.ok(template.loops.task_loop);
 			assert.strictEqual(template.loops.task_loop.length, 2);
 			assert.strictEqual(template.loops.task_loop[0].id, 'implement');
@@ -219,6 +221,7 @@ suite('Workflow Loader', () => {
 			// Assert
 			assert.strictEqual(template.name, 'minimal-workflow');
 			assert.strictEqual(template.steps.length, 1);
+			assert.ok(template.agents);
 			assert.ok(template.agents.default);
 			assert.deepStrictEqual(template.loops, {});
 		});
@@ -281,21 +284,32 @@ steps:
 			);
 		});
 
-		test('Loader rejects template with missing agents', () => {
-			const invalidYaml = `
+		test('Loader accepts template with missing agents (agents are optional)', () => {
+			const validYaml = `
 name: missing-agents
 description: A template
-loops: {}
 steps:
   - id: step1
     type: action
     instructions: Do something
 `;
-			assert.throws(
-				() => loadWorkflowTemplateFromString(invalidYaml),
-				WorkflowValidationError,
-				'Should throw WorkflowValidationError for missing agents'
-			);
+			const template = loadWorkflowTemplateFromString(validYaml);
+			assert.strictEqual(template.name, 'missing-agents');
+			assert.strictEqual(template.agents, undefined);
+		});
+
+		test('Loader accepts template with missing loops (loops are optional)', () => {
+			const validYaml = `
+name: missing-loops
+description: A template
+steps:
+  - id: step1
+    type: action
+    instructions: Do something
+`;
+			const template = loadWorkflowTemplateFromString(validYaml);
+			assert.strictEqual(template.name, 'missing-loops');
+			assert.strictEqual(template.loops, undefined);
 		});
 
 		test('Loader rejects template with empty steps', () => {
@@ -625,6 +639,37 @@ steps:
 			assert.strictEqual(status.status, 'running');
 			assert.strictEqual(status.step, 'only_step');
 			assert.strictEqual(status.progress.totalSteps, 1);
+		});
+
+		test('State machine handles workflow without agents or loops', () => {
+			// Arrange: Template with no agents and no loops
+			const simpleTemplate = loadWorkflowTemplateFromString(`
+name: simple
+description: Simple workflow without agents or loops
+steps:
+  - id: step1
+    type: action
+    instructions: Do step 1
+  - id: step2
+    type: action
+    instructions: Do step 2
+`);
+			const machine = new WorkflowStateMachine(simpleTemplate);
+
+			// Act & Assert: Start
+			let status = machine.start();
+			assert.strictEqual(status.step, 'step1');
+			assert.strictEqual(status.agent, null);
+			assert.strictEqual(status.agentConfig, undefined);
+
+			// Act & Assert: Advance to step 2
+			status = machine.advance('Step 1 done');
+			assert.strictEqual(status.step, 'step2');
+			assert.strictEqual(status.agent, null);
+
+			// Act & Assert: Complete workflow
+			status = machine.advance('Step 2 done');
+			assert.strictEqual(status.status, 'complete');
 		});
 	});
 
@@ -1220,12 +1265,14 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(template.name, 'feature');
 		assert.strictEqual(template.description, 'Plan and implement a new feature');
 
+		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
 		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.implementer, 'Should have implementer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
 		assert.ok(template.agents.reviewer, 'Should have reviewer agent');
 
+		assert.ok(template.loops, 'Should have loops');
 		// Verify loops
 		assert.ok(template.loops.feature_development, 'Should have feature_development loop');
 		assert.strictEqual(template.loops.feature_development.length, 4, 'Should have 4 sub-steps in loop');
@@ -1251,12 +1298,14 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(template.name, 'bugfix');
 		assert.strictEqual(template.description, 'Investigate and fix a bug');
 
+		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
 		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.investigator, 'Should have investigator agent');
 		assert.ok(template.agents.fixer, 'Should have fixer agent');
 		assert.ok(template.agents.verifier, 'Should have verifier agent');
 
+		assert.ok(template.loops, 'Should have loops');
 		// Verify loops
 		assert.ok(template.loops.fix_cycle, 'Should have fix_cycle loop');
 		assert.strictEqual(template.loops.fix_cycle.length, 3, 'Should have 3 sub-steps in loop');
@@ -1282,12 +1331,14 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(template.name, 'refactor');
 		assert.strictEqual(template.description, 'Refactor code for improved quality');
 
+		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
 		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.analyzer, 'Should have analyzer agent');
 		assert.ok(template.agents.refactorer, 'Should have refactorer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
 
+		assert.ok(template.loops, 'Should have loops');
 		// Verify loops
 		assert.ok(template.loops.refactor_cycle, 'Should have refactor_cycle loop');
 		assert.strictEqual(template.loops.refactor_cycle.length, 3, 'Should have 3 sub-steps in loop');
@@ -1363,12 +1414,14 @@ suite('Built-in Templates', () => {
 		// Assert
 		assert.strictEqual(template.name, 'default');
 		assert.ok(template.description.includes('Standard development workflow'));
+		assert.ok(template.agents, 'Should have agents');
 
 		// Verify agents
 		assert.ok(template.agents.coder, 'Should have coder agent');
 		assert.ok(template.agents['test-engineer'], 'Should have test-engineer agent');
 		assert.ok(template.agents['code-reviewer'], 'Should have code-reviewer agent');
 
+		assert.ok(template.loops, 'Should have loops');
 		// Verify loops
 		assert.ok(template.loops.implement, 'Should have implement loop');
 

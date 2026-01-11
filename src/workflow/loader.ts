@@ -160,7 +160,7 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
  * @throws WorkflowValidationError if an agent reference is invalid
  */
 function validateAgentReferences(template: WorkflowTemplate): void {
-  const agentIds = new Set(Object.keys(template.agents));
+  const agentIds = new Set(Object.keys(template.agents || {}));
 
   // Check main workflow steps
   for (const step of template.steps) {
@@ -172,12 +172,14 @@ function validateAgentReferences(template: WorkflowTemplate): void {
   }
 
   // Check loop steps
-  for (const [loopId, loopSteps] of Object.entries(template.loops)) {
-    for (const loopStep of loopSteps) {
-      if (loopStep.agent && !agentIds.has(loopStep.agent)) {
-        throw new WorkflowValidationError(
-          `Loop '${loopId}' step '${loopStep.id}' references unknown agent '${loopStep.agent}'`
-        );
+  if (template.loops) {
+    for (const [loopId, loopSteps] of Object.entries(template.loops)) {
+      for (const loopStep of loopSteps) {
+        if (loopStep.agent && !agentIds.has(loopStep.agent)) {
+          throw new WorkflowValidationError(
+            `Loop '${loopId}' step '${loopStep.id}' references unknown agent '${loopStep.agent}'`
+          );
+        }
       }
     }
   }
@@ -189,7 +191,7 @@ function validateAgentReferences(template: WorkflowTemplate): void {
  * @throws WorkflowValidationError if a loop reference is invalid
  */
 function validateLoopReferences(template: WorkflowTemplate): void {
-  const loopIds = new Set(Object.keys(template.loops));
+  const loopIds = new Set(Object.keys(template.loops || {}));
 
   for (const step of template.steps) {
     if (step.type === 'loop' && !loopIds.has(step.id)) {
@@ -220,27 +222,31 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
     throw new WorkflowValidationError("Template must have a 'description' string");
   }
 
-  // Validate agents
-  if (!isObject(value.agents)) {
-    throw new WorkflowValidationError("Template must have an 'agents' object");
-  }
-
-  for (const [key, agentConfig] of Object.entries(value.agents)) {
-    validateAgentConfig(key, agentConfig);
-  }
-
-  // Validate loops
-  if (!isObject(value.loops)) {
-    throw new WorkflowValidationError("Template must have a 'loops' object");
-  }
-
-  for (const [loopId, loopSteps] of Object.entries(value.loops)) {
-    if (!isArray(loopSteps)) {
-      throw new WorkflowValidationError(`Loop '${loopId}' must be an array of steps`);
+  // Validate agents (optional)
+  if (value.agents !== undefined) {
+    if (!isObject(value.agents)) {
+      throw new WorkflowValidationError("'agents' must be an object if provided");
     }
 
-    for (let i = 0; i < loopSteps.length; i++) {
-      validateLoopStep(loopId, i, loopSteps[i]);
+    for (const [key, agentConfig] of Object.entries(value.agents)) {
+      validateAgentConfig(key, agentConfig);
+    }
+  }
+
+  // Validate loops (optional)
+  if (value.loops !== undefined) {
+    if (!isObject(value.loops)) {
+      throw new WorkflowValidationError("'loops' must be an object if provided");
+    }
+
+    for (const [loopId, loopSteps] of Object.entries(value.loops)) {
+      if (!isArray(loopSteps)) {
+        throw new WorkflowValidationError(`Loop '${loopId}' must be an array of steps`);
+      }
+
+      for (let i = 0; i < loopSteps.length; i++) {
+        validateLoopStep(loopId, i, loopSteps[i]);
+      }
     }
   }
 
