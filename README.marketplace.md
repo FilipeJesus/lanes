@@ -11,6 +11,13 @@ Run multiple Claude Code sessions in parallel, each in its own isolated Git work
 
 Visit [www.lanes.pro](https://lanes.pro) to learn more about Lanes.
 
+## Installation
+
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/FilipeMarquesJesus.claude-lanes?label=VS%20Code%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.claude-lanes)
+[![Open VSX](https://img.shields.io/open-vsx/v/FilipeMarquesJesus/claude-lanes?label=Open%20VSX&logo=vscodium)](https://open-vsx.org/extension/FilipeMarquesJesus/claude-lanes)
+
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.claude-lanes) or [Open VSX Registry](https://open-vsx.org/extension/FilipeMarquesJesus/claude-lanes).
+
 ## Example View
 
 ![Lanes in action](media/screenshot.png)

@@ -87,6 +87,28 @@ fi
 echo "🚀 Publishing to VS Code Marketplace..."
 npx vsce publish --packagePath "$VSIX_FILE"
 
+# Publish to Open VSX Registry
+echo ""
+read -p "🌐 Publish to Open VSX Registry? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  if [[ -z "$OVSX_PAT" ]]; then
+    echo "⚠️  Warning: OVSX_PAT environment variable not set"
+    echo "   You can set it with: export OVSX_PAT=your-token"
+    echo "   Skipping Open VSX publish..."
+  else
+    echo "🌐 Publishing to Open VSX Registry..."
+    if npx ovsx publish "$VSIX_FILE" -p "$OVSX_PAT"; then
+      echo "✅ Published to Open VSX Registry"
+      echo "   Open VSX: https://open-vsx.org/extension/FilipeMarquesJesus/claude-lanes"
+    else
+      echo "⚠️  Warning: Open VSX publish failed (VS Code Marketplace publish was successful)"
+    fi
+  fi
+else
+  echo "⏭️  Skipping Open VSX publish"
+fi
+
 # Commit and tag
 echo "📝 Committing version bump..."
 git add package.json package-lock.json CHANGELOG.md
@@ -103,4 +125,5 @@ fi
 
 echo ""
 echo "✅ Release $NEW_VERSION complete!"
-echo "   Marketplace: https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.claude-lanes"
+echo "   VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.claude-lanes"
+echo "   Open VSX Registry: https://open-vsx.org/extension/FilipeMarquesJesus/claude-lanes"
