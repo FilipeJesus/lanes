@@ -227,12 +227,12 @@ export function workflowContext(machine: WorkflowStateMachine): Record<string, s
 
 /**
  * Get the directory where pending session configs are written.
- * Uses the workspace's .claude directory instead of the home directory.
+ * Uses the workspace's .lanes directory instead of the home directory.
  * @param repoRoot The root directory of the repository
  * @returns The path to the pending sessions directory
  */
 export function getPendingSessionsDir(repoRoot: string): string {
-  return path.join(repoRoot, '.claude', 'lanes', 'pending-sessions');
+  return path.join(repoRoot, '.lanes', 'pending-sessions');
 }
 
 /**

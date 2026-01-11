@@ -101,7 +101,7 @@ export function getSessionNameFromWorktree(worktreePath: string): string {
  * Fallback chain:
  * 1. User-specified promptsFolder (if valid) -> repo-relative storage
  * 2. Global storage (if initialized) -> extension storage
- * 3. Legacy default (.claude/lanes) -> repo-relative fallback
+ * 3. Legacy default (.lanes) -> repo-relative fallback
  *
  * Security: Validates both sessionName and user-provided paths to prevent directory traversal.
  *
@@ -150,8 +150,8 @@ export function getPromptsPath(sessionName: string, repoRoot: string): { path: s
     // Default: Use global storage
     if (!globalStorageUri || !baseRepoPathForStorage) {
         // Global storage not initialized - fall back to legacy default
-        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.claude/lanes).');
-        const legacyDir = path.join(repoRoot, '.claude', 'lanes');
+        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.lanes).');
+        const legacyDir = path.join(repoRoot, '.lanes');
         const legacyPath = path.join(legacyDir, `${sessionName}.txt`);
         return { path: legacyPath, needsDir: legacyDir };
     }

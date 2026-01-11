@@ -14,5 +14,8 @@ features.json
 tests.json
 .claude/settings.local.json
 
+# Lanes directory (pending sessions, custom workflows)
+.lanes/pending-sessions
+
 # Git worktrees directory
 .worktrees/

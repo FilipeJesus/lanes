@@ -46,8 +46,8 @@ export function getPromptsDir(repoRoot: string): string | null {
 
     if (!globalStorageUri || !baseRepoPath) {
         // Global storage not initialized - fall back to legacy default
-        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.claude/lanes).');
-        return path.join(repoRoot, '.claude', 'lanes');
+        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.lanes).');
+        return path.join(repoRoot, '.lanes');
     }
 
     const repoIdentifier = getRepoIdentifier(baseRepoPath);

@@ -43,12 +43,12 @@ export interface PendingSessionConfig {
 
 /**
  * Get the directory where MCP server writes pending session requests.
- * Uses the workspace's .claude directory instead of the home directory.
+ * Uses the workspace's .lanes directory instead of the home directory.
  * @param repoRoot The root directory of the repository
  * @returns The path to the pending sessions directory
  */
 function getPendingSessionsDir(repoRoot: string): string {
-    return path.join(repoRoot, '.claude', 'lanes', 'pending-sessions');
+    return path.join(repoRoot, '.lanes', 'pending-sessions');
 }
 
 /**
@@ -804,7 +804,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Watch for changes to the custom workflows folder to refresh workflows
     if (workspaceRoot) {
         const config = vscode.workspace.getConfiguration('lanes');
-        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.claude/lanes/workflows');
+        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.lanes/workflows');
         const customWorkflowsPath = path.join(workspaceRoot, customWorkflowsFolder);
 
         const workflowsWatcher = vscode.workspace.createFileSystemWatcher(
@@ -840,7 +840,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Watch for custom workflows folder changes
     if (watchPath) {
-        const customWorkflowsFolder = vscode.workspace.getConfiguration('lanes').get<string>('customWorkflowsFolder', '.claude/lanes/workflows');
+        const customWorkflowsFolder = vscode.workspace.getConfiguration('lanes').get<string>('customWorkflowsFolder', '.lanes/workflows');
         const customWorkflowsWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(watchPath, `${customWorkflowsFolder}/*.yaml`)
         );
@@ -2351,7 +2351,7 @@ async function createWorkflow(
 
     // 2. Discover available templates for selection
     const config = vscode.workspace.getConfiguration('lanes');
-    const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.claude/lanes/workflows');
+    const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.lanes/workflows');
 
     let templates: WorkflowMetadata[] = [];
     try {

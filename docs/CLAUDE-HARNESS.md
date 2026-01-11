@@ -40,7 +40,7 @@ Workflow templates are YAML files that define:
 
 **Template Locations:**
 - Built-in templates: `workflows/` (feature, bugfix, refactor, default)
-- Custom templates: `.claude/lanes/workflows/` (appear in VS Code dropdown)
+- Custom templates: `.lanes/workflows/` (appear in VS Code dropdown)
 
 **Example Template Structure:**
 
@@ -320,12 +320,12 @@ To create a custom workflow for your project:
 
 1. **Create the directory structure:**
    ```bash
-   mkdir -p .claude/lanes/workflows
+   mkdir -p .lanes/workflows
    ```
 
 2. **Copy a built-in template as a starting point:**
    ```bash
-   cp workflows/feature.yaml .claude/lanes/workflows/my-custom-workflow.yaml
+   cp workflows/feature.yaml .lanes/workflows/my-custom-workflow.yaml
    ```
 
 3. **Customize the workflow:**

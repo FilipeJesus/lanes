@@ -32,7 +32,7 @@ suite('PreviousSessionItem', () => {
 	test('should have promptFilePath containing full path to prompt file', () => {
 		// Arrange
 		const sessionName = 'test-session';
-		const promptFilePath = '/absolute/path/to/.claude/lanes/test-session.txt';
+		const promptFilePath = '/absolute/path/to/.lanes/test-session.txt';
 
 		// Act
 		const item = new PreviousSessionItem(sessionName, promptFilePath);
@@ -127,7 +127,7 @@ suite('PreviousSessionProvider', () => {
 	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'previous-session-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
-		promptsDir = path.join(tempDir, '.claude', 'lanes');
+		promptsDir = path.join(tempDir, '.lanes');
 
 		// Reset configuration to default
 		const config = vscode.workspace.getConfiguration('lanes');
@@ -323,7 +323,7 @@ suite('PreviousSessionProvider', () => {
 	test('should use baseRepoPath for finding sessions when provided', async () => {
 		// Arrange: Create a second temp dir to simulate base repo
 		const baseRepoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'base-repo-'));
-		const basePromptsDir = path.join(baseRepoDir, '.claude', 'lanes');
+		const basePromptsDir = path.join(baseRepoDir, '.lanes');
 
 		try {
 			fs.mkdirSync(basePromptsDir, { recursive: true });
@@ -365,10 +365,10 @@ suite('getPromptsDir', () => {
 		// Act
 		const result = getPromptsDir(testRepoRoot);
 
-		// Assert - falls back to legacy .claude/lanes when global storage not initialized
+		// Assert - falls back to legacy .lanes when global storage not initialized
 		assert.strictEqual(
 			result,
-			path.join(testRepoRoot, '.claude', 'lanes'),
+			path.join(testRepoRoot, '.lanes'),
 			'Should return legacy path when global storage not initialized'
 		);
 	});
@@ -384,7 +384,7 @@ suite('getPromptsDir', () => {
 		// Assert
 		assert.strictEqual(
 			result,
-			path.join(testRepoRoot, '.claude', 'lanes'),
+			path.join(testRepoRoot, '.lanes'),
 			'Should return legacy path when config is empty string'
 		);
 	});
@@ -400,7 +400,7 @@ suite('getPromptsDir', () => {
 		// Assert
 		assert.strictEqual(
 			result,
-			path.join(testRepoRoot, '.claude', 'lanes'),
+			path.join(testRepoRoot, '.lanes'),
 			'Should return legacy path when config is only whitespace'
 		);
 	});
@@ -448,7 +448,7 @@ suite('getPromptsDir', () => {
 		// Assert - falls back to legacy when global storage not initialized
 		assert.strictEqual(
 			result,
-			path.join(testRepoRoot, '.claude', 'lanes'),
+			path.join(testRepoRoot, '.lanes'),
 			'Should reject path traversal and fall back to legacy path'
 		);
 	});

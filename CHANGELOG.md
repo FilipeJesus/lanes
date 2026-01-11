@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **MCP-based Agentic Workflow System** - Structured workflow (via Model Context Protocol) that guides Claude through planning → implementing → testing → reviewing phases
-- **Custom Workflow Templates** - Create YAML workflow templates in `.claude/lanes/workflows/` with agents, loops, and steps
+- **Custom Workflow Templates** - Create YAML workflow templates in `.lanes/workflows/` with agents, loops, and steps
 - **Workflow Template Dropdown** - Session creation form now shows available workflows with refresh button
 - **MCP Session Creation** - `session_create` endpoint allows programmatic session creation via MCP
 - **Workflow Progress Display** - Session tree view shows current workflow step/task as child items
@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Built-in workflows are now template-only (not selectable in dropdown, copy to use)
 - Workflow and task info moved to child item in session tree view
+- **Lanes folder moved from `.claude/lanes/` to `.lanes/`** - Custom workflows and pending sessions now stored in `.lanes/` at repository root
+
+### Migration
+
+If you have existing custom workflows or data in `.claude/lanes/`, move them to the new location:
+```bash
+mv .claude/lanes .lanes
+```
 
 ### Fixed
 
@@ -200,7 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Ignore `.claude/lanes` directory in git
+- Ignore `.lanes` directory in git
 
 ## [0.3.4] - 2025-12-23
 
