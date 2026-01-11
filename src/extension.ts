@@ -63,12 +63,15 @@ const WORKFLOWS_DIR = path.join(__dirname, '..', 'workflows');
 function getPreferredCodeAgent(): CodeAgent {
     const config = vscode.workspace.getConfiguration('lanes');
     const preferredAgent = config.get<string>('preferredCodeAgent', 'claude');
+    console.log(`Lanes: preferredCodeAgent setting value = "${preferredAgent}"`);
 
     switch (preferredAgent) {
         case 'opencode':
+            console.log('Lanes: Creating OpenCodeAgent');
             return new OpenCodeAgent();
         case 'claude':
         default:
+            console.log('Lanes: Creating ClaudeCodeAgent');
             return new ClaudeCodeAgent();
     }
 }
@@ -1813,32 +1816,45 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
         // Write prompt to file for history and to avoid terminal buffer issues
         // This applies to both CodeAgent and fallback paths
         let promptFileCommand: string | undefined;
+        let promptFilePath: string | undefined;
         if (combinedPrompt) {
             const repoRoot = path.dirname(path.dirname(worktreePath));
             const promptPathInfo = getPromptsPath(taskName, repoRoot);
             if (promptPathInfo) {
                 await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
                 await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
-                // Use command substitution to read prompt from file
+                promptFilePath = promptPathInfo.path;
+                // Use command substitution to read prompt from file (for Claude)
                 promptFileCommand = `"$(cat "${promptPathInfo.path}")"`;
             }
         }
 
         if (codeAgent) {
             // Use CodeAgent to build start command
-            // Note: When using prompt file, we don't pass prompt to buildStartCommand
-            // Instead, we append the prompt file command to the generated command
+            const isOpenCode = codeAgent.name === 'opencode';
+
             const startCommand = codeAgent.buildStartCommand({
                 permissionMode: validatedMode,
                 settingsPath,
                 mcpConfigPath
-                // Don't pass prompt here - we handle it via file
+                // Don't pass prompt here - we handle it via file for both agents
             });
 
-            if (promptFileCommand) {
+            if (isOpenCode && promptFilePath) {
+                // OpenCode: use --prompt flag with $(cat ...) to read file content
+                terminal.sendText(`${startCommand} --prompt "$(cat '${promptFilePath}')"`);
+            } else if (isOpenCode && combinedPrompt) {
+                // OpenCode fallback: pass prompt directly
+                const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                terminal.sendText(`${startCommand} --prompt '${escapedPrompt}'`);
+            } else if (isOpenCode) {
+                // OpenCode: no prompt
+                terminal.sendText(startCommand);
+            } else if (promptFileCommand) {
+                // Claude: append the $(cat ...) command as positional arg
                 terminal.sendText(`${startCommand} ${promptFileCommand}`);
             } else if (combinedPrompt) {
-                // Fallback: prompt exists but file creation failed - pass escaped prompt
+                // Claude fallback: prompt exists but file creation failed - pass escaped prompt
                 const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
                 terminal.sendText(`${startCommand} '${escapedPrompt}'`);
             } else {
@@ -2143,12 +2159,20 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         };
     }
 
-    // Build the settings object
-    const settings: ClaudeSettings = {
-        hooks
-    };
+    // Build the settings object based on agent type
+    // OpenCode uses a different config format (no hooks key, plugins are separate files)
+    let settings: ClaudeSettings | Record<string, unknown>;
 
-    // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
+    if (codeAgent && codeAgent.name === 'opencode') {
+        // OpenCode config: no hooks (uses plugin files instead)
+        // MCP config is included directly in opencode.json
+        settings = {};
+    } else {
+        // Claude config: includes hooks
+        settings = { hooks };
+    }
+
+    // Save workflow path to session file for future restoration
     // effectiveWorkflow is now the full path to the workflow YAML file
     if (effectiveWorkflow) {
         // Validate workflow path to prevent command injection
@@ -2165,8 +2189,15 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
         if (workflow) {
             saveSessionWorkflow(worktreePath, effectiveWorkflow);
         }
-        // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
-        // instead of being included in the settings file
+
+        // For OpenCode, include MCP config directly in the settings file
+        // (Claude uses a separate --mcp-config flag instead)
+        if (codeAgent && codeAgent.name === 'opencode' && codeAgent.supportsMcp()) {
+            const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow);
+            if (mcpConfig && mcpConfig.mcpServers) {
+                (settings as Record<string, unknown>).mcp = mcpConfig.mcpServers;
+            }
+        }
     }
 
     // Write the settings file atomically with cleanup on failure

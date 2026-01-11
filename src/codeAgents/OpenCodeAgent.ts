@@ -95,60 +95,50 @@ export class OpenCodeAgent extends CodeAgent {
     }
 
     buildStartCommand(options: StartCommandOptions): string {
-        const parts: string[] = [this.config.cliCommand, 'run'];
+        const envParts: string[] = [];
+        const cmdParts: string[] = [this.config.cliCommand];
 
-        // Add MCP config first (if OpenCode supports it)
-        if (options.mcpConfigPath) {
-            const escapedPath = this.escapeForSingleQuotes(options.mcpConfigPath);
-            parts.push(`--mcp-config '${escapedPath}'`);
-        }
-
-        // Add config file with proper escaping
+        // OpenCode uses OPENCODE_CONFIG env var for config file (not --config flag)
         if (options.settingsPath) {
             const escapedPath = this.escapeForSingleQuotes(options.settingsPath);
-            parts.push(`--config '${escapedPath}'`);
+            envParts.push(`OPENCODE_CONFIG='${escapedPath}'`);
         }
 
-        // Add permission mode flags if not default
-        if (options.permissionMode && options.permissionMode !== 'default') {
-            const flag = this.getPermissionFlag(options.permissionMode);
-            if (flag) {
-                parts.push(flag);
-            }
-        }
-
-        // Add prompt with single quotes and proper escaping
+        // Add prompt with --prompt flag (for interactive TUI mode)
         if (options.prompt) {
             const escapedPrompt = this.escapeForSingleQuotes(options.prompt);
-            parts.push(`'${escapedPrompt}'`);
+            cmdParts.push(`--prompt '${escapedPrompt}'`);
         }
 
-        return parts.join(' ');
+        // Combine env vars and command
+        if (envParts.length > 0) {
+            return `${envParts.join(' ')} ${cmdParts.join(' ')}`;
+        }
+        return cmdParts.join(' ');
     }
 
     buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
         // Validate session ID to prevent command injection
         this.validateSessionId(sessionId);
 
-        const parts: string[] = [this.config.cliCommand];
+        const envParts: string[] = [];
+        const cmdParts: string[] = [this.config.cliCommand];
 
-        // Add MCP config first (if OpenCode supports it)
-        if (options.mcpConfigPath) {
-            const escapedPath = this.escapeForSingleQuotes(options.mcpConfigPath);
-            parts.push(`--mcp-config '${escapedPath}'`);
-        }
-
-        // Add config file with proper escaping
+        // OpenCode uses OPENCODE_CONFIG env var for config file (not --config flag)
         if (options.settingsPath) {
             const escapedPath = this.escapeForSingleQuotes(options.settingsPath);
-            parts.push(`--config '${escapedPath}'`);
+            envParts.push(`OPENCODE_CONFIG='${escapedPath}'`);
         }
 
         // Add session flag (OpenCode uses --session, not --resume)
         // Session ID is already validated at this point
-        parts.push(`--session ${sessionId}`);
+        cmdParts.push(`--session ${sessionId}`);
 
-        return parts.join(' ');
+        // Combine env vars and command
+        if (envParts.length > 0) {
+            return `${envParts.join(' ')} ${cmdParts.join(' ')}`;
+        }
+        return cmdParts.join(' ');
     }
 
     // --- Session/Status Parsing ---
@@ -253,8 +243,7 @@ export class OpenCodeAgent extends CodeAgent {
 // Lanes session tracker plugin for OpenCode
 // This plugin captures session IDs and tracks status changes
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
 
 const SESSION_FILE = ${JSON.stringify(sessionFilePath)};
 const STATUS_FILE = ${JSON.stringify(statusFilePath)};
@@ -286,45 +275,37 @@ function writeSessionId(sessionId) {
     fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2));
 }
 
-// Export plugin hooks
-module.exports = {
-    name: 'lanes-tracker',
-    version: '1.0.0',
-
-    // Capture session ID when session is created
-    'session.created': async (event) => {
-        if (event.sessionId) {
-            writeSessionId(event.sessionId);
-        }
-    },
-
-    // Track status changes
-    'session.status': async (event) => {
-        if (event.status) {
-            // Map OpenCode status to Lanes status
-            let status = 'idle';
-            if (event.status === 'thinking' || event.status === 'running') {
-                status = 'working';
-            } else if (event.status === 'waiting' || event.status === 'prompt') {
-                status = 'waiting_for_user';
-            } else if (event.status === 'error') {
-                status = 'error';
+// OpenCode plugin: named async export with context parameter
+export const LanesTrackerPlugin = async ({ project, client, $, directory, worktree }) => {
+    return {
+        // Capture session ID when session is created
+        'session.created': async (input) => {
+            if (input && input.session && input.session.id) {
+                writeSessionId(input.session.id);
             }
-            writeStatus(status);
-        }
-    },
+        },
 
-    // Mark as idle when session is idle
-    'session.idle': async (event) => {
-        writeStatus('idle');
-    },
+        // Track status changes
+        'session.status': async (input) => {
+            if (input && input.status) {
+                // Map OpenCode status to Lanes status
+                let status = 'idle';
+                if (input.status === 'thinking' || input.status === 'running') {
+                    status = 'working';
+                } else if (input.status === 'waiting' || input.status === 'prompt') {
+                    status = 'waiting_for_user';
+                } else if (input.status === 'error') {
+                    status = 'error';
+                }
+                writeStatus(status);
+            }
+        },
 
-    // Update status on message changes (mark as working)
-    'message.updated': async (event) => {
-        if (event.message && event.message.role === 'assistant') {
-            writeStatus('working');
+        // Mark as idle when session is idle
+        'session.idle': async (input) => {
+            writeStatus('idle');
         }
-    }
+    };
 };
 `.trim();
 

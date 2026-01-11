@@ -1025,72 +1025,49 @@ suite('OpenCodeAgent', () => {
 	});
 
 	suite('buildStartCommand', () => {
-		test('should use opencode run format', () => {
+		test('should use opencode TUI format', () => {
 			const command = agent.buildStartCommand({ prompt: 'test' });
-			assert.ok(command.startsWith('opencode run'), 'Start command should use "opencode run"');
+			assert.ok(command.startsWith('opencode'), 'Start command should start with "opencode"');
+			assert.ok(!command.includes('opencode run'), 'Should not use "opencode run" (uses TUI mode)');
 		});
 
-		test('should include prompt with proper escaping', () => {
+		test('should include prompt with --prompt flag', () => {
 			const command = agent.buildStartCommand({ prompt: 'test prompt' });
-			assert.ok(command.includes("'test prompt'"), 'Should include prompt in single quotes');
+			assert.ok(command.includes("--prompt 'test prompt'"), 'Should include --prompt flag with value');
 		});
 
 		test('should escape single quotes in prompt', () => {
 			const command = agent.buildStartCommand({ prompt: "it's a test" });
-			assert.ok(command.includes("'it'\\''s a test'"), 'Should escape single quotes in prompt');
+			assert.ok(command.includes("--prompt 'it'\\''s a test'"), 'Should escape single quotes in prompt');
 		});
 
-		test('should include config path when provided', () => {
+		test('should include config path via OPENCODE_CONFIG env var', () => {
 			const command = agent.buildStartCommand({
 				prompt: 'test',
 				settingsPath: '/path/to/opencode.json'
 			});
-			assert.ok(command.includes('--config'), 'Should include --config flag');
+			assert.ok(command.includes('OPENCODE_CONFIG='), 'Should include OPENCODE_CONFIG env var');
 			assert.ok(command.includes('/path/to/opencode.json'), 'Should include settings path');
+			assert.ok(command.includes('opencode'), 'Should include opencode command');
 		});
 
-		test('should include MCP config path when provided', () => {
+		test('should set env var before command', () => {
 			const command = agent.buildStartCommand({
 				prompt: 'test',
-				mcpConfigPath: '/path/to/mcp-config.json'
-			});
-			assert.ok(command.includes('--mcp-config'), 'Should include --mcp-config flag');
-			assert.ok(command.includes('/path/to/mcp-config.json'), 'Should include MCP config path');
-		});
-
-		test('should place MCP config before other flags', () => {
-			const command = agent.buildStartCommand({
-				prompt: 'test',
-				mcpConfigPath: '/path/to/mcp.json',
 				settingsPath: '/path/to/settings.json'
 			});
-			const mcpPos = command.indexOf('--mcp-config');
-			const configPos = command.indexOf('--config');
-			assert.ok(mcpPos < configPos, 'MCP config should come before settings config');
-		});
-
-		test('should include permission flag when permission mode is provided', () => {
-			const command = agent.buildStartCommand({
-				prompt: 'test',
-				permissionMode: 'allowEdits'
-			});
-			assert.ok(command.includes('--permission-edit allow'), 'Should include permission flag');
-		});
-
-		test('should not include permission flag for default mode', () => {
-			const command = agent.buildStartCommand({
-				prompt: 'test',
-				permissionMode: 'default'
-			});
-			assert.ok(!command.includes('--permission'), 'Should not include permission flag for default');
+			const envPos = command.indexOf('OPENCODE_CONFIG=');
+			const cmdPos = command.indexOf('opencode');
+			assert.ok(envPos < cmdPos, 'Env var should come before command');
 		});
 
 		test('should work without prompt', () => {
 			const command = agent.buildStartCommand({
 				settingsPath: '/path/to/settings.json'
 			});
-			assert.ok(command.startsWith('opencode run'), 'Should start with opencode run');
-			assert.ok(command.includes('--config'), 'Should include config flag');
+			assert.ok(command.includes('opencode'), 'Should include opencode');
+			assert.ok(command.includes('OPENCODE_CONFIG='), 'Should include config env var');
+			assert.ok(!command.includes('--prompt'), 'Should not include --prompt when no prompt given');
 		});
 	});
 
@@ -1126,31 +1103,21 @@ suite('OpenCodeAgent', () => {
 			);
 		});
 
-		test('should include config path when provided', () => {
+		test('should include config path via OPENCODE_CONFIG env var', () => {
 			const command = agent.buildResumeCommand('test-session', {
 				settingsPath: '/path/to/opencode.json'
 			});
-			assert.ok(command.includes('--config'), 'Should include --config flag');
+			assert.ok(command.includes('OPENCODE_CONFIG='), 'Should include OPENCODE_CONFIG env var');
 			assert.ok(command.includes('/path/to/opencode.json'), 'Should include settings path');
 		});
 
-		test('should include MCP config path when provided', () => {
+		test('should set env var before command', () => {
 			const command = agent.buildResumeCommand('test-session', {
-				mcpConfigPath: '/path/to/mcp-config.json'
-			});
-			assert.ok(command.includes('--mcp-config'), 'Should include --mcp-config flag');
-			assert.ok(command.includes('/path/to/mcp-config.json'), 'Should include MCP config path');
-		});
-
-		test('should place MCP config before other flags', () => {
-			const command = agent.buildResumeCommand('test-session', {
-				mcpConfigPath: '/path/to/mcp.json',
 				settingsPath: '/path/to/settings.json'
 			});
-			const mcpPos = command.indexOf('--mcp-config');
-			const configPos = command.indexOf('--config');
-			const sessionPos = command.indexOf('--session');
-			assert.ok(mcpPos < configPos && configPos < sessionPos, 'Flags should be in correct order');
+			const envPos = command.indexOf('OPENCODE_CONFIG=');
+			const cmdPos = command.indexOf('opencode');
+			assert.ok(envPos < cmdPos, 'Env var should come before command');
 		});
 	});
 

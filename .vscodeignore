@@ -15,6 +15,7 @@ node_modules/**
 claude-progress.txt
 CLAUDE.md
 .claude/**
+.opencode/**
 .worktrees/**
 *.vsix
 .git/**
