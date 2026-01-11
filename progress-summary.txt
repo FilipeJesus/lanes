@@ -1,0 +1,6 @@
+  Summary of OpenCode support (shelved):
+  - ✅ Setting to choose preferred agent (lanes.preferredCodeAgent)
+  - ✅ OpenCodeAgent class with proper abstractions
+  - ✅ ES module plugin format for status tracking
+  - ✅ OPENCODE_CONFIG env var for config
+  - ⚠️ TUI crashes with prompt.set error when using --prompt
