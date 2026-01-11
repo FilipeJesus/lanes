@@ -174,7 +174,7 @@
                 <!-- Sidebar Navigation -->
                 <aside class="hidden lg:block lg:col-span-3 docs-sidebar">
                     <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-4">
-                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Documentation</h3>
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Sessions</h3>
                         <nav class="space-y-1">
                             <button data-section="create-session" class="sidebar-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -187,6 +187,10 @@
                             <button data-section="permission-modes" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                                 <span>Permission Modes</span>
+                            </button>
+                            <button data-section="git-review" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span>Reviewing Changes</span>
                             </button>
                         </nav>
 
@@ -236,6 +240,10 @@
                             <button data-section="permission-modes" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                                 <span>Permission Modes</span>
+                            </button>
+                            <button data-section="git-review" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span>Reviewing Changes</span>
                             </button>
                         </div>
                         <!-- Workflows -->
@@ -428,10 +436,6 @@
                                                     <div class="flex gap-2">
                                                         <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">plan</code>
                                                         <span class="text-gray-600 dark:text-gray-400">Claude proposes changes but doesn't execute them</span>
-                                                    </div>
-                                                    <div class="flex gap-2">
-                                                        <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">delegate</code>
-                                                        <span class="text-gray-600 dark:text-gray-400">Delegates decisions to Claude with minimal intervention</span>
                                                     </div>
                                                     <div class="flex gap-2">
                                                         <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">dontAsk</code>
@@ -744,203 +748,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Finding and Opening Worktrees -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Finding and Opening Worktrees</h3>
-                                        <div class="space-y-4">
-                                            <div>
-                                                <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Where Are Worktrees Stored?</h4>
-                                                <p class="text-gray-600 dark:text-gray-400 mb-2">
-                                                    All Lanes worktrees live in a <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">.worktrees/</code> directory at the root of your repository:
-                                                </p>
-                                                <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4 font-mono text-sm text-gray-800 dark:text-gray-300 mb-3">
-                                                    <span class="text-gray-600 dark:text-gray-500"># Example path:</span><br>
-                                                    /Users/you/projects/my-app/.worktrees/fix-login-bug/
-                                                </div>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 italic">
-                                                    The <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">.worktrees/</code> directory is automatically added to your <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">.gitignore</code> so worktrees aren't accidentally committed.
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Opening a Worktree in a New VS Code Window</h4>
-                                                <p class="text-gray-600 dark:text-gray-400 mb-3">
-                                                    Sometimes you want to inspect Claude's work in a separate VS Code window. Lanes integrates with <a href="https://marketplace.visualstudio.com/items?itemName=alefragnani.project-manager" class="text-vscode-accent hover:underline">Project Manager</a> to make this seamless:
-                                                </p>
-                                                <div class="space-y-3">
-                                                    <div class="flex gap-3 items-start">
-                                                        <div class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
-                                                        <div>
-                                                            <p class="text-sm text-gray-900 dark:text-white font-medium">Install Project Manager (optional)</p>
-                                                            <p class="text-sm text-gray-600 dark:text-gray-400">Install the <a href="https://marketplace.visualstudio.com/items?itemName=alefragnani.project-manager" class="text-vscode-accent hover:underline">Project Manager extension</a> from the VS Code marketplace</p>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex gap-3 items-start">
-                                                        <div class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
-                                                        <div>
-                                                            <p class="text-sm text-gray-900 dark:text-white font-medium">Right-click any session in the sidebar</p>
-                                                            <p class="text-sm text-gray-600 dark:text-gray-400">Choose "Open in New Window" from the context menu</p>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex gap-3 items-start">
-                                                        <div class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</div>
-                                                        <div>
-                                                            <p class="text-sm text-gray-900 dark:text-white font-medium">VS Code opens the worktree</p>
-                                                            <p class="text-sm text-gray-600 dark:text-gray-400">You can now browse files, run tests, or make manual changes in the isolated workspace</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mt-3">
-                                                    <p class="text-xs text-yellow-800 dark:text-yellow-300">
-                                                        <strong>Note:</strong> Without Project Manager installed, you can still manually open a worktree by choosing <strong>File → Open Folder</strong> and navigating to <code class="text-xs bg-yellow-100 dark:bg-yellow-800 px-1 rounded">.worktrees/[session-name]</code>.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Worktree Lifecycle -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Worktree Lifecycle</h3>
-                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            Understanding what happens to worktrees throughout their lifecycle helps you manage sessions effectively.
-                                        </p>
-                                        <div class="space-y-4">
-                                            <div class="border-l-4 border-green-500 pl-4">
-                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Session Created</h4>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    Lanes creates both a worktree directory and a Git branch with the same name as your session.
-                                                </p>
-                                                <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-3 font-mono text-xs text-gray-800 dark:text-gray-300">
-                                                    <span class="text-gray-600 dark:text-gray-500"># What exists:</span><br>
-                                                    .worktrees/fix-bug/          <span class="text-gray-600 dark:text-gray-500"># Worktree directory</span><br>
-                                                    Branch: fix-bug              <span class="text-gray-600 dark:text-gray-500"># Git branch</span>
-                                                </div>
-                                            </div>
-                                            <div class="border-l-4 border-blue-500 pl-4">
-                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Session Active</h4>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    Claude Code works in the worktree, making changes and committing them to the branch. All commits are visible in your main repository's Git history.
-                                                </p>
-                                            </div>
-                                            <div class="border-l-4 border-orange-500 pl-4">
-                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Session Deleted</h4>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    When you delete a session, Lanes removes the worktree directory but <strong>preserves the Git branch</strong>. This means:
-                                                </p>
-                                                <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4 mb-2">
-                                                    <li>All commits remain in your repository</li>
-                                                    <li>You can still merge the branch into main</li>
-                                                    <li>You can recreate the worktree later if needed</li>
-                                                </ul>
-                                                <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-3 font-mono text-xs text-gray-800 dark:text-gray-300 mt-2">
-                                                    <span class="text-gray-600 dark:text-gray-500"># After deletion:</span><br>
-                                                    .worktrees/fix-bug/          <span class="text-red-600 dark:text-red-400"># Deleted</span><br>
-                                                    Branch: fix-bug              <span class="text-green-600 dark:text-green-400"># Still exists!</span>
-                                                </div>
-                                            </div>
-                                            <div class="border-l-4 border-purple-500 pl-4">
-                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Merging Changes</h4>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    After reviewing Claude's work, merge the branch just like any other Git branch:
-                                                </p>
-                                                <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-3 font-mono text-xs text-gray-800 dark:text-gray-300">
-                                                    git checkout main<br>
-                                                    git merge fix-bug            <span class="text-gray-600 dark:text-gray-500"># Merge Claude's changes</span><br>
-                                                    git branch -d fix-bug        <span class="text-gray-600 dark:text-gray-500"># Delete branch when done</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Tips and Common Scenarios -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Tips and Common Scenarios</h3>
-                                        <div class="space-y-3">
-                                            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                                                <div class="flex gap-2">
-                                                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                    <div>
-                                                        <p class="text-sm text-blue-800 dark:text-blue-300 font-medium">Viewing Claude's Changes</p>
-                                                        <p class="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                                                            Use <code class="text-xs bg-blue-100 dark:bg-blue-800 px-1 rounded">git log fix-bug</code> to see commits Claude made, or <code class="text-xs bg-blue-100 dark:bg-blue-800 px-1 rounded">git diff main..fix-bug</code> to compare against your main branch.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                                                <div class="flex gap-2">
-                                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                    <div>
-                                                        <p class="text-sm text-green-800 dark:text-green-300 font-medium">Running Tests in a Worktree</p>
-                                                        <p class="text-sm text-green-700 dark:text-green-400 mt-1">
-                                                            Open the worktree in a new window and run tests there. Dependencies might need reinstalling (<code class="text-xs bg-green-100 dark:bg-green-800 px-1 rounded">npm install</code>) if your package.json changed.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-                                                <div class="flex gap-2">
-                                                    <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                                    <div>
-                                                        <p class="text-sm text-purple-800 dark:text-purple-300 font-medium">Cleaning Up Old Worktrees</p>
-                                                        <p class="text-sm text-purple-700 dark:text-purple-400 mt-1">
-                                                            Delete sessions from the Lanes sidebar when you're done. If you manually delete a worktree directory, run <code class="text-xs bg-purple-100 dark:bg-purple-800 px-1 rounded">git worktree prune</code> to clean up Git's metadata.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                                                <div class="flex gap-2">
-                                                    <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                    <div>
-                                                        <p class="text-sm text-yellow-800 dark:text-yellow-300 font-medium">Disk Space Considerations</p>
-                                                        <p class="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                                                            Each worktree is a full copy of your project files (but shares Git objects). Large projects with many worktrees can consume significant disk space. Delete sessions you're not actively using.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Visual Diagram -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">How It All Works Together</h3>
-                                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-                                            <div class="font-mono text-sm space-y-4 text-gray-800 dark:text-gray-300">
-                                                <div>
-                                                    <span class="text-gray-600 dark:text-gray-500">┌─ Main Repository (.git)</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│  All commits, branches, history</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│</span>
-                                                </div>
-                                                <div>
-                                                    <span class="text-gray-600 dark:text-gray-500">├─ Your Working Directory</span><br>
-                                                    <span class="text-blue-600 dark:text-blue-400">│  Branch: main</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│  Status: Your daily work</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│</span>
-                                                </div>
-                                                <div>
-                                                    <span class="text-gray-600 dark:text-gray-500">├─ .worktrees/fix-login-bug/</span><br>
-                                                    <span class="text-green-600 dark:text-green-400">│  Branch: fix-login-bug</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│  Status: Claude fixing bug</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│  Terminal: fix-login-bug</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">│</span>
-                                                </div>
-                                                <div>
-                                                    <span class="text-gray-600 dark:text-gray-500">└─ .worktrees/add-dark-mode/</span><br>
-                                                    <span class="text-purple-600 dark:text-purple-400">   Branch: add-dark-mode</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">   Status: Claude building feature</span><br>
-                                                    <span class="text-gray-600 dark:text-gray-500">   Terminal: add-dark-mode</span>
-                                                </div>
-                                                <div class="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
-                                                    <p class="text-sm text-gray-700 dark:text-gray-300">
-                                                        <strong>Result:</strong> Three separate working directories, all tracked by the same Git repository. No conflicts, no stashing, no context switching.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -996,12 +803,6 @@
                                                 <td class="p-3">Learning, sensitive codebases</td>
                                             </tr>
                                             <tr class="border-b border-gray-200 dark:border-gray-800">
-                                                <td class="p-3 font-medium text-gray-900 dark:text-white">delegate</td>
-                                                <td class="p-3">Auto-approve</td>
-                                                <td class="p-3">Auto-approve safe</td>
-                                                <td class="p-3">Autonomous sessions</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200 dark:border-gray-800">
                                                 <td class="p-3 font-medium text-gray-900 dark:text-white">dontAsk</td>
                                                 <td class="p-3">Auto-approve</td>
                                                 <td class="p-3">Auto-approve all</td>
@@ -1015,158 +816,6 @@
                                             </tr>
                                         </tbody>
                                     </table>
-                                </div>
-
-                                <!-- Detailed Mode Descriptions -->
-                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Detailed Descriptions</h3>
-                                <div class="space-y-6">
-                                    <!-- Default Mode -->
-                                    <div class="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-6 border border-blue-200 dark:border-blue-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">default</h4>
-                                                <p class="text-sm text-blue-700 dark:text-blue-300 font-mono">Standard Claude Code behavior</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            The standard interactive mode where Claude asks for permission before file edits and command executions. This provides a good balance between productivity and oversight.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> Prompts for all file modifications and commands</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> You want to review changes interactively but don't need maximum control</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> General development, learning the extension, production code</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Accept Edits Mode -->
-                                    <div class="bg-green-50 dark:bg-green-950/20 rounded-lg p-6 border border-green-200 dark:border-green-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">acceptEdits</h4>
-                                                <p class="text-sm text-green-700 dark:text-green-300 font-mono">--allowedTools Edit,MultiEdit,Write,NotebookEdit</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            Automatically approves file editing operations (Edit, MultiEdit, Write, NotebookEdit) while still asking for permission before executing terminal commands. Great for rapid iteration when you trust Claude with file changes but want to review command execution.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> Auto-approves file edits, prompts for commands</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> Doing heavy refactoring or feature work where you trust file changes</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> Fast-paced development, code refactoring, documentation updates</p>
-                                            <p class="text-sm text-green-700 dark:text-green-400"><strong>Tip:</strong> This is one of the most popular modes for productive development work</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Plan Mode -->
-                                    <div class="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-6 border border-purple-200 dark:border-purple-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">plan</h4>
-                                                <p class="text-sm text-purple-700 dark:text-purple-300 font-mono">--permission-mode plan</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            Claude proposes changes but cannot execute them. You see exactly what Claude wants to do before anything happens. Perfect for learning how Claude works, understanding complex changes, or working with sensitive codebases where you need maximum visibility.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> Proposes all actions, executes nothing</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> Learning Claude's behavior, auditing changes, working with critical code</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> First-time users, security-sensitive projects, understanding AI behavior</p>
-                                            <p class="text-sm text-purple-700 dark:text-purple-400"><strong>Note:</strong> Slowest mode but provides complete transparency</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Delegate Mode -->
-                                    <div class="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-6 border border-amber-200 dark:border-amber-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">delegate</h4>
-                                                <p class="text-sm text-amber-700 dark:text-amber-300 font-mono">--permission-mode delegate</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            Allows Claude to work autonomously with file edits and safe commands (like reading files, running tests). More dangerous operations still require approval. Good for when you want Claude to make steady progress without constant supervision.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> Auto-approves edits and safe commands, prompts for risky operations</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> Running longer autonomous sessions where Claude needs to iterate</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> Workflow mode, longer tasks, trusted development environments</p>
-                                            <p class="text-sm text-amber-700 dark:text-amber-400"><strong>Safety:</strong> Balances autonomy with safety checks on dangerous operations</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Don't Ask Mode -->
-                                    <div class="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-6 border border-orange-200 dark:border-orange-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">dontAsk</h4>
-                                                <p class="text-sm text-orange-700 dark:text-orange-300 font-mono">--permission-mode dontAsk</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            Fully autonomous mode where Claude automatically executes all operations including file edits and terminal commands. Designed for completely automated workflows and CI/CD integration where human interaction isn't possible.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> Auto-approves everything</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> Running fully automated workflows, CI/CD pipelines, scheduled jobs</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> Automation scripts, batch processing, non-interactive environments</p>
-                                            <div class="bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded p-3 mt-3">
-                                                <p class="text-sm text-orange-800 dark:text-orange-300"><strong>Warning:</strong> Use only in isolated environments like dedicated worktrees. Claude can execute any command without confirmation.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Bypass Permissions Mode -->
-                                    <div class="bg-red-50 dark:bg-red-950/20 rounded-lg p-6 border border-red-300 dark:border-red-900/50">
-                                        <div class="flex items-start gap-3 mb-3">
-                                            <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                                </svg>
-                                            </div>
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-1">bypassPermissions</h4>
-                                                <p class="text-sm text-red-700 dark:text-red-300 font-mono">--dangerously-skip-permissions</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-700 dark:text-gray-300 mb-3">
-                                            Completely disables all permission checking. This mode exists primarily for debugging and testing the extension itself. The name intentionally includes "dangerously" to remind you this should almost never be used.
-                                        </p>
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Permissions:</strong> All safety checks disabled</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Use when:</strong> Debugging the extension, testing in throwaway environments</p>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400"><strong class="text-gray-900 dark:text-white">Recommended for:</strong> Extension developers, testing only</p>
-                                            <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded p-3 mt-3">
-                                                <p class="text-sm font-bold text-red-900 dark:text-red-200 mb-2">DANGER: Do not use in production</p>
-                                                <p class="text-sm text-red-800 dark:text-red-300">This mode bypasses all safety mechanisms. Use only in disposable test environments. Never use with real codebases or production data.</p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <!-- How to Select -->
@@ -1209,13 +858,7 @@
                                             <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             </svg>
-                                            <span><strong>Leverage worktree isolation:</strong> More permissive modes like <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">dontAsk</code> are safer when each session has its own isolated worktree</span>
-                                        </li>
-                                        <li class="flex items-start gap-2">
-                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            <span><strong>Use Git for safety:</strong> All sessions are in Git worktrees, so you can always review changes with <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">git diff</code> and revert if needed</span>
+                                            <span><strong>Leverage Lanes's isolation:</strong> More permissive modes like <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">dontAsk</code> are safer when each session has its own isolated worktree</span>
                                         </li>
                                         <li class="flex items-start gap-2">
                                             <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1227,14 +870,197 @@
                                             <svg class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                                             </svg>
-                                            <span><strong>Never use bypassPermissions in production:</strong> This mode disables all safety checks and should only be used for testing the extension itself</span>
+                                            <span><strong>Use bypassPermissions with Caution:</strong> This mode disables all safety checks and should only be used when in a controlled environment.</span>
                                         </li>
                                     </ul>
                                 </div>
                             </div>
                         </section>
 
-                        <!-- Section 4: Introduction to Workflows -->
+                        <!-- Section 4: Reviewing Changes -->
+                        <section id="git-review" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Reviewing Changes</h2>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Lanes includes a built-in code review tool that lets you view changes, add comments, and generate review feedback for your coding agents.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Opening the Diff Viewer -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Opening the Git Changes Viewer</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            To review changes made in a session:
+                                        </p>
+                                        <ol class="space-y-3 mb-4">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300">Click the <strong class="text-gray-900 dark:text-white">"Show Git Changes"</strong> button in the session's action bar (the diff icon)</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300">A new panel opens showing all file changes between your session branch and the comparison branch</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                            <div class="flex gap-2">
+                                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-blue-800 dark:text-blue-300 font-medium">Tip</p>
+                                                    <p class="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                                                        You can also access this via the command palette: <kbd class="text-xs bg-blue-100 dark:bg-blue-800 px-1 rounded">Cmd+Shift+P</kbd> → "Lanes: Show Git Changes"
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Understanding the Diff View -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Understanding the Diff View</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            The diff viewer shows changes in a unified diff format:
+                                        </p>
+                                        <div class="space-y-4">
+                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Comparison Branch</h4>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    By default, changes are compared against <code class="text-xs bg-gray-200 dark:bg-black/40 px-1 rounded">main</code> or <code class="text-xs bg-gray-200 dark:bg-black/40 px-1 rounded">master</code>.
+                                                    You can change this using the branch selector dropdown at the top of the diff panel.
+                                                </p>
+                                            </div>
+                                            <div class="grid md:grid-cols-2 gap-4">
+                                                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
+                                                    <h5 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                                        <span class="text-green-600 dark:text-green-400">+</span> Added Lines
+                                                    </h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        Lines highlighted in green are new additions to the codebase.
+                                                    </p>
+                                                </div>
+                                                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4">
+                                                    <h5 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                                        <span class="text-red-600 dark:text-red-400">-</span> Removed Lines
+                                                    </h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        Lines highlighted in red have been deleted from the original.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Adding Review Comments -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Adding Review Comments</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            You can add comments to specific lines in the diff to provide feedback:
+                                        </p>
+                                        <ol class="space-y-3 mb-4">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300"><strong class="text-gray-900 dark:text-white">Click on any line</strong> in the diff view to select it</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300"><strong class="text-gray-900 dark:text-white">Type your comment</strong> in the input field that appears</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300"><strong class="text-gray-900 dark:text-white">Press Enter</strong> to save the comment</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            Comments are displayed inline with the code, making it easy to track your feedback as you review.
+                                        </p>
+                                        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                                            <p class="text-sm text-yellow-800 dark:text-yellow-300">
+                                                <strong>Note:</strong> Comments are stored locally in the diff viewer session. They are not persisted to git or any external system.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Submitting Review -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Submitting Your Review</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            Once you've added all your comments, you can generate a formatted review to share with your coding agent:
+                                        </p>
+                                        <ol class="space-y-3 mb-6">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300">Click the <strong class="text-gray-900 dark:text-white">"Submit Review"</strong> button at the top of the diff panel</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300">The review is <strong class="text-gray-900 dark:text-white">automatically copied to your clipboard</strong> in a structured markdown format</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-vscode-accent text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <p class="text-gray-700 dark:text-gray-300"><strong class="text-gray-900 dark:text-white">Paste</strong> the review into your coding agent's terminal or chat</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+
+                                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Clipboard Format</h4>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            The generated review follows a structured markdown format that's easy for AI agents to parse:
+                                        </p>
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg overflow-hidden">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-200 dark:bg-black/40">
+                                                <span class="text-xs text-gray-600 dark:text-gray-500 font-mono">Example: Clipboard Output</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-purple-600 dark:text-purple-400"># Code Review Comments</span>
+
+<span class="text-blue-600 dark:text-blue-400">## docs/docs.html</span>
+
+<span class="text-gray-600 dark:text-gray-400">**Line 38** (added):</span>
+```
++    &lt;/script&gt;
+```
+<span class="text-green-600 dark:text-green-400">&gt; Is this really a script tag? It seems misplaced.</span>
+
+<span class="text-gray-600 dark:text-gray-400">**Line 142** (added):</span>
+```
++    const user = await getUser();
+```
+<span class="text-green-600 dark:text-green-400">&gt; Consider adding error handling for the getUser() call.</span>
+
+<span class="text-blue-600 dark:text-blue-400">## src/utils/helper.ts</span>
+
+<span class="text-gray-600 dark:text-gray-400">**Line 25** (removed):</span>
+```
+-    // TODO: Remove this hack
+```
+<span class="text-green-600 dark:text-green-400">&gt; Good cleanup! But make sure the hack was actually fixed, not just the comment removed.</span></code></pre>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section 5: Introduction to Workflows -->
                         <section id="workflows-intro" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
                                 <div class="flex items-center gap-4 mb-6">
@@ -1362,135 +1188,61 @@
                                         </div>
                                     </div>
 
-                                    <!-- Workflow Phases Visual -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Workflow Phases in Action</h3>
-                                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-                                            <div class="font-mono text-sm space-y-3 text-gray-800 dark:text-gray-300">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs">1</div>
-                                                    <div class="flex-1">
-                                                        <div class="font-bold text-blue-600 dark:text-blue-400">PLAN</div>
-                                                        <div class="text-xs text-gray-600 dark:text-gray-400">Orchestrator analyzes the goal, breaks it into discrete tasks</div>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-4 border-l-2 border-gray-300 dark:border-gray-600 pl-4 py-1">
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500">↓ Creates task list</div>
-                                                </div>
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-xs">2</div>
-                                                    <div class="flex-1">
-                                                        <div class="font-bold text-purple-600 dark:text-purple-400">IMPLEMENT</div>
-                                                        <div class="text-xs text-gray-600 dark:text-gray-400">Implementer writes code for each task</div>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-4 border-l-2 border-gray-300 dark:border-gray-600 pl-4 py-1">
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500">↓ Code complete</div>
-                                                </div>
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-xs">3</div>
-                                                    <div class="flex-1">
-                                                        <div class="font-bold text-green-600 dark:text-green-400">TEST</div>
-                                                        <div class="text-xs text-gray-600 dark:text-gray-400">Tester runs tests, fixes failures until all pass</div>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-4 border-l-2 border-gray-300 dark:border-gray-600 pl-4 py-1">
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500">↓ Tests passing</div>
-                                                </div>
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-xs">4</div>
-                                                    <div class="flex-1">
-                                                        <div class="font-bold text-orange-600 dark:text-orange-400">REVIEW</div>
-                                                        <div class="text-xs text-gray-600 dark:text-gray-400">Reviewer checks code quality, security, edge cases</div>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-4 border-l-2 border-gray-300 dark:border-gray-600 pl-4 py-1">
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500">↓ Feedback provided</div>
-                                                </div>
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-xs">5</div>
-                                                    <div class="flex-1">
-                                                        <div class="font-bold text-red-600 dark:text-red-400">RESOLVE</div>
-                                                        <div class="text-xs text-gray-600 dark:text-gray-400">Main agent addresses review feedback, marks task complete</div>
-                                                    </div>
-                                                </div>
-                                                <div class="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
-                                                    <div class="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                                        </svg>
-                                                        <span>Phases 2-5 repeat for each task in the plan</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                                                        <!-- Built-in Workflow Types -->
+                                                                        <div>
+                                                                            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Built-in Workflow Types</h3>
+                                                                            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                                                                Lanes includes four workflow templates out of the box. Each is optimized for a specific type of development work:
+                                                                            </p>
+                                                                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                                                                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-blue-600 dark:text-blue-400 font-bold text-sm">FT</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-2 text-sm">Feature Dev</h4>
+                                                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                                                        New features with tests and review.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-red-600 dark:text-red-400 font-bold text-sm">BF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-2 text-sm">Bug Fix</h4>
+                                                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                                                        Investigate and fix bugs safely.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-purple-600 dark:text-purple-400 font-bold text-sm">RF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-2 text-sm">Refactor</h4>
+                                                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                                                        Improve code quality safely.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-gray-500/20 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-gray-600 dark:text-gray-400 font-bold text-sm">DF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-2 text-sm">Default</h4>
+                                                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                                                        General-purpose tasks.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-green-600 dark:text-green-400 font-bold text-sm">CW</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-2 text-sm">Custom</h4>
+                                                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                                                        Your own workflows.
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
 
-                                    <!-- Built-in Workflow Types -->
-                                    <div>
-                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Built-in Workflow Types</h3>
-                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            Lanes includes four workflow templates out of the box. Each is optimized for a specific type of development work:
-                                        </p>
-                                        <div class="space-y-3">
-                                            <div class="flex items-start gap-3 bg-gray-50 dark:bg-black/30 rounded-lg p-4 border border-gray-200 dark:border-white/10">
-                                                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                    <span class="text-blue-600 dark:text-blue-400 font-bold">FT</span>
-                                                </div>
-                                                <div class="flex-1">
-                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-1">Feature Development</h4>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        Plan features, implement with tests, and review changes. Best for new features, significant additions, or multi-part implementations.
-                                                    </p>
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500 font-mono">
-                                                        Plan → Define Tasks → [Implement → Test → Review → Resolve]* → Final Review
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3 bg-gray-50 dark:bg-black/30 rounded-lg p-4 border border-gray-200 dark:border-white/10">
-                                                <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                    <span class="text-red-600 dark:text-red-400 font-bold">BF</span>
-                                                </div>
-                                                <div class="flex-1">
-                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-1">Bug Fix</h4>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        Investigate, diagnose, fix, and verify bugs. Includes root cause analysis and regression testing to prevent the bug from returning.
-                                                    </p>
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500 font-mono">
-                                                        Diagnose → Plan Fixes → [Fix → Test → Review → Resolve]* → Final Verification
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3 bg-gray-50 dark:bg-black/30 rounded-lg p-4 border border-gray-200 dark:border-white/10">
-                                                <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                    <span class="text-purple-600 dark:text-purple-400 font-bold">RF</span>
-                                                </div>
-                                                <div class="flex-1">
-                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-1">Refactoring</h4>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        Improve code quality without changing behavior. Focuses on safe, incremental changes with extensive testing to ensure no regression.
-                                                    </p>
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500 font-mono">
-                                                        Analyze → Plan → [Refactor → Test → Review → Resolve]* → Final Verification
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3 bg-gray-50 dark:bg-black/30 rounded-lg p-4 border border-gray-200 dark:border-white/10">
-                                                <div class="w-10 h-10 bg-gray-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                    <span class="text-gray-600 dark:text-gray-400 font-bold">DF</span>
-                                                </div>
-                                                <div class="flex-1">
-                                                    <h4 class="font-bold text-gray-900 dark:text-white mb-1">Default</h4>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        General-purpose workflow for standard development tasks. Simpler than feature development, good for straightforward changes.
-                                                    </p>
-                                                    <div class="text-xs text-gray-500 dark:text-gray-500 font-mono">
-                                                        Plan → [Code → Test → Review]* → Cleanup
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     <!-- Starting a Workflow -->
                                     <div>
@@ -1501,15 +1253,7 @@
                                                     <div class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs">1</div>
                                                     <div>
                                                         <p class="text-gray-700 dark:text-gray-300">
-                                                            <strong>Click "Start Workflow"</strong> in the Lanes sidebar
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div class="flex items-start gap-3">
-                                                    <div class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs">2</div>
-                                                    <div>
-                                                        <p class="text-gray-700 dark:text-gray-300">
-                                                            <strong>Choose a workflow type</strong> from the dropdown (Feature, Bug Fix, Refactor, Default, or your custom workflows)
+                                                            <strong>Click "New Session"</strong> in the Lanes sidebar
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1529,10 +1273,18 @@
                                                         </p>
                                                     </div>
                                                 </div>
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs">2</div>
+                                                    <div>
+                                                        <p class="text-gray-700 dark:text-gray-300">
+                                                            <strong>Choose a workflow type</strong> from the dropdown (If you have not created a custom workflow you will need to. You can learn how in the Creating Workflows section.)
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    Claude will automatically follow the workflow phases, creating a <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code> file to track progress and saving workflow state after each step.
+                                                    Claude will automatically follow the workflow phases, creating a <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">workflow-state.json</code> file to track progress and saving workflow state after each step.
                                                 </p>
                                             </div>
                                         </div>
@@ -1649,7 +1401,7 @@
                             </div>
                         </section>
 
-                        <!-- Section 5: Workflow Structure -->
+                        <!-- Section 6: Workflow Structure -->
                         <section id="workflow-structure" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
                                 <div class="flex items-center gap-4 mb-6">
@@ -1757,13 +1509,127 @@
       - Task</code></pre>
                                         </div>
 
-                                        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mt-4">
-                                            <h5 class="font-bold text-yellow-900 dark:text-yellow-200 mb-2">Agent Field is Optional</h5>
-                                            <p class="text-sm text-gray-700 dark:text-gray-300">
-                                                You can omit the <code class="text-xs bg-yellow-200 dark:bg-yellow-900/50 px-1 rounded">agent:</code> field on any step or sub-step.
-                                                When omitted, the main Claude agent handles that step directly instead of delegating to a specialized sub-agent.
+                                    </div>
+
+                                    <!-- Steps -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Steps (Main Workflow Sequence)</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                            Steps define the main workflow sequence. They are executed in order from top to bottom.
+                                        </p>
+
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg overflow-hidden mb-4">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-200 dark:bg-black/40">
+                                                <span class="text-xs text-gray-600 dark:text-gray-500 font-mono">Main Steps</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-purple-400">steps:</span>
+  - <span class="text-green-400">id:</span> plan
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> orchestrator
+    <span class="text-green-400">instructions:</span> |
+      Analyze the goal and break it into discrete tasks.
+
+      Consider:
+      1. What are the individual features or changes needed?
+      2. What are the dependencies between tasks?
+      3. What is the optimal order of implementation?
+
+  - <span class="text-green-400">id:</span> define_tasks
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> orchestrator
+    <span class="text-green-400">instructions:</span> |
+      Call workflow_set_tasks('feature_development', tasks) with:
+      - id: unique identifier
+      - title: concise title
+      - description: detailed description
+
+  - <span class="text-green-400">id:</span> feature_development
+    <span class="text-green-400">type:</span> loop
+    <span class="text-gray-500"># References the loop defined above</span>
+
+  - <span class="text-green-400">id:</span> final_review
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> reviewer
+    <span class="text-green-400">instructions:</span> |
+      Review the implementation as a whole...</code></pre>
+                                        </div>
+
+                                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Step Fields</h4>
+                                        <div class="space-y-3">
+                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">id</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> string<br>
+                                                    <strong>Required:</strong> Yes<br>
+                                                    Unique identifier for this step. For loop steps, must match a loop name.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">type</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> string<br>
+                                                    <strong>Required:</strong> Yes<br>
+                                                    <strong>Valid values:</strong> action, loop
+
+                                        <div class="grid md:grid-cols-2 gap-4 mb-4">
+                                            <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">action</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                                    A single operation performed by an agent. Used for planning, reviewing, or any one-off task.
+                                                </p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                    <strong>Required fields:</strong> id, type, instructions<br>
+                                                    <strong>Optional fields:</strong> agent
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">loop</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                                    Iterates over a list of tasks, executing the loop's sub-steps for each task.
+                                                </p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                    <strong>Required fields:</strong> id, type<br>
+                                                    <strong>Note:</strong> The id must match a loop name defined in the <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">loops:</code> section
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">agent</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> string<br>
+                                                    <strong>Required:</strong> No (for action steps)<br>
+                                                    <strong>Not applicable:</strong> For loop steps (agents are specified in loop sub-steps)<br>
+                                                    Name of the agent to execute this step. When omitted, the main Claude agent handles that step directly instead of delegating to a specialized sub-agent.
                                                 This is useful for simpler workflows or steps that don't require specialized capabilities.
-                                            </p>
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">instructions</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> string<br>
+                                                    <strong>Required:</strong> Yes (for action steps)<br>
+                                                    <strong>Not applicable:</strong> For loop steps (instructions are in loop sub-steps)<br>
+                                                    Instructions for what to do in this step.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">on_fail</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> string<br>
+                                                    <strong>Required:</strong> No<br>
+                                                    <strong>Valid values:</strong> retry, skip, abort<br>
+                                                    <strong>Default:</strong> abort<br>
+                                                    Action to take if this step fails.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1820,127 +1686,6 @@
 
                                     </div>
 
-                                    <!-- Steps -->
-                                    <div>
-                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Steps (Main Workflow Sequence)</h3>
-                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            Steps define the main workflow sequence. They are executed in order from top to bottom.
-                                        </p>
-
-                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg overflow-hidden mb-4">
-                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-200 dark:bg-black/40">
-                                                <span class="text-xs text-gray-600 dark:text-gray-500 font-mono">Main Steps</span>
-                                            </div>
-                                            <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-purple-400">steps:</span>
-  - <span class="text-green-400">id:</span> plan
-    <span class="text-green-400">type:</span> action
-    <span class="text-green-400">agent:</span> orchestrator
-    <span class="text-green-400">instructions:</span> |
-      Analyze the goal and break it into discrete tasks.
-
-      Consider:
-      1. What are the individual features or changes needed?
-      2. What are the dependencies between tasks?
-      3. What is the optimal order of implementation?
-
-  - <span class="text-green-400">id:</span> define_tasks
-    <span class="text-green-400">type:</span> action
-    <span class="text-green-400">agent:</span> orchestrator
-    <span class="text-green-400">instructions:</span> |
-      Call workflow_set_tasks('feature_development', tasks) with:
-      - id: unique identifier
-      - title: concise title
-      - description: detailed description
-
-  - <span class="text-green-400">id:</span> feature_development
-    <span class="text-green-400">type:</span> loop
-    <span class="text-gray-500"># References the loop defined above</span>
-
-  - <span class="text-green-400">id:</span> final_review
-    <span class="text-green-400">type:</span> action
-    <span class="text-green-400">agent:</span> reviewer
-    <span class="text-green-400">instructions:</span> |
-      Review the implementation as a whole...</code></pre>
-                                        </div>
-
-                                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Step Types</h4>
-                                        <div class="grid md:grid-cols-2 gap-4 mb-4">
-                                            <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">action</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    A single operation performed by an agent. Used for planning, reviewing, or any one-off task.
-                                                </p>
-                                                <p class="text-xs text-gray-500 dark:text-gray-400">
-                                                    <strong>Required fields:</strong> id, type, instructions<br>
-                                                    <strong>Optional fields:</strong> agent
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">loop</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    Iterates over a list of tasks, executing the loop's sub-steps for each task.
-                                                </p>
-                                                <p class="text-xs text-gray-500 dark:text-gray-400">
-                                                    <strong>Required fields:</strong> id, type<br>
-                                                    <strong>Note:</strong> The id must match a loop name defined in the <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">loops:</code> section
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Step Fields</h4>
-                                        <div class="space-y-3">
-                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">id</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> Yes<br>
-                                                    Unique identifier for this step. For loop steps, must match a loop name.
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">type</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> Yes<br>
-                                                    <strong>Valid values:</strong> action, loop
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">agent</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> No (for action steps)<br>
-                                                    <strong>Not applicable:</strong> For loop steps (agents are specified in loop sub-steps)<br>
-                                                    Name of the agent to execute this step.
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">instructions</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> Yes (for action steps)<br>
-                                                    <strong>Not applicable:</strong> For loop steps (instructions are in loop sub-steps)<br>
-                                                    Instructions for what to do in this step.
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 p-4">
-                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">on_fail</h5>
-                                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                    <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> No<br>
-                                                    <strong>Valid values:</strong> retry, skip, abort<br>
-                                                    <strong>Default:</strong> abort<br>
-                                                    Action to take if this step fails.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <!-- Task Variables -->
                                     <div>
                                         <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Task Variables</h3>
@@ -1984,7 +1729,7 @@
                             </div>
                         </section>
 
-                        <!-- Section 6: Creating a Workflow -->
+                        <!-- Section 7: Creating a Workflow -->
                         <section id="creating-workflow" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
                                 <div class="flex items-center gap-4 mb-6">
@@ -2008,29 +1753,9 @@
                                             <li class="flex gap-3">
                                                 <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
                                                 <div class="flex-1">
-                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Create the directory structure</h5>
-                                                    <div class="bg-gray-100 dark:bg-black/30 rounded p-2 font-mono text-sm text-gray-700 dark:text-gray-300">
-                                                        mkdir -p .claude/lanes/workflows
-                                                    </div>
-                                                </div>
-                                            </li>
-
-                                            <li class="flex gap-3">
-                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
-                                                <div class="flex-1">
-                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Copy a built-in template as a starting point</h5>
-                                                    <div class="bg-gray-100 dark:bg-black/30 rounded p-2 font-mono text-sm text-gray-700 dark:text-gray-300">
-                                                        cp workflows/feature.yaml .claude/lanes/workflows/my-workflow.yaml
-                                                    </div>
-                                                </div>
-                                            </li>
-
-                                            <li class="flex gap-3">
-                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
-                                                <div class="flex-1">
                                                     <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Define corresponding agents (if needed)</h5>
                                                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        Agent names in your workflow must match either inline definitions or external agent files:
+                                                        First thing you will want to do is make sure you have already created all the agents you want to use in your workflow ahead of time. This is because agent names in your workflow must match either inline definitions or external agent files.
                                                     </p>
                                                     <div class="bg-gray-100 dark:bg-black/30 rounded p-2 font-mono text-sm text-gray-700 dark:text-gray-300 mb-2">
                                                         mkdir -p .claude/agents<br>
@@ -2043,23 +1768,56 @@
                                             </li>
 
                                             <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Start creating a workflow document</h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        Open the Lanes sidebar → Open the "Workflow" window → Press the '+' icon.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Start creating a workflow document</h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        If you like, choose a template to start from (feature, bugfix, refactor, or default). This will create a new YAML file in <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">.claude/lanes/workflows/</code>.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
                                                 <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">4</span>
                                                 <div class="flex-1">
-                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Your workflow appears in VS Code</h5>
+                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Write your workflow</h5>
                                                     <p class="text-sm text-gray-600 dark:text-gray-400">
-                                                        Open the Lanes sidebar → Click "Start Workflow" → Find your workflow under "Custom"
+                                                        Edit your the template document, you can use the examples below or use the Workflow Structure page for guidance.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">5</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Validate your workflow</h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        The lanes extension comes with the 'Validate Workflow' command which you cna find in your command palette. This will check your workflow for common errors and help ensure it is correctly formatted.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">6</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-gray-900 dark:text-white mb-1">Use the new Workflow</h5>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                        The workflow should now appear in the workflow dropdown in the Lanes New Session window. You might need to use the refresh button. Select it to start using your custom workflow for new worktrees.
                                                     </p>
                                                 </div>
                                             </li>
                                         </ol>
 
-                                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                                            <h5 class="font-bold text-blue-900 dark:text-blue-200 mb-2">Template Locations</h5>
-                                            <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                                                <li><strong>Built-in templates:</strong> <code class="text-xs bg-blue-200 dark:bg-blue-900/50 px-1 rounded">workflows/</code> (feature, bugfix, refactor, default)</li>
-                                                <li><strong>Custom templates:</strong> <code class="text-xs bg-blue-200 dark:bg-blue-900/50 px-1 rounded">.claude/lanes/workflows/</code> (your project-specific workflows)</li>
-                                            </ul>
-                                        </div>
                                     </div>
 
                                     <!-- Complete Annotated Example -->
@@ -2078,7 +1836,7 @@
 <span class="text-gray-500"># ==============================================================================</span>
 
 <span class="text-gray-500"># Required: Unique name for this workflow</span>
-<span class="text-purple-400">name:</span> custom-feature
+<span class="text-purple-400">name:</span> custom-dev-workflow
 
 <span class="text-gray-500"># Required: Description shown in workflow selector</span>
 <span class="text-purple-400">description:</span> Custom workflow for our team's feature development process
@@ -2415,7 +2173,7 @@
                             </div>
                         </section>
 
-                        <!-- Section 7: Lanes MCP -->
+                        <!-- Section 8: Lanes MCP -->
                         <section id="lanes-mcp" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
                                 <div class="flex items-center gap-4 mb-6">
@@ -2440,7 +2198,6 @@
                                         </p>
                                         <ul class="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-2 ml-4">
                                             <li><strong class="text-gray-900 dark:text-white">Workflow State Management:</strong> Tracks current position in workflow, step outputs, and task progress</li>
-                                            <li><strong class="text-gray-900 dark:text-white">Progress Synchronization:</strong> Automatically syncs workflow state with <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code></li>
                                             <li><strong class="text-gray-900 dark:text-white">Session Management:</strong> Allows Claude to request creation of new Lanes sessions programmatically</li>
                                             <li><strong class="text-gray-900 dark:text-white">Context Preservation:</strong> Maintains history across steps so agents can reference earlier work</li>
                                         </ul>
@@ -2503,7 +2260,6 @@
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  File System Persistence                         │  │
 │  │  - workflow-state.json (state)                   │  │
-│  │  - features.json (progress)                      │  │
 │  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                       │
@@ -2581,7 +2337,7 @@
                                                     <code class="text-base bg-gray-200 dark:bg-black/40 px-2 py-1 rounded">workflow_set_tasks</code>
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                                    Associate tasks with a loop step. Each task will be iterated through the loop's sub-steps. Also syncs tasks to <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code> with <code class="text-xs">passes: false</code>.
+                                                    Associate tasks with a loop step. Each task will be iterated through the loop's sub-steps.</code>.
                                                 </p>
                                                 <div class="mb-3">
                                                     <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Parameters:</p>
@@ -2690,7 +2446,7 @@
                                                     <code class="text-base bg-gray-200 dark:bg-black/40 px-2 py-1 rounded">workflow_advance</code>
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                                    Complete the current step/sub-step and advance to the next. When a task completes (all sub-steps done), automatically updates <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code> to mark the task as <code class="text-xs">passes: true</code>.
+                                                    Complete the current step/sub-step and advance to the next. When a task completes (all sub-steps done), automatically updates <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">workflow-state.json</code> to mark the task as <code class="text-xs">passes: true</code>.
                                                 </p>
                                                 <div class="mb-3">
                                                     <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Parameters:</p>
@@ -2875,47 +2631,6 @@
                                                 <strong>Important:</strong> The workflow state file is automatically managed by the MCP server. Do not manually edit this file.
                                             </p>
                                         </div>
-                                    </div>
-
-                                    <!-- Integration with features.json -->
-                                    <div>
-                                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Integration with features.json</h3>
-                                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                                            The workflow system automatically synchronizes with <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code> to provide simple progress tracking:
-                                        </p>
-                                        <div class="space-y-4 mb-4">
-                                            <div class="flex items-start gap-3">
-                                                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                                                <div class="flex-1">
-                                                    <p class="text-gray-700 dark:text-gray-300 font-semibold mb-1">On workflow_set_tasks</p>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400">Tasks are written to <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code> with <code class="text-xs">passes: false</code></p>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3">
-                                                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                                                <div class="flex-1">
-                                                    <p class="text-gray-700 dark:text-gray-300 font-semibold mb-1">During loop execution</p>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400">Each task progresses through its sub-steps (implement, test, review, etc.)</p>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3">
-                                                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-                                                <div class="flex-1">
-                                                    <p class="text-gray-700 dark:text-gray-300 font-semibold mb-1">On task completion</p>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400">When all sub-steps for a task are complete, <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">workflow_advance</code> automatically marks the feature as <code class="text-xs">passes: true</code></p>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-3">
-                                                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">4</div>
-                                                <div class="flex-1">
-                                                    <p class="text-gray-700 dark:text-gray-300 font-semibold mb-1">VS Code sidebar updates</p>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400">The Lanes sidebar shows real-time progress based on <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">features.json</code></p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <p class="text-gray-600 dark:text-gray-400">
-                                            This bidirectional sync means you get the benefits of both structured workflows and simple feature tracking.
-                                        </p>
                                     </div>
 
                                     <!-- Example Usage Flow -->
@@ -3154,6 +2869,7 @@
             'create-session': 'Create a New Session',
             'worktrees': 'Understanding Worktrees',
             'permission-modes': 'Permission Modes',
+            'git-review': 'Reviewing Changes',
             'workflows-intro': 'Introduction to Workflows',
             'workflow-structure': 'Workflow Structure',
             'creating-workflow': 'Creating a Workflow',
