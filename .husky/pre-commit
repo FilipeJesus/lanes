@@ -12,6 +12,10 @@ npm run lint || exit 1
 
 # Run tests (use xvfb-run if available for headless environments)
 echo "🧪 Running tests..."
-xvfb-run -a npm run test || exit 1
+if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
+    xvfb-run -a npm run test || exit 1
+else
+    npm run test || exit 1
+fi
 
 echo "✅ All checks passed!"

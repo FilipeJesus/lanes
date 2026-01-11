@@ -1,5 +1,5 @@
 {
-  "name": "claude-lanes",
+  "name": "lanes",
   "displayName": "Lanes: AI Project Management",
   "publisher": "FilipeMarquesJesus",
   "description": "Manage parallel Claude Code sessions via Git Worktrees",
