@@ -116,7 +116,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: 'workflow_set_tasks',
       description:
         'Associate tasks with a loop step. Each task will be iterated through ' +
-        'the loop sub-steps. Also syncs tasks to features.json for tracking.',
+        'the loop sub-steps.',
       inputSchema: {
         type: 'object' as const,
         properties: {
@@ -156,8 +156,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: 'workflow_advance',
       description:
         'Complete the current step/sub-step and advance to the next. ' +
-        'Provide output summarizing what was accomplished. ' +
-        'When a task completes (all sub-steps done), updates features.json.',
+        'Provide output summarizing what was accomplished.',
       inputSchema: {
         type: 'object' as const,
         properties: {

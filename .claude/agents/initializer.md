@@ -39,69 +39,23 @@ Create the progress tracking file:
 - None
 ```
 
-### 2. Create features.json
-
-Create the feature tracking file based on current implementation:
-
-```json
-{
-  "features": [
-    {
-      "id": "create-session",
-      "description": "Create new worktree session with dedicated terminal",
-      "passes": true
-    },
-    {
-      "id": "open-session",
-      "description": "Open/resume existing session terminal",
-      "passes": true
-    },
-    {
-      "id": "delete-session",
-      "description": "Delete session worktree and cleanup terminal",
-      "passes": true
-    },
-    {
-      "id": "session-sidebar",
-      "description": "Display active sessions in sidebar tree view",
-      "passes": true
-    },
-    {
-      "id": "session-persistence",
-      "description": "Sessions persist across VS Code restarts",
-      "passes": true
-    }
-  ]
-}
-```
-
-### 3. Create tests.json
-
-Create an empty test plan file:
-
-```json
-{
-  "planned": []
-}
-```
-
-### 4. Verify Project State
+### 2. Verify Project State
 
 Run these checks:
 - `npm install` - Ensure dependencies are installed
 - `npm run compile` - Verify TypeScript compiles
 - `npm test` - Verify tests pass
 
-### 5. Create Initial Commit (if needed)
+### 3. Create Initial Commit (if needed)
 
-If these files are new, stage and commit them:
+If progress file is new, stage and commit it:
 ```bash
-git add claude-progress.txt features.json tests.json
-git commit -m "chore: initialize progress tracking files"
+git add claude-progress.txt
+git commit -m "chore: initialize progress tracking file"
 ```
 
 ## Constraints
 
 - Only create files that don't already exist
-- Never overwrite existing progress or feature data
+- Never overwrite existing progress data
 - Verify npm test passes before completing

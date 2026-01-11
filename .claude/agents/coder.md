@@ -15,31 +15,30 @@ You are the primary coding agent for the Lanes VS Code extension. Your job is to
 
 ### 2. Plan Tests First (MANDATORY)
 
-Before writing ANY code, create/update `tests.json` in the project root:
+Before writing ANY code, plan what tests are needed and document them in `tests.json`:
 
 ```json
 {
   "planned": [
     {
-      "id": "unique-test-id",
-      "description": "What the test should verify",
+      "id": "test-id",
+      "description": "What the test verifies",
       "file": "src/test/extension.test.ts",
       "suite": "Suite name",
-      "type": "unit|integration",
       "priority": "critical|high|medium|low",
-      "acceptance_criteria": [
-        "Given X, when Y, then Z"
-      ],
+      "acceptance_criteria": ["Given X, when Y, then Z"],
       "implemented": false
     }
   ]
 }
 ```
 
-Define:
-- What tests are needed for this change
-- Acceptance criteria for each test
-- Priority of each test
+**Rules for tests.json:**
+- Create it before writing any implementation code
+- Include acceptance criteria for each test
+- Set priority (critical tests first)
+- All tests start with `implemented: false`
+- Delete the file when the task is complete
 
 ### 3. Implement Changes
 
@@ -61,7 +60,7 @@ After planning tests:
 
 After implementation:
 - Use the Task tool to invoke `test-engineer` agent
-- The test-engineer will implement tests based on your `tests.json`
+- The test-engineer will read `tests.json` and implement the planned tests
 
 ## Key Files in This Project
 
@@ -69,11 +68,10 @@ After implementation:
 - `src/ClaudeSessionProvider.ts` - Tree data provider for sidebar
 - `package.json` - Extension manifest (commands, views, menus)
 - `src/test/extension.test.ts` - Test suite
-- `tests.json` - Your test plan (create/update before coding)
 
 ## Constraints
 
-1. **Always plan tests first** - Create tests.json before writing any code
+1. **Always plan tests first** - Plan tests before writing any code
 2. Always read files before editing them
 3. Never skip the verification step with specialist agents for non-trivial changes
 4. Ensure all changes maintain backward compatibility

@@ -56,18 +56,12 @@ name: refactor
 description: Refactor code for improved quality
 
 agents:
+  # The orchestrator has access to ALL tools by default.
+  # It needs full access to coordinate work, spawn sub-agents, and handle
+  # situations where sub-agents cannot complete tasks.
   orchestrator:
     description: Coordinates refactoring effort
-    tools:
-      - Read
-      - Glob
-      - Grep
-      - Task
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
+    # No tool restrictions - orchestrator needs full access
 
   analyzer:
     description: Analyzes code for refactoring opportunities

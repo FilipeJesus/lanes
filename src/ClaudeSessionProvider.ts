@@ -4,19 +4,6 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CodeAgent, SessionData, AgentStatus } from './codeAgents';
 
-// Feature interface representing a feature in features.json
-export interface Feature {
-    id: string;
-    description: string;
-    passes: boolean;
-}
-
-// Result of checking features.json for a worktree
-export interface FeatureStatus {
-    currentFeature: Feature | null;
-    allComplete: boolean;
-}
-
 // Valid Claude status states
 export type ClaudeStatusState = 'working' | 'waiting_for_user' | 'idle' | 'error';
 
@@ -180,7 +167,7 @@ export function getPromptsPath(sessionName: string, repoRoot: string): { path: s
  * Get the global storage path for a specific file.
  * Structure: globalStorageUri/<repo-identifier>/<session-name>/<filename>
  * @param worktreePath The worktree path (used to derive session name and repo path)
- * @param filename The filename (e.g., '.claude-status', 'features.json')
+ * @param filename The filename (e.g., '.claude-status', 'workflow-state.json')
  * @returns The absolute path to the file in global storage, or null if global storage not initialized
  */
 export function getGlobalStoragePath(worktreePath: string, filename: string): string | null {
@@ -245,7 +232,7 @@ export function getWorktreesFolder(): string {
  * Rejects absolute paths and parent directory traversal attempts.
  * @param relativePath The user-provided relative path
  * @param worktreePath The base worktree path
- * @param filename The filename to append (e.g., 'features.json')
+ * @param filename The filename to append (e.g., 'workflow-state.json')
  * @returns The validated full path, or the default path if validation fails
  */
 function validateAndBuildPath(relativePath: string, worktreePath: string, filename: string): string {
@@ -281,34 +268,6 @@ function validateAndBuildPath(relativePath: string, worktreePath: string, filena
     }
 
     return resolvedPath;
-}
-
-/**
- * Get the configured path for features.json relative to a worktree.
- * Returns the full path to the features.json file.
- * Note: features.json is NOT stored in global storage as it's a development workflow file.
- * Security: Validates path to prevent directory traversal attacks.
- * @param worktreePath Path to the worktree directory
- * @returns Full path to features.json based on configuration
- */
-export function getFeaturesJsonPath(worktreePath: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>('featuresJsonPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, 'features.json');
-}
-
-/**
- * Get the configured path for tests.json relative to a worktree.
- * Returns the full path to the tests.json file.
- * Note: tests.json is NOT stored in global storage as it's a development workflow file.
- * Security: Validates path to prevent directory traversal attacks.
- * @param worktreePath Path to the worktree directory
- * @returns Full path to tests.json based on configuration
- */
-export function getTestsJsonPath(worktreePath: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>('testsJsonPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, 'tests.json');
 }
 
 /**
@@ -543,45 +502,6 @@ export function getSessionId(worktreePath: string): ClaudeSessionData | null {
     }
 }
 
-/**
- * Get the current feature being worked on from a worktree's features.json
- * @param worktreePath Path to the worktree directory
- * @returns FeatureStatus with current feature and completion status
- */
-export function getFeatureStatus(worktreePath: string): FeatureStatus {
-    const featuresPath = getFeaturesJsonPath(worktreePath);
-
-    try {
-        if (!fs.existsSync(featuresPath)) {
-            return { currentFeature: null, allComplete: false };
-        }
-
-        const content = fs.readFileSync(featuresPath, 'utf-8');
-        const data = JSON.parse(content);
-
-        if (!data.features || !Array.isArray(data.features)) {
-            return { currentFeature: null, allComplete: false };
-        }
-
-        const features: Feature[] = data.features;
-
-        if (features.length === 0) {
-            return { currentFeature: null, allComplete: false };
-        }
-
-        // Find first incomplete feature
-        const currentFeature = features.find(f => f.passes === false) || null;
-
-        // All complete if no current feature and we have features
-        const allComplete = currentFeature === null && features.length > 0;
-
-        return { currentFeature, allComplete };
-    } catch {
-        // Graceful fallback for any error (invalid JSON, read error, etc.)
-        return { currentFeature: null, allComplete: false };
-    }
-}
-
 // Workflow status interface for display purposes
 export interface WorkflowStatus {
     active: boolean;
@@ -679,7 +599,6 @@ export class SessionItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly worktreePath: string,
         collapsibleState: vscode.TreeItemCollapsibleState,
-        featureStatus?: FeatureStatus,
         claudeStatus?: ClaudeStatus | null,
         workflowStatus?: WorkflowStatus | null
     ) {
@@ -702,8 +621,8 @@ export class SessionItem extends vscode.TreeItem {
         // Tooltip shown on hover
         this.tooltip = `Path: ${this.worktreePath}`;
 
-        // Set description based on Claude status, feature status, and workflow status
-        this.description = this.getDescriptionForStatus(claudeStatus, featureStatus, workflowStatus);
+        // Set description based on Claude status and workflow status
+        this.description = this.getDescriptionForStatus(claudeStatus, workflowStatus);
 
         // Set the icon based on Claude status
         this.iconPath = this.getIconForStatus(claudeStatus);
@@ -740,18 +659,16 @@ export class SessionItem extends vscode.TreeItem {
     }
 
     /**
-     * Get the description text based on Claude status, feature status, and workflow status.
+     * Get the description text based on Claude status and workflow status.
      * Shows status (Working/Waiting) and summary on the main line.
      * Workflow step/task info is now shown in child SessionDetailItem items.
-     * Priority: waiting_for_user > working > feature ID > "Complete" > "Active"
+     * Priority: waiting_for_user > working > summary > "Active"
      * Summary is appended when available using bullet separator.
      */
     private getDescriptionForStatus(
         claudeStatus?: ClaudeStatus | null,
-        featureStatus?: FeatureStatus,
         workflowStatus?: WorkflowStatus | null
     ): string {
-        const featureId = featureStatus?.currentFeature?.id;
         const summary = workflowStatus?.summary;
 
         // Helper to append summary if available
@@ -771,13 +688,8 @@ export class SessionItem extends vscode.TreeItem {
             return withSummary(base);
         }
 
-        // Fall back to feature-based description (no workflow step info on main line)
-        if (featureId) {
-            return withSummary(featureId);
-        } else if (featureStatus?.allComplete) {
-            return withSummary("Complete");
-        } else if (summary) {
-            // If we only have a summary and nothing else, show it directly
+        // Fall back to summary or default
+        if (summary) {
             return summary;
         } else {
             return "Active";
@@ -865,14 +777,12 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
 
             // Filter: Ensure it's actually a directory
             if (fs.statSync(fullPath).isDirectory()) {
-                const featureStatus = getFeatureStatus(fullPath);
                 const claudeStatus = getClaudeStatus(fullPath);
                 const workflowStatus = getWorkflowStatus(fullPath);
                 return new SessionItem(
                     folderName,
                     fullPath,
                     vscode.TreeItemCollapsibleState.None, // No nested items
-                    featureStatus,
                     claudeStatus,
                     workflowStatus
                 );
