@@ -118,9 +118,18 @@ Agents are specialized roles that execute specific workflow steps. Each agent ha
 
 **Steps** are the main workflow sequence. Each step has:
 - **id** - Unique identifier
-- **type** - Either `action` (single operation) or `loop` (iterate over tasks)
+- **type** - One of `action`, `loop`, or `ralph`
 - **agent** - (optional) Agent to execute the step
-- **instructions** - What to do (for action steps)
+- **instructions** - What to do (for action and ralph steps)
+- **n** - Number of iterations (required for ralph steps)
+
+**Step Types:**
+
+| Type | Purpose | Required Fields |
+|------|---------|-----------------|
+| `action` | Single operation executed once | `instructions` |
+| `loop` | Iterate over a list of tasks | References a defined loop |
+| `ralph` | Repeat same task n times for iterative refinement | `instructions`, `n` |
 
 **Loops** are reusable sub-workflows that iterate over a list of tasks. Each loop contains sub-steps that execute for each task:
 
@@ -152,6 +161,55 @@ steps:
 - `{task.id}` - Task identifier
 - `{task.title}` - Task title
 - `{task.description}` - Task description
+
+#### Ralph Steps (Iterative Refinement)
+
+**Ralph steps** are a special step type that repeats the same task `n` times to iteratively improve the result. This pattern is useful when you want Claude to refine its work through multiple passes.
+
+```yaml
+steps:
+  - id: plan
+    type: action
+    instructions: Create initial plan
+
+  - id: refine-plan
+    type: ralph
+    n: 3
+    instructions: |
+      Review and improve the plan.
+      Look for gaps, edge cases, and potential issues.
+      Refine the approach based on your analysis.
+
+  - id: implement
+    type: action
+    instructions: Implement the refined plan
+```
+
+**How Ralph Steps Work:**
+
+1. When Claude calls `workflow_advance` on a ralph step, the workflow checks the current iteration
+2. If iteration < n, the workflow returns the **same step** with incremented iteration count
+3. Claude receives clear messaging that this is intentional and should work on the task again
+4. When iteration reaches n, the workflow advances to the next step
+
+**Output Storage:**
+
+Each ralph iteration stores its output with a unique key including the iteration number:
+- `refine-plan.1` - Output from first iteration
+- `refine-plan.2` - Output from second iteration
+- `refine-plan.3` - Output from third iteration
+
+**Status Response:**
+
+The `workflow_status` response includes ralph-specific fields:
+- `ralphIteration` - Current iteration (1-based)
+- `ralphTotal` - Total iterations (the `n` value)
+
+**Best Use Cases:**
+- **Plan refinement** - Iterate on implementation plans before coding
+- **Code review** - Multiple passes to catch different types of issues
+- **Documentation** - Refine documentation through multiple drafts
+- **Test coverage** - Iteratively improve test cases
 
 #### 4. MCP Tools
 
