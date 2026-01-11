@@ -35,12 +35,14 @@ export interface LoopStep {
 export interface WorkflowStep {
   /** Unique identifier for this step */
   id: string;
-  /** Type of step: 'action' for single steps, 'loop' for iterating over tasks */
-  type: 'action' | 'loop';
+  /** Type of step: 'action' for single steps, 'loop' for iterating over tasks, 'ralph' for n iterations */
+  type: 'action' | 'loop' | 'ralph';
   /** Agent to execute this step (omit for main agent) */
   agent?: string;
   /** Instructions for action steps */
   instructions?: string;
+  /** Number of iterations for ralph steps */
+  n?: number;
 }
 
 /**
@@ -98,14 +100,16 @@ export interface WorkflowState {
   /** Current main step ID */
   step: string;
   /** Type of the current step */
-  stepType: 'action' | 'loop';
+  stepType: 'action' | 'loop' | 'ralph';
   /** Current task context (only for loop steps) */
   task?: TaskContext;
   /** Current sub-step ID within a loop (only for loop steps) */
   subStep?: string;
+  /** Current iteration for ralph steps (1-based) */
+  ralphIteration?: number;
   /** Tasks organized by loop ID */
   tasks: Record<string, Task[]>;
-  /** Outputs from completed steps, keyed by "step.task.subStep" or "step" */
+  /** Outputs from completed steps, keyed by "step.task.subStep", "step", or "step.iteration" for ralph steps */
   outputs: Record<string, string>;
   /** Brief summary of the user's request (recommended: keep under 100 characters) */
   summary?: string;
@@ -145,7 +149,7 @@ export interface WorkflowStatusResponse {
   /** Current main step ID */
   step: string;
   /** Type of the current step */
-  stepType: 'action' | 'loop';
+  stepType: 'action' | 'loop' | 'ralph';
   /** Current task context (only for loop steps) */
   task?: TaskStatusContext;
   /** Current sub-step ID (only for loop steps) */
@@ -154,6 +158,10 @@ export interface WorkflowStatusResponse {
   subStepIndex?: number;
   /** Total number of sub-steps in the loop */
   totalSubSteps?: number;
+  /** Current ralph iteration (only for ralph steps) */
+  ralphIteration?: number;
+  /** Total number of ralph iterations (only for ralph steps) */
+  ralphTotal?: number;
   /** Agent assigned to current step (null for main agent) */
   agent: string | null;
   /** Configuration for the assigned agent */

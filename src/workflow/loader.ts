@@ -130,8 +130,8 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
 
   const stepId = value.id;
 
-  if (!isString(value.type) || (value.type !== 'action' && value.type !== 'loop')) {
-    throw new WorkflowValidationError(`Step '${stepId}' must have a 'type' of 'action' or 'loop'`);
+  if (!isString(value.type) || (value.type !== 'action' && value.type !== 'loop' && value.type !== 'ralph')) {
+    throw new WorkflowValidationError(`Step '${stepId}' must have a 'type' of 'action', 'loop', or 'ralph'`);
   }
 
   if (value.agent !== undefined && !isString(value.agent)) {
@@ -141,6 +141,15 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
   if (value.type === 'action') {
     if (!isString(value.instructions)) {
       throw new WorkflowValidationError(`Action step '${stepId}' must have an 'instructions' string`);
+    }
+  }
+
+  if (value.type === 'ralph') {
+    if (!isString(value.instructions)) {
+      throw new WorkflowValidationError(`Ralph step '${stepId}' must have an 'instructions' string`);
+    }
+    if (value.n === undefined || typeof value.n !== 'number' || value.n < 1 || !Number.isInteger(value.n)) {
+      throw new WorkflowValidationError(`Ralph step '${stepId}' must have an 'n' field with a positive integer value`);
     }
   }
 }
