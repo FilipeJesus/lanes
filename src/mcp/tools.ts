@@ -243,13 +243,30 @@ export async function workflowSetTasks(
 }
 
 /**
+ * Appends a reminder to call workflow_advance to the instructions.
+ * This helps prevent Claude from stopping prematurely before completing steps.
+ */
+function appendAdvanceReminder(status: WorkflowStatusResponse): WorkflowStatusResponse {
+  if (status.status !== 'running') {
+    return status; // Don't add reminder if workflow is complete or failed
+  }
+
+  const reminder = '\n\nIMPORTANT: When you have completed this step, you MUST call workflow_advance with a summary of what you accomplished.';
+
+  return {
+    ...status,
+    instructions: status.instructions + reminder,
+  };
+}
+
+/**
  * Get current workflow position with full context.
  *
  * @param machine - The workflow state machine
  * @returns Complete status information including step, agent, instructions, and progress
  */
 export function workflowStatus(machine: WorkflowStateMachine): WorkflowStatusResponse {
-  return machine.getStatus();
+  return appendAdvanceReminder(machine.getStatus());
 }
 
 /**
@@ -301,7 +318,7 @@ export async function workflowAdvance(
   // Save state after advancing
   await saveState(worktreePath, machine.getState());
 
-  return status;
+  return appendAdvanceReminder(status);
 }
 
 /**

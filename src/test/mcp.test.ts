@@ -331,7 +331,7 @@ suite('MCP Tools', () => {
 
 			// Assert
 			assert.strictEqual(status.step, 'step2');
-			assert.strictEqual(status.instructions, 'Second step');
+			assert.strictEqual(status.instructions, 'Second step\n\nIMPORTANT: When you have completed this step, you MUST call workflow_advance with a summary of what you accomplished.');
 		});
 
 		test('workflowAdvance saves state after each advance', async () => {
@@ -397,7 +397,7 @@ suite('MCP Tools', () => {
 			assert.strictEqual(status.status, 'running');
 			assert.strictEqual(status.step, 'plan');
 			assert.strictEqual(status.stepType, 'action');
-			assert.strictEqual(status.instructions, 'Plan the work');
+			assert.strictEqual(status.instructions, 'Plan the work\n\nIMPORTANT: When you have completed this step, you MUST call workflow_advance with a summary of what you accomplished.');
 			assert.ok(status.progress, 'Should have progress');
 			assert.strictEqual(status.progress.currentStep, 1);
 			assert.strictEqual(status.progress.totalSteps, 3);
