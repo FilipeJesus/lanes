@@ -5,14 +5,11 @@ node_modules
 .vscode/settings.json
 *.vsix
 
-# Ephemeral task tracking files (created per Claude session, deleted when done)
-features.json
-tests.json
-
 # Claude Code session files
 .claude-session
 .claude-status
 workflow-state.json
+tests.json
 
 # Git worktrees directory
 .worktrees/

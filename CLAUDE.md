@@ -13,135 +13,44 @@ Lanes is a VS Code extension that manages isolated Claude Code sessions using Gi
 | `package.json` | Extension manifest (commands, views, menus, keybindings) |
 | `src/test/extension.test.ts` | Test suite |
 | `claude-progress.txt` | Session progress tracking (persisted) |
-| `features.json` | **Ephemeral** - Created per task, deleted when done |
-| `tests.json` | **Ephemeral** - Created per task, deleted when done |
+| `workflow-state.json` | Workflow state managed by MCP tools (created during workflows) |
+| `tests.json` | **Agent-managed** - Test plan created by coder, implemented by test-engineer |
 
-## Task Lifecycle
+## Workflow System
 
-When a user requests work, follow this complete lifecycle:
+Lanes uses a structured workflow system managed by MCP tools. When a workflow is active, tasks are tracked in `workflow-state.json`.
 
-### 1. Task Setup
+### Starting a Workflow
 
-Create ephemeral tracking files:
+Use the `workflow_start` MCP tool to initialize a workflow. This creates the `workflow-state.json` file.
 
-**features.json** - Break down the user's request into discrete features:
-```json
-{
-  "features": [
-    {
-      "id": "feature-id",
-      "description": "What needs to be implemented",
-      "passes": false
-    }
-  ]
-}
-```
+### Task Management
 
-**tests.json** - Plan tests for each feature (empty initially, populated by coder):
-```json
-{
-  "planned": []
-}
-```
+Tasks are managed through MCP workflow tools:
+- `workflow_set_tasks` - Define tasks for the current workflow
+- `workflow_advance` - Complete the current step and move to the next
+- `workflow_status` - Get current workflow position and progress
+- `workflow_context` - Get outputs from previous steps
 
-### 2. For Each Feature
+## Agent Summary
 
-Execute this loop for each feature in `features.json`:
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| `coder` | Plan tests + implement features | Each coding task |
+| `vscode-expert` | VS Code API verification | Called by coder |
+| `shell-ops` | Git/shell safety checks | Called by coder |
+| `test-engineer` | Implement planned tests | After each feature |
+| `code-reviewer` | Code quality review | After tests pass |
 
-1. **coder** → Creates test plan in `tests.json`, then implements the feature
-2. **test-engineer** → Implements tests from `tests.json`
-3. **code-reviewer** → Reviews the implementation
-4. Mark feature as `"passes": true` in `features.json`
-5. Commit changes
+## Test Planning with tests.json
 
-### 3. Task Cleanup
+The `tests.json` file is an ephemeral file managed by agents (not the Lanes extension):
 
-When all features pass and user is satisfied:
-- Delete `features.json`
-- Delete `tests.json`
-- Update `claude-progress.txt` with session summary
+1. **Coder creates it** before implementing any code
+2. **Test-engineer reads it** to implement the planned tests
+3. **Delete it** when the task is complete
 
-## Development Workflow (Detailed)
-
-### 1. Plan & Create Tracking Files
-
-When user requests a task:
-- Understand the requirements fully
-- Create `features.json` with all features needed (all `passes: false`)
-- Create empty `tests.json`
-- Use TodoWrite to track progress
-
-### 2. Implement (per feature)
-
-Delegate to the **coder** agent:
-```
-Use the coder agent to: implement [feature from features.json]
-```
-
-The coder agent will:
-1. Plan tests first → update `tests.json`
-2. Implement the feature
-3. Consult `vscode-expert` for VS Code API logic
-4. Consult `shell-ops` for git/shell operations
-
-### 3. Test (per feature)
-
-Delegate to the **test-engineer** agent:
-```
-Use the test-engineer agent to: implement tests from tests.json
-```
-
-The test-engineer will:
-- Read `tests.json` for planned test cases
-- Implement the tests
-- Run tests and verify they pass
-- Mark tests as `implemented: true`
-
-### 4. Review (per feature)
-
-Delegate to the **code-reviewer** agent:
-```
-Use the code-reviewer agent to: review changes for [feature]
-```
-
-### 5. Mark Complete
-
-- Update `features.json`: set `passes: true` for the feature
-- Run `npm test` to verify all tests pass
-- Commit with descriptive message
-
-### 6. Cleanup (when task is done)
-
-When user confirms satisfaction:
-```bash
-rm features.json tests.json
-```
-
-Update `claude-progress.txt` with session summary.
-
-## Ephemeral File Formats
-
-### features.json
-
-```json
-{
-  "features": [
-    {
-      "id": "unique-id",
-      "description": "What to implement",
-      "passes": false
-    }
-  ]
-}
-```
-
-**Rules**:
-- Created fresh for each user task
-- All features start with `passes: false`
-- Only modify `passes` field during implementation
-- Delete when task is complete
-
-### tests.json
+### tests.json Format
 
 ```json
 {
@@ -159,72 +68,12 @@ Update `claude-progress.txt` with session summary.
 }
 ```
 
-**Rules**:
-- Created by coder agent before implementation
-- Test-engineer implements tests and marks `implemented: true`
-- Delete when task is complete
+### Workflow
 
-## Agent Summary
-
-| Agent | Purpose | When to Use |
-|-------|---------|-------------|
-| `coder` | Plan tests + implement features | Each coding task |
-| `vscode-expert` | VS Code API verification | Called by coder |
-| `shell-ops` | Git/shell safety checks | Called by coder |
-| `test-engineer` | Implement planned tests | After each feature |
-| `code-reviewer` | Code quality review | After tests pass |
-
-## Workflow Diagram
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   USER REQUEST                          │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│              1. CREATE TRACKING FILES                   │
-│         features.json (all passes: false)               │
-│         tests.json (empty)                              │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-        ┌─────────────────────────────┐
-        │  For each feature:          │
-        │                             │
-        │  ┌───────────────────────┐  │
-        │  │   2. coder agent      │  │
-        │  │   (plan tests.json +  │  │
-        │  │    implement)         │  │
-        │  └───────────┬───────────┘  │
-        │              │              │
-        │              ▼              │
-        │  ┌───────────────────────┐  │
-        │  │  3. test-engineer     │  │
-        │  │  (implement tests     │  │
-        │  │   from tests.json)    │  │
-        │  └───────────┬───────────┘  │
-        │              │              │
-        │              ▼              │
-        │  ┌───────────────────────┐  │
-        │  │  4. code-reviewer     │  │
-        │  │  (quality review)     │  │
-        │  └───────────┬───────────┘  │
-        │              │              │
-        │              ▼              │
-        │  ┌───────────────────────┐  │
-        │  │  5. mark passes:true  │  │
-        │  │  + commit             │  │
-        │  └───────────────────────┘  │
-        │                             │
-        └─────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                  6. CLEANUP                             │
-│    rm features.json tests.json                          │
-│    update claude-progress.txt                           │
-└─────────────────────────────────────────────────────────┘
-```
+1. **Coder** plans tests and creates `tests.json` with `implemented: false`
+2. **Coder** implements the feature
+3. **Test-engineer** implements each test and sets `implemented: true`
+4. When all tests pass, delete `tests.json`
 
 ## Progress Tracking (Persisted)
 
@@ -248,7 +97,6 @@ Update at the end of each session:
 - Pre-commit hook enforces: compile, lint, and test
 - Never commit code that breaks existing tests
 - Keep changes focused and minimal
-- Delete ephemeral files when task is complete
 
 ## Common Commands
 

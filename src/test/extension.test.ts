@@ -822,7 +822,6 @@ suite('Session Provider', () => {
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);
@@ -859,7 +858,6 @@ suite('Session Provider', () => {
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);
@@ -877,13 +875,8 @@ suite('Session Provider', () => {
 			);
 		});
 
-		test('SessionItem shows Working status when feature ID present but no workflow', () => {
+		test('SessionItem shows Working status when no workflow', () => {
 			// Arrange
-			const featureStatus = {
-				currentFeature: { id: 'feat-123', description: 'Test feature', passes: false },
-				allComplete: false
-			};
-
 			const claudeStatus = { status: 'working' as const };
 
 			// Act
@@ -891,12 +884,11 @@ suite('Session Provider', () => {
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				featureStatus,
 				claudeStatus,
 				null
 			);
 
-			// Assert - when working, shows "Working" regardless of feature ID
+			// Assert - when working, shows "Working"
 			const description = String(sessionItem.description || '');
 			assert.ok(
 				description.includes('Working'),
@@ -1262,7 +1254,6 @@ steps:
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);
@@ -1302,7 +1293,6 @@ steps:
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);
@@ -1330,7 +1320,6 @@ steps:
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);
@@ -1369,7 +1358,6 @@ steps:
 				'test-session',
 				'/path/to/worktree',
 				vscode.TreeItemCollapsibleState.None,
-				undefined,
 				claudeStatus,
 				workflowStatus
 			);

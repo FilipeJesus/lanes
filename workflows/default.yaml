@@ -145,5 +145,5 @@ steps:
 
       1. Run all tests one final time
       2. Update any documentation
-      3. Clean up temporary files (features.json, tests.json)
+      3. Clean up any temporary files
       4. Summarize what was accomplished
