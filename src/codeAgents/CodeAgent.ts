@@ -370,9 +370,10 @@ export abstract class CodeAgent {
      * Override this method if supportsMcp() returns true
      * @param worktreePath Path to the worktree
      * @param workflowPath Path to the workflow YAML file
+     * @param repoRoot Path to the repository root (for pending sessions directory)
      * @returns MCP configuration object, or null if MCP is not supported
      */
-    getMcpConfig(_worktreePath: string, _workflowPath: string): McpConfig | null {
+    getMcpConfig(_worktreePath: string, _workflowPath: string, _repoRoot: string): McpConfig | null {
         return null;
     }
 }

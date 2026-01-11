@@ -21,6 +21,7 @@ import {
 	getStatePath,
 	createSession,
 	PendingSessionConfig,
+	getPendingSessionsDir,
 } from '../mcp/tools';
 import {
 	WorkflowStateMachine,
@@ -564,30 +565,29 @@ suite('MCP State', () => {
  * Tests for MCP createSession with workflow parameter.
  */
 suite('MCP Session Creation with Workflow', () => {
-	const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+	let testRepoRoot: string;
 
-	// Clean up pending sessions after each test
-	teardown(async () => {
-		// Clean up any test session files
-		try {
-			const files = fs.readdirSync(PENDING_SESSIONS_DIR);
-			for (const file of files) {
-				if (file.startsWith('test-session-')) {
-					fs.unlinkSync(path.join(PENDING_SESSIONS_DIR, file));
-				}
-			}
-		} catch {
-			// Directory might not exist, that's fine
-		}
+	// Create temp directory to simulate repo root
+	setup(() => {
+		testRepoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-session-test-'));
+	});
+
+	// Clean up temp directory after each test
+	teardown(() => {
+		fs.rmSync(testRepoRoot, { recursive: true, force: true });
 	});
 
 	test('createSession accepts workflow parameter and includes it in config', async () => {
 		// Act
-		const result = await createSession('test-session-workflow', 'main', 'Test prompt', 'feature');
+		const result = await createSession('test-session-workflow', 'main', 'Test prompt', 'feature', testRepoRoot);
 
 		// Assert
 		assert.ok(result.success, 'createSession should succeed');
 		assert.ok(result.configPath, 'Should have a config path');
+
+		// Verify config is in repo's .claude directory
+		const expectedDir = getPendingSessionsDir(testRepoRoot);
+		assert.ok(result.configPath!.startsWith(expectedDir), 'Config should be in repo .claude directory');
 
 		// Read the config file
 		const configContent = fs.readFileSync(result.configPath!, 'utf-8');
@@ -597,14 +597,11 @@ suite('MCP Session Creation with Workflow', () => {
 		assert.strictEqual(config.name, 'test-session-workflow');
 		assert.strictEqual(config.sourceBranch, 'main');
 		assert.strictEqual(config.prompt, 'Test prompt');
-
-		// Clean up
-		fs.unlinkSync(result.configPath!);
 	});
 
 	test('createSession works without workflow (undefined)', async () => {
 		// Act
-		const result = await createSession('test-session-no-workflow', 'main', 'Test prompt');
+		const result = await createSession('test-session-no-workflow', 'main', 'Test prompt', undefined, testRepoRoot);
 
 		// Assert
 		assert.ok(result.success, 'createSession should succeed');
@@ -616,14 +613,11 @@ suite('MCP Session Creation with Workflow', () => {
 
 		assert.strictEqual(config.workflow, undefined, 'Workflow should be undefined');
 		assert.strictEqual(config.name, 'test-session-no-workflow');
-
-		// Clean up
-		fs.unlinkSync(result.configPath!);
 	});
 
 	test('createSession trims workflow parameter', async () => {
 		// Act
-		const result = await createSession('test-session-trim', 'main', undefined, '  feature  ');
+		const result = await createSession('test-session-trim', 'main', undefined, '  feature  ', testRepoRoot);
 
 		// Assert
 		assert.ok(result.success, 'createSession should succeed');
@@ -634,14 +628,11 @@ suite('MCP Session Creation with Workflow', () => {
 		const config: PendingSessionConfig = JSON.parse(configContent);
 
 		assert.strictEqual(config.workflow, 'feature', 'Workflow should be trimmed');
-
-		// Clean up
-		fs.unlinkSync(result.configPath!);
 	});
 
 	test('createSession handles empty workflow string as undefined', async () => {
 		// Act
-		const result = await createSession('test-session-empty', 'main', undefined, '   ');
+		const result = await createSession('test-session-empty', 'main', undefined, '   ', testRepoRoot);
 
 		// Assert
 		assert.ok(result.success, 'createSession should succeed');
@@ -652,15 +643,12 @@ suite('MCP Session Creation with Workflow', () => {
 		const config: PendingSessionConfig = JSON.parse(configContent);
 
 		assert.strictEqual(config.workflow, undefined, 'Empty workflow should become undefined');
-
-		// Clean up
-		fs.unlinkSync(result.configPath!);
 	});
 
 	test('createSession includes requestedAt timestamp', async () => {
 		// Act
 		const beforeTime = new Date().toISOString();
-		const result = await createSession('test-session-timestamp', 'main');
+		const result = await createSession('test-session-timestamp', 'main', undefined, undefined, testRepoRoot);
 		const afterTime = new Date().toISOString();
 
 		// Assert
@@ -673,8 +661,15 @@ suite('MCP Session Creation with Workflow', () => {
 		assert.ok(config.requestedAt, 'Should have requestedAt timestamp');
 		assert.ok(config.requestedAt >= beforeTime, 'Timestamp should be after test start');
 		assert.ok(config.requestedAt <= afterTime, 'Timestamp should be before test end');
+	});
 
-		// Clean up
-		fs.unlinkSync(result.configPath!);
+	test('createSession fails when repoRoot is not provided', async () => {
+		// Act
+		const result = await createSession('test-session-no-root', 'main');
+
+		// Assert
+		assert.strictEqual(result.success, false, 'Should fail without repoRoot');
+		assert.ok(result.error, 'Should have error message');
+		assert.ok(result.error!.includes('Repository root path is required'), 'Error should mention missing repo root');
 	});
 });

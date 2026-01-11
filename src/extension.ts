@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
-import * as os from 'os';
 import {
     ClaudeSessionProvider,
     SessionItem,
@@ -43,9 +42,14 @@ export interface PendingSessionConfig {
 }
 
 /**
- * Directory where MCP server writes pending session requests.
+ * Get the directory where MCP server writes pending session requests.
+ * Uses the workspace's .claude directory instead of the home directory.
+ * @param repoRoot The root directory of the repository
+ * @returns The path to the pending sessions directory
  */
-const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+function getPendingSessionsDir(repoRoot: string): string {
+    return path.join(repoRoot, '.claude', 'lanes', 'pending-sessions');
+}
 
 /**
  * Directory containing bundled workflow templates.
@@ -602,17 +606,22 @@ async function checkPendingSessions(
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent
 ): Promise<void> {
+    if (!workspaceRoot) {
+        return;
+    }
+
     try {
+        const pendingSessionsDir = getPendingSessionsDir(workspaceRoot);
         // Ensure directory exists
-        if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
+        if (!fs.existsSync(pendingSessionsDir)) {
             return;
         }
 
-        const files = await fsPromises.readdir(PENDING_SESSIONS_DIR);
+        const files = await fsPromises.readdir(pendingSessionsDir);
         const jsonFiles = files.filter(f => f.endsWith('.json'));
 
         for (const file of jsonFiles) {
-            const configPath = path.join(PENDING_SESSIONS_DIR, file);
+            const configPath = path.join(pendingSessionsDir, file);
             await processPendingSession(configPath, workspaceRoot, sessionProvider, codeAgent);
         }
     } catch (err) {
@@ -844,24 +853,27 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Watch for pending session requests from MCP
-    // Ensure the directory exists for the watcher
-    if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
-        fs.mkdirSync(PENDING_SESSIONS_DIR, { recursive: true });
+    if (baseRepoPath) {
+        const pendingSessionsDir = getPendingSessionsDir(baseRepoPath);
+        // Ensure the directory exists for the watcher
+        if (!fs.existsSync(pendingSessionsDir)) {
+            fs.mkdirSync(pendingSessionsDir, { recursive: true });
+        }
+
+        const pendingSessionWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(pendingSessionsDir, '*.json')
+        );
+
+        pendingSessionWatcher.onDidCreate(async (uri) => {
+            console.log(`Pending session file detected: ${uri.fsPath}`);
+            await processPendingSession(uri.fsPath, baseRepoPath, sessionProvider, codeAgent);
+        });
+
+        context.subscriptions.push(pendingSessionWatcher);
+
+        // Check for any pending sessions on startup
+        checkPendingSessions(baseRepoPath, sessionProvider, codeAgent);
     }
-
-    const pendingSessionWatcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(PENDING_SESSIONS_DIR, '*.json')
-    );
-
-    pendingSessionWatcher.onDidCreate(async (uri) => {
-        console.log(`Pending session file detected: ${uri.fsPath}`);
-        await processPendingSession(uri.fsPath, workspaceRoot, sessionProvider, codeAgent);
-    });
-
-    context.subscriptions.push(pendingSessionWatcher);
-
-    // Check for any pending sessions on startup
-    checkPendingSessions(workspaceRoot, sessionProvider, codeAgent);
 
     // Listen for configuration changes to update hooks when storage location changes
     // Use a flag to prevent concurrent execution during async operations
@@ -948,7 +960,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 3. Register OPEN/RESUME Command
     let openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent);
+        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
     });
 
     // ---------------------------------------------------------
@@ -1348,7 +1360,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const sessionName = path.basename(workspaceRoot);
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, undefined, codeAgent);
+                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
             }, 500);
         }
     }
@@ -1597,7 +1609,7 @@ async function createSession(
 
             // 6. Success
             sessionProvider.refresh();
-            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent);
+            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent, workspaceRoot);
             vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
 
             // Exit the loop on success
@@ -1671,7 +1683,7 @@ When the current step requires an agent other than orchestrator:
 }
 
 // THE CORE FUNCTION: Manages the Terminal Tabs
-async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent): Promise<void> {
+async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string): Promise<void> {
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
     const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
 
@@ -1718,9 +1730,12 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
         // (--settings only loads hooks, not mcpServers)
         // effectiveWorkflow is now the full path to the workflow YAML file
         if (effectiveWorkflow) {
+            // Determine the repo root for MCP server (needed for pending sessions directory)
+            const effectiveRepoRoot = repoRoot || await getBaseRepoPath(worktreePath);
+
             // Use CodeAgent to get MCP config if available and supported
             if (codeAgent && codeAgent.supportsMcp()) {
-                const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow);
+                const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
                 if (mcpConfig) {
                     // Write MCP config to a file (inline JSON escaping is problematic)
                     mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
@@ -1734,7 +1749,7 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
                     mcpServers: {
                         'lanes-workflow': {
                             command: 'node',
-                            args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow]
+                            args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
                         }
                     }
                 };

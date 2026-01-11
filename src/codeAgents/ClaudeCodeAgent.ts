@@ -289,7 +289,7 @@ export class ClaudeCodeAgent extends CodeAgent {
         return true;
     }
 
-    getMcpConfig(worktreePath: string, workflowPath: string): McpConfig | null {
+    getMcpConfig(worktreePath: string, workflowPath: string, repoRoot: string): McpConfig | null {
         // Get the path to the MCP server (relative to the extension's out directory)
         // This will be resolved at runtime by the caller
         const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
@@ -298,7 +298,7 @@ export class ClaudeCodeAgent extends CodeAgent {
             mcpServers: {
                 'lanes-workflow': {
                     command: 'node',
-                    args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath]
+                    args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
                 }
             }
         };

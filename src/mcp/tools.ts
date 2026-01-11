@@ -12,7 +12,6 @@ import {
 } from '../workflow';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { sanitizeSessionName } from '../utils';
 
 /**
@@ -227,10 +226,14 @@ export function workflowContext(machine: WorkflowStateMachine): Record<string, s
 // =============================================================================
 
 /**
- * Directory where pending session configs are written.
- * The VS Code extension monitors this directory and processes the configs.
+ * Get the directory where pending session configs are written.
+ * Uses the workspace's .claude directory instead of the home directory.
+ * @param repoRoot The root directory of the repository
+ * @returns The path to the pending sessions directory
  */
-const PENDING_SESSIONS_DIR = path.join(os.homedir(), '.claude', 'lanes', 'pending-sessions');
+export function getPendingSessionsDir(repoRoot: string): string {
+  return path.join(repoRoot, '.claude', 'lanes', 'pending-sessions');
+}
 
 /**
  * Result of a session creation request.
@@ -261,13 +264,15 @@ export interface PendingSessionConfig {
  * @param sourceBranch Source branch to create worktree from
  * @param prompt Optional starting prompt for Claude
  * @param workflow Optional workflow template name to use
+ * @param repoRoot Root directory of the repository (where .claude directory lives)
  * @returns Result object with success status, config path, or error
  */
 export async function createSession(
   name: string,
   sourceBranch: string,
   prompt?: string,
-  workflow?: string
+  workflow?: string,
+  repoRoot?: string
 ): Promise<CreateSessionResult> {
   try {
     // 1. Validate and sanitize the session name
@@ -288,12 +293,21 @@ export async function createSession(
       };
     }
 
-    // 3. Ensure pending sessions directory exists
-    if (!fs.existsSync(PENDING_SESSIONS_DIR)) {
-      fs.mkdirSync(PENDING_SESSIONS_DIR, { recursive: true });
+    // 3. Validate repoRoot is provided
+    if (!repoRoot) {
+      return {
+        success: false,
+        error: 'Repository root path is required for session creation.'
+      };
     }
 
-    // 4. Create config object
+    // 4. Ensure pending sessions directory exists
+    const pendingSessionsDir = getPendingSessionsDir(repoRoot);
+    if (!fs.existsSync(pendingSessionsDir)) {
+      fs.mkdirSync(pendingSessionsDir, { recursive: true });
+    }
+
+    // 5. Create config object
     const config: PendingSessionConfig = {
       name: sanitizedName,
       sourceBranch,
@@ -302,12 +316,12 @@ export async function createSession(
       requestedAt: new Date().toISOString()
     };
 
-    // 5. Write config file with unique name
+    // 6. Write config file with unique name
     const configId = `${sanitizedName}-${Date.now()}`;
-    const configPath = path.join(PENDING_SESSIONS_DIR, `${configId}.json`);
+    const configPath = path.join(pendingSessionsDir, `${configId}.json`);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    // 6. Return success
+    // 7. Return success
     return {
       success: true,
       configPath

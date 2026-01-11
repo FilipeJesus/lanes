@@ -21,10 +21,11 @@ import {
 import * as path from 'path';
 
 // Parse command-line arguments
-// Expected: node server.js --worktree <path> --workflow-path <path>
+// Expected: node server.js --worktree <path> --workflow-path <path> --repo-root <path>
 const args = process.argv.slice(2);
 let worktreePath = '';
 let workflowPath = '';
+let repoRoot = '';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--worktree' && args[i + 1]) {
@@ -32,6 +33,9 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === '--workflow-path' && args[i + 1]) {
     workflowPath = args[i + 1];
+    i++;
+  } else if (args[i] === '--repo-root' && args[i + 1]) {
+    repoRoot = args[i + 1];
     i++;
   }
 }
@@ -46,6 +50,11 @@ if (!workflowPath) {
   process.exit(1);
 }
 
+if (!repoRoot) {
+  console.error('Error: --repo-root <path> is required');
+  process.exit(1);
+}
+
 // Validate worktreePath - must be an absolute path
 if (!path.isAbsolute(worktreePath)) {
   console.error('Error: --worktree must be an absolute path');
@@ -55,6 +64,12 @@ if (!path.isAbsolute(worktreePath)) {
 // Validate workflowPath - must be an absolute path
 if (!path.isAbsolute(workflowPath)) {
   console.error('Error: --workflow-path must be an absolute path');
+  process.exit(1);
+}
+
+// Validate repoRoot - must be an absolute path
+if (!path.isAbsolute(repoRoot)) {
+  console.error('Error: --repo-root must be an absolute path');
   process.exit(1);
 }
 
@@ -342,7 +357,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error('name and sourceBranch are required');
         }
 
-        const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow);
+        const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow, repoRoot);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };
@@ -368,6 +383,7 @@ async function main() {
   console.error(`Lanes workflow MCP server started`);
   console.error(`  Worktree: ${worktreePath}`);
   console.error(`  Workflow: ${workflowPath}`);
+  console.error(`  Repo root: ${repoRoot}`);
 }
 
 main().catch((error) => {
