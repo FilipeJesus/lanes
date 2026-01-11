@@ -216,9 +216,19 @@ suite('Broken Worktree Repair', () => {
 			await execGit(['init'], tempDir);
 			// Now use isolated env for all subsequent operations
 			gitEnv = getIsolatedGitEnv(tempDir);
-			// Configure git for the test repo
-			await execGit(['config', 'user.email', 'test@test.com'], tempDir, gitEnv);
-			await execGit(['config', 'user.name', 'Test User'], tempDir, gitEnv);
+			// Configure git for the test repo only if not already set globally
+			try {
+				await execGit(['config', '--get', 'user.email'], tempDir, gitEnv);
+			} catch {
+				// Not set, so set it for the test
+				await execGit(['config', 'user.email', 'test@test.com'], tempDir, gitEnv);
+			}
+			try {
+				await execGit(['config', '--get', 'user.name'], tempDir, gitEnv);
+			} catch {
+				// Not set, so set it for the test
+				await execGit(['config', 'user.name', 'Test User'], tempDir, gitEnv);
+			}
 			// Create an initial commit (required for worktrees)
 			fs.writeFileSync(path.join(tempDir, 'README.md'), '# Test Repo');
 			await execGit(['add', '.'], tempDir, gitEnv);
