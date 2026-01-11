@@ -145,7 +145,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: 'workflow_status',
       description:
         'Get current workflow position with full context. ' +
-        'Returns step, sub-step (if in loop), agent, instructions, and progress.',
+        'Returns step, sub-step (if in loop), agent, instructions, and progress. ' +
+        'For ralph steps, includes ralphIteration and ralphTotal fields indicating which iteration (1-N) you are on.',
       inputSchema: {
         type: 'object' as const,
         properties: {},
@@ -156,7 +157,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: 'workflow_advance',
       description:
         'Complete the current step/sub-step and advance to the next. ' +
-        'Provide output summarizing what was accomplished.',
+        'Provide output summarizing what was accomplished. ' +
+        'For ralph steps (iterative refinement), advancing may return the SAME step again ' +
+        'with incremented iteration number - this is intentional and you should work on it again to improve quality.',
       inputSchema: {
         type: 'object' as const,
         properties: {

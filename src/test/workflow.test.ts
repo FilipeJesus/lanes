@@ -461,6 +461,99 @@ steps:
 				assert.ok(error.message.includes('name'), `Error message should mention 'name': ${error.message}`);
 			}
 		});
+
+		test('Loader rejects ralph step missing instructions', () => {
+			const invalidYaml = `
+name: ralph-missing-instructions
+description: A template
+agents: {}
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    n: 3
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for ralph step without instructions'
+			);
+		});
+
+		test('Loader rejects ralph step missing n field', () => {
+			const invalidYaml = `
+name: ralph-missing-n
+description: A template
+agents: {}
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    instructions: Refine it
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for ralph step without n'
+			);
+		});
+
+		test('Loader rejects ralph step with non-integer n', () => {
+			const invalidYaml = `
+name: ralph-non-integer-n
+description: A template
+agents: {}
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    n: 2.5
+    instructions: Refine it
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for ralph step with non-integer n'
+			);
+		});
+
+		test('Loader rejects ralph step with zero n', () => {
+			const invalidYaml = `
+name: ralph-zero-n
+description: A template
+agents: {}
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    n: 0
+    instructions: Refine it
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for ralph step with n=0'
+			);
+		});
+
+		test('Loader rejects ralph step with negative n', () => {
+			const invalidYaml = `
+name: ralph-negative-n
+description: A template
+agents: {}
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    n: -1
+    instructions: Refine it
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for ralph step with negative n'
+			);
+		});
 	});
 });
 
@@ -864,6 +957,243 @@ steps:
 			assert.strictEqual(status.step, 'task_loop');
 			assert.strictEqual(status.subStep, 'verify');
 			assert.strictEqual(status.task?.id, 'task1');
+		});
+
+		test('fromState restores ralph step at correct iteration', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step
+agents:
+  default:
+    description: Default agent
+loops: {}
+steps:
+  - id: refine
+    type: ralph
+    n: 5
+    instructions: Refine it
+`);
+			const machine1 = new WorkflowStateMachine(ralphTemplate);
+			machine1.start();
+			machine1.advance('Iteration 1');
+			machine1.advance('Iteration 2');
+
+			const savedState = machine1.getState();
+
+			// Act: Create new machine from saved state
+			const machine2 = WorkflowStateMachine.fromState(ralphTemplate, savedState);
+			const status = machine2.getStatus();
+
+			// Assert
+			assert.strictEqual(status.stepType, 'ralph');
+			assert.strictEqual(status.ralphIteration, 3);
+			assert.strictEqual(status.ralphTotal, 5);
+		});
+	});
+
+	suite('Ralph Steps (Iterative Refinement)', () => {
+		test('Ralph step initializes with iteration 1', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 3
+    instructions: Refine the implementation
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+
+			// Act
+			const status = machine.start();
+
+			// Assert
+			assert.strictEqual(status.status, 'running');
+			assert.strictEqual(status.step, 'refine');
+			assert.strictEqual(status.stepType, 'ralph');
+			assert.strictEqual(status.ralphIteration, 1);
+			assert.strictEqual(status.ralphTotal, 3);
+			assert.ok(status.instructions.includes('[Ralph Loop - Iteration 1 of 3]'));
+			assert.ok(status.instructions.includes('repeated 3 times'));
+		});
+
+		test('Ralph step stays on same step when advancing with iterations remaining', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 3
+    instructions: Refine the implementation
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+			machine.start();
+
+			// Act: Advance from iteration 1
+			const status = machine.advance('First iteration complete');
+
+			// Assert: Still on same step, but iteration incremented
+			assert.strictEqual(status.status, 'running');
+			assert.strictEqual(status.step, 'refine');
+			assert.strictEqual(status.stepType, 'ralph');
+			assert.strictEqual(status.ralphIteration, 2);
+			assert.strictEqual(status.ralphTotal, 3);
+			assert.ok(status.instructions.includes('[Ralph Loop - Iteration 2 of 3]'));
+			assert.ok(status.instructions.includes('THE SAME TASK again'));
+			assert.ok(status.instructions.includes('NOT skip it'));
+		});
+
+		test('Ralph step advances to next step after all iterations complete', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step followed by action
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 2
+    instructions: Refine the implementation
+  - id: finalize
+    type: action
+    instructions: Finalize the work
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+			machine.start();
+
+			// Act: Advance through both iterations
+			machine.advance('Iteration 1 output');
+			const status = machine.advance('Iteration 2 output');
+
+			// Assert: Moved to next step
+			assert.strictEqual(status.status, 'running');
+			assert.strictEqual(status.step, 'finalize');
+			assert.strictEqual(status.stepType, 'action');
+			assert.strictEqual(status.ralphIteration, undefined);
+		});
+
+		test('Ralph step stores output for each iteration with unique keys', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 3
+    instructions: Refine the implementation
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+			machine.start();
+
+			// Act: Complete all three iterations
+			machine.advance('First refinement');
+			machine.advance('Second refinement');
+			machine.advance('Third refinement');
+
+			// Assert: Each iteration output stored separately
+			const context = machine.getContext();
+			assert.strictEqual(context['refine.1'], 'First refinement');
+			assert.strictEqual(context['refine.2'], 'Second refinement');
+			assert.strictEqual(context['refine.3'], 'Third refinement');
+		});
+
+		test('Ralph step with n=1 advances immediately after first iteration', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with single ralph iteration
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 1
+    instructions: Refine once
+  - id: next
+    type: action
+    instructions: Next step
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+			machine.start();
+
+			// Act
+			const status = machine.advance('Single refinement');
+
+			// Assert: Moved to next step
+			assert.strictEqual(status.step, 'next');
+			assert.strictEqual(status.stepType, 'action');
+		});
+
+		test('Ralph step messaging is clear about repeating same task', () => {
+			// Arrange
+			const ralphTemplate = loadWorkflowTemplateFromString(`
+name: ralph-workflow
+description: Workflow with ralph step
+
+agents:
+  default:
+    description: Default agent
+
+loops: {}
+
+steps:
+  - id: refine
+    type: ralph
+    n: 5
+    instructions: Refine the implementation
+`);
+			const machine = new WorkflowStateMachine(ralphTemplate);
+			machine.start();
+
+			// Act: Advance to iteration 3
+			machine.advance('Iteration 1');
+			machine.advance('Iteration 2');
+			const status = machine.getStatus();
+
+			// Assert: Messaging is explicit
+			assert.strictEqual(status.ralphIteration, 3);
+			assert.strictEqual(status.ralphTotal, 5);
+			assert.ok(status.instructions.includes('[Ralph Loop - Iteration 3 of 5]'));
+			assert.ok(status.instructions.includes('THE SAME TASK again'));
+			assert.ok(status.instructions.includes('NOT skip it'));
+			assert.ok(status.instructions.includes('refine and improve'));
 		});
 	});
 });

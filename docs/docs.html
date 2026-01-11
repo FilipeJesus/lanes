@@ -1570,9 +1570,9 @@
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">
                                                     <strong>Type:</strong> string<br>
                                                     <strong>Required:</strong> Yes<br>
-                                                    <strong>Valid values:</strong> action, loop
+                                                    <strong>Valid values:</strong> action, loop, ralph
 
-                                        <div class="grid md:grid-cols-2 gap-4 mb-4">
+                                        <div class="grid md:grid-cols-3 gap-4 mb-4">
                                             <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
                                                 <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">action</h5>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -1592,6 +1592,17 @@
                                                 <p class="text-xs text-gray-500 dark:text-gray-400">
                                                     <strong>Required fields:</strong> id, type<br>
                                                     <strong>Note:</strong> The id must match a loop name defined in the <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">loops:</code> section
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-2 font-mono text-sm">ralph</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                                    Repeats the same task n times for iterative refinement. Claude works on the task multiple times to improve quality.
+                                                </p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                    <strong>Required fields:</strong> id, type, instructions, n<br>
+                                                    <strong>Optional fields:</strong> agent
                                                 </p>
                                             </div>
                                         </div>
@@ -1614,9 +1625,19 @@
                                                 <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">instructions</h5>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">
                                                     <strong>Type:</strong> string<br>
-                                                    <strong>Required:</strong> Yes (for action steps)<br>
+                                                    <strong>Required:</strong> Yes (for action and ralph steps)<br>
                                                     <strong>Not applicable:</strong> For loop steps (instructions are in loop sub-steps)<br>
                                                     Instructions for what to do in this step.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4">
+                                                <h5 class="font-bold text-gray-900 dark:text-white mb-1 font-mono text-sm">n</h5>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                    <strong>Type:</strong> integer<br>
+                                                    <strong>Required:</strong> Yes (for ralph steps only)<br>
+                                                    <strong>Valid values:</strong> Positive integer (1 or greater)<br>
+                                                    Number of times to repeat the step. Each iteration stores its output with a unique key (e.g., <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">step-id.1</code>, <code class="text-xs bg-gray-200 dark:bg-black/30 px-1 rounded">step-id.2</code>).
                                                 </p>
                                             </div>
 

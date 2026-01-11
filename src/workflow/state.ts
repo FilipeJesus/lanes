@@ -35,13 +35,20 @@ export class WorkflowStateMachine {
    */
   private createInitialState(): WorkflowState {
     const firstStep = this.template.steps[0];
-    return {
+    const state: WorkflowState = {
       status: 'running',
       step: firstStep.id,
       stepType: firstStep.type,
       tasks: {},
       outputs: {},
     };
+
+    // Initialize ralph iteration if first step is ralph
+    if (firstStep.type === 'ralph') {
+      state.ralphIteration = 1;
+    }
+
+    return state;
   }
 
   /**
@@ -135,6 +142,10 @@ export class WorkflowStateMachine {
     const step = this.getCurrentStep();
 
     if (step.type === 'action') {
+      return step.instructions || '';
+    }
+
+    if (step.type === 'ralph') {
       return step.instructions || '';
     }
 
@@ -260,6 +271,23 @@ export class WorkflowStateMachine {
       }
     }
 
+    // Add ralph-specific information
+    if (this.state.stepType === 'ralph') {
+      const currentStep = this.getCurrentStep();
+      const n = currentStep.n || 1;
+      const currentIteration = this.state.ralphIteration || 1;
+
+      response.ralphIteration = currentIteration;
+      response.ralphTotal = n;
+
+      // Add explanatory message about the ralph loop
+      if (currentIteration > 1) {
+        response.instructions = `${response.instructions}\n\n[Ralph Loop - Iteration ${currentIteration} of ${n}]\nYou are receiving THE SAME TASK again to refine and improve your previous result. This is intentional - you should work on this task again, NOT skip it. Your goal is to iterate and improve the quality of the work from iteration ${currentIteration - 1}.`;
+      } else {
+        response.instructions = `${response.instructions}\n\n[Ralph Loop - Iteration 1 of ${n}]\nThis task will be repeated ${n} times to iteratively improve the result. After you complete this iteration, you will receive the SAME TASK again to refine your work. Each iteration is an opportunity to improve quality.`;
+      }
+    }
+
     return response;
   }
 
@@ -321,6 +349,12 @@ export class WorkflowStateMachine {
       return this.state.step;
     }
 
+    if (this.state.stepType === 'ralph') {
+      // Ralph steps include iteration number
+      const iteration = this.state.ralphIteration || 1;
+      return `${this.state.step}.${iteration}`;
+    }
+
     // Loop step
     const parts = [this.state.step];
     if (this.state.task) {
@@ -351,10 +385,16 @@ export class WorkflowStateMachine {
     this.state.stepType = nextStep.type;
     this.state.task = undefined;
     this.state.subStep = undefined;
+    this.state.ralphIteration = undefined;
 
     // If next step is a loop, check if tasks are already set
     if (nextStep.type === 'loop' && this.state.tasks[nextStep.id]?.length > 0) {
       this.initializeLoopIteration();
+    }
+
+    // If next step is a ralph, initialize iteration to 1
+    if (nextStep.type === 'ralph') {
+      this.state.ralphIteration = 1;
     }
   }
 
@@ -422,6 +462,19 @@ export class WorkflowStateMachine {
     // Advance based on step type
     if (this.state.stepType === 'action') {
       this.advanceToNextStep();
+    } else if (this.state.stepType === 'ralph') {
+      // Ralph step - check if we need to iterate or advance
+      const currentStep = this.getCurrentStep();
+      const n = currentStep.n || 1;
+      const currentIteration = this.state.ralphIteration || 1;
+
+      if (currentIteration < n) {
+        // Increment iteration and stay on same step
+        this.state.ralphIteration = currentIteration + 1;
+      } else {
+        // Completed all iterations - advance to next step
+        this.advanceToNextStep();
+      }
     } else {
       // Loop step
       if (this.state.task && this.state.subStep) {
