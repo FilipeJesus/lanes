@@ -116,6 +116,11 @@
         "command": "lanes.validateWorkflow",
         "title": "Lanes: Validate Workflow Template",
         "icon": "$(check)"
+      },
+      {
+        "command": "lanes.repairBrokenWorktrees",
+        "title": "Lanes: Repair Broken Worktrees",
+        "icon": "$(wrench)"
       }
     ],
     "menus": {

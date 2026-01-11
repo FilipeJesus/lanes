@@ -1353,6 +1353,16 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(createWorkflowDisposable);
     context.subscriptions.push(validateWorkflowDisposable);
 
+    // 11. Register REPAIR BROKEN WORKTREES Command
+    const repairBrokenWorktreesDisposable = vscode.commands.registerCommand('lanes.repairBrokenWorktrees', async () => {
+        if (!baseRepoPath) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        await checkAndRepairBrokenWorktrees(baseRepoPath);
+    });
+    context.subscriptions.push(repairBrokenWorktreesDisposable);
+
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
