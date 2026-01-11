@@ -92,7 +92,7 @@ export class WorkflowsProvider implements vscode.TreeDataProvider<WorkflowItem>,
 
         // Get custom workflows folder from config
         const config = vscode.workspace.getConfiguration('lanes');
-        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.claude/lanes/workflows');
+        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.lanes/workflows');
 
         try {
             this.workflows = await discoverWorkflows({

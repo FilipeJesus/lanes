@@ -7,7 +7,7 @@
 #
 # TO USE THIS TEMPLATE:
 # ---------------------
-# 1. Copy this file to your project's .claude/lanes/workflows/ directory
+# 1. Copy this file to your project's .lanes/workflows/ directory
 # 2. Customize the workflow for your project's needs
 # 3. The workflow will appear in the "Custom" section of the dropdown
 #

@@ -111,7 +111,7 @@ export interface DiscoverWorkflowsOptions {
   extensionPath: string;
   /** Absolute path to the workspace root (for custom workflows) */
   workspaceRoot: string;
-  /** Custom workflows folder relative to workspace root (default: '.claude/lanes/workflows') */
+  /** Custom workflows folder relative to workspace root (default: '.lanes/workflows') */
   customWorkflowsFolder?: string;
 }
 
@@ -128,7 +128,7 @@ export interface DiscoverWorkflowsOptions {
  * @returns Array of workflow metadata, with built-in workflows first
  */
 export async function discoverWorkflows(options: DiscoverWorkflowsOptions): Promise<WorkflowMetadata[]> {
-  const { extensionPath, workspaceRoot, customWorkflowsFolder = '.claude/lanes/workflows' } = options;
+  const { extensionPath, workspaceRoot, customWorkflowsFolder = '.lanes/workflows' } = options;
 
   // Discover built-in workflows
   const builtIn = await discoverFromDirectory(path.join(extensionPath, 'workflows'), true);
@@ -171,8 +171,8 @@ export async function discoverWorkflowsWithConfig(
 ): Promise<WorkflowMetadata[]> {
   // Use default value if no config function provided
   const customWorkflowsFolder = getConfigValue
-    ? getConfigValue<string>('lanes', 'customWorkflowsFolder', '.claude/lanes/workflows')
-    : '.claude/lanes/workflows';
+    ? getConfigValue<string>('lanes', 'customWorkflowsFolder', '.lanes/workflows')
+    : '.lanes/workflows';
 
   return discoverWorkflows({
     extensionPath,

@@ -966,7 +966,7 @@ suite('Configuration Test Suite', () => {
 			// Expected descriptions for each setting
 			const expectedDescriptions: { [key: string]: string } = {
 				'lanes.worktreesFolder': 'Folder name where session worktrees are created (relative to repository root). Default: .worktrees',
-				'lanes.promptsFolder': "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.claude/lanes' for repo-relative storage.",
+				'lanes.promptsFolder': "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
 				'lanes.baseBranch': 'Branch to compare against when viewing changes. Leave empty for auto-detection (tries origin/main, origin/master, main, master)',
 				'lanes.includeUncommittedChanges': 'Show uncommitted changes (staged and unstaged) when viewing session changes. Default: enabled',
 				'lanes.useGlobalStorage': 'Store session tracking files in VS Code\'s storage instead of worktree folders. Keeps worktrees cleaner but files are hidden from version control. Default: enabled',
@@ -1334,7 +1334,7 @@ suite('Configuration Test Suite', () => {
 
 		suite('Fallback: Global Storage Not Initialized', () => {
 
-			test('should fall back to legacy .claude/lanes when global storage is not initialized', async () => {
+			test('should fall back to legacy .lanes when global storage is not initialized', async () => {
 				// Arrange: Ensure promptsFolder is empty (would normally use global storage)
 				const config = vscode.workspace.getConfiguration('lanes');
 				await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
@@ -1361,14 +1361,13 @@ suite('Configuration Test Suite', () => {
 					const sessionName = 'test-session';
 
 					// When global storage IS initialized but we want to verify legacy path format
-					// We can check the structure: <repoRoot>/.claude/lanes/<sessionName>.txt
-					const legacyDir = path.join(uninitializedRepoDir, '.claude', 'lanes');
+					// We can check the structure: <repoRoot>/.lanes/<sessionName>.txt
+					const legacyDir = path.join(uninitializedRepoDir, '.lanes');
 					const legacyPath = path.join(legacyDir, `${sessionName}.txt`);
 
 					// This verifies the expected legacy format
 					assert.ok(legacyPath.endsWith(`${sessionName}.txt`), 'Legacy path should end with session name');
-					assert.ok(legacyPath.includes('.claude'), 'Legacy path should include .claude');
-					assert.ok(legacyPath.includes('lanes'), 'Legacy path should include lanes');
+					assert.ok(legacyPath.includes('.lanes'), 'Legacy path should include .lanes');
 
 					// The actual test: when global storage context was never initialized for a repo
 					// This is hard to test in isolation, but we verify the function signature
@@ -1378,22 +1377,22 @@ suite('Configuration Test Suite', () => {
 				}
 			});
 
-			test('should return legacy path structure: <repoRoot>/.claude/lanes/<sessionName>.txt', async () => {
+			test('should return legacy path structure: <repoRoot>/.lanes/<sessionName>.txt', async () => {
 				// This test documents the expected legacy fallback behavior
-				// Legacy path: <repoRoot>/.claude/lanes/<sessionName>.txt
+				// Legacy path: <repoRoot>/.lanes/<sessionName>.txt
 
 				const repoRoot = '/example/repo';
 				const sessionName = 'my-session';
 
 				// Calculate expected legacy path
-				const expectedLegacyDir = path.join(repoRoot, '.claude', 'lanes');
+				const expectedLegacyDir = path.join(repoRoot, '.lanes');
 				const expectedLegacyPath = path.join(expectedLegacyDir, `${sessionName}.txt`);
 
 				// Verify the path structure
 				assert.strictEqual(
 					expectedLegacyPath,
-					path.join(repoRoot, '.claude', 'lanes', 'my-session.txt'),
-					'Legacy path should follow <repoRoot>/.claude/lanes/<sessionName>.txt structure'
+					path.join(repoRoot, '.lanes', 'my-session.txt'),
+					'Legacy path should follow <repoRoot>/.lanes/<sessionName>.txt structure'
 				);
 			});
 		});
