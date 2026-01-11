@@ -1534,6 +1534,33 @@ async function createSession(
                         throw new Error(errorMsg);
                     }
 
+                    // Parse remote and branch from the source branch
+                    // Examples: 'origin/main' -> remote='origin', branch='main'
+                    //           'main' -> remote='origin', branch='main' (default to origin)
+                    //           'upstream/develop' -> remote='upstream', branch='develop'
+                    let remote = 'origin';
+                    let branchName = trimmedSourceBranch;
+
+                    if (trimmedSourceBranch.includes('/')) {
+                        const parts = trimmedSourceBranch.split('/');
+                        remote = parts[0];
+                        branchName = parts.slice(1).join('/');
+                    }
+
+                    // Fetch the source branch from remote to ensure we have the latest version
+                    try {
+                        console.log(`Fetching latest version of ${trimmedSourceBranch} from remote...`);
+                        await execGit(['fetch', remote, branchName], workspaceRoot);
+                        console.log(`Successfully fetched ${remote}/${branchName}`);
+                    } catch (fetchErr) {
+                        // If fetch fails (e.g., offline, remote doesn't exist), warn but continue
+                        const fetchErrMsg = getErrorMessage(fetchErr);
+                        console.warn(`Failed to fetch ${remote}/${branchName}: ${fetchErrMsg}`);
+                        vscode.window.showWarningMessage(
+                            `Could not fetch latest version of '${trimmedSourceBranch}'. Proceeding with local data if available. (${fetchErrMsg})`
+                        );
+                    }
+
                     // Verify the source branch exists before using it
                     const sourceBranchExists = await branchExists(workspaceRoot, trimmedSourceBranch);
                     // Also check for remote branches (origin/branch-name format)
