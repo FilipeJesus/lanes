@@ -56,18 +56,12 @@ name: bugfix
 description: Investigate and fix a bug
 
 agents:
+  # The orchestrator has access to ALL tools by default.
+  # It needs full access to coordinate work, spawn sub-agents, and handle
+  # situations where sub-agents cannot complete tasks.
   orchestrator:
     description: Coordinates investigation and fix
-    tools:
-      - Read
-      - Glob
-      - Grep
-      - Task
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
+    # No tool restrictions - orchestrator needs full access
 
   investigator:
     description: Investigates bug root cause

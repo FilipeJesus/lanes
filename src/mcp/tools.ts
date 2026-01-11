@@ -16,31 +16,11 @@ import * as os from 'os';
 import { sanitizeSessionName } from '../utils';
 
 /**
- * Interface for features.json file structure.
- */
-interface FeaturesFile {
-  features: Array<{
-    id: string;
-    description: string;
-    passes: boolean;
-  }>;
-}
-
-/**
  * Result from workflowStart containing the machine and initial status.
  */
 export interface WorkflowStartResult {
   machine: WorkflowStateMachine;
   status: WorkflowStatusResponse;
-}
-
-/**
- * Gets the path to the features.json file in a worktree.
- * @param worktreePath - The worktree root path
- * @returns The absolute path to features.json
- */
-function getFeaturesPath(worktreePath: string): string {
-  return path.join(worktreePath, 'features.json');
 }
 
 /**
@@ -50,44 +30,6 @@ function getFeaturesPath(worktreePath: string): string {
  */
 export function getStatePath(worktreePath: string): string {
   return path.join(worktreePath, 'workflow-state.json');
-}
-
-/**
- * Reads the current features.json file.
- * @param worktreePath - The worktree root path
- * @returns The parsed features file, or default empty structure
- * @throws If file exists but cannot be read (permissions) or parsed (invalid JSON)
- */
-async function readFeaturesFile(worktreePath: string): Promise<FeaturesFile> {
-  const featuresPath = getFeaturesPath(worktreePath);
-  try {
-    const content = await fs.promises.readFile(featuresPath, 'utf-8');
-    return JSON.parse(content) as FeaturesFile;
-  } catch (error) {
-    // File not found is acceptable - return default
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { features: [] };
-    }
-    // Re-throw other errors (permissions, parse errors, etc.)
-    throw error;
-  }
-}
-
-/**
- * Writes the features.json file atomically.
- * Uses write-to-temp-then-rename pattern to prevent corruption.
- * @param worktreePath - The worktree root path
- * @param features - The features file to write
- */
-async function writeFeaturesFile(worktreePath: string, features: FeaturesFile): Promise<void> {
-  const featuresPath = getFeaturesPath(worktreePath);
-  const tempPath = `${featuresPath}.tmp.${process.pid}`;
-
-  // Write to temp file first
-  await fs.promises.writeFile(tempPath, JSON.stringify(features, null, 2));
-
-  // Atomically rename to target path
-  await fs.promises.rename(tempPath, featuresPath);
 }
 
 /**
@@ -202,12 +144,11 @@ export async function workflowStartFromPath(
 
 /**
  * Associate tasks with a loop step.
- * Also syncs tasks to features.json in the worktree.
  *
  * @param machine - The workflow state machine
  * @param loopId - The ID of the loop step to associate tasks with
  * @param tasks - The tasks to iterate over in the loop
- * @param worktreePath - The worktree root path for features.json sync
+ * @param worktreePath - The worktree root path for state persistence
  */
 export async function workflowSetTasks(
   machine: WorkflowStateMachine,
@@ -217,26 +158,6 @@ export async function workflowSetTasks(
 ): Promise<void> {
   // Set tasks on the state machine
   machine.setTasks(loopId, tasks);
-
-  // Sync to features.json
-  const features = await readFeaturesFile(worktreePath);
-
-  // Convert tasks to features format
-  const newFeatures = tasks.map(task => ({
-    id: task.id,
-    description: task.title,
-    passes: false,
-  }));
-
-  // Merge with existing features (avoid duplicates by id)
-  const existingIds = new Set(features.features.map(f => f.id));
-  for (const feature of newFeatures) {
-    if (!existingIds.has(feature.id)) {
-      features.features.push(feature);
-    }
-  }
-
-  await writeFeaturesFile(worktreePath, features);
 
   // Save state after setting tasks
   await saveState(worktreePath, machine.getState());
@@ -254,11 +175,10 @@ export function workflowStatus(machine: WorkflowStateMachine): WorkflowStatusRes
 
 /**
  * Complete current step/sub-step and advance.
- * Also updates features.json when tasks complete (all sub-steps done for a task).
  *
  * @param machine - The workflow state machine
  * @param output - The output/summary from completing the current step
- * @param worktreePath - The worktree root path for features.json sync
+ * @param worktreePath - The worktree root path for state persistence
  * @returns Updated status response
  */
 export async function workflowAdvance(
@@ -266,37 +186,8 @@ export async function workflowAdvance(
   output: string,
   worktreePath: string
 ): Promise<WorkflowStatusResponse> {
-  // Get state before advancing to detect task completion
-  const stateBefore = machine.getState();
-  const taskBefore = stateBefore.task;
-
   // Advance the workflow
   const status = machine.advance(output);
-
-  // Get state after advancing
-  const stateAfter = machine.getState();
-  const taskAfter = stateAfter.task;
-
-  // Check if a task was completed (task changed or we moved to next step)
-  if (taskBefore && stateBefore.stepType === 'loop') {
-    const taskCompleted =
-      // Task index changed (moved to next task)
-      (taskAfter && taskAfter.index !== taskBefore.index) ||
-      // Or we moved out of the loop (no more tasks)
-      (!taskAfter && stateAfter.step !== stateBefore.step) ||
-      // Or workflow completed while in loop
-      stateAfter.status === 'complete';
-
-    if (taskCompleted) {
-      // Update features.json to mark the completed task as passes: true
-      const features = await readFeaturesFile(worktreePath);
-      const feature = features.features.find(f => f.id === taskBefore.id);
-      if (feature) {
-        feature.passes = true;
-        await writeFeaturesFile(worktreePath, features);
-      }
-    }
-  }
 
   // Save state after advancing
   await saveState(worktreePath, machine.getState());

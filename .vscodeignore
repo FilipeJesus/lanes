@@ -12,8 +12,6 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 .husky/**
 node_modules/**
-features.json
-tests.json
 claude-progress.txt
 CLAUDE.md
 .claude/**

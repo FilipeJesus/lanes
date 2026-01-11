@@ -3,7 +3,7 @@
  *
  * Tests for the MCP tool handlers that control workflow execution.
  * These tests verify that MCP tools correctly interact with the workflow
- * state machine and persist state to features.json.
+ * state machine and persist state to workflow-state.json.
  */
 
 import * as assert from 'assert';
@@ -170,33 +170,6 @@ suite('MCP Tools', () => {
 	});
 
 	suite('workflowSetTasks', () => {
-		test('workflowSetTasks syncs to features.json', async () => {
-			// Arrange
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
-			machine.advance('Planning done'); // Move to loop step
-
-			const tasks: Task[] = [
-				{ id: 'feature-1', title: 'Feature One', status: 'pending' },
-				{ id: 'feature-2', title: 'Feature Two', status: 'pending' },
-			];
-
-			// Act
-			await workflowSetTasks(machine, 'task_loop', tasks, tempDir);
-
-			// Assert: features.json should be created/updated
-			const featuresPath = path.join(tempDir, 'features.json');
-			assert.ok(fs.existsSync(featuresPath), 'features.json should be created');
-
-			const features = JSON.parse(fs.readFileSync(featuresPath, 'utf-8'));
-			assert.strictEqual(features.features.length, 2, 'Should have 2 features');
-			assert.strictEqual(features.features[0].id, 'feature-1');
-			assert.strictEqual(features.features[0].description, 'Feature One');
-			assert.strictEqual(features.features[0].passes, false, 'Feature should start as not passed');
-			assert.strictEqual(features.features[1].id, 'feature-2');
-			assert.strictEqual(features.features[1].description, 'Feature Two');
-			assert.strictEqual(features.features[1].passes, false);
-		});
-
 		test('workflowSetTasks sets tasks on state machine', async () => {
 			// Arrange
 			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
@@ -215,64 +188,6 @@ suite('MCP Tools', () => {
 			assert.strictEqual(status.task.id, 'task-1');
 			assert.strictEqual(status.task.title, 'Task One');
 			assert.strictEqual(status.task.total, 1);
-		});
-
-		test('workflowSetTasks merges with existing features', async () => {
-			// Arrange: Create features.json with existing feature
-			const featuresPath = path.join(tempDir, 'features.json');
-			fs.writeFileSync(featuresPath, JSON.stringify({
-				features: [
-					{ id: 'existing', description: 'Existing Feature', passes: true }
-				]
-			}));
-
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
-			machine.advance('Planning done');
-
-			const tasks: Task[] = [
-				{ id: 'new-feature', title: 'New Feature', status: 'pending' },
-			];
-
-			// Act
-			await workflowSetTasks(machine, 'task_loop', tasks, tempDir);
-
-			// Assert: Should have both features
-			const features = JSON.parse(fs.readFileSync(featuresPath, 'utf-8'));
-			assert.strictEqual(features.features.length, 2, 'Should have 2 features total');
-			assert.ok(
-				features.features.find((f: { id: string }) => f.id === 'existing'),
-				'Existing feature should be preserved'
-			);
-			assert.ok(
-				features.features.find((f: { id: string }) => f.id === 'new-feature'),
-				'New feature should be added'
-			);
-		});
-
-		test('workflowSetTasks avoids duplicate features by id', async () => {
-			// Arrange: Create features.json with existing feature
-			const featuresPath = path.join(tempDir, 'features.json');
-			fs.writeFileSync(featuresPath, JSON.stringify({
-				features: [
-					{ id: 'feature-1', description: 'Old Description', passes: true }
-				]
-			}));
-
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
-			machine.advance('Planning done');
-
-			const tasks: Task[] = [
-				{ id: 'feature-1', title: 'New Description', status: 'pending' },
-			];
-
-			// Act
-			await workflowSetTasks(machine, 'task_loop', tasks, tempDir);
-
-			// Assert: Should not duplicate
-			const features = JSON.parse(fs.readFileSync(featuresPath, 'utf-8'));
-			assert.strictEqual(features.features.length, 1, 'Should not duplicate features');
-			// Original description preserved (not overwritten)
-			assert.strictEqual(features.features[0].description, 'Old Description');
 		});
 
 		test('workflowSetTasks saves state after setting tasks', async () => {
@@ -296,32 +211,6 @@ suite('MCP Tools', () => {
 	});
 
 	suite('workflowAdvance', () => {
-		test('workflowAdvance updates features.json on task completion', async () => {
-			// Arrange
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
-			machine.advance('Planning done'); // -> task_loop
-
-			const tasks: Task[] = [
-				{ id: 'feature-1', title: 'Feature One', status: 'pending' },
-				{ id: 'feature-2', title: 'Feature Two', status: 'pending' },
-			];
-			await workflowSetTasks(machine, 'task_loop', tasks, tempDir);
-
-			// Complete first task (2 sub-steps: implement, review)
-			await workflowAdvance(machine, 'Implemented feature 1', tempDir);
-			await workflowAdvance(machine, 'Reviewed feature 1', tempDir);
-
-			// Assert: First feature should be marked as passes: true
-			const featuresPath = path.join(tempDir, 'features.json');
-			const features = JSON.parse(fs.readFileSync(featuresPath, 'utf-8'));
-
-			const feature1 = features.features.find((f: { id: string }) => f.id === 'feature-1');
-			const feature2 = features.features.find((f: { id: string }) => f.id === 'feature-2');
-
-			assert.strictEqual(feature1.passes, true, 'Completed feature should have passes: true');
-			assert.strictEqual(feature2.passes, false, 'Incomplete feature should still have passes: false');
-		});
-
 		test('workflowAdvance advances through action steps', async () => {
 			// Arrange
 			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
@@ -360,7 +249,7 @@ suite('MCP Tools', () => {
 			assert.strictEqual(status.status, 'complete');
 		});
 
-		test('workflowAdvance marks all features as passed when loop completes', async () => {
+		test('workflowAdvance moves to cleanup step after loop completes', async () => {
 			// Arrange
 			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
 			machine.advance('Planning done');
@@ -374,12 +263,7 @@ suite('MCP Tools', () => {
 			await workflowAdvance(machine, 'Implemented', tempDir);
 			await workflowAdvance(machine, 'Reviewed', tempDir);
 
-			// Assert: Feature should be marked as passed
-			const featuresPath = path.join(tempDir, 'features.json');
-			const features = JSON.parse(fs.readFileSync(featuresPath, 'utf-8'));
-			assert.strictEqual(features.features[0].passes, true);
-
-			// And we should now be at cleanup step
+			// Assert: Should now be at cleanup step
 			const status = machine.getStatus();
 			assert.strictEqual(status.step, 'cleanup');
 		});

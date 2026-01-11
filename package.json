@@ -212,18 +212,6 @@
             "default": "",
             "description": "Relative path for .claude-status file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root",
             "order": 3
-          },
-          "lanes.featuresJsonPath": {
-            "type": "string",
-            "default": "",
-            "description": "Relative path for features.json within each worktree. Leave empty for worktree root",
-            "order": 4
-          },
-          "lanes.testsJsonPath": {
-            "type": "string",
-            "default": "",
-            "description": "Relative path for tests.json within each worktree. Leave empty for worktree root",
-            "order": 5
           }
         }
       },

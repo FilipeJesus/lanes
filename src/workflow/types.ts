@@ -9,10 +9,10 @@
 export interface AgentConfig {
   /** Human-readable description of the agent's role */
   description: string;
-  /** List of tools this agent is allowed to use */
-  tools: string[];
-  /** List of actions this agent cannot perform */
-  cannot: string[];
+  /** List of tools this agent is allowed to use. If omitted, agent has access to all tools. */
+  tools?: string[];
+  /** List of actions this agent cannot perform. If omitted, no special restrictions. */
+  cannot?: string[];
 }
 
 /**

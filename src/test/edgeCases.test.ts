@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getFeatureStatus, getClaudeStatus, getSessionId, FeatureStatus, ClaudeStatus, getFeaturesJsonPath, getClaudeSessionPath, getClaudeStatusPath } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, getClaudeSessionPath, getClaudeStatusPath } from '../ClaudeSessionProvider';
 import { SessionFormProvider } from '../SessionFormProvider';
 
 suite('Edge Cases Test Suite', () => {
@@ -107,27 +107,6 @@ suite('Edge Cases Test Suite', () => {
 
 				assert.strictEqual(item.label, longName);
 				assert.ok(item.worktreePath.includes(longName));
-			});
-
-			test('should handle features.json with very long feature IDs', () => {
-				// Create a worktree with features.json containing long feature ID
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'test-session');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				const longFeatureId = 'feature-'.repeat(30) + '123';
-				const featuresContent = {
-					features: [
-						{ id: longFeatureId, description: 'A feature with a very long ID', passes: false }
-					]
-				};
-				fs.writeFileSync(
-					path.join(sessionDir, 'features.json'),
-					JSON.stringify(featuresContent)
-				);
-
-				const status = getFeatureStatus(sessionDir);
-				assert.strictEqual(status.currentFeature?.id, longFeatureId);
 			});
 		});
 
@@ -330,189 +309,7 @@ suite('Edge Cases Test Suite', () => {
 			});
 		});
 
-		suite('Features.json Edge Cases', () => {
-
-			test('should handle features.json with empty features array', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'empty-features-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				fs.writeFileSync(
-					path.join(sessionDir, 'features.json'),
-					JSON.stringify({ features: [] })
-				);
-
-				const result = getFeatureStatus(sessionDir);
-				assert.strictEqual(result.currentFeature, null);
-				assert.strictEqual(result.allComplete, false);
-			});
-
-			test('should handle features.json with all features complete', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'all-complete-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				fs.writeFileSync(
-					path.join(sessionDir, 'features.json'),
-					JSON.stringify({
-						features: [
-							{ id: 'f1', description: 'Feature 1', passes: true },
-							{ id: 'f2', description: 'Feature 2', passes: true },
-							{ id: 'f3', description: 'Feature 3', passes: true }
-						]
-					})
-				);
-
-				const result = getFeatureStatus(sessionDir);
-				assert.strictEqual(result.currentFeature, null);
-				assert.strictEqual(result.allComplete, true);
-			});
-
-			test('should handle features.json with mixed completion status', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'mixed-status-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				fs.writeFileSync(
-					path.join(sessionDir, 'features.json'),
-					JSON.stringify({
-						features: [
-							{ id: 'f1', description: 'Complete', passes: true },
-							{ id: 'f2', description: 'Incomplete', passes: false },
-							{ id: 'f3', description: 'Also incomplete', passes: false }
-						]
-					})
-				);
-
-				const result = getFeatureStatus(sessionDir);
-				assert.strictEqual(result.currentFeature?.id, 'f2', 'Should return first incomplete feature');
-				assert.strictEqual(result.allComplete, false);
-			});
-
-			test('should handle features.json with extra fields on features', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'extra-feature-fields-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				fs.writeFileSync(
-					path.join(sessionDir, 'features.json'),
-					JSON.stringify({
-						features: [
-							{
-								id: 'f1',
-								description: 'Feature with extras',
-								passes: false,
-								priority: 'high',
-								assignee: 'claude',
-								customField: { nested: 'data' }
-							}
-						]
-					})
-				);
-
-				const result = getFeatureStatus(sessionDir);
-				assert.strictEqual(result.currentFeature?.id, 'f1');
-				assert.strictEqual(result.currentFeature?.passes, false);
-			});
-
-			test('should handle malformed features.json gracefully', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'malformed-features-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				const malformedCases = [
-					'not json at all',
-					'{ invalid json }',
-					'null',
-					'[]',
-					'{ "features": "not an array" }',
-					'{ "features": null }',
-				];
-
-				for (const content of malformedCases) {
-					fs.writeFileSync(path.join(sessionDir, 'features.json'), content);
-
-					const result = getFeatureStatus(sessionDir);
-					assert.strictEqual(result.currentFeature, null, `Malformed content should return null currentFeature: ${content}`);
-					assert.strictEqual(result.allComplete, false, `Malformed content should return false allComplete: ${content}`);
-				}
-			});
-		});
-
-		suite('Path Configuration Edge Cases', () => {
-
-			test('should handle paths with multiple consecutive slashes', () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'multi-slash-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				// Create nested directory structure
-				const nestedDir = path.join(sessionDir, 'subdir');
-				fs.mkdirSync(nestedDir, { recursive: true });
-
-				const featuresContent = { features: [{ id: 'test', description: 'Test', passes: false }] };
-				fs.writeFileSync(path.join(nestedDir, 'features.json'), JSON.stringify(featuresContent));
-
-				// The path normalization should handle this
-				const result = getFeatureStatus(sessionDir);
-				// Without configuration pointing to subdir, it should not find the file
-				assert.strictEqual(result.currentFeature, null);
-			});
-
-			test('should handle paths with trailing slashes via path normalization', () => {
-				// Test that the path building logic properly handles trailing slashes
-				// by directly testing the path.join behavior used in validateAndBuildPath
-				fs.mkdirSync(worktreesDir, { recursive: true });
-				const sessionDir = path.join(worktreesDir, 'trailing-slash-test');
-				fs.mkdirSync(sessionDir, { recursive: true });
-
-				const subdir = path.join(sessionDir, 'subdir');
-				fs.mkdirSync(subdir, { recursive: true });
-
-				// Simulate what validateAndBuildPath does with a trailing slash path
-				const pathWithTrailingSlash = 'subdir/';
-				const trimmedPath = pathWithTrailingSlash.trim().replace(/\\/g, '/');
-				const resolvedPath = path.join(sessionDir, trimmedPath, 'features.json');
-
-				// The path.join should normalize the trailing slash
-				assert.ok(resolvedPath.includes('subdir'), 'Path should include subdir');
-				assert.ok(resolvedPath.endsWith('features.json'), 'Path should end with features.json');
-				// Verify no double slashes in the path
-				assert.ok(!resolvedPath.includes('//'), 'Path should not contain double slashes');
-			});
-		});
-
 		suite('Concurrent Operations', () => {
-
-			test('should handle multiple simultaneous getFeatureStatus calls', async () => {
-				fs.mkdirSync(worktreesDir, { recursive: true });
-
-				// Create multiple session directories
-				const sessionCount = 10;
-				const sessionDirs: string[] = [];
-
-				for (let i = 0; i < sessionCount; i++) {
-					const sessionDir = path.join(worktreesDir, `concurrent-test-${i}`);
-					fs.mkdirSync(sessionDir, { recursive: true });
-					fs.writeFileSync(
-						path.join(sessionDir, 'features.json'),
-						JSON.stringify({
-							features: [{ id: `feature-${i}`, description: `Feature ${i}`, passes: false }]
-						})
-					);
-					sessionDirs.push(sessionDir);
-				}
-
-				// Call getFeatureStatus concurrently for all sessions
-				const results = await Promise.all(
-					sessionDirs.map(dir => Promise.resolve(getFeatureStatus(dir)))
-				);
-
-				// Verify each result is correct
-				for (let i = 0; i < sessionCount; i++) {
-					assert.strictEqual(results[i].currentFeature?.id, `feature-${i}`);
-				}
-			});
 
 			test('should handle multiple simultaneous getClaudeStatus calls', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });

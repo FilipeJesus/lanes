@@ -470,8 +470,8 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
 /**
  * Get the glob pattern for watching a file based on configuration.
  * Security: Validates path to prevent directory traversal in glob patterns.
- * @param configKey The configuration key to read (e.g., 'featuresJsonPath')
- * @param filename The filename to watch (e.g., 'features.json')
+ * @param configKey The configuration key to read
+ * @param filename The filename to watch (e.g., 'workflow-state.json')
  * @returns Glob pattern for watching the file in worktrees
  */
 function getWatchPattern(configKey: string, filename: string): string {
@@ -500,15 +500,6 @@ function getWatchPattern(configKey: string, filename: string): string {
         return `${worktreesFolder}/**/${normalizedPath}/${filename}`;
     }
     return `${worktreesFolder}/**/${filename}`;
-}
-
-/**
- * Get the glob pattern for watching features.json based on configuration.
- * Security: Validates path to prevent directory traversal in glob patterns.
- * @returns Glob pattern for watching features.json in worktrees
- */
-function getFeaturesWatchPattern(): string {
-    return getWatchPattern('featuresJsonPath', 'features.json');
 }
 
 /**
@@ -740,17 +731,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
         context.subscriptions.push(statusWatcher);
 
-        // Also watch for features.json changes to refresh the sidebar
-        const featuresWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, getFeaturesWatchPattern())
-        );
-
-        featuresWatcher.onDidChange(() => sessionProvider.refresh());
-        featuresWatcher.onDidCreate(() => sessionProvider.refresh());
-        featuresWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(featuresWatcher);
-
         // Also watch for .claude-session file changes to refresh the sidebar
         const sessionWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(watchPath, getSessionWatchPattern())
@@ -793,8 +773,6 @@ export async function activate(context: vscode.ExtensionContext) {
         globalSessionWatcher.onDidDelete(() => sessionProvider.refresh());
 
         context.subscriptions.push(globalSessionWatcher);
-        // Note: features.json and tests.json are NOT stored in global storage
-        // as they are development workflow files, not extension-managed session files
     }
 
     // Watch for changes to the prompts folder to refresh previous sessions
