@@ -58,30 +58,47 @@ function getPendingSessionsDir(repoRoot: string): string {
 const WORKFLOWS_DIR = path.join(__dirname, '..', 'workflows');
 
 /**
- * Get available workflow template names from the workflows directory.
- * @returns Array of workflow names (without .yaml extension)
+ * Validate that a workflow exists and resolve it to a full path.
+ * Accepts either a workflow name (e.g., 'copy-writer') or a full path to a YAML file.
+ * Checks both built-in workflows (in WORKFLOWS_DIR) and custom workflows (in .lanes/workflows/).
+ *
+ * @param workflow The workflow name or path to validate
+ * @param extensionPath The extension root path (for built-in workflows)
+ * @param workspaceRoot The workspace root path (for custom workflows)
+ * @returns Object with isValid flag, resolved path if valid, and available workflows if invalid
  */
-async function getAvailableWorkflows(): Promise<string[]> {
-    try {
-        const files = await fsPromises.readdir(WORKFLOWS_DIR);
-        return files
-            .filter(f => f.endsWith('.yaml'))
-            .map(f => f.replace('.yaml', ''));
-    } catch {
-        // If workflows directory doesn't exist, return empty array
-        return [];
+async function validateWorkflow(
+    workflow: string,
+    extensionPath: string,
+    workspaceRoot: string
+): Promise<{ isValid: boolean; resolvedPath?: string; availableWorkflows: string[] }> {
+    // If workflow is already an absolute path ending in .yaml, check if it exists
+    if (path.isAbsolute(workflow) && workflow.endsWith('.yaml')) {
+        try {
+            await fsPromises.access(workflow, fs.constants.R_OK);
+            return { isValid: true, resolvedPath: workflow, availableWorkflows: [] };
+        } catch {
+            // Path doesn't exist, fall through to name-based lookup
+        }
     }
-}
 
-/**
- * Validate that a workflow template exists.
- * @param workflow The workflow name to validate
- * @returns Object with isValid flag and available workflows if invalid
- */
-async function validateWorkflow(workflow: string): Promise<{ isValid: boolean; availableWorkflows: string[] }> {
-    const availableWorkflows = await getAvailableWorkflows();
-    const isValid = availableWorkflows.includes(workflow);
-    return { isValid, availableWorkflows };
+    // Discover all available workflows (built-in and custom)
+    const allWorkflows = await discoverWorkflows({
+        extensionPath,
+        workspaceRoot
+    });
+
+    // Try to find the workflow by name (case-insensitive for convenience)
+    const workflowLower = workflow.toLowerCase();
+    const matchedWorkflow = allWorkflows.find(w => w.name.toLowerCase() === workflowLower);
+
+    if (matchedWorkflow) {
+        return { isValid: true, resolvedPath: matchedWorkflow.path, availableWorkflows: [] };
+    }
+
+    // Not found - return available workflow names for error message
+    const availableWorkflows = allWorkflows.map(w => w.name);
+    return { isValid: false, availableWorkflows };
 }
 
 /**
@@ -540,9 +557,15 @@ export function getRepoName(repoPath: string): string {
 async function processPendingSession(
     configPath: string,
     workspaceRoot: string | undefined,
+    extensionPath: string,
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent
 ): Promise<void> {
+    if (!workspaceRoot) {
+        console.error('Cannot process pending session: no workspace root');
+        return;
+    }
+
     try {
         // Read and parse the config file
         const configContent = await fsPromises.readFile(configPath, 'utf-8');
@@ -550,9 +573,14 @@ async function processPendingSession(
 
         console.log(`Processing pending session request: ${config.name}`);
 
-        // Validate workflow if provided
+        // Validate and resolve workflow if provided
+        let resolvedWorkflowPath: string | null = null;
         if (config.workflow) {
-            const { isValid, availableWorkflows } = await validateWorkflow(config.workflow);
+            const { isValid, resolvedPath, availableWorkflows } = await validateWorkflow(
+                config.workflow,
+                extensionPath,
+                workspaceRoot
+            );
             if (!isValid) {
                 // Delete config file to prevent re-processing
                 await fsPromises.unlink(configPath);
@@ -565,6 +593,7 @@ async function processPendingSession(
                 );
                 return;
             }
+            resolvedWorkflowPath = resolvedPath || null;
         }
 
         // Delete the config file first to prevent re-processing
@@ -579,7 +608,7 @@ async function processPendingSession(
             '', // acceptanceCriteria
             'default' as PermissionMode, // permissionMode
             config.sourceBranch,
-            config.workflow || null, // workflow - optional workflow template from MCP request
+            resolvedWorkflowPath, // workflow - resolved path to workflow YAML file
             workspaceRoot,
             sessionProvider,
             codeAgent
@@ -603,6 +632,7 @@ async function processPendingSession(
  */
 async function checkPendingSessions(
     workspaceRoot: string | undefined,
+    extensionPath: string,
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent
 ): Promise<void> {
@@ -622,7 +652,7 @@ async function checkPendingSessions(
 
         for (const file of jsonFiles) {
             const configPath = path.join(pendingSessionsDir, file);
-            await processPendingSession(configPath, workspaceRoot, sessionProvider, codeAgent);
+            await processPendingSession(configPath, workspaceRoot, extensionPath, sessionProvider, codeAgent);
         }
     } catch (err) {
         console.error('Failed to check pending sessions:', err);
@@ -866,13 +896,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
         pendingSessionWatcher.onDidCreate(async (uri) => {
             console.log(`Pending session file detected: ${uri.fsPath}`);
-            await processPendingSession(uri.fsPath, baseRepoPath, sessionProvider, codeAgent);
+            await processPendingSession(uri.fsPath, baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
         });
 
         context.subscriptions.push(pendingSessionWatcher);
 
         // Check for any pending sessions on startup
-        checkPendingSessions(baseRepoPath, sessionProvider, codeAgent);
+        checkPendingSessions(baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
     }
 
     // Listen for configuration changes to update hooks when storage location changes
