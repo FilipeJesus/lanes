@@ -9,10 +9,6 @@
 export interface AgentConfig {
   /** Human-readable description of the agent's role */
   description: string;
-  /** List of tools this agent is allowed to use. If omitted, agent has access to all tools. */
-  tools?: string[];
-  /** List of actions this agent cannot perform. If omitted, no special restrictions. */
-  cannot?: string[];
 }
 
 /**
@@ -166,8 +162,6 @@ export interface WorkflowStatusResponse {
   agent: string | null;
   /** Whether the work should be delegated to the assigned agent */
   delegate?: boolean;
-  /** Configuration for the assigned agent */
-  agentConfig?: AgentConfig;
   /** Instructions for the current step */
   instructions: string;
   /** Progress information */

@@ -70,47 +70,14 @@ name: refactor
 description: Refactor code for improved quality
 
 agents:
-  # The orchestrator has access to ALL tools by default.
-  # It needs full access to coordinate work, spawn sub-agents, and handle
-  # situations where sub-agents cannot complete tasks.
-  orchestrator:
-    description: Coordinates refactoring effort
-    # No tool restrictions - orchestrator needs full access
-
   analyzer:
     description: Analyzes code for refactoring opportunities
-    tools:
-      - Read
-      - Glob
-      - Grep
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
 
   refactorer:
     description: Implements refactoring changes
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Glob
-      - Grep
-    cannot:
-      - Bash
-      - commit
-      - Task
 
   tester:
     description: Ensures refactoring preserves behavior
-    tools:
-      - Read
-      - Bash
-    cannot:
-      - Write
-      - Edit
-      - commit
 
 loops:
   refactor_cycle:
@@ -163,7 +130,6 @@ steps:
 
   - id: define_tasks
     type: action
-    agent: orchestrator
     instructions: |
       Based on the analysis, define refactoring tasks.
 

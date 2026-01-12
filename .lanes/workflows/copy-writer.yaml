@@ -4,15 +4,6 @@ description: A workflow for generating social media copy
 agents:
   social-media-copywriter:
     description: Implements features and writes code
-    tools:
-      - Read
-      - Bash
-      - Write
-      - Grep
-      - Glob
-    cannot:
-      - commit without Review
-      - modify feature code
 
 steps:
   

@@ -988,9 +988,7 @@ suite('Workflow Summary Feature', () => {
 		description: 'Test workflow for summary feature',
 		agents: {
 			'test-agent': {
-				description: 'Test agent',
-				tools: ['Read', 'Write'],
-				cannot: []
+				description: 'Test agent'
 			}
 		},
 		loops: {

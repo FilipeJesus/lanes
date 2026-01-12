@@ -70,37 +70,12 @@ description: Standard development workflow with planning, implementation, and cl
 agents:
   coder:
     description: Implements features and writes code
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Grep
-      - Glob
-    cannot:
-      - commit without review
-      - skip tests
 
   test-engineer:
     description: Writes and runs tests for implemented features
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-    cannot:
-      - modify feature code
-      - skip test execution
 
   code-reviewer:
     description: Reviews code quality and provides feedback
-    tools:
-      - Read
-      - Grep
-      - Glob
-    cannot:
-      - modify code directly
-      - approve own code
 
 loops:
   implement:

@@ -4,8 +4,6 @@ description: Plan and create new lanes
 agents:
   orchestrator:
     description: Does everything needed to plan and create lanes
-    tools:
-      - Read
 
 loops:
   lane_starter:

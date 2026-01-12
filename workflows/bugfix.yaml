@@ -70,47 +70,15 @@ name: bugfix
 description: Investigate and fix a bug
 
 agents:
-  # The orchestrator has access to ALL tools by default.
-  # It needs full access to coordinate work, spawn sub-agents, and handle
-  # situations where sub-agents cannot complete tasks.
-  orchestrator:
-    description: Coordinates investigation and fix
-    # No tool restrictions - orchestrator needs full access
 
   investigator:
     description: Investigates bug root cause
-    tools:
-      - Read
-      - Glob
-      - Grep
-      - Bash
-    cannot:
-      - Write
-      - Edit
-      - commit
 
   fixer:
     description: Implements bug fixes
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    cannot:
-      - commit
-      - Task
 
   verifier:
     description: Verifies fixes work correctly
-    tools:
-      - Read
-      - Bash
-    cannot:
-      - Write
-      - Edit
-      - commit
 
 loops:
   fix_cycle:
@@ -161,7 +129,6 @@ steps:
 
   - id: define_fixes
     type: action
-    agent: orchestrator
     instructions: |
       Based on the investigation, define fix tasks.
 

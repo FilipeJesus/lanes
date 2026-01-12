@@ -1484,29 +1484,10 @@
                                             <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-purple-400">agents:</span>
   <span class="text-blue-400">orchestrator:</span>
     <span class="text-green-400">description:</span> Plans work and coordinates sub-agents
-    <span class="text-green-400">tools:</span>
-      - Read
-      - Glob
-      - Grep
-      - Task
-    <span class="text-green-400">cannot:</span>
-      - Write
-      - Edit
-      - Bash
-      - commit
 
   <span class="text-blue-400">implementer:</span>
     <span class="text-green-400">description:</span> Writes code to implement features
-    <span class="text-green-400">tools:</span>
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    <span class="text-green-400">cannot:</span>
-      - commit
-      - Task</code></pre>
+    </code></pre>
                                         </div>
 
                                     </div>
@@ -1877,7 +1858,7 @@
 
                                         <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
                                             <p class="text-sm text-blue-800 dark:text-blue-200">
-                                                <strong>Tip:</strong> Simple workflows are great for quick prototypes, single-developer tasks, or when you don't need tool restrictions between phases.
+                                                <strong>Tip:</strong> Simple workflows are great for quick prototypes, single-developer tasks, or when you don't need specialized phases.
                                             </p>
                                         </div>
                                     </div>
@@ -1910,56 +1891,18 @@
   <span class="text-gray-500"># Planning agent - can read code but not modify it</span>
   <span class="text-blue-400">planner:</span>
     <span class="text-green-400">description:</span> Analyzes requirements and breaks down work
-    <span class="text-green-400">tools:</span>
-      - Read      <span class="text-gray-500"># Can read files</span>
-      - Glob      <span class="text-gray-500"># Can find files by pattern</span>
-      - Grep      <span class="text-gray-500"># Can search file contents</span>
-      - Task      <span class="text-gray-500"># Can spawn sub-agents</span>
-    <span class="text-green-400">cannot:</span>
-      - Write     <span class="text-gray-500"># Cannot create files</span>
-      - Edit      <span class="text-gray-500"># Cannot modify files</span>
-      - Bash      <span class="text-gray-500"># Cannot run commands</span>
-      - commit    <span class="text-gray-500"># Cannot commit changes</span>
 
   <span class="text-gray-500"># Implementation agent - can write code but not commit</span>
   <span class="text-blue-400">coder:</span>
     <span class="text-green-400">description:</span> Implements features according to plan
-    <span class="text-green-400">tools:</span>
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    <span class="text-green-400">cannot:</span>
-      - commit    <span class="text-gray-500"># Cannot commit (that's done at workflow level)</span>
-      - Task      <span class="text-gray-500"># Cannot spawn more agents</span>
 
   <span class="text-gray-500"># Test agent - can run tests and fix test code</span>
   <span class="text-blue-400">tester:</span>
     <span class="text-green-400">description:</span> Runs tests and fixes failures
-    <span class="text-green-400">tools:</span>
-      - Read
-      - Edit      <span class="text-gray-500"># Can fix test code</span>
-      - Bash      <span class="text-gray-500"># Can run test commands</span>
-    <span class="text-green-400">cannot:</span>
-      - Write     <span class="text-gray-500"># Cannot create new files</span>
-      - commit
-      - Task
 
   <span class="text-gray-500"># Review agent - read-only, provides feedback</span>
   <span class="text-blue-400">reviewer:</span>
     <span class="text-green-400">description:</span> Reviews code quality and security
-    <span class="text-green-400">tools:</span>
-      - Read
-      - Glob
-      - Grep
-    <span class="text-green-400">cannot:</span>
-      - Write
-      - Edit
-      - Bash
-      - commit
-      - Task
 
 <span class="text-gray-500"># ==============================================================================</span>
 <span class="text-gray-500"># LOOPS: Reusable sub-workflows that iterate over tasks</span>
@@ -2108,14 +2051,6 @@
                                             </div>
 
                                             <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
-                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Enforce Boundaries with "cannot"</h5>
-                                                <p class="text-sm text-gray-700 dark:text-gray-300">
-                                                    Always specify what agents cannot do. A reviewer shouldn't modify code. A tester shouldn't create new features.
-                                                    The <code class="text-xs bg-green-200 dark:bg-green-900/50 px-1 rounded">cannot</code> field prevents agents from overstepping their role.
-                                                </p>
-                                            </div>
-
-                                            <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
                                                 <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Use on_fail Strategically</h5>
                                                 <p class="text-sm text-gray-700 dark:text-gray-300">
                                                     • <code class="text-xs bg-green-200 dark:bg-green-900/50 px-1 rounded">retry</code> - For test failures or transient issues<br>
@@ -2137,7 +2072,7 @@
                                                 <p class="text-sm text-gray-700 dark:text-gray-300">
                                                     Before rolling out a custom workflow to your team, test it on a real task. Verify that:
                                                     • Each step produces the expected output
-                                                    • Agents respect their tool restrictions
+                                                    • Agents execute their roles correctly
                                                     • The workflow completes successfully
                                                     • The final result matches expectations
                                                 </p>

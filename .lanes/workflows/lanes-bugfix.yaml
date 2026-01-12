@@ -2,29 +2,11 @@ name: lanes-bugfix
 description: Investigate and fix a bug
 
 agents:
-
   coder:
     description: Implements bug fixes
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    cannot:
-      - commit
-      - Task
 
   test-engineer:
     description: Verifies fixes work correctly
-    tools:
-      - Read
-      - Bash
-    cannot:
-      - Write
-      - Edit
-      - commit
 
 loops:
   fix_cycle:

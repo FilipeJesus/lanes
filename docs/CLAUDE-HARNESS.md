@@ -25,7 +25,7 @@ The MCP (Model Context Protocol) based workflow system provides structured phase
 The MCP Workflow System guides Claude through structured development phases using:
 
 - **Workflow Templates** - YAML files that define the sequence of steps
-- **Specialized Agents** - Sub-agents with specific roles and tool restrictions
+- **Specialized Agents** - Sub-agents with specific roles
 - **Reusable Loops** - Sub-workflows that iterate over tasks
 - **MCP Tools** - Functions Claude uses to navigate the workflow
 
@@ -41,7 +41,7 @@ Workflow templates are YAML files that define the sequence of steps in a develop
 - **steps** - The main workflow sequence
 
 **Optional Fields:**
-- **agents** - Specialized roles with allowed/disallowed tools (for complex workflows)
+- **agents** - Specialized roles for executing workflow steps (for complex workflows)
 - **loops** - Reusable sub-workflows that iterate over tasks (for multi-task workflows)
 
 Simple workflows can be defined with just `name`, `description`, and `steps`. The `agents` and `loops` fields are only needed for more complex workflows that require specialized sub-agents or iteration over multiple tasks.
@@ -84,13 +84,9 @@ description: Plan and implement a new feature with specialized agents
 agents:
   orchestrator:
     description: Plans work and coordinates
-    tools: [Read, Glob, Grep, Task]
-    cannot: [Write, Edit, Bash, commit]
 
   implementer:
     description: Writes code
-    tools: [Read, Write, Edit, Bash, Glob, Grep]
-    cannot: [commit, Task]
 
 loops:
   feature_development:
@@ -125,14 +121,12 @@ steps:
 
 Agents are specialized roles that execute specific workflow steps. Each agent has:
 - A **description** of its role
-- A list of **tools** it can use (Read, Write, Edit, Bash, Grep, Glob, Task, commit)
-- A list of actions it **cannot** perform
 
 **Built-in Agent Examples:**
-- **orchestrator** - Plans work, breaks down tasks, coordinates (cannot modify code)
-- **implementer** - Writes code (cannot commit or spawn sub-tasks)
-- **tester** - Runs tests and fixes failures (cannot modify feature code)
-- **reviewer** - Reviews code quality (cannot modify code directly)
+- **orchestrator** - Plans work, breaks down tasks, coordinates
+- **implementer** - Writes code
+- **tester** - Runs tests and fixes failures
+- **reviewer** - Reviews code quality
 
 **Agent Field is Optional:** You can omit the `agent:` field on any step or sub-step. When omitted, the main Claude agent handles that step directly instead of delegating to a sub-agent. This is useful for simpler workflows.
 
@@ -363,7 +357,7 @@ To create a custom workflow for your project:
 
 3. **Customize the workflow:**
    - Edit the `name` and `description`
-   - Define or modify agents (tools, restrictions)
+   - Define or modify agents
    - Adjust the loop steps
    - Modify the main steps sequence
 

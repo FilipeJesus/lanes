@@ -86,9 +86,7 @@ suite('Workflow Types', () => {
 
 		// AgentConfig
 		const agentConfig: AgentConfig = {
-			description: 'Test agent',
-			tools: ['read', 'write'],
-			cannot: ['delete']
+			description: 'Test agent'
 		};
 		assert.ok(agentConfig.description);
 
@@ -188,13 +186,9 @@ suite('Workflow Loader', () => {
 			assert.ok(template.agents);
 			assert.ok(template.agents.orchestrator);
 			assert.strictEqual(template.agents.orchestrator.description, 'Main orchestrator');
-			assert.deepStrictEqual(template.agents.orchestrator.tools, ['read', 'glob']);
-			assert.deepStrictEqual(template.agents.orchestrator.cannot, ['write']);
 
 			assert.ok(template.agents.implementer);
 			assert.strictEqual(template.agents.implementer.description, 'Code implementer');
-			assert.deepStrictEqual(template.agents.implementer.tools, ['read', 'write', 'edit']);
-			assert.deepStrictEqual(template.agents.implementer.cannot, ['commit']);
 
 			// Check loops
 			assert.ok(template.loops);
@@ -625,9 +619,6 @@ steps:
 			// Assert
 			assert.strictEqual(status.agent, 'starter');
 			assert.strictEqual(status.delegate, true);
-			assert.ok(status.agentConfig);
-			assert.strictEqual(status.agentConfig.description, 'Starting agent');
-			assert.deepStrictEqual(status.agentConfig.tools, ['read']);
 		});
 
 		test('Start on minimal template works correctly', () => {
@@ -666,7 +657,6 @@ steps:
 			assert.strictEqual(status.step, 'step1');
 			assert.strictEqual(status.agent, null);
 			assert.strictEqual(status.delegate, false);
-			assert.strictEqual(status.agentConfig, undefined);
 
 			// Act & Assert: Advance to step 2
 			status = machine.advance('Step 1 done');
@@ -1284,7 +1274,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.implementer, 'Should have implementer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
 		assert.ok(template.agents.reviewer, 'Should have reviewer agent');
@@ -1317,7 +1306,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.investigator, 'Should have investigator agent');
 		assert.ok(template.agents.fixer, 'Should have fixer agent');
 		assert.ok(template.agents.verifier, 'Should have verifier agent');
@@ -1350,7 +1338,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.analyzer, 'Should have analyzer agent');
 		assert.ok(template.agents.refactorer, 'Should have refactorer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
@@ -1382,9 +1369,8 @@ suite('Built-in Templates', () => {
 		// Assert
 		assert.strictEqual(status.status, 'running');
 		assert.strictEqual(status.step, 'plan');
-		assert.strictEqual(status.agent, 'orchestrator');
-		assert.strictEqual(status.delegate, true);
-		assert.ok(status.agentConfig);
+		assert.strictEqual(status.agent, null);
+		assert.strictEqual(status.delegate, false);
 		assert.ok(status.instructions.includes('Analyze the goal'));
 	});
 
@@ -1402,7 +1388,6 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(status.step, 'investigate');
 		assert.strictEqual(status.agent, 'investigator');
 		assert.strictEqual(status.delegate, true);
-		assert.ok(status.agentConfig);
 		assert.ok(status.instructions.includes('Investigate the bug'));
 	});
 
@@ -1420,7 +1405,6 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(status.step, 'analyze');
 		assert.strictEqual(status.agent, 'analyzer');
 		assert.strictEqual(status.delegate, true);
-		assert.ok(status.agentConfig);
 		assert.ok(status.instructions.includes('Analyze the code'));
 	});
 

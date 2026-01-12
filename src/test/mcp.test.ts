@@ -301,8 +301,6 @@ suite('MCP Tools', () => {
 
 			// Assert: First sub-step has implementer agent
 			assert.strictEqual(status.agent, 'implementer');
-			assert.ok(status.agentConfig);
-			assert.strictEqual(status.agentConfig.description, 'Code implementer');
 			assert.strictEqual(status.delegate, true, 'delegate should be true when agent is assigned');
 		});
 

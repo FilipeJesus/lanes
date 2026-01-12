@@ -69,47 +69,15 @@ name: feature
 description: Plan and implement a new feature
 
 agents:
-  # The orchestrator has access to ALL tools by default.
-  # It needs full access to coordinate work, spawn sub-agents, and handle
-  # situations where sub-agents cannot complete tasks.
-  orchestrator:
-    description: Plans work and coordinates sub-agents
-    # No tool restrictions - orchestrator needs full access
 
   implementer:
     description: Writes code to implement features
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    cannot:
-      - commit
-      - Task
 
   tester:
     description: Runs tests and fixes failures
-    tools:
-      - Read
-      - Edit
-      - Bash
-    cannot:
-      - commit
-      - Task
 
   reviewer:
     description: Reviews code for quality
-    tools:
-      - Read
-      - Glob
-      - Grep
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
 
 loops:
   feature_development:
@@ -161,7 +129,6 @@ loops:
 steps:
   - id: plan
     type: action
-    agent: orchestrator
     instructions: |
       Analyze the goal and break it into discrete tasks.
 
@@ -174,7 +141,6 @@ steps:
 
   - id: define_tasks
     type: action
-    agent: orchestrator
     instructions: |
       For each task identified in the planning phase, define:
       - id: A unique identifier (e.g., 'add-login-form', 'fix-validation')
