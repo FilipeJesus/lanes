@@ -164,6 +164,8 @@ export interface WorkflowStatusResponse {
   ralphTotal?: number;
   /** Agent assigned to current step (null for main agent) */
   agent: string | null;
+  /** Whether the work should be delegated to the assigned agent */
+  delegate?: boolean;
   /** Configuration for the assigned agent */
   agentConfig?: AgentConfig;
   /** Instructions for the current step */

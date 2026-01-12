@@ -143,13 +143,14 @@ export class WorkflowStateMachine {
    */
   private getCurrentInstructions(): string {
     const step = this.getCurrentStep();
+    let instructions = '';
 
     if (step.type === 'action') {
-      return step.instructions || '';
+      instructions = step.instructions || '';
     }
 
     if (step.type === 'ralph') {
-      return step.instructions || '';
+      instructions = step.instructions || '';
     }
 
     // Loop step - get instructions from current sub-step
@@ -158,14 +159,21 @@ export class WorkflowStateMachine {
       // Interpolate task information into instructions
       const task = this.state.task;
       if (task) {
-        return loopStep.instructions
+        instructions = loopStep.instructions
           .replace(/\{task\.id\}/g, task.id)
           .replace(/\{task\.title\}/g, task.title);
+      } else {
+        instructions = loopStep.instructions;
       }
-      return loopStep.instructions;
     }
 
-    return '';
+    // If an agent is assigned, prepend delegation message
+    const agent = this.getCurrentAgent();
+    if (agent !== null) {
+      instructions = `SPAWN the '${agent}' sub-agent to handle this step:\n\n${instructions}`;
+    }
+
+    return instructions;
   }
 
   /**
@@ -221,6 +229,7 @@ export class WorkflowStateMachine {
         step: this.state.step,
         stepType: this.state.stepType,
         agent: null,
+        delegate: false,
         instructions: 'Workflow complete.',
         progress: this.buildProgress(),
       };
@@ -232,6 +241,7 @@ export class WorkflowStateMachine {
         step: this.state.step,
         stepType: this.state.stepType,
         agent: null,
+        delegate: false,
         instructions: 'Workflow failed.',
         progress: this.buildProgress(),
       };
@@ -247,6 +257,7 @@ export class WorkflowStateMachine {
       step: this.state.step,
       stepType: this.state.stepType,
       agent,
+      delegate: agent !== null,
       instructions,
       progress,
     };

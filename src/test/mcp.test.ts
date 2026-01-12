@@ -303,6 +303,37 @@ suite('MCP Tools', () => {
 			assert.strictEqual(status.agent, 'implementer');
 			assert.ok(status.agentConfig);
 			assert.strictEqual(status.agentConfig.description, 'Code implementer');
+			assert.strictEqual(status.delegate, true, 'delegate should be true when agent is assigned');
+		});
+
+		test('workflowStatus sets delegate to false when no agent assigned', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+
+			// Act - First step has no agent assigned
+			const status = workflowStatus(machine);
+
+			// Assert
+			assert.strictEqual(status.agent, null, 'agent should be null when no agent is assigned');
+			assert.strictEqual(status.delegate, false, 'delegate should be false when no agent is assigned');
+		});
+
+		test('workflowStatus prepends delegation message to instructions when agent is assigned', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			machine.advance('Planning done');
+			machine.setTasks('task_loop', [
+				{ id: 'task-1', title: 'Task 1', status: 'pending' }
+			]);
+
+			// Act
+			const status = workflowStatus(machine);
+
+			// Assert - Instructions should include delegation message
+			assert.ok(status.instructions.includes("SPAWN the 'implementer' sub-agent to handle this step:"), 'Instructions should include delegation message');
+			assert.ok(status.instructions.includes('Implement the feature'), 'Instructions should include original instructions');
+			assert.strictEqual(status.agent, 'implementer', 'Agent should be implementer');
+			assert.strictEqual(status.delegate, true, 'delegate should be true');
 		});
 
 		test('workflowStatus includes task context in loop step', async () => {
