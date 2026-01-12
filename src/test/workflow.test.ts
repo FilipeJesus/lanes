@@ -31,12 +31,8 @@ description: A test workflow
 agents:
   orchestrator:
     description: Main orchestrator
-    tools: [read, glob]
-    cannot: [write]
   implementer:
     description: Code implementer
-    tools: [read, write, edit]
-    cannot: [commit]
 
 loops:
   task_loop:
@@ -68,8 +64,6 @@ description: A minimal workflow
 agents:
   default:
     description: Default agent
-    tools: [read]
-    cannot: []
 
 loops: {}
 
@@ -86,9 +80,7 @@ suite('Workflow Types', () => {
 
 		// AgentConfig
 		const agentConfig: AgentConfig = {
-			description: 'Test agent',
-			tools: ['read', 'write'],
-			cannot: ['delete']
+			description: 'Test agent'
 		};
 		assert.ok(agentConfig.description);
 
@@ -188,13 +180,9 @@ suite('Workflow Loader', () => {
 			assert.ok(template.agents);
 			assert.ok(template.agents.orchestrator);
 			assert.strictEqual(template.agents.orchestrator.description, 'Main orchestrator');
-			assert.deepStrictEqual(template.agents.orchestrator.tools, ['read', 'glob']);
-			assert.deepStrictEqual(template.agents.orchestrator.cannot, ['write']);
 
 			assert.ok(template.agents.implementer);
 			assert.strictEqual(template.agents.implementer.description, 'Code implementer');
-			assert.deepStrictEqual(template.agents.implementer.tools, ['read', 'write', 'edit']);
-			assert.deepStrictEqual(template.agents.implementer.cannot, ['commit']);
 
 			// Check loops
 			assert.ok(template.loops);
@@ -233,9 +221,7 @@ suite('Workflow Loader', () => {
 				description: 'A valid template',
 				agents: {
 					agent1: {
-						description: 'Agent 1',
-						tools: ['read'],
-						cannot: []
+						description: 'Agent 1'
 					}
 				},
 				loops: {},
@@ -369,8 +355,6 @@ description: A template
 agents:
   known_agent:
     description: Known agent
-    tools: [read]
-    cannot: []
 loops: {}
 steps:
   - id: step1
@@ -604,8 +588,6 @@ description: Template with agent on first step
 agents:
   starter:
     description: Starting agent
-    tools: [read]
-    cannot: [write]
 
 loops: {}
 
@@ -622,9 +604,6 @@ steps:
 
 			// Assert
 			assert.strictEqual(status.agent, 'starter');
-			assert.ok(status.agentConfig);
-			assert.strictEqual(status.agentConfig.description, 'Starting agent');
-			assert.deepStrictEqual(status.agentConfig.tools, ['read']);
 		});
 
 		test('Start on minimal template works correctly', () => {
@@ -660,7 +639,6 @@ steps:
 			let status = machine.start();
 			assert.strictEqual(status.step, 'step1');
 			assert.strictEqual(status.agent, null);
-			assert.strictEqual(status.agentConfig, undefined);
 
 			// Act & Assert: Advance to step 2
 			status = machine.advance('Step 1 done');
@@ -1267,7 +1245,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.implementer, 'Should have implementer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
 		assert.ok(template.agents.reviewer, 'Should have reviewer agent');
@@ -1300,7 +1277,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.investigator, 'Should have investigator agent');
 		assert.ok(template.agents.fixer, 'Should have fixer agent');
 		assert.ok(template.agents.verifier, 'Should have verifier agent');
@@ -1333,7 +1309,6 @@ suite('Built-in Templates', () => {
 
 		assert.ok(template.agents, 'Should have agents');
 		// Verify agents
-		assert.ok(template.agents.orchestrator, 'Should have orchestrator agent');
 		assert.ok(template.agents.analyzer, 'Should have analyzer agent');
 		assert.ok(template.agents.refactorer, 'Should have refactorer agent');
 		assert.ok(template.agents.tester, 'Should have tester agent');
@@ -1365,8 +1340,7 @@ suite('Built-in Templates', () => {
 		// Assert
 		assert.strictEqual(status.status, 'running');
 		assert.strictEqual(status.step, 'plan');
-		assert.strictEqual(status.agent, 'orchestrator');
-		assert.ok(status.agentConfig);
+		assert.strictEqual(status.agent, null);
 		assert.ok(status.instructions.includes('Analyze the goal'));
 	});
 
@@ -1383,7 +1357,6 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(status.status, 'running');
 		assert.strictEqual(status.step, 'investigate');
 		assert.strictEqual(status.agent, 'investigator');
-		assert.ok(status.agentConfig);
 		assert.ok(status.instructions.includes('Investigate the bug'));
 	});
 
@@ -1400,7 +1373,6 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(status.status, 'running');
 		assert.strictEqual(status.step, 'analyze');
 		assert.strictEqual(status.agent, 'analyzer');
-		assert.ok(status.agentConfig);
 		assert.ok(status.instructions.includes('Analyze the code'));
 	});
 

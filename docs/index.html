@@ -277,24 +277,31 @@
                 <pre class="p-4 text-sm font-mono text-gray-700 dark:text-gray-300 overflow-x-auto"><code><span class="text-blue-400">name:</span> Feature Development Workflow
 <span class="text-blue-400">description:</span> Structured workflow with plan, implement, test, review
 
+<span class="text-blue-400">agents:</span>
+    <span class="text-blue-400">coder:</span>
+        <span class="text-blue-400">description:</span> Responsible for implementing features
+    <span class="text-blue-400">test-engineer:</span>
+        <span class="text-blue-400">description:</span> Responsible for writing and executing tests
+
+<span class="text-blue-400">loops:</span>
+    <span class="text-blue-400">implement:</span>
+        - <span class="text-blue-400">id:</span> programming
+          <span class="text-blue-400">agent:</span> coder
+          <span class="text-blue-400">instructions:</span> Implement feature...
+        - <span class="text-blue-400">id:</span> testing
+          <span class="text-blue-400">agent:</span> test-engineer
+          <span class="text-blue-400">instructions:</span> Write tests...
+
 <span class="text-blue-400">steps:</span>
   - <span class="text-blue-400">id:</span> plan
     <span class="text-blue-400">type:</span> action
-    <span class="text-blue-400">agent:</span> orchestrator
     <span class="text-blue-400">instructions:</span> Analyze goal and break into features...
 
   - <span class="text-blue-400">id:</span> implement
     <span class="text-blue-400">type:</span> loop
-    <span class="text-blue-400">iterations:</span> features.<span class="text-gray-500">*</span>
-    <span class="text-blue-400">steps:</span>
-      - <span class="text-blue-400">agent:</span> coder
-        <span class="text-blue-400">instructions:</span> Implement feature...
-      - <span class="text-blue-400">agent:</span> test-engineer
-        <span class="text-blue-400">instructions:</span> Write tests...
 
   - <span class="text-blue-400">id:</span> review
     <span class="text-blue-400">type:</span> action
-    <span class="text-blue-400">agent:</span> code-reviewer
     <span class="text-blue-400">instructions:</span> Review all changes...</code></pre>
             </div>
 

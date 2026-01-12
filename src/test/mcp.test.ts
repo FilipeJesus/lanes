@@ -41,12 +41,8 @@ description: A test workflow for MCP tools
 agents:
   implementer:
     description: Code implementer
-    tools: [read, write, edit]
-    cannot: [commit]
   reviewer:
     description: Code reviewer
-    tools: [read]
-    cannot: [write]
 
 loops:
   task_loop:
@@ -78,8 +74,6 @@ description: A simple workflow without loops
 agents:
   default:
     description: Default agent
-    tools: [read]
-    cannot: []
 
 loops: {}
 
@@ -301,8 +295,6 @@ suite('MCP Tools', () => {
 
 			// Assert: First sub-step has implementer agent
 			assert.strictEqual(status.agent, 'implementer');
-			assert.ok(status.agentConfig);
-			assert.strictEqual(status.agentConfig.description, 'Code implementer');
 		});
 
 		test('workflowStatus includes task context in loop step', async () => {

@@ -115,16 +115,6 @@ export class WorkflowStateMachine {
   }
 
   /**
-   * Gets the agent configuration for a given agent ID.
-   */
-  private getAgentConfig(agentId: string | undefined): AgentConfig | undefined {
-    if (!agentId || !this.template.agents) {
-      return undefined;
-    }
-    return this.template.agents[agentId];
-  }
-
-  /**
    * Gets the agent for the current step.
    */
   private getCurrentAgent(): string | null {
@@ -238,7 +228,6 @@ export class WorkflowStateMachine {
     }
 
     const agent = this.getCurrentAgent();
-    const agentConfig = this.getAgentConfig(agent || undefined);
     const instructions = this.getCurrentInstructions();
     const progress = this.buildProgress();
 
@@ -250,10 +239,6 @@ export class WorkflowStateMachine {
       instructions,
       progress,
     };
-
-    if (agentConfig) {
-      response.agentConfig = agentConfig;
-    }
 
     // Add loop-specific information
     if (this.state.stepType === 'loop') {

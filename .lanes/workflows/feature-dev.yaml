@@ -4,38 +4,12 @@ description: Plan and implement a new feature
 agents:
   coder:
     description: Writes code to implement features
-    tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Glob
-      - Grep
-    cannot:
-      - commit
-      - Task
 
   test-engineer:
     description: Runs tests and fixes failures
-    tools:
-      - Read
-      - Edit
-      - Bash
-    cannot:
-      - commit
-      - Task
 
   code-reviewer:
     description: Reviews code for quality
-    tools:
-      - Read
-      - Glob
-      - Grep
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
 
 loops:
   feature_development:
