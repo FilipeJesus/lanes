@@ -1,19 +1,25 @@
 {
-	"name": "Node.js & TypeScript",
-	"image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+	"name": "Lanes Development",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": ".."
+	},
+	"remoteEnv": {
+		"ANTHROPIC_BASE_URL": "${localEnv:ANTHROPIC_BASE_URL:-}",
+		"ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN:-}",
+		"API_TIMEOUT_MS": "60000",
+		"MS_ACCESS_TOKEN": "${localEnv:MS_ACCESS_TOKEN:-}",
+		"OVSX_PAT": "${localEnv:OVSX_PAT:-}"
+	},
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli:1": {},
 		"ghcr.io/devcontainers-extra/features/claude-code:1": {}
 	},
 	"mounts": [
 		"source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind",
-		"source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind",
-		"source=${localEnv:HOME}/.claude.json.backup,target=/home/node/.claude.json.backup,type=bind",
-		"source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+		"source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.claude.json.backup,target=/home/node/.claude.json.backup,type=bind,consistency=cached"
 	],
-	"containerEnv": {
-		"SSH_AUTH_SOCK": "/ssh-agent"
-	},
-	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libgtk-3-0 xvfb && npm ci",
+	"postCreateCommand": "npm ci && npm run compile",
 	"containerUser": "node"
 }
