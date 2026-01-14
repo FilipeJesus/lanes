@@ -5,6 +5,15 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-01-14
+
+### Fixed
+- **Permission Modes** - Removed deprecated 'plan' and 'delegate' permission modes to align with Claude CLI changes
+- **acceptEdits Flag** - Fixed to use `--permission-mode acceptEdits` instead of deprecated `--allowedTools` approach
+
+### Added
+- **Remote Branch Hint** - Session form now shows a hint about remote branch sourcing for better clarity
+
 ## [1.0.2] - 2026-01-12
 
 ### Added
