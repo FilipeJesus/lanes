@@ -1802,7 +1802,7 @@ suite('Session Tests', () => {
 				provider.resolveWebviewView(webviewView, mockContext, mockToken);
 
 				// Assert - verify all 6 options are present
-				const expectedOptions = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+				const expectedOptions = ['acceptEdits', 'bypassPermissions', 'default', 'dontAsk'];
 				for (const option of expectedOptions) {
 					assert.ok(
 						capturedHtml.value.includes(`value="${option}"`),
@@ -1924,11 +1924,11 @@ suite('Session Tests', () => {
 					name: 'test-session',
 					prompt: 'Test prompt',
 					acceptanceCriteria: 'Test criteria',
-					permissionMode: 'plan'
+					permissionMode: 'acceptEdits'
 				});
 
 				// Assert
-				assert.strictEqual(capturedPermissionMode, 'plan', 'Callback should receive the permissionMode value');
+				assert.strictEqual(capturedPermissionMode, 'acceptEdits', 'Callback should receive the permissionMode value');
 			});
 
 			test('should default to "default" when permissionMode is not in message', async () => {
@@ -2014,7 +2014,7 @@ suite('Session Tests', () => {
 			test('should accept all valid PermissionMode values', async () => {
 				// This test verifies that the callback can receive all valid permission modes
 
-				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'dontAsk'];
 
 				for (const mode of validModes) {
 					// Arrange
@@ -2089,9 +2089,9 @@ suite('Session Tests', () => {
 				assert.strictEqual(actualCommand, 'claude', 'Command should be just "claude" for default mode without prompt');
 			});
 
-			test('should include --permission-mode flag when mode is plan (with prompt)', () => {
+			test('should include --permission-mode flag when mode is acceptEdits (with prompt)', () => {
 				// Arrange
-				const permissionMode: string = 'plan';
+				const permissionMode: string = 'acceptEdits';
 				const prompt = 'Fix the bug';
 
 				// Act - simulate the permission flag building logic
@@ -2100,14 +2100,14 @@ suite('Session Tests', () => {
 					: '';
 
 				// Assert
-				assert.strictEqual(permissionFlag, '--permission-mode plan ', 'Permission flag should include plan mode');
+				assert.strictEqual(permissionFlag, '--permission-mode acceptEdits ', 'Permission flag should include acceptEdits mode');
 
 				// Verify the full command format
 				const actualCommand = `claude ${permissionFlag}"${prompt}"`;
 				assert.strictEqual(
 					actualCommand,
-					'claude --permission-mode plan "Fix the bug"',
-					'Command should include --permission-mode plan before the prompt'
+					'claude --permission-mode acceptEdits "Fix the bug"',
+					'Command should include --permission-mode acceptEdits before the prompt'
 				);
 			});
 
@@ -2134,7 +2134,7 @@ suite('Session Tests', () => {
 
 			test('should include --permission-mode flag for all non-default modes', () => {
 				// Test all non-default permission modes
-				const nonDefaultModes = ['acceptEdits', 'bypassPermissions', 'delegate', 'dontAsk', 'plan'];
+				const nonDefaultModes = ['bypassPermissions', 'dontAsk'];
 
 				for (const mode of nonDefaultModes) {
 					// Act - simulate the permission flag building logic
@@ -2181,7 +2181,7 @@ suite('Session Tests', () => {
 		suite('Permission Mode Validation', () => {
 
 			test('isValidPermissionMode should return true for all valid modes', () => {
-				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'];
+				const validModes = ['acceptEdits', 'bypassPermissions', 'default', 'dontAsk'];
 
 				for (const mode of validModes) {
 					assert.strictEqual(
@@ -2225,14 +2225,12 @@ suite('Session Tests', () => {
 				}
 			});
 
-			test('PERMISSION_MODES should contain all 6 valid modes', () => {
-				assert.strictEqual(PERMISSION_MODES.length, 6, 'Should have exactly 6 permission modes');
+			test('PERMISSION_MODES should contain all 4 valid modes', () => {
+				assert.strictEqual(PERMISSION_MODES.length, 4, 'Should have exactly 4 permission modes');
 				assert.ok(PERMISSION_MODES.includes('acceptEdits'), 'Should include acceptEdits');
 				assert.ok(PERMISSION_MODES.includes('bypassPermissions'), 'Should include bypassPermissions');
 				assert.ok(PERMISSION_MODES.includes('default'), 'Should include default');
-				assert.ok(PERMISSION_MODES.includes('delegate'), 'Should include delegate');
 				assert.ok(PERMISSION_MODES.includes('dontAsk'), 'Should include dontAsk');
-				assert.ok(PERMISSION_MODES.includes('plan'), 'Should include plan');
 			});
 		});
 	});
@@ -2333,7 +2331,7 @@ suite('Session Tests', () => {
 				prompt: 'Fix the bug',
 				acceptanceCriteria: 'It should work',
 				sourceBranch: 'develop',
-				permissionMode: 'plan'
+				permissionMode: 'acceptEdits'
 			});
 
 			// Assert - clearForm should NOT be posted when an error occurs
@@ -2608,7 +2606,7 @@ suite('Session Tests', () => {
 				prompt: 'Test async success',
 				acceptanceCriteria: 'Should succeed',
 				sourceBranch: 'main',
-				permissionMode: 'plan'
+				permissionMode: 'acceptEdits'
 			});
 
 			// Assert - clearForm SHOULD be posted when async operation succeeds

@@ -455,12 +455,8 @@
                                                         <span class="text-gray-600 dark:text-gray-400">Auto-accepts file edits (recommended for most workflows)</span>
                                                     </div>
                                                     <div class="flex gap-2">
-                                                        <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">plan</code>
-                                                        <span class="text-gray-600 dark:text-gray-400">Claude proposes changes but doesn't execute them</span>
-                                                    </div>
-                                                    <div class="flex gap-2">
                                                         <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">dontAsk</code>
-                                                        <span class="text-gray-600 dark:text-gray-400">Never prompts for permission (fully autonomous)</span>
+                                                        <span class="text-gray-600 dark:text-gray-400">Auto-deny tools unless explicitly allowed by an allow rule</span>
                                                     </div>
                                                     <div class="flex gap-2">
                                                         <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">bypassPermissions</code>
@@ -808,31 +804,25 @@
                                             <tr class="border-b border-gray-200 dark:border-gray-800">
                                                 <td class="p-3 font-medium text-gray-900 dark:text-white">default</td>
                                                 <td class="p-3">Ask first</td>
-                                                <td class="p-3">Ask first</td>
+                                                <td class="p-3">Ask first unless allowed by an allow rule</td>
                                                 <td class="p-3">Standard interactive workflow</td>
                                             </tr>
                                             <tr class="border-b border-gray-200 dark:border-gray-800">
                                                 <td class="p-3 font-medium text-gray-900 dark:text-white">acceptEdits</td>
                                                 <td class="p-3">Auto-approve</td>
-                                                <td class="p-3">Ask first</td>
+                                                <td class="p-3">Ask first unless allowed by an allow rule</td>
                                                 <td class="p-3">Fast coding, careful with commands</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200 dark:border-gray-800">
-                                                <td class="p-3 font-medium text-gray-900 dark:text-white">plan</td>
-                                                <td class="p-3">Propose only</td>
-                                                <td class="p-3">Propose only</td>
-                                                <td class="p-3">Learning, sensitive codebases</td>
                                             </tr>
                                             <tr class="border-b border-gray-200 dark:border-gray-800">
                                                 <td class="p-3 font-medium text-gray-900 dark:text-white">dontAsk</td>
                                                 <td class="p-3">Auto-approve</td>
-                                                <td class="p-3">Auto-approve all</td>
-                                                <td class="p-3">Fully automated workflows</td>
+                                                <td class="p-3">Auto-deny unless allowed by an allow rule</td>
+                                                <td class="p-3">Auto-deny tools unless explicitly allowed by an allow rule</td>
                                             </tr>
                                             <tr>
                                                 <td class="p-3 font-medium text-red-600 dark:text-red-400">bypassPermissions</td>
-                                                <td class="p-3">No checks</td>
-                                                <td class="p-3">No checks</td>
+                                                <td class="p-3">Auto-approve</td>
+                                                <td class="p-3">Auto-approve</td>
                                                 <td class="p-3">Testing/debugging only</td>
                                             </tr>
                                         </tbody>
@@ -860,41 +850,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Security Recommendations -->
-                                <div class="mt-8 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-6 border border-blue-200 dark:border-blue-900">
-                                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                        </svg>
-                                        Security Best Practices
-                                    </h3>
-                                    <ul class="space-y-3 text-gray-700 dark:text-gray-300">
-                                        <li class="flex items-start gap-2">
-                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            <span><strong>Start conservative:</strong> Use <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">default</code> or <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">plan</code> when first learning or working with new code</span>
-                                        </li>
-                                        <li class="flex items-start gap-2">
-                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            <span><strong>Leverage Lanes's isolation:</strong> More permissive modes like <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">dontAsk</code> are safer when each session has its own isolated worktree</span>
-                                        </li>
-                                        <li class="flex items-start gap-2">
-                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            <span><strong>Match mode to task:</strong> Quick refactoring? Use <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">acceptEdits</code>. Complex workflow? Use <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">delegate</code>. Learning? Use <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">plan</code></span>
-                                        </li>
-                                        <li class="flex items-start gap-2">
-                                            <svg class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                            </svg>
-                                            <span><strong>Use bypassPermissions with Caution:</strong> This mode disables all safety checks and should only be used when in a controlled environment.</span>
-                                        </li>
-                                    </ul>
-                                </div>
                             </div>
                         </section>
 

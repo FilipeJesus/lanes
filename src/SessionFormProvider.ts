@@ -4,7 +4,7 @@ import { WorkflowMetadata } from './workflow';
 /**
  * Valid permission modes for Claude CLI
  */
-export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default', 'delegate', 'dontAsk', 'plan'] as const;
+export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default', 'dontAsk'] as const;
 export type PermissionMode = typeof PERMISSION_MODES[number];
 
 /**
@@ -335,7 +335,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 placeholder="main"
                 autocomplete="off"
             />
-            <div class="hint">Leave empty to branch from current HEAD</div>
+            <div class="hint">Leave empty to branch from current HEAD. Use "origin/<branch_name>" to branch from a remote branch.</div>
         </div>
 
         <div class="form-group">
@@ -364,9 +364,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 <option value="default" selected>default</option>
                 <option value="acceptEdits">acceptEdits</option>
                 <option value="bypassPermissions">bypassPermissions</option>
-                <option value="delegate">delegate</option>
                 <option value="dontAsk">dontAsk</option>
-                <option value="plan">plan</option>
             </select>
             <div class="hint">Controls Claude's permission behavior</div>
         </div>

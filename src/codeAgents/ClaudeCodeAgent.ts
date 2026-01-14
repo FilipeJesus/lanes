@@ -23,7 +23,7 @@ import {
  * Claude Code implementation of the CodeAgent interface
  *
  * Provides all Claude-specific behavior including:
- * - Permission mode handling (acceptEdits, bypassPermissions, plan, etc.)
+ * - Permission mode handling (acceptEdits, bypassPermissions, dontAsk, etc.)
  * - Hook configuration for session tracking and status updates
  * - MCP server integration for workflow support
  */
@@ -211,11 +211,9 @@ export class ClaudeCodeAgent extends CodeAgent {
     getPermissionModes(): PermissionMode[] {
         return [
             { id: 'default', label: 'Default' },
-            { id: 'acceptEdits', label: 'Accept Edits', flag: '--allowedTools Edit,MultiEdit,Write,NotebookEdit' },
+            { id: 'acceptEdits', label: 'Accept Edits', flag: '--permission-mode acceptEdits' },
             { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--dangerously-skip-permissions' },
-            { id: 'delegate', label: 'Delegate', flag: '--permission-mode delegate' },
             { id: 'dontAsk', label: "Don't Ask", flag: '--permission-mode dontAsk' },
-            { id: 'plan', label: 'Plan', flag: '--permission-mode plan' }
         ];
     }
 
