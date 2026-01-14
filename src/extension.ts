@@ -1069,9 +1069,20 @@ export async function activate(context: vscode.ExtensionContext) {
         const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
 
         // Get the diff - either including working directory changes or only committed changes
-        const diffArgs = includeUncommitted
-            ? ['diff', baseBranch]  // Compare base branch to working directory
-            : ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
+        let diffArgs: string[];
+        if (includeUncommitted) {
+            // Use merge-base to compare against common ancestor
+            try {
+                const mergeBase = await execGit(['merge-base', baseBranch, 'HEAD'], worktreePath);
+                diffArgs = ['diff', mergeBase.trim()];
+            } catch (mergeBaseErr) {
+                // If merge-base fails, fall back to comparing against base branch directly
+                console.warn(`Lanes: Could not get merge-base for ${baseBranch}, using base branch directly:`, getErrorMessage(mergeBaseErr));
+                diffArgs = ['diff', baseBranch];
+            }
+        } else {
+            diffArgs = ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
+        }
         let diffContent = await execGit(diffArgs, worktreePath);
 
         // If including uncommitted changes, also get untracked files
@@ -1203,7 +1214,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const diffContent = await generateDiffContent(worktreePath, actualBranch);
 
             if (!diffContent || diffContent.trim() === '') {
-                vscode.window.showInformationMessage('No changes when comparing to this branch.');
+                vscode.window.showInformationMessage(`No changes found when comparing to '${actualBranch}'.`);
                 return { diffContent: '', baseBranch: actualBranch };
             }
 
@@ -1235,7 +1246,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Check if there are any changes
             if (!diffContent || diffContent.trim() === '') {
-                vscode.window.showInformationMessage('No changes in this session');
+                vscode.window.showInformationMessage(`No changes found when comparing to '${baseBranch}'.`);
                 return;
             }
 

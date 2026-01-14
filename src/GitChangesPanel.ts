@@ -438,7 +438,7 @@ export class GitChangesPanel {
      */
     private _generateDiffHtml(files: FileDiff[]): string {
         if (files.length === 0) {
-            return '<div class="no-changes">No changes to display</div>';
+            return '<div class="no-changes">No changes found</div>';
         }
 
         return files.map((file, fileIndex) => {
