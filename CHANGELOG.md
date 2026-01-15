@@ -5,6 +5,11 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-01-15
+
+### Added
+- **Audio Chimes** click the bell icon on a session to enable chimes! Note that this is implemented in a less than ideal way, you will need to interact with the new session form when you first open vs code before you will be able to hear chimes. I hope to fix this in the future.
+
 ## [1.0.3] - 2026-01-14
 
 ### Fixed
