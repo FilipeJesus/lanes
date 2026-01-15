@@ -229,17 +229,11 @@
             "description": "Enable workflow template selection when creating sessions",
             "order": 1
           },
-          "lanes.workflowsFolder": {
-            "type": "string",
-            "default": ".claude/workflows",
-            "description": "Workspace folder for built-in workflow templates",
-            "order": 2
-          },
           "lanes.customWorkflowsFolder": {
             "type": "string",
             "default": ".lanes/workflows",
             "description": "Workspace folder for custom workflow templates (relative to workspace root)",
-            "order": 3
+            "order": 2
           }
         }
       }

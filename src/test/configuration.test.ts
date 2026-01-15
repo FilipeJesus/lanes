@@ -847,7 +847,7 @@ suite('Configuration Test Suite', () => {
 			// Assert: Workflows section should contain all expected settings
 			const expectedSettings = [
 				'lanes.workflowsEnabled',
-				'lanes.workflowsFolder'
+				'lanes.customWorkflowsFolder'
 			];
 
 			for (const setting of expectedSettings) {
@@ -864,9 +864,9 @@ suite('Configuration Test Suite', () => {
 				'workflowsEnabled should have order 1'
 			);
 			assert.strictEqual(
-				workflowsSection.properties['lanes.workflowsFolder'].order,
+				workflowsSection.properties['lanes.customWorkflowsFolder'].order,
 				2,
-				'workflowsFolder should have order 2'
+				'customWorkflowsFolder should have order 2'
 			);
 
 			// Assert: workflowsEnabled should be boolean with default true
@@ -881,16 +881,16 @@ suite('Configuration Test Suite', () => {
 				'workflowsEnabled should default to true'
 			);
 
-			// Assert: workflowsFolder should be string with default .claude/workflows
+			// Assert: customWorkflowsFolder should be string with default .lanes/workflows
 			assert.strictEqual(
-				workflowsSection.properties['lanes.workflowsFolder'].type,
+				workflowsSection.properties['lanes.customWorkflowsFolder'].type,
 				'string',
-				'workflowsFolder should have type string'
+				'customWorkflowsFolder should have type string'
 			);
 			assert.strictEqual(
-				workflowsSection.properties['lanes.workflowsFolder'].default,
-				'.claude/workflows',
-				'workflowsFolder should default to .claude/workflows'
+				workflowsSection.properties['lanes.customWorkflowsFolder'].default,
+				'.lanes/workflows',
+				'customWorkflowsFolder should default to .lanes/workflows'
 			);
 		});
 	});
