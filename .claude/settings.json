@@ -1,5 +1,21 @@
 {
   "enabledPlugins": {
     "typescript-lsp@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(git:*)",
+      "mcp__lanes-workflow__workflow_start",
+      "mcp__lanes-workflow__workflow_set_tasks",
+      "mcp__lanes-workflow__workflow_status",
+      "mcp__lanes-workflow__workflow_advance",
+      "mcp__lanes-workflow__workflow_context",
+      "mcp__lanes-workflow__session_create"
+    ],
+    "deny": [
+      "Bash(./scripts/release.sh*)"
+    ]
   }
 }
