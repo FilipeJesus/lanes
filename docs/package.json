@@ -6,7 +6,9 @@
     "build": "node scripts/build-blog.js"
   },
   "dependencies": {
+    "dompurify": "^3.3.1",
     "gray-matter": "^4.0.3",
+    "jsdom": "^27.4.0",
     "marked": "^11.0.0"
   }
 }

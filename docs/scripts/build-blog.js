@@ -2,6 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
 const { marked } = require('marked');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+
+// Create DOMPurify instance for server-side sanitization
+const window = new JSDOM('').window;
+const purify = createDOMPurify(window);
 
 // Configuration
 const POSTS_DIR = path.join(__dirname, '../blog/posts');
@@ -20,6 +26,15 @@ function escapeHtml(unsafe) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+/**
+ * Sanitize HTML to prevent XSS using DOMPurify
+ * @param {string} dirty - Dirty HTML
+ * @returns {string} - Clean, safe HTML
+ */
+function sanitizeHtml(dirty) {
+  return purify.sanitize(dirty);
 }
 
 // Configure marked for GFM and code blocks
@@ -98,7 +113,7 @@ function readPosts() {
         tags,
         excerpt: data.excerpt,
         content,
-        html: marked.parse(content),
+        html: sanitizeHtml(marked.parse(content)),
         readingTime: calculateReadingTime(content)
       };
     })
@@ -293,7 +308,7 @@ function generateBlogIndex(posts) {
   const tagButtons = tags.map(tag =>
     `        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
       tag === 'all' ? 'bg-vscode-accent text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
-    }" data-tag="${tag}">${escapeHtml(tag)}</button>`
+    }" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`
   ).join('\n');
 
   const postCards = posts.map(post => `
@@ -302,7 +317,7 @@ function generateBlogIndex(posts) {
             ${post.tags.map(tag => `<span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">${escapeHtml(tag)}</span>`).join('')}
           </div>
           <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="${post.slug}.html" class="hover:text-vscode-accent transition-colors">${escapeHtml(post.title)}</a>
+            <a href="${escapeHtml(post.slug)}.html" class="hover:text-vscode-accent transition-colors">${escapeHtml(post.title)}</a>
           </h2>
           <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">${escapeHtml(post.excerpt)}</p>
           <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
@@ -310,7 +325,7 @@ function generateBlogIndex(posts) {
             <span>&middot;</span>
             <span>${escapeHtml(post.readingTime)}</span>
           </div>
-          <a href="${post.slug}.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
+          <a href="${escapeHtml(post.slug)}.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
             Read more
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </a>
@@ -392,7 +407,7 @@ function generatePostPage(post, allPosts) {
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Related Posts</h3>
         <div class="grid gap-4">
           ${relatedPosts.map(p => `
-            <a href="${p.slug}.html" class="block p-4 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+            <a href="${escapeHtml(p.slug)}.html" class="block p-4 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
               <h4 class="font-medium text-gray-900 dark:text-white">${escapeHtml(p.title)}</h4>
               <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(p.excerpt)}</p>
             </a>
