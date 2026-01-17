@@ -15,6 +15,35 @@ Lanes is a VS Code extension that manages isolated Claude Code sessions using Gi
 | `claude-progress.txt` | Session progress tracking (persisted) |
 | `workflow-state.json` | Workflow state managed by MCP tools (created during workflows) |
 | `tests.json` | **Agent-managed** - Test plan created by coder, implemented by test-engineer |
+| `src/localSettings.ts` | Local settings propagation helper |
+
+## Local Settings Propagation
+
+Lanes can automatically propagate your `.claude/settings.local.json` file from your base repository to each worktree. This ensures that your local Claude Code configuration (like environment variables, model settings, etc.) is available in all sessions.
+
+### Configuration
+
+Add to your VS Code settings:
+
+```json
+{
+  "lanes.localSettingsPropagation": "copy" // or "symlink" or "disabled"
+}
+```
+
+- `copy` (default): Copies the file to each worktree. Works on all platforms.
+- `symlink`: Creates a symbolic link. More efficient but Windows may require developer mode.
+- `disabled`: Does not propagate settings.
+
+### How It Works
+
+When you create a new session (worktree), Lanes checks if `.claude/settings.local.json` exists in your base repository. If it does and propagation is enabled, the file is copied or symlinked to `<worktree>/.claude/settings.local.json`.
+
+### Example Use Cases
+
+- **Environment variables**: Set custom `ANTHROPIC_DEFAULT_HAIKU_MODEL` for all sessions
+- **Model settings**: Configure default models or permission modes
+- **Custom hooks**: Define hooks that apply to all sessions
 
 ## Workflow System
 

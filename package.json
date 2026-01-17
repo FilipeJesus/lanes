@@ -231,6 +231,18 @@
             "default": "",
             "description": "Relative path for .claude-status file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root",
             "order": 3
+          },
+          "lanes.localSettingsPropagation": {
+            "type": "string",
+            "enum": ["copy", "symlink", "disabled"],
+            "enumDescriptions": [
+              "Copy settings.local.json to each worktree",
+              "Create symlink to settings.local.json in each worktree",
+              "Do not propagate settings.local.json"
+            ],
+            "default": "copy",
+            "description": "How to propagate .claude/settings.local.json to worktrees. Ensures your local Claude Code configuration is available in all sessions.",
+            "order": 4
           }
         }
       },
