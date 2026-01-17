@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog - Lanes</title>
+    <title>Building a CLI Tool with Parallel AI Agents - Lanes</title>
     <meta name="description" content="Manage multiple, isolated Claude Code sessions directly inside VS Code.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -73,99 +73,78 @@
     </nav>
     <main class="pt-24 pb-16">
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
+    <article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="mb-8 text-sm">
+        <a href="index.html" class="text-vscode-accent hover:underline">&larr; Back to Blog</a>
+      </nav>
+
+      <header class="mb-8">
+        <div class="flex flex-wrap gap-2 mb-4">
+          <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">project-showcase</span><span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">tutorial</span>
+        </div>
         <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-          Lanes Blog
+          Building a CLI Tool with Parallel AI Agents
         </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">
-          Projects, tutorials, and updates from the Lanes community
-        </p>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
+          <span>February 10, 2024</span>
+          <span>&middot;</span>
+          <span>2 min read</span>
+        </div>
+      </header>
+
+      <div class="prose dark:prose-invert max-w-none">
+        <h1>Building a CLI Tool with Parallel AI Agents</h1>
+<p>Last month, I needed to build a CLI tool for my team to automate our deployment process. Using Lanes, I was able to complete it in half the time it would have taken with a single AI assistant.</p>
+<h2>The Challenge</h2>
+<p>The CLI tool needed:</p>
+<ul>
+<li>Command argument parsing</li>
+<li>Configuration file support</li>
+<li>API integration with our deployment service</li>
+<li>Comprehensive error handling</li>
+<li>Unit tests</li>
+<li>Documentation</li>
+</ul>
+<p>Normally, I'd work through these sequentially, constantly switching contexts and losing momentum.</p>
+<h2>The Lanes Approach</h2>
+<p>With Lanes, I created three parallel sessions:</p>
+<h3>Lane 1: Core CLI Structure</h3>
+<p>Focused on argument parsing, configuration loading, and the main command loop using Commander.js.</p>
+<h3>Lane 2: API Integration</h3>
+<p>Built the deployment service client with proper error handling, retries, and rate limiting.</p>
+<h3>Lane 3: Testing &amp; Documentation</h3>
+<p>Wrote unit tests for the core functionality and generated documentation using JSDoc.</p>
+<h2>Workflow Integration</h2>
+<p>I used Lanes' workflow system to keep each agent focused:</p>
+<pre><code class="language-yaml">steps:
+  - id: plan
+    type: action
+  - id: implement
+    type: loop
+  - id: test
+    type: action
+</code></pre>
+<p>Each lane moved through planning, implementation, and testing independently. The built-in code review workflow let me verify each component before integration.</p>
+<h2>The Result</h2>
+<ul>
+<li><strong>Time savings:</strong> ~50% faster than sequential development</li>
+<li><strong>Quality:</strong> Each component had dedicated testing</li>
+<li><strong>Git hygiene:</strong> Clean worktrees made integration painless</li>
+<li><strong>Knowledge:</strong> Separate sessions made it easy to review each component</li>
+</ul>
+<h2>Tips for Your Project</h2>
+<ol>
+<li><strong>Start with clear interfaces</strong> - Define how components will communicate upfront</li>
+<li><strong>Use acceptance criteria</strong> - Give each lane specific success metrics</li>
+<li><strong>Review before merging</strong> - Use the built-in diff viewer to catch issues early</li>
+<li><strong>Document your workflow</strong> - The workflow-state.json helps you track progress</li>
+</ol>
+<p>Ready to try parallel AI development? <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes">Install Lanes</a> and start coding faster.</p>
+
       </div>
 
-      <div class="flex gap-2 mb-8 flex-wrap justify-center">
-        <button class="tag-btn active px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-vscode-accent text-white" data-tag="all">All Posts</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="announcement">announcement</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="project-showcase">project-showcase</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="tutorial">tutorial</button>
-      </div>
 
-      <div class="grid gap-6" id="posts-container">
-
-        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">project-showcase</span><span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">tutorial</span>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="2024-02-10-building-cli-tool-with-lanes.html" class="hover:text-vscode-accent transition-colors">Building a CLI Tool with Parallel AI Agents</a>
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">How I used Lanes to build a production-ready CLI tool in record time by running multiple AI agents in parallel.</p>
-          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
-            <span>February 10, 2024</span>
-            <span>&middot;</span>
-            <span>2 min read</span>
-          </div>
-          <a href="2024-02-10-building-cli-tool-with-lanes.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
-            Read more
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-        </article>
-
-        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">announcement</span>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="2024-01-15-welcome-to-lanes-blog.html" class="hover:text-vscode-accent transition-colors">Welcome to the Lanes Blog</a>
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">We&#039;re launching a blog to share projects, tutorials, and updates from the Lanes community.</p>
-          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
-            <span>January 15, 2024</span>
-            <span>&middot;</span>
-            <span>1 min read</span>
-          </div>
-          <a href="2024-01-15-welcome-to-lanes-blog.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
-            Read more
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-        </article>
-      </div>
-
-      <script>
-        // Tag filtering
-        const tagBtns = document.querySelectorAll('.tag-btn');
-        const postsContainer = document.getElementById('posts-container');
-        const allPosts = postsContainer.querySelectorAll('article');
-
-        // Store original order
-        const postsData = Array.from(allPosts).map(article => ({
-          element: article,
-          tags: Array.from(article.querySelectorAll('.text-blue-600')).map(el => el.textContent.toLowerCase())
-        }));
-
-        tagBtns.forEach(btn => {
-          btn.addEventListener('click', () => {
-            const selectedTag = btn.dataset.tag;
-
-            // Update active button
-            tagBtns.forEach(b => {
-              b.classList.remove('bg-vscode-accent', 'text-white');
-              b.classList.add('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            });
-            btn.classList.remove('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            btn.classList.add('bg-vscode-accent', 'text-white');
-
-            // Filter posts
-            postsContainer.innerHTML = '';
-            const filteredPosts = selectedTag === 'all'
-              ? postsData
-              : postsData.filter(p => p.tags.includes(selectedTag.toLowerCase()));
-
-            filteredPosts.forEach(p => postsContainer.appendChild(p.element));
-          });
-        });
-      </script>
-    </div>
+    </article>
     </main>
     <footer class="border-t border-gray-200 dark:border-white/10 py-12 bg-gray-100 dark:bg-vscode-sidebar">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

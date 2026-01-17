@@ -6,6 +6,14 @@
     <description>Blog posts about Lanes - Parallel AI Coding in VS Code</description>
     <language>en-us</language>
     <item>
+      <title>Building a CLI Tool with Parallel AI Agents</title>
+      <link>https://filipejesus.github.io/lanes/blog/2024-02-10-building-cli-tool-with-lanes.html</link>
+      <description>How I used Lanes to build a production-ready CLI tool in record time by running multiple AI agents in parallel.</description>
+      <pubDate>Sat, 10 Feb 2024 00:00:00 GMT</pubDate>
+            <category>project-showcase</category>
+      <category>tutorial</category>
+    </item>
+    <item>
       <title>Welcome to the Lanes Blog</title>
       <link>https://filipejesus.github.io/lanes/blog/2024-01-15-welcome-to-lanes-blog.html</link>
       <description>We&apos;re launching a blog to share projects, tutorials, and updates from the Lanes community.</description>
