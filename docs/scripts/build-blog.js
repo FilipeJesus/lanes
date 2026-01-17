@@ -504,9 +504,19 @@ if (require.main === module) {
   try {
     console.log('Building blog...');
 
+    // Ensure blog directory exists
+    if (!fs.existsSync(BLOG_DIR)) {
+      fs.mkdirSync(BLOG_DIR, { recursive: true });
+      console.log('✓ Created blog directory');
+    }
+
     // Read all posts
     const posts = readPosts();
     console.log(`✓ Found ${posts.length} posts`);
+
+    if (posts.length === 0) {
+      console.warn('⚠ Warning: No posts found. Blog will be empty.');
+    }
 
     // Generate blog index
     const indexHtml = generateBlogIndex(posts);
