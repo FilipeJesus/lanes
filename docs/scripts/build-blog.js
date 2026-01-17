@@ -282,16 +282,165 @@ function generateFooter() {
 </html>`;
 }
 
+/**
+ * Generate blog index HTML page
+ * @param {Array} posts - Array of post objects
+ * @returns {string} - Complete HTML for blog index
+ */
+function generateBlogIndex(posts) {
+  const tags = getAllTags(posts);
+
+  const tagButtons = tags.map(tag =>
+    `        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+      tag === 'all' ? 'bg-vscode-accent text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
+    }" data-tag="${tag}">${escapeHtml(tag)}</button>`
+  ).join('\n');
+
+  const postCards = posts.map(post => `
+        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
+          <div class="flex flex-wrap gap-2 mb-3">
+            ${post.tags.map(tag => `<span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">${escapeHtml(tag)}</span>`).join('')}
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            <a href="${post.slug}.html" class="hover:text-vscode-accent transition-colors">${escapeHtml(post.title)}</a>
+          </h2>
+          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">${escapeHtml(post.excerpt)}</p>
+          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
+            <span>${formatDate(post.date)}</span>
+            <span>&middot;</span>
+            <span>${escapeHtml(post.readingTime)}</span>
+          </div>
+          <a href="${post.slug}.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
+            Read more
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </article>`
+  ).join('\n');
+
+  return `${generateHeader('Blog', 'blog')}
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+          Lanes Blog
+        </h1>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+          Projects, tutorials, and updates from the Lanes community
+        </p>
+      </div>
+
+      <div class="flex gap-2 mb-8 flex-wrap justify-center">
+        <button class="tag-btn active px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-vscode-accent text-white" data-tag="all">All Posts</button>
+${tagButtons}
+      </div>
+
+      <div class="grid gap-6" id="posts-container">
+${postCards}
+      </div>
+
+      <script>
+        // Tag filtering
+        const tagBtns = document.querySelectorAll('.tag-btn');
+        const postsContainer = document.getElementById('posts-container');
+        const allPosts = postsContainer.querySelectorAll('article');
+
+        // Store original order
+        const postsData = Array.from(allPosts).map(article => ({
+          element: article,
+          tags: Array.from(article.querySelectorAll('.text-blue-600')).map(el => el.textContent.toLowerCase())
+        }));
+
+        tagBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const selectedTag = btn.dataset.tag;
+
+            // Update active button
+            tagBtns.forEach(b => {
+              b.classList.remove('bg-vscode-accent', 'text-white');
+              b.classList.add('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
+            });
+            btn.classList.remove('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
+            btn.classList.add('bg-vscode-accent', 'text-white');
+
+            // Filter posts
+            postsContainer.innerHTML = '';
+            const filteredPosts = selectedTag === 'all'
+              ? postsData
+              : postsData.filter(p => p.tags.includes(selectedTag.toLowerCase()));
+
+            filteredPosts.forEach(p => postsContainer.appendChild(p.element));
+          });
+        });
+      </script>
+    </div>
+${generateFooter()}`;
+}
+
+/**
+ * Generate individual blog post HTML page
+ * @param {Object} post - Post object
+ * @param {Array} allPosts - All posts for related posts section
+ * @returns {string} - Complete HTML for post page
+ */
+function generatePostPage(post, allPosts) {
+  // Find related posts (posts with at least one matching tag, excluding current)
+  const relatedPosts = allPosts
+    .filter(p => p.slug !== post.slug && p.tags.some(t => post.tags.includes(t)))
+    .slice(0, 3);
+
+  const relatedPostsHtml = relatedPosts.length > 0 ? `
+      <div class="border-t border-gray-200 dark:border-white/10 pt-8 mt-8">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Related Posts</h3>
+        <div class="grid gap-4">
+          ${relatedPosts.map(p => `
+            <a href="${p.slug}.html" class="block p-4 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+              <h4 class="font-medium text-gray-900 dark:text-white">${escapeHtml(p.title)}</h4>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(p.excerpt)}</p>
+            </a>
+          `).join('')}
+        </div>
+      </div>` : '';
+
+  return `${generateHeader(post.title, 'blog')}
+    <article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="mb-8 text-sm">
+        <a href="index.html" class="text-vscode-accent hover:underline">&larr; Back to Blog</a>
+      </nav>
+
+      <header class="mb-8">
+        <div class="flex flex-wrap gap-2 mb-4">
+          ${post.tags.map(tag => `<span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">${escapeHtml(tag)}</span>`).join('')}
+        </div>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+          ${escapeHtml(post.title)}
+        </h1>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
+          <span>${formatDate(post.date)}</span>
+          <span>&middot;</span>
+          <span>${escapeHtml(post.readingTime)}</span>
+        </div>
+      </header>
+
+      <div class="prose dark:prose-invert max-w-none">
+        ${post.html}
+      </div>
+
+${relatedPostsHtml}
+    </article>
+${generateFooter()}`;
+}
+
 // Export functions for testing
 module.exports = {
-  escapeHtml,
   calculateReadingTime,
   readPosts,
   getAllTags,
   formatDate,
   formatRSSDate,
+  escapeHtml,
   generateHeader,
-  generateFooter
+  generateFooter,
+  generateBlogIndex,
+  generatePostPage
 };
 
 // Run build if called directly
