@@ -444,6 +444,45 @@ ${relatedPostsHtml}
 ${generateFooter()}`;
 }
 
+/**
+ * Generate RSS feed XML
+ * @param {Array} posts - Array of post objects
+ * @returns {string} - RSS feed XML
+ */
+function generateRSSFeed(posts) {
+  const postItems = posts.map(post => {
+    // Escape special XML characters
+    const escapeXml = (str) => {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    return `    <item>
+      <title>${escapeXml(post.title)}</title>
+      <link>https://filipejesus.github.io/lanes/blog/${escapeXml(post.slug)}.html</link>
+      <description>${escapeXml(post.excerpt)}</description>
+      <pubDate>${formatRSSDate(post.date)}</pubDate>
+      ${post.tags.map(tag => `      <category>${escapeXml(tag)}</category>`).join('\n')}
+    </item>`;
+  }).join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Lanes Blog</title>
+    <link>https://filipejesus.github.io/lanes/blog/</link>
+    <description>Blog posts about Lanes - Parallel AI Coding in VS Code</description>
+    <language>en-us</language>
+${postItems}
+  </channel>
+</rss>
+`;
+}
+
 // Export functions for testing
 module.exports = {
   calculateReadingTime,
@@ -452,10 +491,12 @@ module.exports = {
   formatDate,
   formatRSSDate,
   escapeHtml,
+  sanitizeHtml,
   generateHeader,
   generateFooter,
   generateBlogIndex,
-  generatePostPage
+  generatePostPage,
+  generateRSSFeed
 };
 
 // Run build if called directly
