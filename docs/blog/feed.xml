@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Lanes Blog</title>
+    <link>https://filipejesus.github.io/lanes/blog/</link>
+    <description>Blog posts about Lanes - Parallel AI Coding in VS Code</description>
+    <language>en-us</language>
+
+  </channel>
+</rss>

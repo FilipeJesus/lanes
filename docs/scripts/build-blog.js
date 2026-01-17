@@ -502,15 +502,32 @@ module.exports = {
 // Run build if called directly
 if (require.main === module) {
   try {
+    console.log('Building blog...');
+
+    // Read all posts
     const posts = readPosts();
-    console.log(`Found ${posts.length} posts`);
+    console.log(`✓ Found ${posts.length} posts`);
+
+    // Generate blog index
+    const indexHtml = generateBlogIndex(posts);
+    fs.writeFileSync(path.join(BLOG_DIR, 'index.html'), indexHtml);
+    console.log('✓ Generated blog/index.html');
+
+    // Generate individual post pages
     posts.forEach(post => {
-      console.log(`  - ${post.title} (${post.date})`);
+      const postHtml = generatePostPage(post, posts);
+      fs.writeFileSync(path.join(BLOG_DIR, `${post.slug}.html`), postHtml);
+      console.log(`✓ Generated blog/${post.slug}.html`);
     });
-    const tags = getAllTags(posts);
-    console.log(`Tags: ${tags.join(', ')}`);
+
+    // Generate RSS feed
+    const rssXml = generateRSSFeed(posts);
+    fs.writeFileSync(path.join(BLOG_DIR, 'feed.xml'), rssXml);
+    console.log('✓ Generated blog/feed.xml');
+
+    console.log('\nBlog build complete!');
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('\n❌ Error:', error.message);
     process.exit(1);
   }
 }
