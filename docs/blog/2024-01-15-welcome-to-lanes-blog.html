@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog - Lanes</title>
+    <title>Welcome to the Lanes Blog - Lanes</title>
     <meta name="description" content="Manage multiple, isolated Claude Code sessions directly inside VS Code.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -73,78 +73,43 @@
     </nav>
     <main class="pt-24 pb-16">
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
+    <article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="mb-8 text-sm">
+        <a href="index.html" class="text-vscode-accent hover:underline">&larr; Back to Blog</a>
+      </nav>
+
+      <header class="mb-8">
+        <div class="flex flex-wrap gap-2 mb-4">
+          <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">announcement</span>
+        </div>
         <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-          Lanes Blog
+          Welcome to the Lanes Blog
         </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">
-          Projects, tutorials, and updates from the Lanes community
-        </p>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
+          <span>January 15, 2024</span>
+          <span>&middot;</span>
+          <span>1 min read</span>
+        </div>
+      </header>
+
+      <div class="prose dark:prose-invert max-w-none">
+        <h1>Welcome to the Lanes Blog!</h1>
+<p>We're excited to launch the official Lanes blog. This space will serve as a hub for sharing projects built with Lanes, tutorials to help you get the most out of parallel AI coding, and updates about new features.</p>
+<h2>What to Expect</h2>
+<h3>Project Showcases</h3>
+<p>See what others are building with Lanes. From CLI tools to web applications, discover real-world examples of parallel AI workflows in action.</p>
+<h3>Tutorials &amp; Guides</h3>
+<p>Step-by-step guides covering everything from basic setup to advanced workflow configurations. Learn how to leverage Lanes' structured workflows for reliable, repeatable results.</p>
+<h3>Feature Announcements</h3>
+<p>Stay up-to-date with the latest improvements to Lanes, including new workflow templates, agent specializations, and integration options.</p>
+<h2>Share Your Projects</h2>
+<p>Have you built something cool with Lanes? We'd love to feature it! Submit your project for consideration by opening an issue on our GitHub repository with the "blog" label.</p>
+<p>Happy coding!</p>
+
       </div>
 
-      <div class="flex gap-2 mb-8 flex-wrap justify-center">
-        <button class="tag-btn active px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-vscode-accent text-white" data-tag="all">All Posts</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="announcement">announcement</button>
-      </div>
 
-      <div class="grid gap-6" id="posts-container">
-
-        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">announcement</span>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="2024-01-15-welcome-to-lanes-blog.html" class="hover:text-vscode-accent transition-colors">Welcome to the Lanes Blog</a>
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">We&#039;re launching a blog to share projects, tutorials, and updates from the Lanes community.</p>
-          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
-            <span>January 15, 2024</span>
-            <span>&middot;</span>
-            <span>1 min read</span>
-          </div>
-          <a href="2024-01-15-welcome-to-lanes-blog.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
-            Read more
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-        </article>
-      </div>
-
-      <script>
-        // Tag filtering
-        const tagBtns = document.querySelectorAll('.tag-btn');
-        const postsContainer = document.getElementById('posts-container');
-        const allPosts = postsContainer.querySelectorAll('article');
-
-        // Store original order
-        const postsData = Array.from(allPosts).map(article => ({
-          element: article,
-          tags: Array.from(article.querySelectorAll('.text-blue-600')).map(el => el.textContent.toLowerCase())
-        }));
-
-        tagBtns.forEach(btn => {
-          btn.addEventListener('click', () => {
-            const selectedTag = btn.dataset.tag;
-
-            // Update active button
-            tagBtns.forEach(b => {
-              b.classList.remove('bg-vscode-accent', 'text-white');
-              b.classList.add('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            });
-            btn.classList.remove('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            btn.classList.add('bg-vscode-accent', 'text-white');
-
-            // Filter posts
-            postsContainer.innerHTML = '';
-            const filteredPosts = selectedTag === 'all'
-              ? postsData
-              : postsData.filter(p => p.tags.includes(selectedTag.toLowerCase()));
-
-            filteredPosts.forEach(p => postsContainer.appendChild(p.element));
-          });
-        });
-      </script>
-    </div>
+    </article>
     </main>
     <footer class="border-t border-gray-200 dark:border-white/10 py-12 bg-gray-100 dark:bg-vscode-sidebar">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

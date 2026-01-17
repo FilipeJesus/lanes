@@ -5,6 +5,12 @@
     <link>https://filipejesus.github.io/lanes/blog/</link>
     <description>Blog posts about Lanes - Parallel AI Coding in VS Code</description>
     <language>en-us</language>
-
+    <item>
+      <title>Welcome to the Lanes Blog</title>
+      <link>https://filipejesus.github.io/lanes/blog/2024-01-15-welcome-to-lanes-blog.html</link>
+      <description>We&apos;re launching a blog to share projects, tutorials, and updates from the Lanes community.</description>
+      <pubDate>Mon, 15 Jan 2024 00:00:00 GMT</pubDate>
+            <category>announcement</category>
+    </item>
   </channel>
 </rss>
