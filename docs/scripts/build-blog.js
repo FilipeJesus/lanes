@@ -8,6 +8,20 @@ const POSTS_DIR = path.join(__dirname, '../blog/posts');
 const BLOG_DIR = path.join(__dirname, '../blog');
 const WORDS_PER_MINUTE = 200;
 
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} unsafe - Unsafe string
+ * @returns {string} - Escaped string
+ */
+function escapeHtml(unsafe) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Configure marked for GFM and code blocks
 marked.setOptions({
   gfm: true,
@@ -143,7 +157,7 @@ function generateHeader(title, currentPath = '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title} - Lanes</title>
+    <title>${escapeHtml(title)} - Lanes</title>
     <meta name="description" content="Manage multiple, isolated Claude Code sessions directly inside VS Code.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -270,6 +284,7 @@ function generateFooter() {
 
 // Export functions for testing
 module.exports = {
+  escapeHtml,
   calculateReadingTime,
   readPosts,
   getAllTags,
