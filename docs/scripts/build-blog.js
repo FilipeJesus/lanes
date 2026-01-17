@@ -6,6 +6,7 @@ const { marked } = require('marked');
 // Configuration
 const POSTS_DIR = path.join(__dirname, '../blog/posts');
 const BLOG_DIR = path.join(__dirname, '../blog');
+const WORDS_PER_MINUTE = 200;
 
 // Configure marked for GFM and code blocks
 marked.setOptions({
@@ -20,8 +21,7 @@ marked.setOptions({
  */
 function calculateReadingTime(content) {
   const words = content.split(/\s+/).length;
-  const wordsPerMinute = 200;
-  const minutes = Math.ceil(words / wordsPerMinute);
+  const minutes = Math.ceil(words / WORDS_PER_MINUTE);
   return `${minutes} min read`;
 }
 
@@ -30,46 +30,68 @@ function calculateReadingTime(content) {
  * @returns {Array} - Array of post objects
  */
 function readPosts() {
+  // Check if posts directory exists
+  if (!fs.existsSync(POSTS_DIR)) {
+    throw new Error(`Posts directory does not exist: ${POSTS_DIR}`);
+  }
+
   const files = fs.readdirSync(POSTS_DIR)
     .filter(f => f.endsWith('.md') && !f.startsWith('_'));
 
-  const posts = files.map(file => {
-    const filePath = path.join(POSTS_DIR, file);
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    const { data, content } = matter(fileContent);
+  const posts = files
+    .map(file => {
+      const filePath = path.join(POSTS_DIR, file);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const { data, content } = matter(fileContent);
 
-    // Validate required fields
-    if (!data.title) {
-      throw new Error(`${file}: Missing required field 'title'`);
-    }
-    if (!data.date) {
-      throw new Error(`${file}: Missing required field 'date'`);
-    }
-    if (!data.excerpt) {
-      throw new Error(`${file}: Missing required field 'excerpt'`);
-    }
+      // Validate required fields
+      if (!data.title) {
+        throw new Error(`${file}: Missing required field 'title'`);
+      }
+      if (!data.date) {
+        throw new Error(`${file}: Missing required field 'date'`);
+      }
+      if (!data.excerpt) {
+        throw new Error(`${file}: Missing required field 'excerpt'`);
+      }
 
-    // Validate date format
-    if (isNaN(new Date(data.date))) {
-      throw new Error(`${file}: Invalid date format '${data.date}'`);
-    }
+      // Skip posts with empty content
+      if (!content || content.trim().length === 0) {
+        return null;
+      }
 
-    const slug = file.replace('.md', '');
+      // Parse and validate date format (store to avoid re-parsing)
+      const postDate = new Date(data.date);
+      if (isNaN(postDate.getTime())) {
+        throw new Error(`${file}: Invalid date format '${data.date}'`);
+      }
 
-    return {
-      slug,
-      title: data.title,
-      date: data.date,
-      tags: data.tags || [],
-      excerpt: data.excerpt,
-      content,
-      html: marked.parse(content),
-      readingTime: calculateReadingTime(content)
-    };
-  });
+      const slug = file.replace('.md', '');
 
-  // Sort by date (newest first)
-  return posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+      // Ensure tags is an array
+      let tags = [];
+      if (Array.isArray(data.tags)) {
+        tags = data.tags;
+      } else if (typeof data.tags === 'string' && data.tags.trim()) {
+        tags = [data.tags];
+      }
+
+      return {
+        slug,
+        title: data.title,
+        date: data.date,
+        postDate,
+        tags,
+        excerpt: data.excerpt,
+        content,
+        html: marked.parse(content),
+        readingTime: calculateReadingTime(content)
+      };
+    })
+    .filter(post => post !== null);
+
+  // Sort by date (newest first) using cached date objects
+  return posts.sort((a, b) => b.postDate - a.postDate);
 }
 
 /**
