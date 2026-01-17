@@ -1,0 +1,12 @@
+{
+  "name": "lanes-blog",
+  "version": "1.0.0",
+  "description": "Blog build scripts for Lanes website",
+  "scripts": {
+    "build": "node scripts/build-blog.js"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "marked": "^11.0.0"
+  }
+}
