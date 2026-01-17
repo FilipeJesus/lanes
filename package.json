@@ -250,6 +250,24 @@
             "order": 2
           }
         }
+      },
+      {
+        "title": "Lanes: Audio",
+        "properties": {
+          "lanes.chimeSound": {
+            "type": "string",
+            "enum": ["chime", "alarm", "level-up", "notification"],
+            "default": "chime",
+            "description": "Audio notification sound for session status changes (Note: You must reload VS Code for this to take effect).",
+            "enumDescriptions": [
+              "Classic chime sound",
+              "Alert alarm sound",
+              "Achievement level-up sound",
+              "Gentle notification sound"
+            ],
+            "order": 1
+          }
+        }
       }
     ]
   },

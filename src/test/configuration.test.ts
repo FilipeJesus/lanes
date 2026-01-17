@@ -681,7 +681,7 @@ suite('Configuration Test Suite', () => {
 
 	suite('Configuration Structure', () => {
 
-		test('should verify configuration is an array with 4 sections', () => {
+		test('should verify configuration is an array with 5 sections', () => {
 			// Read and parse package.json from the project root
 			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -692,11 +692,11 @@ suite('Configuration Test Suite', () => {
 				'package.json contributes.configuration should be an array'
 			);
 
-			// Assert: configuration should have exactly 4 elements
+			// Assert: configuration should have exactly 5 elements
 			assert.strictEqual(
 				packageJson.contributes.configuration.length,
-				4,
-				'Configuration array should have exactly 4 sections'
+				5,
+				'Configuration array should have exactly 5 sections'
 			);
 		});
 
@@ -711,7 +711,8 @@ suite('Configuration Test Suite', () => {
 				'Lanes: General',
 				'Lanes: Git',
 				'Lanes: Advanced',
-				'Lanes: Workflows'
+				'Lanes: Workflows',
+				'Lanes: Audio'
 			];
 
 			const actualTitles = config.map((section: any) => section.title);
@@ -891,6 +892,63 @@ suite('Configuration Test Suite', () => {
 				workflowsSection.properties['lanes.customWorkflowsFolder'].default,
 				'.lanes/workflows',
 				'customWorkflowsFolder should default to .lanes/workflows'
+			);
+		});
+
+		test('should verify Audio section contains correct settings', () => {
+			// Read and parse package.json from the project root
+			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			const audioSection = getConfigSection(packageJson.contributes.configuration, 'Lanes: Audio');
+
+			// Assert: Audio section should exist
+			assert.ok(audioSection, 'Audio section should exist');
+
+			// Assert: Audio section should contain chimeSound setting
+			assert.ok(
+				audioSection.properties?.['lanes.chimeSound'],
+				'Audio section should contain chimeSound'
+			);
+
+			// Assert: chimeSound should have correct order (1)
+			assert.strictEqual(
+				audioSection.properties['lanes.chimeSound'].order,
+				1,
+				'chimeSound should have order 1'
+			);
+
+			// Assert: chimeSound should be string enum with correct values
+			assert.strictEqual(
+				audioSection.properties['lanes.chimeSound'].type,
+				'string',
+				'chimeSound should have type string'
+			);
+			assert.deepStrictEqual(
+				audioSection.properties['lanes.chimeSound'].enum,
+				['chime', 'alarm', 'level-up', 'notification'],
+				'chimeSound should have enum values: chime, alarm, level-up, notification'
+			);
+			assert.strictEqual(
+				audioSection.properties['lanes.chimeSound'].default,
+				'chime',
+				'chimeSound should default to chime'
+			);
+			assert.strictEqual(
+				audioSection.properties['lanes.chimeSound'].description,
+				'Audio notification sound for session status changes (Note: You must reload VS Code for this to take effect).',
+				'chimeSound should have correct description'
+			);
+
+			// Assert: enum descriptions should be present
+			assert.ok(
+				audioSection.properties['lanes.chimeSound'].enumDescriptions,
+				'chimeSound should have enumDescriptions'
+			);
+			assert.strictEqual(
+				audioSection.properties['lanes.chimeSound'].enumDescriptions.length,
+				4,
+				'chimeSound should have 4 enum descriptions'
 			);
 		});
 	});

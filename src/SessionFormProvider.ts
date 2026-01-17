@@ -8,11 +8,25 @@ export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default', 
 export type PermissionMode = typeof PERMISSION_MODES[number];
 
 /**
+ * Valid chime sound options
+ */
+export const CHIME_SOUNDS = ['chime', 'alarm', 'level-up', 'notification'] as const;
+export type ChimeSound = typeof CHIME_SOUNDS[number];
+
+/**
  * Validates that a string is a valid PermissionMode.
  * Used to prevent command injection from untrusted input.
  */
 export function isValidPermissionMode(mode: unknown): mode is PermissionMode {
     return typeof mode === 'string' && PERMISSION_MODES.includes(mode as PermissionMode);
+}
+
+/**
+ * Validates that a string is a valid ChimeSound.
+ * Used to prevent invalid file paths.
+ */
+export function isValidChimeSound(sound: unknown): sound is ChimeSound {
+    return typeof sound === 'string' && CHIME_SOUNDS.includes(sound as ChimeSound);
 }
 
 /**
@@ -208,9 +222,24 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
      * Generate the HTML content for the webview form
      */
     private _getHtmlForWebview(webview: vscode.Webview): string {
+        // Read the configured chime sound from settings
+        const config = vscode.workspace.getConfiguration('lanes');
+        const configuredChime = config.get<string>('chimeSound', 'chime');
+
+        // Validate the configured chime sound
+        let selectedChime: ChimeSound = 'chime'; // Default fallback
+        if (isValidChimeSound(configuredChime)) {
+            selectedChime = configuredChime;
+        } else if (configuredChime !== 'chime') {
+            // Only warn if user explicitly set an invalid value
+            console.warn(`Lanes: Invalid chime sound "${configuredChime}" in configuration. Falling back to "chime". Valid options: ${CHIME_SOUNDS.join(', ')}`);
+        }
+
+        // Construct the audio URI using the validated chime sound
         const chimeUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'chime.mp3')
+            vscode.Uri.joinPath(this._extensionUri, 'media', `${selectedChime}.mp3`)
         );
+
         const nonce = this._getNonce();
         return `<!DOCTYPE html>
 <html lang="en">
