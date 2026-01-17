@@ -29,6 +29,7 @@ import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, Wo
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage } from './utils';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
+import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
@@ -1710,6 +1711,16 @@ async function createSession(
             const repoName = getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
             const projectName = `${repoName}-${trimmedName}`;
             await addProject(projectName, worktreePath, ['lanes']);
+
+            // 5.5. Propagate local settings to worktree
+            try {
+                const config = vscode.workspace.getConfiguration('lanes');
+                const propagationMode = config.get<LocalSettingsPropagationMode>('localSettingsPropagation', 'copy');
+                await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode);
+            } catch (err) {
+                // Log but don't fail session creation
+                console.warn('Lanes: Failed to propagate local settings:', err);
+            }
 
             // 6. Success
             sessionProvider.refresh();

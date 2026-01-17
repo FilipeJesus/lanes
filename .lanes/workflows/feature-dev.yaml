@@ -65,11 +65,14 @@ steps:
       Analyze the goal and break it into discrete tasks, importantly a test should NOT
       BE considered a task as testing should be done in the same step as feature development.
       ONLY CONSIDER testing to be a task if the user explicitly requests a test creation feature.
+      Verification should NOT be considered a task, this should be done during standard reviews.
 
       Consider:
       1. What are the individual features or changes needed?
       2. What are the dependencies between tasks?
       3. What is the optimal order of implementation?
+      4. Review your task list and combine tasks that should be done together.
+         A task should represent a complete, testable unit of functionality.
 
       Document your analysis before proceeding.
 

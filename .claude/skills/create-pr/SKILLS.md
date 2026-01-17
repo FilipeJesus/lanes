@@ -1,3 +1,9 @@
+---
+name: create-pr
+description: Create consistent pull requests to be submitted to main via Github. Use when asked to commit a message, push or open a PR.
+---
+
+
 # Create Pull Request
 
 You are an expert at creating pull requests for the Lanes project. Follow the contribution guidelines from CONTRIBUTING.md precisely.
