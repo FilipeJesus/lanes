@@ -2,6 +2,9 @@
  * Workflow state machine for tracking and advancing through workflow execution.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 import type {
   WorkflowTemplate,
   WorkflowState,
@@ -223,6 +226,7 @@ export class WorkflowStateMachine {
         delegate: false,
         instructions: 'Workflow complete.',
         progress: this.buildProgress(),
+        artefacts: [...this.state.artefacts],
       };
     }
 
@@ -235,6 +239,7 @@ export class WorkflowStateMachine {
         delegate: false,
         instructions: 'Workflow failed.',
         progress: this.buildProgress(),
+        artefacts: [...this.state.artefacts],
       };
     }
 
@@ -250,6 +255,7 @@ export class WorkflowStateMachine {
       delegate: agent !== null,
       instructions,
       progress,
+      artefacts: [...this.state.artefacts],
     };
 
     // Add loop-specific information
@@ -518,6 +524,51 @@ export class WorkflowStateMachine {
     if (sanitized) {
       this.state.summary = sanitized;
     }
+  }
+
+  /**
+   * Registers artefact paths with validation.
+   * @param paths - Array of file paths (absolute or relative)
+   * @returns Object containing registered, duplicates, and invalid paths
+   */
+  registerArtefacts(paths: string[]): {
+    registered: string[];
+    duplicates: string[];
+    invalid: string[];
+  } {
+    const workspaceRoot = process.cwd();
+    const registered: string[] = [];
+    const duplicates: string[] = [];
+    const invalid: string[] = [];
+
+    for (const rawPath of paths) {
+      // Validate input
+      if (typeof rawPath !== 'string' || !rawPath.trim()) {
+        invalid.push(rawPath);
+        continue;
+      }
+
+      // Resolve to absolute path
+      const absolutePath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.resolve(workspaceRoot, rawPath);
+
+      // Validate file exists
+      if (!fs.existsSync(absolutePath)) {
+        invalid.push(absolutePath);
+        continue;
+      }
+
+      // Check for duplicates
+      if (!this.state.artefacts.includes(absolutePath)) {
+        this.state.artefacts.push(absolutePath);
+        registered.push(absolutePath);
+      } else {
+        duplicates.push(absolutePath);
+      }
+    }
+
+    return { registered, duplicates, invalid };
   }
 
   /**
