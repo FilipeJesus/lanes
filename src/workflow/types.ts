@@ -39,6 +39,8 @@ export interface WorkflowStep {
   instructions?: string;
   /** Number of iterations for ralph steps */
   n?: number;
+  /** Enable artefact tracking for this step */
+  artefacts?: boolean;
 }
 
 /**
@@ -109,6 +111,8 @@ export interface WorkflowState {
   outputs: Record<string, string>;
   /** Brief summary of the user's request (recommended: keep under 100 characters) */
   summary?: string;
+  /** Tracked artefact paths (absolute) */
+  artefacts: string[];
 }
 
 /**
@@ -166,4 +170,6 @@ export interface WorkflowStatusResponse {
   instructions: string;
   /** Progress information */
   progress: WorkflowProgress;
+  /** Current artefacts list */
+  artefacts?: string[];
 }

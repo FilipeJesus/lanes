@@ -41,6 +41,7 @@ export class WorkflowStateMachine {
       stepType: firstStep.type,
       tasks: {},
       outputs: {},
+      artefacts: [],
     };
 
     // Initialize ralph iteration if first step is ralph

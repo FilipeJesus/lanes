@@ -139,7 +139,8 @@ suite('Workflow Types', () => {
 			step: 'step1',
 			stepType: 'action',
 			tasks: {},
-			outputs: {}
+			outputs: {},
+			artefacts: []
 		};
 		assert.ok(workflowState.status === 'running');
 
