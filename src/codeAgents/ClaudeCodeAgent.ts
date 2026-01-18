@@ -236,7 +236,8 @@ export class ClaudeCodeAgent extends CodeAgent {
     generateHooksConfig(
         worktreePath: string,
         sessionFilePath: string,
-        statusFilePath: string
+        statusFilePath: string,
+        workflowPath?: string
     ): HookConfig[] {
         // Status update hooks
         const statusWriteWaiting: HookCommand = {
