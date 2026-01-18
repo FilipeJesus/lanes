@@ -2184,7 +2184,10 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
 
     if (codeAgent) {
         // Use CodeAgent to generate hooks
-        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath);
+        // Pass effectiveWorkflow to enable workflow status hook
+        // Convert null to undefined for type compatibility
+        const workflowParam = effectiveWorkflow || undefined;
+        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowParam);
 
         // Convert HookConfig[] to ClaudeSettings hooks format
         hooks = {};
