@@ -84,26 +84,6 @@ if (!workflowPath.endsWith('.yaml')) {
 let machine: WorkflowStateMachine | null = null;
 
 /**
- * Initializes or restores the workflow state machine.
- * Uses the workflow path provided via --workflow-path argument.
- * @param summary - Optional brief summary of the user's request (max 10 words)
- */
-async function initializeMachine(summary?: string): Promise<WorkflowStateMachine> {
-  // Try to load existing state
-  const existingState = await tools.loadState(worktreePath);
-
-  if (existingState) {
-    // Restore from existing state - use the workflow path directly
-    const template = await loadWorkflowTemplate(workflowPath);
-    return WorkflowStateMachine.fromState(template, existingState);
-  }
-
-  // Start fresh - use the workflow path directly
-  const result = await tools.workflowStartFromPath(worktreePath, workflowPath, summary);
-  return result.machine;
-}
-
-/**
  * Ensures the machine is loaded, either from memory or from disk.
  * Returns null if no workflow state exists anywhere.
  */
