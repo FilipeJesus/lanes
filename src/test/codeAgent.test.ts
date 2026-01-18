@@ -64,4 +64,43 @@ suite('ClaudeCodeAgent Hooks', () => {
         assert.ok(sessionStartHook, 'Should have SessionStart hook');
         assert.strictEqual(sessionStartHook!.commands.length, 1, 'SessionStart should only have 1 command (session ID capture)');
     });
+
+    test('workflow status hook command should output valid JSON', () => {
+        // Arrange
+        const agent = new ClaudeCodeAgent();
+        const worktreePath = tempDir;
+        const workflowPath = '/absolute/path/to/workflow.yaml';
+
+        // Act
+        const hooks = agent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowPath);
+        const sessionStartHook = hooks.find(h => h.event === 'SessionStart');
+
+        // Assert - get the second command (workflow status check)
+        const workflowCmd = sessionStartHook!.commands.find((c, i) => i === 1);
+        assert.ok(workflowCmd, 'Should have workflow status command');
+
+        // Command should be an echo with JSON
+        assert.ok(workflowCmd!.command.includes('echo'), 'Command should use echo');
+        assert.ok(workflowCmd!.command.includes('additionalContext'), 'Command should include additionalContext');
+        assert.ok(workflowCmd!.command.includes('workflow_status'), 'Command should mention workflow_status');
+    });
+
+    test('workflow status hook should escape JSON properly', () => {
+        // Arrange
+        const agent = new ClaudeCodeAgent();
+        const worktreePath = tempDir;
+        const workflowPath = '/absolute/path/to/workflow.yaml';
+
+        // Act
+        const hooks = agent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowPath);
+        const sessionStartHook = hooks.find(h => h.event === 'SessionStart');
+        const workflowCmd = sessionStartHook!.commands.find((c, i) => i === 1);
+
+        // Assert - JSON should be properly escaped for shell
+        const cmd = workflowCmd!.command;
+        // Should have proper quotes and escapes
+        assert.ok(cmd.includes('"'), 'Command should have quotes for JSON');
+        assert.ok(cmd.includes('{'), 'Command should have opening brace');
+        assert.ok(cmd.includes('}'), 'Command should have closing brace');
+    });
 });

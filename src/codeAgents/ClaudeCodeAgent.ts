@@ -257,10 +257,22 @@ export class ClaudeCodeAgent extends CodeAgent {
             command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
         };
 
+        // Build SessionStart hooks array
+        const sessionStartCommands: HookCommand[] = [sessionIdCapture];
+
+        // Add workflow status hook if workflow is active
+        if (workflowPath) {
+            const workflowStatusCheck: HookCommand = {
+                type: 'command',
+                command: `echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<system-reminder>\\nLanes Workflow Engine is active.\\nTo ensure context synchronization, you MUST run the workflow_status tool immediately.\\nDo not proceed with user requests until the workflow state is confirmed.\\n</system-reminder>"}}'`
+            };
+            sessionStartCommands.push(workflowStatusCheck);
+        }
+
         return [
             {
                 event: 'SessionStart',
-                commands: [sessionIdCapture]
+                commands: sessionStartCommands
             },
             {
                 event: 'Stop',
