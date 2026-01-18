@@ -468,6 +468,95 @@ suite('Workflow Loader', () => {
 	});
 
 	suite('Invalid Templates', () => {
+		test('Loader rejects template with invalid context value', () => {
+			const invalidYaml = `
+name: invalid-context
+description: A template
+steps:
+  - id: step1
+    type: action
+    context: invalid
+    instructions: Do something
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for invalid context value'
+			);
+		});
+
+		test('Loader accepts template with valid context: clear', () => {
+			const validYaml = `
+name: valid-clear
+description: A template
+steps:
+  - id: step1
+    type: action
+    context: clear
+    instructions: Do something
+`;
+			const template = loadWorkflowTemplateFromString(validYaml);
+			assert.strictEqual(template.steps[0].context, 'clear');
+		});
+
+		test('Loader accepts template with valid context: compact', () => {
+			const validYaml = `
+name: valid-compact
+description: A template
+steps:
+  - id: step1
+    type: action
+    context: compact
+    instructions: Do something
+`;
+			const template = loadWorkflowTemplateFromString(validYaml);
+			assert.strictEqual(template.steps[0].context, 'compact');
+		});
+
+		test('Loader rejects loop step with invalid context value', () => {
+			const invalidYaml = `
+name: invalid-loop-context
+description: A template
+loops:
+  my_loop:
+    - id: sub1
+      context: invalid
+      instructions: Do something
+steps:
+  - id: my_loop
+    type: loop
+`;
+			assert.throws(
+				() => loadWorkflowTemplateFromString(invalidYaml),
+				WorkflowValidationError,
+				'Should throw WorkflowValidationError for invalid context value in loop step'
+			);
+		});
+
+		test('Loader accepts loop step with valid context values', () => {
+			const validYaml = `
+name: valid-loop-context
+description: A template
+loops:
+  my_loop:
+    - id: sub1
+      context: clear
+      instructions: Clear context
+    - id: sub2
+      context: compact
+      instructions: Compact context
+    - id: sub3
+      instructions: No context
+steps:
+  - id: my_loop
+    type: loop
+`;
+			const template = loadWorkflowTemplateFromString(validYaml);
+			assert.strictEqual(template.loops?.my_loop[0].context, 'clear');
+			assert.strictEqual(template.loops?.my_loop[1].context, 'compact');
+			assert.strictEqual(template.loops?.my_loop[2].context, undefined);
+		});
+
 		test('Loader rejects template with missing name', () => {
 			const invalidYaml = `
 description: Missing name
