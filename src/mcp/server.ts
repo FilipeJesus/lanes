@@ -393,6 +393,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workflow_status': {
+        // Try to load machine from memory or disk
+        machine = await ensureMachineLoaded();
+
         if (!machine) {
           throw new Error('Workflow not started. Call workflow_start first.');
         }
