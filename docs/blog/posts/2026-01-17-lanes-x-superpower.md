@@ -20,7 +20,7 @@ I decided this is something I definitely wanted to try, and since I was thinking
 
 ## Setup
 Superpowers was very easy to setup, I followed their readme and ran the following in claude
-```
+```{bash}
 /plugin marketplace add obra/superpowers-marketplace
 /plugin install superpowers@superpowers-marketplace
 ```
@@ -29,7 +29,7 @@ Then I had to enable Superpowers in my `settings.local.json` file. Lanes will ma
 
 I then had to define the Superpowers workflow, this was easy because Superpowers have a suggested workflow in their README. I kept the instructions in each workflow step very simple as I wanted to make sure to not conflict with any instructions in the skills, this means I also did not use an loops or agents in my workflow as Superpowers should manage this.
 
-```
+```{superpowers.yaml}
 name: superpower
 description: Standard starting workflow recommended by the Superpowers team
 
@@ -61,7 +61,7 @@ steps:
 ```
 
 I left my starting prompt to be super basic, as I wanted the brainstorming feature of Superpowers to do it's job in defining the scope of the work.
-```
+```{prompt.txt}
 I think the lanes website could use a blog. This can showcase projects    
 created by lanes or other lanes related content.
 
@@ -96,7 +96,7 @@ The implementation step went smoothly without any need to interrupt the user. Th
 
 The main agent used 87% of its context during the running of the complete workflow, breakdown below. 70-80k tokens were used for subagent management, this means creating the prompts for the subagents and processing their responses and general back and forth between the agent and subagent. This is a huge amount of the main window, but it is a lot less than would be needed if the main agent were to do all the work (Task 7 on its own used 98k of subagent tokens). This means that the blog implementation used 987k tokens to complete. If I were paying per token and used claude-sonnet it would have cost me about $10, I think this is a fair amount for the feature.
 
-```
+```{context.txt}
 ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛀ ⛁   glm-4.7 · 130k/200k tokens (65%)
 ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ System prompt: 2.7k tokens (1.4%)
 ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ System tools: 13.8k tokens (6.9%)

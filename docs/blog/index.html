@@ -37,15 +37,36 @@
         .prose h2 { font-size: 1.5em; font-weight: bold; margin: 0.83em 0; }
         .prose h3 { font-size: 1.17em; font-weight: bold; margin: 1em 0; }
         .prose p { margin: 1em 0; line-height: 1.7; }
-        .prose ul, .prose ol { margin: 1em 0; padding-left: 2em; }
+        .prose ul, .prose ol { margin: 1em 0; padding-left: 1.5em; }
+        .prose ul { list-style-type: disc; }
+        .prose ul ul { list-style-type: circle; }
+        .prose ul ul ul { list-style-type: square; }
+        .prose ol { list-style-type: decimal; }
         .prose li { margin: 0.5em 0; }
         .prose a { color: #007acc; text-decoration: underline; }
         .prose a:hover { color: #005a9e; }
-        .prose code { background: rgba(0,0,0,0.1); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
-        .prose pre { background: #1e1e1e; color: #d4d4d4; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
-        .prose pre code { background: transparent; padding: 0; }
+        .prose code { background: rgba(0,0,0,0.08); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; }
+        .prose pre { background: #1e1e1e; color: #d4d4d4; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; border: 1px solid rgba(255,255,255,0.1); }
+        .prose pre code { background: transparent; padding: 0; color: inherit; }
         .prose img { max-width: 100%; border-radius: 8px; margin: 1em 0; }
         .prose blockquote { border-left: 4px solid #007acc; padding-left: 1em; margin: 1em 0; color: #666; }
+        .prose table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 1em 0; font-size: 0.95em; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+        .prose table thead { background: #f3f4f6; border-bottom: 2px solid #e5e7eb; }
+        .prose table th { padding: 0.75em 1em; text-align: left; font-weight: 600; color: #1f2937; border-right: 1px solid #e5e7eb; }
+        .prose table th:last-child { border-right: none; }
+        .prose table td { padding: 0.75em 1em; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+        .prose table td:last-child { border-right: none; }
+        .prose table tbody tr:last-child td { border-bottom: none; }
+        .prose table tbody tr:nth-child(even) { background: #f9fafb; }
+        .prose table tbody tr:hover { background: #f3f4f6; }
+        .dark .prose table { border: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table thead { background: #2d2d2d; border-bottom: 2px solid rgba(255,255,255,0.1); }
+        .dark .prose table th { color: #f9fafb; border-right: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table td { border-right: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table tbody tr:last-child td { border-bottom: none; }
+        .dark .prose table tbody tr:nth-child(even) { background: rgba(255,255,255,0.05); }
+        .dark .prose table tbody tr:hover { background: rgba(255,255,255,0.1); }
+        .dark .prose code { background: rgba(255,255,255,0.1); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-vscode-bg text-gray-700 dark:text-gray-300 font-sans antialiased">
