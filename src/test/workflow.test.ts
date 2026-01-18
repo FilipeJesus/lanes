@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {
 	// Types
@@ -1247,6 +1249,298 @@ steps:
 			assert.ok(status.instructions.includes('THE SAME TASK again'));
 			assert.ok(status.instructions.includes('NOT skip it'));
 			assert.ok(status.instructions.includes('refine and improve'));
+		});
+	});
+});
+
+suite('Artefact Registration', () => {
+	let validTemplate: WorkflowTemplate;
+	let tempDir: string;
+	let testFile1: string;
+	let testFile2: string;
+
+	setup(() => {
+		validTemplate = loadWorkflowTemplateFromString(VALID_TEMPLATE_YAML);
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-test-'));
+		testFile1 = path.join(tempDir, 'test-file-1.txt');
+		testFile2 = path.join(tempDir, 'test-file-2.txt');
+		fs.writeFileSync(testFile1, 'test content 1');
+		fs.writeFileSync(testFile2, 'test content 2');
+	});
+
+	teardown(() => {
+		if (fs.existsSync(tempDir)) {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	suite('registerArtefacts - New Paths', () => {
+		test('registerArtefacts registers new valid absolute paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+
+			// Act
+			const result = machine.registerArtefacts([testFile1, testFile2]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 2);
+			assert.deepStrictEqual(result.duplicates, []);
+			assert.deepStrictEqual(result.invalid, []);
+			assert.ok(result.registered.includes(testFile1));
+			assert.ok(result.registered.includes(testFile2));
+		});
+
+		test('registerArtefacts registers new valid relative paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			const relativePath = path.relative(process.cwd(), testFile1);
+
+			// Act
+			const result = machine.registerArtefacts([relativePath]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1);
+			assert.deepStrictEqual(result.duplicates, []);
+			assert.deepStrictEqual(result.invalid, []);
+			assert.ok(result.registered[0].endsWith('test-file-1.txt'));
+		});
+
+		test('registerArtefacts stores artefacts in state', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+
+			// Act
+			machine.registerArtefacts([testFile1, testFile2]);
+			const state = machine.getState();
+
+			// Assert
+			assert.strictEqual(state.artefacts.length, 2);
+			assert.ok(state.artefacts.includes(testFile1));
+			assert.ok(state.artefacts.includes(testFile2));
+		});
+	});
+
+	suite('registerArtefacts - Duplicate Paths', () => {
+		test('registerArtefacts identifies duplicate paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.registerArtefacts([testFile1]);
+
+			// Act
+			const result = machine.registerArtefacts([testFile1]);
+
+			// Assert
+			assert.deepStrictEqual(result.registered, []);
+			assert.strictEqual(result.duplicates.length, 1);
+			assert.strictEqual(result.duplicates[0], testFile1);
+			assert.deepStrictEqual(result.invalid, []);
+		});
+
+		test('registerArtefacts handles mixed new and duplicate paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.registerArtefacts([testFile1]);
+
+			// Act
+			const result = machine.registerArtefacts([testFile1, testFile2]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1);
+			assert.ok(result.registered.includes(testFile2));
+			assert.strictEqual(result.duplicates.length, 1);
+			assert.strictEqual(result.duplicates[0], testFile1);
+			assert.deepStrictEqual(result.invalid, []);
+		});
+
+		test('registerArtefacts does not add duplicates to state', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.registerArtefacts([testFile1, testFile2]);
+
+			// Act
+			machine.registerArtefacts([testFile1, testFile2]);
+			const state = machine.getState();
+
+			// Assert
+			assert.strictEqual(state.artefacts.length, 2);
+		});
+	});
+
+	suite('registerArtefacts - Invalid Paths', () => {
+		test('registerArtefacts rejects non-existent paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			const nonExistentPath = path.join(tempDir, 'does-not-exist.txt');
+
+			// Act
+			const result = machine.registerArtefacts([nonExistentPath]);
+
+			// Assert
+			assert.deepStrictEqual(result.registered, []);
+			assert.deepStrictEqual(result.duplicates, []);
+			assert.strictEqual(result.invalid.length, 1);
+			assert.ok(result.invalid[0].includes('does-not-exist.txt'));
+		});
+
+		test('registerArtefacts rejects empty strings', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+
+			// Act
+			const result = machine.registerArtefacts(['', '   ', testFile1]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1);
+			assert.ok(result.registered.includes(testFile1));
+			assert.strictEqual(result.invalid.length, 2);
+			assert.ok(result.invalid.includes(''));
+			assert.ok(result.invalid.includes('   '));
+		});
+
+		test('registerArtefacts rejects non-string paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+
+			// Act
+			const result = machine.registerArtefacts([testFile1, null as unknown as string, undefined as unknown as string]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1);
+			assert.strictEqual(result.invalid.length, 2);
+		});
+	});
+
+	suite('registerArtefacts - Mixed Valid/Invalid', () => {
+		test('registerArtefacts handles mixed valid and invalid paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			const nonExistentPath = path.join(tempDir, 'does-not-exist.txt');
+
+			// Act
+			const result = machine.registerArtefacts([testFile1, nonExistentPath, testFile2]);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 2);
+			assert.ok(result.registered.includes(testFile1));
+			assert.ok(result.registered.includes(testFile2));
+			assert.strictEqual(result.invalid.length, 1);
+			assert.ok(result.invalid[0].includes('does-not-exist.txt'));
+		});
+
+		test('registerArtefacts handles mixed new, duplicate, and invalid paths', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.registerArtefacts([testFile1]);
+			const nonExistentPath = path.join(tempDir, 'does-not-exist.txt');
+
+			// Act
+			const result = machine.registerArtefacts([testFile1, testFile2, nonExistentPath, '']);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1);
+			assert.ok(result.registered.includes(testFile2));
+			assert.strictEqual(result.duplicates.length, 1);
+			assert.strictEqual(result.duplicates[0], testFile1);
+			assert.strictEqual(result.invalid.length, 2);
+			assert.ok(result.invalid.some(p => p.includes('does-not-exist.txt')));
+		});
+
+		test('registerArtefacts only adds valid new paths to state', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			const nonExistentPath = path.join(tempDir, 'does-not-exist.txt');
+
+			// Act
+			machine.registerArtefacts([testFile1, nonExistentPath, '']);
+			const state = machine.getState();
+
+			// Assert
+			assert.strictEqual(state.artefacts.length, 1);
+			assert.strictEqual(state.artefacts[0], testFile1);
+		});
+	});
+
+	suite('Artefacts Initialization', () => {
+		test('artefacts array initializes as empty in createInitialState', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.start();
+
+			// Act
+			const state = machine.getState();
+
+			// Assert
+			assert.ok(Array.isArray(state.artefacts));
+			assert.strictEqual(state.artefacts.length, 0);
+		});
+
+		test('artefacts array is included in status response', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.start();
+			machine.registerArtefacts([testFile1, testFile2]);
+
+			// Act
+			const status = machine.getStatus();
+
+			// Assert
+			assert.ok(status.artefacts);
+			assert.ok(Array.isArray(status.artefacts));
+			assert.strictEqual(status.artefacts.length, 2);
+			assert.ok(status.artefacts.includes(testFile1));
+			assert.ok(status.artefacts.includes(testFile2));
+		});
+
+		test('artefacts in status response is a copy (not reference)', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.start();
+			machine.registerArtefacts([testFile1]);
+
+			// Act
+			const status1 = machine.getStatus();
+			if (status1.artefacts) {
+				status1.artefacts.push('/fake/path');
+			}
+			const status2 = machine.getStatus();
+
+			// Assert - status2 should not have the fake path
+			assert.ok(status2.artefacts);
+			assert.strictEqual(status2.artefacts.length, 1);
+		});
+
+		test('status response includes artefacts when workflow is complete', () => {
+			// Arrange
+			const minimalTemplate = loadWorkflowTemplateFromString(MINIMAL_TEMPLATE_YAML);
+			const machine = new WorkflowStateMachine(minimalTemplate);
+			machine.start();
+			machine.registerArtefacts([testFile1]);
+			machine.advance('Done');
+
+			// Act
+			const status = machine.getStatus();
+
+			// Assert
+			assert.strictEqual(status.status, 'complete');
+			assert.ok(status.artefacts);
+			assert.ok(Array.isArray(status.artefacts));
+			assert.strictEqual(status.artefacts.length, 1);
+			assert.ok(status.artefacts.includes(testFile1));
+		});
+
+		test('status response includes artefacts when workflow is running', () => {
+			// Arrange
+			const machine = new WorkflowStateMachine(validTemplate);
+			machine.start();
+			machine.registerArtefacts([testFile1, testFile2]);
+
+			// Act
+			const status = machine.getStatus();
+
+			// Assert
+			assert.strictEqual(status.status, 'running');
+			assert.ok(status.artefacts);
+			assert.strictEqual(status.artefacts.length, 2);
 		});
 	});
 });
