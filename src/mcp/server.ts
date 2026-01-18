@@ -103,6 +103,28 @@ async function initializeMachine(summary?: string): Promise<WorkflowStateMachine
   return result.machine;
 }
 
+/**
+ * Ensures the machine is loaded, either from memory or from disk.
+ * Returns null if no workflow state exists anywhere.
+ */
+async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
+  // Return existing machine if already in memory
+  if (machine) {
+    return machine;
+  }
+
+  // Try to load from disk
+  const existingState = await tools.loadState(worktreePath);
+  if (existingState) {
+    const template = await loadWorkflowTemplate(workflowPath);
+    machine = WorkflowStateMachine.fromState(template, existingState);
+    return machine;
+  }
+
+  // No state exists in memory or on disk
+  return null;
+}
+
 // Create MCP server
 const server = new Server(
   { name: 'lanes-workflow', version: '1.0.0' },
