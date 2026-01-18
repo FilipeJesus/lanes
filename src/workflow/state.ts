@@ -2,6 +2,9 @@
  * Workflow state machine for tracking and advancing through workflow execution.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 import type {
   WorkflowTemplate,
   WorkflowState,
@@ -41,6 +44,8 @@ export class WorkflowStateMachine {
       stepType: firstStep.type,
       tasks: {},
       outputs: {},
+      artefacts: [],
+      currentStepArtefacts: firstStep.artefacts,
     };
 
     // Initialize ralph iteration if first step is ralph
@@ -222,6 +227,7 @@ export class WorkflowStateMachine {
         delegate: false,
         instructions: 'Workflow complete.',
         progress: this.buildProgress(),
+        artefacts: [...this.state.artefacts],
       };
     }
 
@@ -234,6 +240,7 @@ export class WorkflowStateMachine {
         delegate: false,
         instructions: 'Workflow failed.',
         progress: this.buildProgress(),
+        artefacts: [...this.state.artefacts],
       };
     }
 
@@ -249,6 +256,7 @@ export class WorkflowStateMachine {
       delegate: agent !== null,
       instructions,
       progress,
+      artefacts: [...this.state.artefacts],
     };
 
     // Add loop-specific information
@@ -325,6 +333,7 @@ export class WorkflowStateMachine {
 
     // Set up first task and first sub-step
     const loopSteps = this.getLoopSteps(this.state.step);
+    const currentStep = this.getCurrentStep();
 
     this.state.task = {
       index: 0,
@@ -335,6 +344,9 @@ export class WorkflowStateMachine {
     if (loopSteps.length > 0) {
       this.state.subStep = loopSteps[0].id;
     }
+
+    // Set currentStepArtefacts based on the loop step
+    this.state.currentStepArtefacts = currentStep.artefacts;
 
     // Mark first task as in progress
     tasks[0].status = 'in_progress';
@@ -385,6 +397,7 @@ export class WorkflowStateMachine {
     this.state.task = undefined;
     this.state.subStep = undefined;
     this.state.ralphIteration = undefined;
+    this.state.currentStepArtefacts = nextStep.artefacts;
 
     // If next step is a loop, check if tasks are already set
     if (nextStep.type === 'loop' && this.state.tasks[nextStep.id]?.length > 0) {
@@ -517,6 +530,51 @@ export class WorkflowStateMachine {
     if (sanitized) {
       this.state.summary = sanitized;
     }
+  }
+
+  /**
+   * Registers artefact paths with validation.
+   * @param paths - Array of file paths (absolute or relative)
+   * @returns Object containing registered, duplicates, and invalid paths
+   */
+  registerArtefacts(paths: string[]): {
+    registered: string[];
+    duplicates: string[];
+    invalid: string[];
+  } {
+    const workspaceRoot = process.cwd();
+    const registered: string[] = [];
+    const duplicates: string[] = [];
+    const invalid: string[] = [];
+
+    for (const rawPath of paths) {
+      // Validate input
+      if (typeof rawPath !== 'string' || !rawPath.trim()) {
+        invalid.push(rawPath);
+        continue;
+      }
+
+      // Resolve to absolute path
+      const absolutePath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.resolve(workspaceRoot, rawPath);
+
+      // Validate file exists
+      if (!fs.existsSync(absolutePath)) {
+        invalid.push(absolutePath);
+        continue;
+      }
+
+      // Check for duplicates
+      if (!this.state.artefacts.includes(absolutePath)) {
+        this.state.artefacts.push(absolutePath);
+        registered.push(absolutePath);
+      } else {
+        duplicates.push(absolutePath);
+      }
+    }
+
+    return { registered, duplicates, invalid };
   }
 
   /**

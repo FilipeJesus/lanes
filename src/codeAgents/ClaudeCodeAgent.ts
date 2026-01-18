@@ -230,7 +230,7 @@ export class ClaudeCodeAgent extends CodeAgent {
     // --- Hooks ---
 
     getHookEvents(): string[] {
-        return ['SessionStart', 'Stop', 'UserPromptSubmit', 'Notification', 'PreToolUse'];
+        return ['SessionStart', 'Stop', 'UserPromptSubmit', 'Notification', 'PreToolUse', 'PostToolUse'];
     }
 
     generateHooksConfig(
@@ -257,6 +257,13 @@ export class ClaudeCodeAgent extends CodeAgent {
             command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
         };
 
+        // Artefact registration hook
+        // Automatically registers files created via Write tool as artefacts in the current Lanes workflow
+        // Inline command version - reads from stdin, checks workflow state for currentStepArtefacts, adds file to artefacts array
+        const artefactRegistration: HookCommand = {
+            type: 'command',
+            command: `INPUT=$(cat); WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"; if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"; if [ "$ARTEFACTS_ENABLED" = "true" ]; then FILE_PATH="$(echo "$INPUT" | jq -r '.tool_response.filePath // empty')"; if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then STATE_FILE="$WORKTREE_PATH/workflow-state.json"; tmp=$(mktemp); jq --arg path "$FILE_PATH" 'if .artefacts == null then .artefacts = [] end | if .artefacts | index($path) == null then .artefacts += [$path] else . end' "$STATE_FILE" > "$tmp"; mv "$tmp" "$STATE_FILE"; fi; fi; fi; fi`
+        };
         // Build SessionStart hooks array
         const sessionStartCommands: HookCommand[] = [sessionIdCapture];
 
@@ -292,6 +299,11 @@ export class ClaudeCodeAgent extends CodeAgent {
                 event: 'PreToolUse',
                 matcher: '.*',
                 commands: [statusWriteWorking]
+            },
+            {
+                event: 'PostToolUse',
+                matcher: 'Write',
+                commands: [artefactRegistration]
             }
         ];
     }

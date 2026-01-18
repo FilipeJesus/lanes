@@ -1063,7 +1063,8 @@ suite('Workflow Summary Feature', () => {
 				stepType: 'action',
 				tasks: {},
 				outputs: {},
-				summary: 'Add dark mode toggle'
+				summary: 'Add dark mode toggle',
+				artefacts: []
 			};
 
 			// Assert
@@ -1078,7 +1079,8 @@ suite('Workflow Summary Feature', () => {
 				step: 'plan',
 				stepType: 'action',
 				tasks: {},
-				outputs: {}
+				outputs: {},
+				artefacts: []
 			};
 
 			// Assert
