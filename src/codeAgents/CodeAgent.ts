@@ -351,13 +351,15 @@ export abstract class CodeAgent {
      * @param sessionFilePath Path to the session file
      * @param statusFilePath Path to the status file
      * @param workflowPath Optional path to the workflow YAML file
+     * @param hookScriptPath Optional path to generated hook script
      * @returns Array of hook configurations
      */
     abstract generateHooksConfig(
         worktreePath: string,
         sessionFilePath: string,
         statusFilePath: string,
-        workflowPath?: string
+        workflowPath?: string,
+        hookScriptPath?: string
     ): HookConfig[];
 
     // --- MCP Support (Optional) ---
