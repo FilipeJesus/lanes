@@ -206,15 +206,36 @@ function generateHeader(title, currentPath = '') {
         .prose h2 { font-size: 1.5em; font-weight: bold; margin: 0.83em 0; }
         .prose h3 { font-size: 1.17em; font-weight: bold; margin: 1em 0; }
         .prose p { margin: 1em 0; line-height: 1.7; }
-        .prose ul, .prose ol { margin: 1em 0; padding-left: 2em; }
+        .prose ul, .prose ol { margin: 1em 0; padding-left: 1.5em; }
+        .prose ul { list-style-type: disc; }
+        .prose ul ul { list-style-type: circle; }
+        .prose ul ul ul { list-style-type: square; }
+        .prose ol { list-style-type: decimal; }
         .prose li { margin: 0.5em 0; }
         .prose a { color: #007acc; text-decoration: underline; }
         .prose a:hover { color: #005a9e; }
-        .prose code { background: rgba(0,0,0,0.1); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
-        .prose pre { background: #1e1e1e; color: #d4d4d4; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
-        .prose pre code { background: transparent; padding: 0; }
+        .prose code { background: rgba(0,0,0,0.08); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; }
+        .prose pre { background: #1e1e1e; color: #d4d4d4; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; border: 1px solid rgba(255,255,255,0.1); }
+        .prose pre code { background: transparent; padding: 0; color: inherit; }
         .prose img { max-width: 100%; border-radius: 8px; margin: 1em 0; }
         .prose blockquote { border-left: 4px solid #007acc; padding-left: 1em; margin: 1em 0; color: #666; }
+        .prose table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 1em 0; font-size: 0.95em; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+        .prose table thead { background: #f3f4f6; border-bottom: 2px solid #e5e7eb; }
+        .prose table th { padding: 0.75em 1em; text-align: left; font-weight: 600; color: #1f2937; border-right: 1px solid #e5e7eb; }
+        .prose table th:last-child { border-right: none; }
+        .prose table td { padding: 0.75em 1em; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+        .prose table td:last-child { border-right: none; }
+        .prose table tbody tr:last-child td { border-bottom: none; }
+        .prose table tbody tr:nth-child(even) { background: #f9fafb; }
+        .prose table tbody tr:hover { background: #f3f4f6; }
+        .dark .prose table { border: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table thead { background: #2d2d2d; border-bottom: 2px solid rgba(255,255,255,0.1); }
+        .dark .prose table th { color: #f9fafb; border-right: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table td { border-right: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .dark .prose table tbody tr:last-child td { border-bottom: none; }
+        .dark .prose table tbody tr:nth-child(even) { background: rgba(255,255,255,0.05); }
+        .dark .prose table tbody tr:hover { background: rgba(255,255,255,0.1); }
+        .dark .prose code { background: rgba(255,255,255,0.1); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-vscode-bg text-gray-700 dark:text-gray-300 font-sans antialiased">
@@ -225,12 +246,19 @@ function generateHeader(title, currentPath = '') {
                 <div class="flex items-center gap-2">
                     <img src="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png" alt="Lanes Logo" class="w-8 h-8">
                     <span class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Lanes</span>
+                    <span class="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">Free Forever</span>
+                    <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-medium">All Local</span>
                 </div>
                 <div class="hidden md:flex items-center">
                     <div class="ml-10 flex items-baseline space-x-8">
                         <a href="../index.html" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Home</a>
+                        <a href="../index.html#features" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Features</a>
+                        <a href="../index.html#how-it-works" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">How it Works</a>
                         <a href="index.html" class="${currentPath === 'blog' ? 'text-vscode-accent font-medium' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'} transition-colors">Blog</a>
                         <a href="../docs.html" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Docs</a>
+                        <a href="https://github.com/FilipeJesus/lanes" class="bg-vscode-accent hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium transition-all">
+                            View on GitHub
+                        </a>
                     </div>
                     <button id="theme-toggle" class="ml-6 p-2 rounded-lg bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 transition-colors" aria-label="Toggle theme">
                         <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -391,6 +419,33 @@ ${generateFooter()}`;
 }
 
 /**
+ * Wrap code blocks with terminal-style header
+ * @param {string} html - HTML content
+ * @returns {string} - HTML with code blocks wrapped
+ */
+function wrapCodeBlocks(html) {
+  // Find all <pre><code class="language-xxx"> patterns and wrap them
+  return html.replace(
+    /<pre><code class="language-([^"]+)">([\s\S]*?)<\/code><\/pre>/g,
+    (match, lang, code) => {
+      // Strip curly braces from language name if present (e.g., {bash} -> bash)
+      const cleanLang = lang.replace(/[{}]/g, '');
+      return `<div class="relative my-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-vscode-sidebar overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-200 dark:bg-[#1e1e1e]">
+          <div class="flex gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <div class="ml-4 text-xs text-gray-600 dark:text-gray-500 font-mono">${escapeHtml(cleanLang)}</div>
+        </div>
+        <pre style="margin: 0; border-top-left-radius: 0; border-top-right-radius: 0;"><code class="language-${escapeHtml(lang)}">${code}</code></pre>
+      </div>`;
+    }
+  );
+}
+
+/**
  * Generate individual blog post HTML page
  * @param {Object} post - Post object
  * @param {Array} allPosts - All posts for related posts section
@@ -436,7 +491,7 @@ function generatePostPage(post, allPosts) {
       </header>
 
       <div class="prose dark:prose-invert max-w-none">
-        ${post.html}
+        ${wrapCodeBlocks(post.html)}
       </div>
 
 ${relatedPostsHtml}
