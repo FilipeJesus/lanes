@@ -385,6 +385,7 @@ The workflow system automatically persists state to `workflow-state.json` in you
 - **Resume capability** - If Claude crashes or loses context, the workflow can resume
 - **Context preservation** - All step outputs are stored and accessible
 - **Progress tracking** - Current position, completed tasks, remaining work
+- **Automatic resume after MCP server restart** - If the MCP server restarts, calling `workflow_status` will automatically resume from the persisted state. You do not need to call `workflow_start` again.
 
 The state file is automatically updated after each step and should not be manually edited.
 
