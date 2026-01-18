@@ -111,6 +111,18 @@ function validateLoopStep(loopId: string, index: number, value: unknown): assert
       );
     }
   }
+
+  // Validate optional context field
+  if (value.context !== undefined) {
+    if (!isString(value.context)) {
+      throw new WorkflowValidationError(`Loop '${loopId}' step '${value.id}' context must be a string`);
+    }
+    if (value.context !== 'compact' && value.context !== 'clear') {
+      throw new WorkflowValidationError(
+        `Loop '${loopId}' step '${value.id}' context must be either 'compact' or 'clear', got: ${value.context}`
+      );
+    }
+  }
 }
 
 /**
@@ -150,6 +162,18 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
     }
     if (value.n === undefined || typeof value.n !== 'number' || value.n < 1 || !Number.isInteger(value.n)) {
       throw new WorkflowValidationError(`Ralph step '${stepId}' must have an 'n' field with a positive integer value`);
+    }
+  }
+
+  // Validate optional context field
+  if (value.context !== undefined) {
+    if (!isString(value.context)) {
+      throw new WorkflowValidationError(`Step '${stepId}' context must be a string`);
+    }
+    if (value.context !== 'compact' && value.context !== 'clear') {
+      throw new WorkflowValidationError(
+        `Step '${stepId}' context must be either 'compact' or 'clear', got: ${value.context}`
+      );
     }
   }
 }
