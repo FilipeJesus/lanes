@@ -103,4 +103,18 @@ suite('ClaudeCodeAgent Hooks', () => {
         assert.ok(cmd.includes('{'), 'Command should have opening brace');
         assert.ok(cmd.includes('}'), 'Command should have closing brace');
     });
+
+    test('SessionStart hook should have correct matcher pattern', () => {
+        // Arrange
+        const agent = new ClaudeCodeAgent();
+        const worktreePath = tempDir;
+
+        // Act
+        const hooks = agent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, undefined);
+        const sessionStartHook = hooks.find(h => h.event === 'SessionStart');
+
+        // Assert - should have matcher for startup|resume|clear|compact
+        assert.ok(sessionStartHook, 'Should have SessionStart hook');
+        assert.strictEqual(sessionStartHook!.matcher, 'startup|resume|clear|compact', 'Matcher should match all session start events');
+    });
 });

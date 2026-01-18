@@ -272,6 +272,7 @@ export class ClaudeCodeAgent extends CodeAgent {
         return [
             {
                 event: 'SessionStart',
+                matcher: 'startup|resume|clear|compact',
                 commands: sessionStartCommands
             },
             {
