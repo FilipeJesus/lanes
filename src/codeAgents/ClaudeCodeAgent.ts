@@ -236,7 +236,8 @@ export class ClaudeCodeAgent extends CodeAgent {
     generateHooksConfig(
         worktreePath: string,
         sessionFilePath: string,
-        statusFilePath: string
+        statusFilePath: string,
+        workflowPath?: string
     ): HookConfig[] {
         // Status update hooks
         const statusWriteWaiting: HookCommand = {
@@ -263,11 +264,23 @@ export class ClaudeCodeAgent extends CodeAgent {
             type: 'command',
             command: `INPUT=$(cat); WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"; if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"; if [ "$ARTEFACTS_ENABLED" = "true" ]; then FILE_PATH="$(echo "$INPUT" | jq -r '.tool_response.filePath // empty')"; if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then STATE_FILE="$WORKTREE_PATH/workflow-state.json"; tmp=$(mktemp); jq --arg path "$FILE_PATH" 'if .artefacts == null then .artefacts = [] end | if .artefacts | index($path) == null then .artefacts += [$path] else . end' "$STATE_FILE" > "$tmp"; mv "$tmp" "$STATE_FILE"; fi; fi; fi; fi`
         };
+        // Build SessionStart hooks array
+        const sessionStartCommands: HookCommand[] = [sessionIdCapture];
+
+        // Add workflow status hook if workflow is active
+        if (workflowPath) {
+            const workflowStatusCheck: HookCommand = {
+                type: 'command',
+                command: `echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<system-reminder>\\nLanes Workflow Engine is active.\\nTo ensure context synchronization, you MUST run the workflow_status tool immediately.\\nDo not proceed with user requests until the workflow state is confirmed.\\n</system-reminder>"}}'`
+            };
+            sessionStartCommands.push(workflowStatusCheck);
+        }
 
         return [
             {
                 event: 'SessionStart',
-                commands: [sessionIdCapture]
+                matcher: 'startup|resume|clear|compact',
+                commands: sessionStartCommands
             },
             {
                 event: 'Stop',

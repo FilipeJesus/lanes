@@ -576,6 +576,56 @@ suite('Extension Settings File', () => {
 
 	suite('Extension Settings MCP Configuration', () => {
 
+		test('should include workflow status hook when workflow is specified', async () => {
+			// Arrange
+			const { ClaudeCodeAgent } = await import('../codeAgents/ClaudeCodeAgent.js');
+			const codeAgent = new ClaudeCodeAgent();
+
+			const sessionName = 'workflow-session';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			const workflowPath = path.join(tempDir, 'workflows', 'test-workflow.yaml');
+			fs.mkdirSync(path.dirname(workflowPath), { recursive: true });
+			fs.writeFileSync(workflowPath, 'name: test\nsteps: []');
+
+			// Act
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflowPath, codeAgent);
+
+			// Assert
+			const settingsContent = fs.readFileSync(settingsPath, 'utf-8');
+			const settings = JSON.parse(settingsContent);
+
+			// Should have SessionStart hook with multiple commands
+			assert.ok(settings.hooks.SessionStart, 'Should have SessionStart hook');
+			assert.ok(settings.hooks.SessionStart[0].hooks.length >= 2, 'SessionStart should have at least 2 commands when workflow is active');
+
+			// Second command should be the workflow status check
+			const workflowHookCmd = settings.hooks.SessionStart[0].hooks[1];
+			assert.ok(workflowHookCmd.command.includes('workflow_status'), 'Second command should check workflow status');
+		});
+
+		test('should NOT include workflow status hook when workflow is not specified', async () => {
+			// Arrange
+			const { ClaudeCodeAgent } = await import('../codeAgents/ClaudeCodeAgent.js');
+			const codeAgent = new ClaudeCodeAgent();
+
+			const sessionName = 'no-workflow-session';
+			const worktreePath = path.join(worktreesDir, sessionName);
+			fs.mkdirSync(worktreePath, { recursive: true });
+
+			// Act - no workflow parameter
+			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, undefined, codeAgent);
+
+			// Assert
+			const settingsContent = fs.readFileSync(settingsPath, 'utf-8');
+			const settings = JSON.parse(settingsContent);
+
+			// SessionStart should only have session ID capture
+			assert.ok(settings.hooks.SessionStart, 'Should have SessionStart hook');
+			assert.strictEqual(settings.hooks.SessionStart[0].hooks.length, 1, 'SessionStart should only have 1 command when no workflow');
+		});
+
 		test('should save workflow to session data when workflow is provided', async () => {
 			// Arrange
 			const sessionName = 'mcp-workflow-test';
@@ -1781,8 +1831,8 @@ suite('Configuration Tests', () => {
 				4,
 				'lanes.chimeSound should have 4 enum descriptions'
 			);
-		})
-	})
+		});
+	});
 });
 
 suite('Local Settings Integration', () => {
