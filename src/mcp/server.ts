@@ -301,7 +301,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Truncate to approximately 10 words (max ~100 chars)
             summary = trimmed.length > 100 ? trimmed.substring(0, 97) + '...' : trimmed;
           }
-          machine = await initializeMachine(summary);
+
+          // Use ensureMachineLoaded to resume from disk
+          machine = await ensureMachineLoaded();
+
+          // If no machine exists, create a new one
+          if (!machine) {
+            const result = await tools.workflowStartFromPath(worktreePath, workflowPath, summary);
+            machine = result.machine;
+          }
         }
 
         // Check for pending context action
