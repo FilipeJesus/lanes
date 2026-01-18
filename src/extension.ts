@@ -2136,6 +2136,41 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     // Ensure the directory exists
     await fsPromises.mkdir(settingsDir, { recursive: true });
 
+    // Generate the artefact registration hook script in global storage
+    const hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
+    const hookScriptContent = `#!/bin/bash
+
+# Read hook input from stdin
+INPUT=$(cat)
+WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"
+
+# Only register if we're in a worktree with an active workflow
+if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then
+    # Check if artefact tracking is enabled for the current step
+    ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"
+
+    if [ "$ARTEFACTS_ENABLED" = "true" ]; then
+        # Extract the file path from Write tool input (FIXED: use tool_input.file_path)
+        FILE_PATH="$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')"
+
+        if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
+            # Add the file to artefacts array if not already present
+            STATE_FILE="$WORKTREE_PATH/workflow-state.json"
+            tmp=$(mktemp)
+            jq --arg path "$FILE_PATH" \\
+                'if .artefacts == null then .artefacts = [] end |
+                 if .artefacts | index($path) == null then .artefacts += [$path] else . end' \\
+                "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+        fi
+    fi
+fi
+
+exit 0
+`;
+
+    // Write the hook script with executable permissions
+    await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
     // Determine status and session file paths
     const useGlobalStorage = isGlobalStorageEnabled();
     let statusFilePath: string;
@@ -2185,9 +2220,10 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     if (codeAgent) {
         // Use CodeAgent to generate hooks
         // Pass effectiveWorkflow to enable workflow status hook
+        // Pass hookScriptPath to enable PostToolUse artefact registration hook
         // Convert null to undefined for type compatibility
         const workflowParam = effectiveWorkflow || undefined;
-        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowParam);
+        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowParam, hookScriptPath);
 
         // Convert HookConfig[] to ClaudeSettings hooks format
         hooks = {};

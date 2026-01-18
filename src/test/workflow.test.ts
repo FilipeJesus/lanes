@@ -2042,3 +2042,253 @@ suite('Built-in Templates', () => {
 		assert.strictEqual(template.steps[2].id, 'cleanup');
 	});
 });
+
+suite('PostToolUse Hook Integration', () => {
+	const { exec } = require('child_process');
+	const { promisify } = require('util');
+	const execAsync = promisify(exec);
+
+	let worktreePath: string;
+	let testFilePath: string;
+	let hookScriptPath: string;
+	let stateFilePath: string;
+
+	const hookScriptContent = `#!/bin/bash
+
+# Read hook input from stdin
+INPUT=$(cat)
+WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"
+
+# Only register if we're in a worktree with an active workflow
+if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then
+    # Check if artefact tracking is enabled for the current step
+    ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"
+
+    if [ "$ARTEFACTS_ENABLED" = "true" ]; then
+        # Extract the file path from Write tool input (FIXED: use tool_input.file_path)
+        FILE_PATH="$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')"
+
+        if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
+            # Add the file to artefacts array if not already present
+            STATE_FILE="$WORKTREE_PATH/workflow-state.json"
+            tmp=$(mktemp)
+            jq --arg path "$FILE_PATH" \\
+                'if .artefacts == null then .artefacts = [] end |
+                 if .artefacts | index($path) == null then .artefacts += [$path] else . end' \\
+                "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+        fi
+    fi
+fi
+
+exit 0
+`;
+
+	setup(() => {
+		worktreePath = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-hook-integration-'));
+		testFilePath = path.join(worktreePath, 'test-artefact.txt');
+		hookScriptPath = path.join(worktreePath, 'register-artefact.sh');
+		stateFilePath = path.join(worktreePath, 'workflow-state.json');
+	});
+
+	teardown(() => {
+		if (fs.existsSync(worktreePath)) {
+			fs.rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	suite('Hook Script Execution', () => {
+		test('PostToolUse hook registers file as artefact when enabled', async function() {
+			// Skip on Windows if bash is not available
+			if (process.platform === 'win32') {
+				this.skip();
+			}
+
+			// Arrange
+			const initialState = {
+				status: 'running',
+				step: 'test-step',
+				stepType: 'action',
+				currentStepArtefacts: true,
+				artefacts: []
+			};
+			fs.writeFileSync(stateFilePath, JSON.stringify(initialState, null, 2));
+
+			// Create the test file
+			fs.writeFileSync(testFilePath, 'test content');
+
+			// Write hook script
+			fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
+			// Simulate the hook input (what Claude Code sends to PostToolUse)
+			const hookInput = {
+				cwd: worktreePath,
+				tool_name: 'Write',
+				tool_input: {
+					file_path: testFilePath
+				}
+			};
+
+			// Act: Execute the hook script
+			await execAsync(`echo '${JSON.stringify(hookInput)}' | bash "${hookScriptPath}"`);
+
+			// Assert: Verify artefact was registered
+			const updatedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+			assert.ok(updatedState.artefacts.includes(testFilePath),
+				`File should be registered as artefact. Got: ${JSON.stringify(updatedState.artefacts)}`);
+		});
+
+		test('PostToolUse hook does not register file when artefacts disabled', async function() {
+			// Skip on Windows if bash is not available
+			if (process.platform === 'win32') {
+				this.skip();
+			}
+
+			// Arrange: Create workflow state with artefacts DISABLED
+			const initialState = {
+				status: 'running',
+				step: 'test-step',
+				stepType: 'action',
+				currentStepArtefacts: false,  // DISABLED
+				artefacts: []
+			};
+			fs.writeFileSync(stateFilePath, JSON.stringify(initialState, null, 2));
+
+			// Create the test file
+			fs.writeFileSync(testFilePath, 'test content');
+
+			// Write hook script
+			fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
+			// Simulate the hook input
+			const hookInput = {
+				cwd: worktreePath,
+				tool_name: 'Write',
+				tool_input: {
+					file_path: testFilePath
+				}
+			};
+
+			// Act: Execute the hook script
+			await execAsync(`echo '${JSON.stringify(hookInput)}' | bash "${hookScriptPath}"`);
+
+			// Assert: Verify artefact was NOT registered
+			const updatedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+			assert.ok(!updatedState.artefacts.includes(testFilePath),
+				'File should NOT be registered when artefacts disabled');
+			assert.strictEqual(updatedState.artefacts.length, 0,
+				'Artefacts array should remain empty');
+		});
+
+		test('PostToolUse hook skips non-existent files', async function() {
+			// Skip on Windows if bash is not available
+			if (process.platform === 'win32') {
+				this.skip();
+			}
+
+			// Arrange
+			const initialState = {
+				status: 'running',
+				step: 'test-step',
+				stepType: 'action',
+				currentStepArtefacts: true,
+				artefacts: []
+			};
+			fs.writeFileSync(stateFilePath, JSON.stringify(initialState, null, 2));
+
+			// Write hook script
+			fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
+			// Simulate the hook input with a non-existent file
+			const nonExistentPath = path.join(worktreePath, 'does-not-exist.txt');
+			const hookInput = {
+				cwd: worktreePath,
+				tool_name: 'Write',
+				tool_input: {
+					file_path: nonExistentPath
+				}
+			};
+
+			// Act: Execute the hook script
+			await execAsync(`echo '${JSON.stringify(hookInput)}' | bash "${hookScriptPath}"`);
+
+			// Assert: Verify artefact was NOT registered (file doesn't exist)
+			const updatedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+			assert.strictEqual(updatedState.artefacts.length, 0,
+				'Artefacts array should remain empty for non-existent files');
+		});
+
+		test('PostToolUse hook does not register duplicate files', async function() {
+			// Skip on Windows if bash is not available
+			if (process.platform === 'win32') {
+				this.skip();
+			}
+
+			// Arrange
+			const initialState = {
+				status: 'running',
+				step: 'test-step',
+				stepType: 'action',
+				currentStepArtefacts: true,
+				artefacts: [testFilePath]  // Already registered
+			};
+			fs.writeFileSync(stateFilePath, JSON.stringify(initialState, null, 2));
+
+			// Create the test file
+			fs.writeFileSync(testFilePath, 'test content');
+
+			// Write hook script
+			fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
+			// Simulate the hook input
+			const hookInput = {
+				cwd: worktreePath,
+				tool_name: 'Write',
+				tool_input: {
+					file_path: testFilePath
+				}
+			};
+
+			// Act: Execute the hook script
+			await execAsync(`echo '${JSON.stringify(hookInput)}' | bash "${hookScriptPath}"`);
+
+			// Assert: Verify file is not duplicated
+			const updatedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+			const occurrences = updatedState.artefacts.filter((p: string) => p === testFilePath).length;
+			assert.strictEqual(occurrences, 1,
+				'File should appear only once in artefacts array (no duplicates)');
+		});
+
+		test('PostToolUse hook handles missing workflow-state.json gracefully', async function() {
+			// Skip on Windows if bash is not available
+			if (process.platform === 'win32') {
+				this.skip();
+			}
+
+			// Arrange: No workflow-state.json file exists
+			// Create the test file
+			fs.writeFileSync(testFilePath, 'test content');
+
+			// Write hook script
+			fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
+
+			// Simulate the hook input
+			const hookInput = {
+				cwd: worktreePath,
+				tool_name: 'Write',
+				tool_input: {
+					file_path: testFilePath
+				}
+			};
+
+			// Act & Assert: Hook should execute without error
+			// The script should exit cleanly when workflow-state.json doesn't exist
+			try {
+				await execAsync(`echo '${JSON.stringify(hookInput)}' | bash "${hookScriptPath}"`);
+				// If we get here, the script handled the missing file gracefully
+				assert.ok(true, 'Hook script should handle missing workflow-state.json gracefully');
+			} catch (error) {
+				assert.fail(`Hook script should not fail when workflow-state.json is missing: ${error}`);
+			}
+		});
+	});
+});
