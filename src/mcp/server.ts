@@ -352,6 +352,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!machine) {
           throw new Error('Workflow not started. Call workflow_start first.');
         }
+
+        // Check for pending context action
+        const contextAction = machine.getContextActionIfNeeded();
+        if (contextAction) {
+          const command = contextAction === 'compact' ? '/compact' : '/clear';
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify({
+                contextAction: command,
+                message: `Please run \`${command}\` first, then call workflow_status again.`
+              }, null, 2)
+            }]
+          };
+        }
+
         const status = tools.workflowStatus(machine);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }],
