@@ -13,6 +13,7 @@ import type {
   Task,
   WorkflowStatusResponse,
   AgentConfig,
+  StepContextAction,
   WorkflowProgress,
 } from './types';
 
@@ -132,6 +133,41 @@ export class WorkflowStateMachine {
     }
 
     return step.agent || null;
+  }
+
+  /**
+   * Gets the context action that should be performed before executing the current step.
+   * Checks sub-step first (for loops), then main step. Returns null if already executed.
+   * @returns The context action ('compact' | 'clear') or null
+   */
+  getContextActionIfNeeded(): StepContextAction | null {
+    const step = this.getCurrentStep();
+
+    // Already executed
+    if (this.state.contextActionExecuted) {
+      return null;
+    }
+
+    // Check loop sub-step first (takes precedence)
+    const loopStep = this.getCurrentLoopStep();
+    if (loopStep?.context) {
+      return loopStep.context;
+    }
+
+    // Check main step
+    if (step.context) {
+      return step.context;
+    }
+
+    return null;
+  }
+
+  /**
+   * Marks that the context action has been executed.
+   * This prevents the same action from being triggered multiple times.
+   */
+  markContextActionExecuted(): void {
+    this.state.contextActionExecuted = true;
   }
 
   /**
