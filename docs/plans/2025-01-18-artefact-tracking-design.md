@@ -1,19 +1,19 @@
 # Artefact Tracking Feature Design
 
 **Date:** 2025-01-18
-**Status:** Design Approved
+**Status:** Design Approved (Updated for Hooks-Based Approach)
 **Feature:** Workflow Artefact Tracking for Lanes
 
 ## Overview
 
-The Artefact Tracking feature allows workflow steps to register output files (artefacts) which are tracked in the global workflow state. This enables the system to maintain a record of all files created during workflow execution.
+The Artefact Tracking feature allows workflow steps to automatically register output files (artefacts) which are tracked in the global workflow state. This uses **Claude Code hooks** to automatically capture files created during workflow execution.
 
 ## Requirements
 
 1. **Workflow Schema:** Add optional `artefacts: boolean` field to step definitions
 2. **State Management:** Track artefacts in `workflow-state.json`
-3. **MCP Tool:** New `register_artefacts` tool for registering files
-4. **Instruction Injection:** Auto-inject registration instructions when `artefacts: true`
+3. **MCP Tool:** New `register_artefacts` tool for manual registration (still available)
+4. **Hook-Based Auto-Registration:** Use Claude Code `PostToolUse` hooks to automatically register files created via Write tool
 5. **Response Handling:** Return artefacts in `workflow_start` and `workflow_status` responses
 
 ## Architecture
@@ -27,6 +27,13 @@ The Artefact Tracking feature allows workflow steps to register output files (ar
 | `src/workflow/loader.ts` | Parse `artefacts` field from YAML |
 | `src/mcp/tools.ts` | Add `workflowRegisterArtefacts()` helper |
 | `src/mcp/server.ts` | Register `register_artefacts` MCP tool |
+| `.claude/settings.json` (project) | Add PostToolWrite hook configuration |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `.claude/hooks/register-artefact.sh` | Hook script that calls MCP tool |
 
 ### Type Definitions
 
@@ -146,43 +153,7 @@ registerArtefacts(paths: string[]): {
 }
 ```
 
-**Instruction Injection:**
-```typescript
-private getCurrentInstructions(): string {
-  const step = this.getCurrentStep();
-  let instructions = '';
-
-  // Build base instructions based on step type
-  if (step.type === 'action') {
-    instructions = step.instructions || '';
-  }
-  if (step.type === 'ralph') {
-    instructions = step.instructions || '';
-  }
-
-  // Loop step handling...
-  const loopStep = this.getCurrentLoopStep();
-  if (loopStep) {
-    // ... existing interpolation logic ...
-  }
-
-  // NEW: Inject artefact instruction if enabled
-  if (step.artefacts === true) {
-    instructions += '\n\n' +
-      'You are expected to create output files during this step. ' +
-      'Once you have created a file, you MUST call the `register_artefacts` tool ' +
-      'with the path to the file(s). Do not stop the step without registering your work.';
-  }
-
-  // Agent delegation
-  const agent = this.getCurrentAgent();
-  if (agent !== null) {
-    instructions = `SPAWN the '${agent}' sub-agent to handle this step:\n\n${instructions}`;
-  }
-
-  return instructions;
-}
-```
+**No Instruction Injection Needed:** With the hooks-based approach, there's no need to inject instructions into the workflow step. The hook automatically captures all files created via the Write tool when `artefacts: true` is set on the current step.
 
 **Status Response:**
 ```typescript
@@ -287,7 +258,105 @@ case 'register_artefacts': {
 
 The loader already uses loose YAML parsing, so the optional `artefacts` field will be automatically parsed. No changes needed unless strict validation is added.
 
-### 5. Workflow YAML Example
+### 5. Claude Code Hook Configuration (.claude/settings.json)
+
+**Hook Settings:**
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/register-artefact.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Hook Script (.claude/hooks/register-artefact.sh):**
+```bash
+#!/bin/bash
+
+# Hook script that automatically registers files created via Write tool
+# as artefacts in the current Lanes workflow.
+
+set -euo pipefail
+
+# Read hook input from stdin
+INPUT=$(cat)
+WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"
+
+# Only register if we're in a Lanes worktree with an active workflow
+if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then
+  # Extract the file path from Write tool output
+  FILE_PATH="$(echo "$INPUT" | jq -r '.tool_response.filePath // empty')"
+
+  if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
+    # Call the register_artefacts MCP tool
+    # Note: This uses a direct state update since MCP tools aren't available in hooks
+    STATE_FILE="$WORKTREE_PATH/workflow-state.json"
+
+    # Add the file to artefacts array if not already present
+    tmp=$(mktemp)
+    jq --arg path "$FILE_PATH" '
+      if .artefacts == null then .artefacts = [] end |
+      if .artefacts | index($path) == null then .artefacts += [$path] else . end
+    ' "$STATE_FILE" > "$tmp"
+    mv "$tmp" "$STATE_FILE"
+  fi
+fi
+
+exit 0
+```
+
+**Note:** The hook directly modifies `workflow-state.json` since MCP tools are not available within hook execution context. The hook checks if a workflow is active before registering files.
+
+### 6. Conditional Hook Activation
+
+The hook should **only** activate when the current workflow step has `artefacts: true`. To implement this, the hook script needs to check the current step's configuration:
+
+```bash
+#!/bin/bash
+
+# In register-artefact.sh, add this check at the beginning:
+WORKFLOW_PATH="$WORKTREE_PATH/.workflow-info.json"
+
+# Check if current step has artefacts enabled
+if [ -f "$WORKFLOW_PATH" ]; then
+  ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKFLOW_PATH")"
+  if [ "$ARTEFACTS_ENABLED" != "true" ]; then
+    exit 0  # Skip registration if artefacts not enabled
+  fi
+fi
+```
+
+To support this, the MCP server should write a `.workflow-info.json` file when the workflow starts or advances:
+
+```typescript
+// In src/mcp/server.ts, write workflow info file
+interface WorkflowInfo {
+  stepId: string;
+  currentStepArtefacts: boolean;
+}
+
+function writeWorkflowInfo(worktreePath: string, status: WorkflowStatusResponse): void {
+  const step = getCurrentStep();
+  const info: WorkflowInfo = {
+    stepId: status.step,
+    currentStepArtefacts: step.artefacts === true,
+  };
+  const infoPath = path.join(worktreePath, '.workflow-info.json');
+  fs.writeFileSync(infoPath, JSON.stringify(info, null, 2));
+}
+```
+
+### 7. Workflow YAML Example
 
 ```yaml
 name: feature-dev
@@ -333,24 +402,41 @@ steps:
    - Test `registerArtefacts()` with invalid/non-existent paths
    - Test `registerArtefacts()` with mixed valid/invalid paths
    - Test artefacts initialization in `createInitialState()`
-   - Test instruction injection when `artefacts: true`
+   - Test `artefacts` field in status response
 
 2. **MCP Tool Tests (`src/test/mcp.test.ts`)**
    - Test `register_artefacts` tool handler
    - Test state persistence after registration
    - Test error handling when workflow not started
 
+3. **Hook Script Tests**
+   - Test hook script processes JSON input correctly
+   - Test hook skips when workflow not active
+   - Test hook skips when `artefacts != true` on current step
+   - Test hook adds file to artefacts array
+   - Test hook handles duplicate files
+
 ### Integration Test
 
-Full workflow test:
+Full workflow test with hooks:
 1. Start workflow with `artefacts: true` step
-2. Create a file
-3. Call `register_artefacts`
-4. Call `workflow_status` and verify artefacts are returned
-5. Advance step and verify artefacts persist
+2. Use Write tool to create a file
+3. Call `workflow_status` and verify artefacts are returned (hook auto-registered)
+4. Advance step and verify artefacts persist
 
 ## Migration Notes
 
 - **Backward compatible:** Existing workflows without `artefacts` field work unchanged
 - **State format:** New `artefacts` array added to `WorkflowState` - old states without it will default to empty array on load
 - **Optional field:** `artefacts` defaults to `false` when not specified
+- **Hook setup:** Users need to add the hook configuration to their `.claude/settings.json` and create the hook script
+
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Hooks-based auto-registration** | Eliminates need for Claude to remember calling `register_artefacts` - files are captured automatically |
+| **Conditional activation** | Hook only runs when `artefacts: true` on current step - avoids tracking unwanted files |
+| **Direct state modification in hook** | MCP tools not available in hook context - direct file modification is simpler and more reliable |
+| **Manual MCP tool still available** | Users can still manually call `register_artefacts` if needed for special cases |
+| **No instruction injection** | Hooks handle everything automatically - no need to pollute step instructions |
