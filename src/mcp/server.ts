@@ -114,11 +114,25 @@ async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
   }
 
   // Try to load from disk
-  const existingState = await tools.loadState(worktreePath);
-  if (existingState) {
-    const template = await loadWorkflowTemplate(workflowPath);
-    machine = WorkflowStateMachine.fromState(template, existingState);
-    return machine;
+  try {
+    const existingState = await tools.loadState(worktreePath);
+    if (existingState) {
+      try {
+        const template = await loadWorkflowTemplate(workflowPath);
+        machine = WorkflowStateMachine.fromState(template, existingState);
+        return machine;
+      } catch (error) {
+        // Template loading failed (missing/corrupted template)
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to load workflow template from ${workflowPath}: ${message}`);
+        return null;
+      }
+    }
+  } catch (error) {
+    // State loading failed (file system errors)
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to load workflow state from ${worktreePath}: ${message}`);
+    return null;
   }
 
   // No state exists in memory or on disk
