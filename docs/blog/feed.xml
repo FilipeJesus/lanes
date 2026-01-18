@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Lanes Blog</title>
+    <link>https://filipejesus.github.io/lanes/blog/</link>
+    <description>Blog posts about Lanes - Parallel AI Coding in VS Code</description>
+    <language>en-us</language>
+    <item>
+      <title>Lanes X Superpower</title>
+      <link>https://filipejesus.github.io/lanes/blog/2026-01-17-lanes-x-superpower.html</link>
+      <description>Learn how to use Lanes&apos; structured workflow system with the Superpowers skills plugin to guide AI agents through complex tasks.</description>
+      <pubDate>Sat, 17 Jan 2026 00:00:00 GMT</pubDate>
+            <category>tutorial</category>
+      <category>workflows</category>
+    </item>
+  </channel>
+</rss>
