@@ -84,23 +84,39 @@ if (!workflowPath.endsWith('.yaml')) {
 let machine: WorkflowStateMachine | null = null;
 
 /**
- * Initializes or restores the workflow state machine.
- * Uses the workflow path provided via --workflow-path argument.
- * @param summary - Optional brief summary of the user's request (max 10 words)
+ * Ensures the machine is loaded, either from memory or from disk.
+ * Returns null if no workflow state exists anywhere.
  */
-async function initializeMachine(summary?: string): Promise<WorkflowStateMachine> {
-  // Try to load existing state
-  const existingState = await tools.loadState(worktreePath);
-
-  if (existingState) {
-    // Restore from existing state - use the workflow path directly
-    const template = await loadWorkflowTemplate(workflowPath);
-    return WorkflowStateMachine.fromState(template, existingState);
+async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
+  // Return existing machine if already in memory
+  if (machine) {
+    return machine;
   }
 
-  // Start fresh - use the workflow path directly
-  const result = await tools.workflowStartFromPath(worktreePath, workflowPath, summary);
-  return result.machine;
+  // Try to load from disk
+  try {
+    const existingState = await tools.loadState(worktreePath);
+    if (existingState) {
+      try {
+        const template = await loadWorkflowTemplate(workflowPath);
+        machine = WorkflowStateMachine.fromState(template, existingState);
+        return machine;
+      } catch (error) {
+        // Template loading failed (missing/corrupted template)
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to load workflow template from ${workflowPath}: ${message}`);
+        return null;
+      }
+    }
+  } catch (error) {
+    // State loading failed (file system errors)
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to load workflow state from ${worktreePath}: ${message}`);
+    return null;
+  }
+
+  // No state exists in memory or on disk
+  return null;
 }
 
 // Create MCP server
@@ -265,7 +281,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Truncate to approximately 10 words (max ~100 chars)
             summary = trimmed.length > 100 ? trimmed.substring(0, 97) + '...' : trimmed;
           }
-          machine = await initializeMachine(summary);
+
+          // Use ensureMachineLoaded to resume from disk
+          machine = await ensureMachineLoaded();
+
+          // If no machine exists, create a new one
+          if (!machine) {
+            const result = await tools.workflowStartFromPath(worktreePath, workflowPath, summary);
+            machine = result.machine;
+          }
         }
 
         // Check for pending context action
@@ -349,6 +373,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workflow_status': {
+        // Try to load machine from memory or disk
+        machine = await ensureMachineLoaded();
+
         if (!machine) {
           throw new Error('Workflow not started. Call workflow_start first.');
         }

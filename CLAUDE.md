@@ -61,6 +61,10 @@ Tasks are managed through MCP workflow tools:
 - `workflow_status` - Get current workflow position and progress
 - `workflow_context` - Get outputs from previous steps
 
+### Workflow State Persistence
+
+Workflow state is automatically persisted to `workflow-state.json` in the worktree. If the MCP server restarts, calling `workflow_status` will automatically resume from the persisted state. You do not need to call `workflow_start` again.
+
 ## Agent Summary
 
 | Agent | Purpose | When to Use |
