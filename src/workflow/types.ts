@@ -113,6 +113,8 @@ export interface WorkflowState {
   summary?: string;
   /** Tracked artefact paths (absolute) */
   artefacts: string[];
+  /** Whether artefact tracking is enabled for the current step */
+  currentStepArtefacts?: boolean;
 }
 
 /**

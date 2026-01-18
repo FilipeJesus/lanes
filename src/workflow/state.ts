@@ -45,6 +45,7 @@ export class WorkflowStateMachine {
       tasks: {},
       outputs: {},
       artefacts: [],
+      currentStepArtefacts: firstStep.artefacts,
     };
 
     // Initialize ralph iteration if first step is ralph
@@ -332,6 +333,7 @@ export class WorkflowStateMachine {
 
     // Set up first task and first sub-step
     const loopSteps = this.getLoopSteps(this.state.step);
+    const currentStep = this.getCurrentStep();
 
     this.state.task = {
       index: 0,
@@ -342,6 +344,9 @@ export class WorkflowStateMachine {
     if (loopSteps.length > 0) {
       this.state.subStep = loopSteps[0].id;
     }
+
+    // Set currentStepArtefacts based on the loop step
+    this.state.currentStepArtefacts = currentStep.artefacts;
 
     // Mark first task as in progress
     tasks[0].status = 'in_progress';
@@ -392,6 +397,7 @@ export class WorkflowStateMachine {
     this.state.task = undefined;
     this.state.subStep = undefined;
     this.state.ralphIteration = undefined;
+    this.state.currentStepArtefacts = nextStep.artefacts;
 
     // If next step is a loop, check if tasks are already set
     if (nextStep.type === 'loop' && this.state.tasks[nextStep.id]?.length > 0) {

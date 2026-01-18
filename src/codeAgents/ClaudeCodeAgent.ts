@@ -258,10 +258,10 @@ export class ClaudeCodeAgent extends CodeAgent {
 
         // Artefact registration hook
         // Automatically registers files created via Write tool as artefacts in the current Lanes workflow
-        // Inline command version - reads from stdin, checks workflow state, adds file to artefacts array
+        // Inline command version - reads from stdin, checks workflow state for currentStepArtefacts, adds file to artefacts array
         const artefactRegistration: HookCommand = {
             type: 'command',
-            command: `INPUT=$(cat); WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"; if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then WORKFLOW_INFO="$WORKTREE_PATH/.workflow-info.json"; if [ -f "$WORKFLOW_INFO" ]; then ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKFLOW_INFO")"; if [ "$ARTEFACTS_ENABLED" = "true" ]; then FILE_PATH="$(echo "$INPUT" | jq -r '.tool_response.filePath // empty')"; if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then STATE_FILE="$WORKTREE_PATH/workflow-state.json"; tmp=$(mktemp); jq --arg path "$FILE_PATH" 'if .artefacts == null then .artefacts = [] end | if .artefacts | index($path) == null then .artefacts += [$path] else . end' "$STATE_FILE" > "$tmp"; mv "$tmp" "$STATE_FILE"; fi; fi; fi; fi; fi`
+            command: `INPUT=$(cat); WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"; if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"; if [ "$ARTEFACTS_ENABLED" = "true" ]; then FILE_PATH="$(echo "$INPUT" | jq -r '.tool_response.filePath // empty')"; if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then STATE_FILE="$WORKTREE_PATH/workflow-state.json"; tmp=$(mktemp); jq --arg path "$FILE_PATH" 'if .artefacts == null then .artefacts = [] end | if .artefacts | index($path) == null then .artefacts += [$path] else . end' "$STATE_FILE" > "$tmp"; mv "$tmp" "$STATE_FILE"; fi; fi; fi; fi`
         };
 
         return [
