@@ -13,6 +13,7 @@ export {
   workflowStatus,
   workflowAdvance,
   workflowContext,
+  workflowRegisterArtefacts,
   saveState,
   loadState,
   getStatePath,

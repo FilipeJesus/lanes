@@ -16,6 +16,7 @@ import {
 	workflowAdvance,
 	workflowStatus,
 	workflowContext,
+	workflowRegisterArtefacts,
 	saveState,
 	loadState,
 	getStatePath,
@@ -442,6 +443,157 @@ suite('MCP Tools', () => {
 				Object.keys(context).some(k => k.includes('implement') || context[k] === 'Implementation output'),
 				'Should have loop sub-step output'
 			);
+		});
+	});
+
+	suite('workflowRegisterArtefacts', () => {
+		test('workflowRegisterArtefacts registers valid file paths', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			// Create test files in temp directory
+			const testFile1 = path.join(tempDir, 'test-file-1.txt');
+			const testFile2 = path.join(tempDir, 'test-file-2.txt');
+			fs.writeFileSync(testFile1, 'content 1');
+			fs.writeFileSync(testFile2, 'content 2');
+
+			// Act
+			const result = await workflowRegisterArtefacts(machine, [testFile1, testFile2], tempDir);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 2, 'Should register 2 files');
+			assert.ok(result.registered.includes(testFile1), 'Should include test-file-1.txt');
+			assert.ok(result.registered.includes(testFile2), 'Should include test-file-2.txt');
+			assert.strictEqual(result.duplicates.length, 0, 'Should have no duplicates');
+			assert.strictEqual(result.invalid.length, 0, 'Should have no invalid paths');
+		});
+
+		test('workflowRegisterArtefacts identifies duplicate paths', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			const testFile = path.join(tempDir, 'test-file.txt');
+			fs.writeFileSync(testFile, 'content');
+
+			// Register once
+			await workflowRegisterArtefacts(machine, [testFile], tempDir);
+
+			// Act: Try to register same file again
+			const result = await workflowRegisterArtefacts(machine, [testFile], tempDir);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 0, 'Should not register duplicates');
+			assert.strictEqual(result.duplicates.length, 1, 'Should identify 1 duplicate');
+			assert.ok(result.duplicates.includes(testFile), 'Duplicate should be test-file.txt');
+		});
+
+		test('workflowRegisterArtefacts identifies invalid paths', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			const nonExistentFile = path.join(tempDir, 'does-not-exist.txt');
+			const emptyPath = '   ';
+
+			// Act
+			const result = await workflowRegisterArtefacts(machine, [nonExistentFile, emptyPath], tempDir);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 0, 'Should not register invalid paths');
+			assert.strictEqual(result.invalid.length, 2, 'Should identify 2 invalid paths');
+		});
+
+		test('workflowRegisterArtefacts saves state after registration', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			const testFile = path.join(tempDir, 'test-file.txt');
+			fs.writeFileSync(testFile, 'content');
+
+			// Act
+			await workflowRegisterArtefacts(machine, [testFile], tempDir);
+
+			// Assert: State should include artefacts
+			const statePath = getStatePath(tempDir);
+			const savedState = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+			assert.ok(savedState.artefacts, 'State should have artefacts');
+			assert.ok(savedState.artefacts.includes(testFile), 'Artefacts should include test file');
+		});
+
+		test('workflowRegisterArtefacts persists artefacts across server restarts', async () => {
+			// Arrange: Start workflow and register artefacts
+			const { machine: machine1 } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+
+			const testFile = path.join(tempDir, 'test-file.txt');
+			fs.writeFileSync(testFile, 'content');
+
+			await workflowRegisterArtefacts(machine1, [testFile], tempDir);
+
+			// Simulate server restart: load state from file
+			const loadedState = await loadState(tempDir);
+			assert.ok(loadedState, 'State should be loadable from file');
+
+			// Act: Load template and create new machine from loaded state
+			const template = await loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+			const machine2 = WorkflowStateMachine.fromState(template, loadedState);
+			const status = machine2.getStatus();
+
+			// Assert: Artefacts should be preserved
+			assert.ok(status.artefacts, 'Status should have artefacts');
+			assert.ok(status.artefacts.includes(testFile), 'Artefacts should include test file');
+		});
+
+		test('workflowRegisterArtefacts handles mixed valid, duplicate, and invalid paths', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			const testFile1 = path.join(tempDir, 'test-file-1.txt');
+			const testFile2 = path.join(tempDir, 'test-file-2.txt');
+			fs.writeFileSync(testFile1, 'content 1');
+			fs.writeFileSync(testFile2, 'content 2');
+
+			// Register first file
+			await workflowRegisterArtefacts(machine, [testFile1], tempDir);
+
+			const nonExistentFile = path.join(tempDir, 'does-not-exist.txt');
+
+			// Act: Mix of valid, duplicate, and invalid
+			const result = await workflowRegisterArtefacts(machine, [testFile1, testFile2, nonExistentFile], tempDir);
+
+			// Assert
+			assert.strictEqual(result.registered.length, 1, 'Should register only new file');
+			assert.ok(result.registered.includes(testFile2), 'Should register test-file-2.txt');
+			assert.strictEqual(result.duplicates.length, 1, 'Should identify 1 duplicate');
+			assert.ok(result.duplicates.includes(testFile1), 'Duplicate should be test-file-1.txt');
+			assert.strictEqual(result.invalid.length, 1, 'Should identify 1 invalid path');
+		});
+
+		test('workflowRegisterArtefacts works with relative paths', async () => {
+			// Arrange
+			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+
+			// Create a file in the temp directory
+			const testFileName = 'test-file.txt';
+			const testFile = path.join(tempDir, testFileName);
+			fs.writeFileSync(testFile, 'content');
+
+			// Save current working directory
+			const originalCwd = process.cwd();
+
+			try {
+				// Change to temp directory so relative path resolves correctly
+				process.chdir(tempDir);
+
+				// Act: Register with relative path
+				const result = await workflowRegisterArtefacts(machine, [testFileName], tempDir);
+
+				// Assert
+				assert.strictEqual(result.registered.length, 1, 'Should register file with relative path');
+				// The registered path should be absolute
+				assert.ok(path.isAbsolute(result.registered[0]), 'Registered path should be absolute');
+			} finally {
+				// Restore original working directory
+				process.chdir(originalCwd);
+			}
 		});
 	});
 });
