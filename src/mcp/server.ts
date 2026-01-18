@@ -14,11 +14,12 @@ import {
 import * as tools from './tools';
 import {
   WorkflowStateMachine,
-  loadWorkflowTemplate,
   WorkflowState,
   Task,
+  loadWorkflowTemplate,
 } from '../workflow';
 import * as path from 'path';
+import * as fs from 'fs';
 
 // Parse command-line arguments
 // Expected: node server.js --worktree <path> --workflow-path <path> --repo-root <path>
@@ -81,6 +82,45 @@ if (!workflowPath.endsWith('.yaml')) {
 
 // Global state
 let machine: WorkflowStateMachine | null = null;
+
+/**
+ * Workflow information written to .workflow-info.json
+ * This file is read by the PostToolUse hook to determine if artefact
+ * registration is enabled for the current step.
+ */
+interface WorkflowInfo {
+  /** Current step ID */
+  stepId: string;
+  /** Whether the current step has artefact tracking enabled */
+  currentStepArtefacts: boolean;
+}
+
+/**
+ * Writes workflow information to .workflow-info.json in the worktree.
+ * This file is read by the PostToolUse hook to check if artefact
+ * registration should be enabled for the current step.
+ *
+ * @param worktreePath - The worktree root path
+ * @param status - The current workflow status
+ */
+async function writeWorkflowInfo(worktreePath: string, status: { step: string }): Promise<void> {
+  try {
+    // Reload the template to look up the current step
+    const template = await loadWorkflowTemplate(workflowPath);
+    const step = template.steps.find(s => s.id === status.step);
+
+    const info: WorkflowInfo = {
+      stepId: status.step,
+      currentStepArtefacts: step?.artefacts === true,
+    };
+
+    const infoPath = path.join(worktreePath, '.workflow-info.json');
+    fs.writeFileSync(infoPath, JSON.stringify(info, null, 2));
+  } catch (error) {
+    // Log but don't throw - this is non-critical functionality
+    console.error(`Warning: Failed to write .workflow-info.json: ${error}`);
+  }
+}
 
 /**
  * Initializes or restores the workflow state machine.
@@ -267,6 +307,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           machine = await initializeMachine(summary);
         }
         const status = tools.workflowStatus(machine);
+        // Write workflow info file for the hook to read
+        await writeWorkflowInfo(worktreePath, status);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }],
         };
@@ -347,6 +389,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         const output = (toolArgs?.output as string) || '';
         const status = await tools.workflowAdvance(machine, output, worktreePath);
+        // Write workflow info file for the hook to read
+        await writeWorkflowInfo(worktreePath, status);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }],
         };

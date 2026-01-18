@@ -17,5 +17,18 @@
     "deny": [
       "Bash(./scripts/release.sh*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/register-artefact.sh"
+          }
+        ]
+      }
+    ]
   }
 }
