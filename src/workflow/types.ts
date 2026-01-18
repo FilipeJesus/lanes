@@ -12,6 +12,11 @@ export interface AgentConfig {
 }
 
 /**
+ * Context action to perform before executing a step.
+ */
+export type StepContextAction = 'compact' | 'clear';
+
+/**
  * A step within a reusable loop (sub-workflow).
  */
 export interface LoopStep {
@@ -23,6 +28,8 @@ export interface LoopStep {
   instructions: string;
   /** Action to take if this step fails */
   on_fail?: 'retry' | 'skip' | 'abort';
+  /** Optional context action to perform before executing this sub-step */
+  context?: StepContextAction;
 }
 
 /**
@@ -41,6 +48,8 @@ export interface WorkflowStep {
   n?: number;
   /** Enable artefact tracking for this step */
   artefacts?: boolean;
+  /** Optional context action to perform before executing this step */
+  context?: StepContextAction;
 }
 
 /**
@@ -115,6 +124,8 @@ export interface WorkflowState {
   artefacts: string[];
   /** Whether artefact tracking is enabled for the current step */
   currentStepArtefacts?: boolean;
+  /** Whether the context action for the current step has been executed */
+  contextActionExecuted: boolean;
 }
 
 /**
