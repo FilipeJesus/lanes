@@ -33,6 +33,9 @@ import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSet
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
+// Constants
+const TERMINAL_CLOSE_DELAY_MS = 200;
+
 /**
  * Pending session request from MCP server.
  */
@@ -698,7 +701,7 @@ async function processRestartRequest(
         if (existingTerminal) {
             existingTerminal.dispose();
             // Brief delay to ensure terminal is closed
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
         }
 
         // Open a new terminal with fresh session
@@ -1535,20 +1538,21 @@ export async function activate(context: vscode.ExtensionContext) {
     // 15. Register RESTART SESSION Command
     const restartSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.restartSession', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please right-click on a session to restart it.');
+            vscode.window.showErrorMessage('Please select a session to restart it.');
             return;
         }
 
         try {
             const sessionName = path.basename(item.worktreePath);
-            const termName = `Claude: ${sessionName}`;
+            // Use consistent terminal name logic
+            const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
             // Find and close the existing terminal
             const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
             if (existingTerminal) {
                 existingTerminal.dispose();
                 // Brief delay to ensure terminal is closed
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
             }
 
             // Open a new terminal with fresh session

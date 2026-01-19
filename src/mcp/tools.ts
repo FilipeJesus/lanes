@@ -367,6 +367,36 @@ export interface RestartSessionConfig {
 }
 
 /**
+ * Validates that a worktree path is within the expected .worktrees/ structure.
+ * This prevents path traversal attacks and ensures the path is well-formed.
+ *
+ * @param worktreePath The worktree path to validate
+ * @returns true if the path is valid, false otherwise
+ */
+function isValidWorktreePath(worktreePath: string): boolean {
+  try {
+    const normalizedPath = path.normalize(worktreePath);
+    const pathSegments = normalizedPath.split(path.sep);
+
+    // Check that the path ends with .worktrees/session-name structure
+    const worktreesIndex = pathSegments.lastIndexOf('.worktrees');
+    if (worktreesIndex === -1 || worktreesIndex === pathSegments.length - 1) {
+      return false; // .worktrees not found or is the last segment
+    }
+
+    // Ensure the session name (after .worktrees) is not empty or a parent reference
+    const sessionName = pathSegments[worktreesIndex + 1];
+    if (!sessionName || sessionName === '.' || sessionName === '..') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Request a session restart with fresh context.
  * Writes a config file that the VS Code extension will process.
  *
@@ -377,7 +407,15 @@ export async function restartSession(
   worktreePath: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    // 1. Validate worktreePath exists
+    // 1. Validate worktreePath structure (path traversal protection)
+    if (!isValidWorktreePath(worktreePath)) {
+      return {
+        success: false,
+        error: `Invalid worktree path structure: ${worktreePath}. Expected path within .worktrees/ directory.`
+      };
+    }
+
+    // 2. Validate worktreePath exists
     if (!fs.existsSync(worktreePath)) {
       return {
         success: false,
@@ -385,26 +423,26 @@ export async function restartSession(
       };
     }
 
-    // 2. Ensure restart requests directory exists
+    // 3. Ensure restart requests directory exists
     const repoRoot = path.dirname(path.dirname(worktreePath)); // Go up from .worktrees/session-name
     const restartDir = path.join(repoRoot, '.lanes', 'restart-requests');
     if (!fs.existsSync(restartDir)) {
       fs.mkdirSync(restartDir, { recursive: true });
     }
 
-    // 3. Create config object
+    // 4. Create config object
     const sessionName = path.basename(worktreePath);
     const config: RestartSessionConfig = {
       worktreePath,
       requestedAt: new Date().toISOString()
     };
 
-    // 4. Write config file with unique name
+    // 5. Write config file with unique name
     const configId = `${sessionName}-${Date.now()}`;
     const configPath = path.join(restartDir, `${configId}.json`);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    // 5. Return success
+    // 6. Return success
     return {
       success: true,
       message: `Session restart requested for '${sessionName}'. The terminal will be closed and a new session started.`

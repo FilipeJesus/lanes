@@ -44,8 +44,8 @@ suite('Session Restart Tool', () => {
   });
 
   test('restartSession fails for non-existent worktree', async () => {
-    // Arrange
-    const nonExistentPath = path.join(tempDir, 'does-not-exist');
+    // Arrange - use a path with .worktrees structure that doesn't exist
+    const nonExistentPath = path.join(tempDir, '.worktrees', 'non-existent-session');
 
     // Act
     const result = await restartSession(nonExistentPath);
@@ -54,5 +54,31 @@ suite('Session Restart Tool', () => {
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
     assert.ok(result.error?.includes('does not exist'));
+  });
+
+  test('restartSession fails for invalid path structure', async () => {
+    // Arrange - use a path without .worktrees structure (path traversal protection)
+    const invalidPath = path.join(tempDir, 'does-not-exist');
+
+    // Act
+    const result = await restartSession(invalidPath);
+
+    // Assert
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.ok(result.error?.includes('Invalid worktree path structure'));
+  });
+
+  test('restartSession fails for path traversal attempts', async () => {
+    // Arrange - use a path with .. (path traversal attempt)
+    const invalidPath = path.join(tempDir, '.worktrees', '..');
+
+    // Act
+    const result = await restartSession(invalidPath);
+
+    // Assert
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.ok(result.error?.includes('Invalid worktree path structure'));
   });
 });
