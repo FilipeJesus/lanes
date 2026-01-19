@@ -126,6 +126,8 @@ export interface WorkflowState {
   currentStepArtefacts?: boolean;
   /** Whether the context action for the current step has been executed */
   contextActionExecuted: boolean;
+  /** Snapshot of the workflow definition (ensures workflow doesn't change during session) */
+  workflow_definition?: WorkflowTemplate;
 }
 
 /**

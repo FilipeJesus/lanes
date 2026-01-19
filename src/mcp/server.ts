@@ -98,13 +98,18 @@ async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
     const existingState = await tools.loadState(worktreePath);
     if (existingState) {
       try {
-        const template = await loadWorkflowTemplate(workflowPath);
+        // Use the snapshot template if available (prevents workflow drift)
+        // Otherwise fall back to loading from file (backward compatibility)
+        const template = existingState.workflow_definition
+          ? existingState.workflow_definition
+          : await loadWorkflowTemplate(workflowPath);
+
         machine = WorkflowStateMachine.fromState(template, existingState);
         return machine;
       } catch (error) {
         // Template loading failed (missing/corrupted template)
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to load workflow template from ${workflowPath}: ${message}`);
+        console.error(`Failed to load workflow template: ${message}`);
         return null;
       }
     }
