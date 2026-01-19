@@ -268,9 +268,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: 'session_restart',
+      name: 'session_clear',
       description:
-        'Restart the current Claude session with a fresh context. ' +
+        'Clear the current Claude session by starting a fresh one. ' +
         'The existing terminal will be closed and a new one created with no conversation history. ' +
         'Workflow state is preserved and will be restored via the SessionStart hook.',
       inputSchema: {
@@ -315,28 +315,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           machine.markContextActionExecuted();
           await tools.saveState(worktreePath, machine.getState());
 
-          if (contextAction === 'restart') {
-            // Call session_restart tool
-            const result = await tools.restartSession(worktreePath);
+          if (contextAction === 'clear') {
+            // Call session_clear tool to start fresh session
+            const result = await tools.clearSession(worktreePath);
             return {
               content: [{
                 type: 'text' as const,
                 text: JSON.stringify({
-                  sessionRestart: true,
-                  message: result.message || 'Session restart requested. Please wait for the new session to start.',
+                  sessionCleared: true,
+                  message: result.message || 'Session cleared. A fresh session will start.',
                   result
                 }, null, 2)
               }]
             };
           }
 
-          const command = contextAction === 'compact' ? '/compact' : '/clear';
+          // contextAction === 'compact' - use /compact slash command
           return {
             content: [{
               type: 'text' as const,
               text: JSON.stringify({
-                contextAction: command,
-                message: `Please run \`${command}\` first, then call workflow_status again.`
+                contextAction: '/compact',
+                message: `Please run \`/compact\` first, then call workflow_status again.`
               }, null, 2)
             }]
           };
@@ -450,28 +450,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           machine.markContextActionExecuted();
           await tools.saveState(worktreePath, machine.getState());
 
-          if (contextAction === 'restart') {
-            // Call session_restart tool
-            const result = await tools.restartSession(worktreePath);
+          if (contextAction === 'clear') {
+            // Call session_clear tool to start fresh session
+            const result = await tools.clearSession(worktreePath);
             return {
               content: [{
                 type: 'text' as const,
                 text: JSON.stringify({
-                  sessionRestart: true,
-                  message: result.message || 'Session restart requested. Please wait for the new session to start.',
+                  sessionCleared: true,
+                  message: result.message || 'Session cleared. A fresh session will start.',
                   result
                 }, null, 2)
               }]
             };
           }
 
-          const command = contextAction === 'compact' ? '/compact' : '/clear';
+          // contextAction === 'compact' - use /compact slash command
           return {
             content: [{
               type: 'text' as const,
               text: JSON.stringify({
-                contextAction: command,
-                message: `Please run \`${command}\` first, then call workflow_status again.`
+                contextAction: '/compact',
+                message: `Please run \`/compact\` first, then call workflow_status again.`
               }, null, 2)
             }]
           };
@@ -538,9 +538,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'session_restart': {
-        // Write a restart request file that the VS Code extension will process
-        const result = await tools.restartSession(worktreePath);
+      case 'session_clear': {
+        // Write a clear request file that the VS Code extension will process
+        const result = await tools.clearSession(worktreePath);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };

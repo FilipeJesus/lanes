@@ -13,8 +13,9 @@ export interface AgentConfig {
 
 /**
  * Context action to perform before executing a step.
+ * 'clear' creates a fresh session with no conversation history.
  */
-export type StepContextAction = 'compact' | 'clear' | 'restart';
+export type StepContextAction = 'compact' | 'clear';
 
 /**
  * A step within a reusable loop (sub-workflow).
