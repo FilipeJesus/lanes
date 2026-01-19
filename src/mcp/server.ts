@@ -310,6 +310,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           machine.markContextActionExecuted();
           await tools.saveState(worktreePath, machine.getState());
 
+          if (contextAction === 'restart') {
+            // Call session_restart tool
+            const result = await tools.restartSession(worktreePath);
+            return {
+              content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                  sessionRestart: true,
+                  message: result.message || 'Session restart requested. Please wait for the new session to start.',
+                  result
+                }, null, 2)
+              }]
+            };
+          }
+
           const command = contextAction === 'compact' ? '/compact' : '/clear';
           return {
             content: [{
@@ -429,6 +444,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (contextAction) {
           machine.markContextActionExecuted();
           await tools.saveState(worktreePath, machine.getState());
+
+          if (contextAction === 'restart') {
+            // Call session_restart tool
+            const result = await tools.restartSession(worktreePath);
+            return {
+              content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                  sessionRestart: true,
+                  message: result.message || 'Session restart requested. Please wait for the new session to start.',
+                  result
+                }, null, 2)
+              }]
+            };
+          }
 
           const command = contextAction === 'compact' ? '/compact' : '/clear';
           return {
