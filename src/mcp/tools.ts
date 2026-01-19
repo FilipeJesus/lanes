@@ -362,10 +362,10 @@ export async function createSession(
 }
 
 /**
- * Restart request configuration.
+ * Clear session request configuration.
  * Written to a JSON file for the VS Code extension to process.
  */
-export interface RestartSessionConfig {
+export interface ClearSessionConfig {
   worktreePath: string;
   requestedAt: string;
 }
@@ -401,13 +401,13 @@ function isValidWorktreePath(worktreePath: string): boolean {
 }
 
 /**
- * Request a session restart with fresh context.
+ * Clear the current session by starting a fresh one.
  * Writes a config file that the VS Code extension will process.
  *
  * @param worktreePath The worktree root path
  * @returns Result object with success status
  */
-export async function restartSession(
+export async function clearSession(
   worktreePath: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
@@ -427,35 +427,35 @@ export async function restartSession(
       };
     }
 
-    // 3. Ensure restart requests directory exists
+    // 3. Ensure clear requests directory exists
     const repoRoot = path.dirname(path.dirname(worktreePath)); // Go up from .worktrees/session-name
-    const restartDir = path.join(repoRoot, '.lanes', 'restart-requests');
-    if (!fs.existsSync(restartDir)) {
-      fs.mkdirSync(restartDir, { recursive: true });
+    const clearDir = path.join(repoRoot, '.lanes', 'clear-requests');
+    if (!fs.existsSync(clearDir)) {
+      fs.mkdirSync(clearDir, { recursive: true });
     }
 
     // 4. Create config object
     const sessionName = path.basename(worktreePath);
-    const config: RestartSessionConfig = {
+    const config: ClearSessionConfig = {
       worktreePath,
       requestedAt: new Date().toISOString()
     };
 
     // 5. Write config file with unique name
     const configId = `${sessionName}-${Date.now()}`;
-    const configPath = path.join(restartDir, `${configId}.json`);
+    const configPath = path.join(clearDir, `${configId}.json`);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
     // 6. Return success
     return {
       success: true,
-      message: `Session restart requested for '${sessionName}'. The terminal will be closed and a new session started.`
+      message: `Session cleared for '${sessionName}'. A fresh session will start.`
     };
 
   } catch (err) {
     return {
       success: false,
-      error: `Failed to request session restart: ${err instanceof Error ? err.message : String(err)}`
+      error: `Failed to request session clear: ${err instanceof Error ? err.message : String(err)}`
     };
   }
 }

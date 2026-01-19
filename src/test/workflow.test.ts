@@ -236,22 +236,22 @@ steps:
 			assert.strictEqual(action, 'compact');
 		});
 
-		test('Returns restart action when step has context: restart', () => {
+		test('Returns clear action when step has context: clear', () => {
 			const template = loadWorkflowTemplateFromString(`
 name: test
 description: Test
 steps:
   - id: step1
     type: action
-    context: restart
-    instructions: Restart first
+    context: clear
+    instructions: Clear context first
 `);
 			const machine = new WorkflowStateMachine(template);
 			machine.start();
 
 			const action = machine.getContextActionIfNeeded();
 
-			assert.strictEqual(action, 'restart');
+			assert.strictEqual(action, 'clear');
 		});
 
 		test('Returns null after action is marked executed', () => {
