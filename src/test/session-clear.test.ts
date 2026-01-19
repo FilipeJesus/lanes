@@ -2,9 +2,9 @@ import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { restartSession } from '../mcp/tools';
+import { clearSession } from '../mcp/tools';
 
-suite('Session Restart Tool', () => {
+suite('Session Clear Tool', () => {
   let tempDir: string;
   let worktreePath: string;
 
@@ -20,9 +20,9 @@ suite('Session Restart Tool', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('restartSession creates restart request file', async () => {
+  test('clearSession creates clear request file', async () => {
     // Act
-    const result = await restartSession(worktreePath);
+    const result = await clearSession(worktreePath);
 
     // Assert
     assert.strictEqual(result.success, true);
@@ -30,25 +30,25 @@ suite('Session Restart Tool', () => {
 
     // Verify the request file was created
     const repoRoot = path.dirname(path.dirname(worktreePath));
-    const restartDir = path.join(repoRoot, '.lanes', 'restart-requests');
-    assert.ok(fs.existsSync(restartDir));
+    const clearDir = path.join(repoRoot, '.lanes', 'clear-requests');
+    assert.ok(fs.existsSync(clearDir));
 
-    const files = fs.readdirSync(restartDir);
+    const files = fs.readdirSync(clearDir);
     assert.ok(files.length > 0);
 
     // Verify file contents
-    const configPath = path.join(restartDir, files[0]);
+    const configPath = path.join(clearDir, files[0]);
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     assert.strictEqual(config.worktreePath, worktreePath);
     assert.ok(config.requestedAt);
   });
 
-  test('restartSession fails for non-existent worktree', async () => {
+  test('clearSession fails for non-existent worktree', async () => {
     // Arrange - use a path with .worktrees structure that doesn't exist
     const nonExistentPath = path.join(tempDir, '.worktrees', 'non-existent-session');
 
     // Act
-    const result = await restartSession(nonExistentPath);
+    const result = await clearSession(nonExistentPath);
 
     // Assert
     assert.strictEqual(result.success, false);
@@ -56,12 +56,12 @@ suite('Session Restart Tool', () => {
     assert.ok(result.error?.includes('does not exist'));
   });
 
-  test('restartSession fails for invalid path structure', async () => {
+  test('clearSession fails for invalid path structure', async () => {
     // Arrange - use a path without .worktrees structure (path traversal protection)
     const invalidPath = path.join(tempDir, 'does-not-exist');
 
     // Act
-    const result = await restartSession(invalidPath);
+    const result = await clearSession(invalidPath);
 
     // Assert
     assert.strictEqual(result.success, false);
@@ -69,12 +69,12 @@ suite('Session Restart Tool', () => {
     assert.ok(result.error?.includes('Invalid worktree path structure'));
   });
 
-  test('restartSession fails for path traversal attempts', async () => {
+  test('clearSession fails for path traversal attempts', async () => {
     // Arrange - use a path with .. (path traversal attempt)
     const invalidPath = path.join(tempDir, '.worktrees', '..');
 
     // Act
-    const result = await restartSession(invalidPath);
+    const result = await clearSession(invalidPath);
 
     // Assert
     assert.strictEqual(result.success, false);

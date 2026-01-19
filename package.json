@@ -132,8 +132,8 @@
         "title": "Lanes: Test Chime"
       },
       {
-        "command": "claudeWorktrees.restartSession",
-        "title": "Restart Session",
+        "command": "claudeWorktrees.clearSession",
+        "title": "Clear Session",
         "icon": "$(refresh)"
       }
     ],
@@ -172,7 +172,7 @@
           "group": "inline@2"
         },
         {
-          "command": "claudeWorktrees.restartSession",
+          "command": "claudeWorktrees.clearSession",
           "group": "inline@4",
           "when": "view == claudeSessionsView && viewItem == sessionItem"
         }

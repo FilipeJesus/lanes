@@ -48,9 +48,9 @@ export interface PendingSessionConfig {
 }
 
 /**
- * Restart session request from MCP server.
+ * Clear session request from MCP server.
  */
-export interface RestartSessionConfig {
+export interface ClearSessionConfig {
     worktreePath: string;
     requestedAt: string;
 }
@@ -674,10 +674,10 @@ async function checkPendingSessions(
 }
 
 /**
- * Process a pending session restart request from the MCP server.
+ * Process a pending session clear request from the MCP server.
  * Closes the existing terminal and opens a new one with fresh context.
  */
-async function processRestartRequest(
+async function processClearRequest(
     configPath: string,
     codeAgent: CodeAgent,
     baseRepoPath: string | undefined,
@@ -686,9 +686,9 @@ async function processRestartRequest(
     try {
         // Read and parse the config file
         const configContent = await fsPromises.readFile(configPath, 'utf-8');
-        const config: RestartSessionConfig = JSON.parse(configContent);
+        const config: ClearSessionConfig = JSON.parse(configContent);
 
-        console.log(`Processing restart request for: ${config.worktreePath}`);
+        console.log(`Processing clear request for: ${config.worktreePath}`);
 
         // Delete the config file first to prevent re-processing
         await fsPromises.unlink(configPath);
@@ -708,17 +708,17 @@ async function processRestartRequest(
         // No prompt, so it starts completely fresh
         await openClaudeTerminal(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
 
-        console.log(`Session restarted: ${sessionName}`);
+        console.log(`Session cleared: ${sessionName}`);
 
     } catch (err) {
-        console.error(`Failed to process restart request ${configPath}:`, err);
+        console.error(`Failed to process clear request ${configPath}:`, err);
         // Try to delete the config file even on error to prevent infinite retries
         try {
             await fsPromises.unlink(configPath);
         } catch {
             // Ignore deletion errors
         }
-        vscode.window.showErrorMessage(`Failed to restart session: ${getErrorMessage(err)}`);
+        vscode.window.showErrorMessage(`Failed to clear session: ${getErrorMessage(err)}`);
     }
 }
 
@@ -969,24 +969,24 @@ export async function activate(context: vscode.ExtensionContext) {
         checkPendingSessions(baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
     }
 
-    // Watch for session restart requests from MCP
+    // Watch for session clear requests from MCP
     if (baseRepoPath) {
-        const restartRequestsDir = path.join(baseRepoPath, '.lanes', 'restart-requests');
+        const clearRequestsDir = path.join(baseRepoPath, '.lanes', 'clear-requests');
         // Ensure the directory exists for the watcher
-        if (!fs.existsSync(restartRequestsDir)) {
-            fs.mkdirSync(restartRequestsDir, { recursive: true });
+        if (!fs.existsSync(clearRequestsDir)) {
+            fs.mkdirSync(clearRequestsDir, { recursive: true });
         }
 
-        const restartRequestWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(restartRequestsDir, '*.json')
+        const clearRequestWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(clearRequestsDir, '*.json')
         );
 
-        restartRequestWatcher.onDidCreate(async (uri) => {
-            console.log(`Restart request file detected: ${uri.fsPath}`);
-            await processRestartRequest(uri.fsPath, codeAgent, baseRepoPath, sessionProvider);
+        clearRequestWatcher.onDidCreate(async (uri) => {
+            console.log(`Clear request file detected: ${uri.fsPath}`);
+            await processClearRequest(uri.fsPath, codeAgent, baseRepoPath, sessionProvider);
         });
 
-        context.subscriptions.push(restartRequestWatcher);
+        context.subscriptions.push(clearRequestWatcher);
     }
 
     // Listen for configuration changes to update hooks when storage location changes
@@ -1535,10 +1535,10 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(toggleChimeDisposable);
 
-    // 15. Register RESTART SESSION Command
-    const restartSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.restartSession', async (item: SessionItem) => {
+    // 15. Register CLEAR SESSION Command
+    const clearSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.clearSession', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please select a session to restart it.');
+            vscode.window.showErrorMessage('Please select a session to clear it.');
             return;
         }
 
@@ -1558,12 +1558,12 @@ export async function activate(context: vscode.ExtensionContext) {
             // Open a new terminal with fresh session
             await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
 
-            vscode.window.showInformationMessage(`Session '${sessionName}' restarted with fresh context.`);
+            vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
         } catch (err) {
-            vscode.window.showErrorMessage(`Failed to restart session: ${getErrorMessage(err)}`);
+            vscode.window.showErrorMessage(`Failed to clear session: ${getErrorMessage(err)}`);
         }
     });
-    context.subscriptions.push(restartSessionDisposable);
+    context.subscriptions.push(clearSessionDisposable);
 
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
