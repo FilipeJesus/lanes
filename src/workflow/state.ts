@@ -576,6 +576,14 @@ export class WorkflowStateMachine {
   }
 
   /**
+   * Gets the workflow template.
+   * @returns The workflow template
+   */
+  getTemplate(): WorkflowTemplate {
+    return this.template;
+  }
+
+  /**
    * Registers artefact paths with validation.
    * @param paths - Array of file paths (absolute or relative)
    * @returns Object containing registered, duplicates, and invalid paths

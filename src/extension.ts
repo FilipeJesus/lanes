@@ -2260,17 +2260,14 @@ if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then
     ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"
 
     if [ "$ARTEFACTS_ENABLED" = "true" ]; then
-        # Extract the file path from Write tool input (FIXED: use tool_input.file_path)
+        # Extract the file path from Write tool input
         FILE_PATH="$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')"
 
         if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
-            # Add the file to artefacts array if not already present
-            STATE_FILE="$WORKTREE_PATH/workflow-state.json"
-            tmp=$(mktemp)
-            jq --arg path "$FILE_PATH" \\
-                'if .artefacts == null then .artefacts = [] end |
-                 if .artefacts | index($path) == null then .artefacts += [$path] else . end' \\
-                "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+            # Output structured JSON with additionalContext for Claude
+            CONTEXT="An artefact was created: $FILE_PATH. Please register it by running the register_artefacts MCP tool with paths=[\\"$FILE_PATH\\"]."
+            jq -n --arg context "$CONTEXT" \\
+                '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":$context}}'
         fi
     fi
 fi
