@@ -117,9 +117,9 @@ function validateLoopStep(loopId: string, index: number, value: unknown): assert
     if (!isString(value.context)) {
       throw new WorkflowValidationError(`Loop '${loopId}' step '${value.id}' context must be a string`);
     }
-    if (value.context !== 'compact' && value.context !== 'clear') {
+    if (value.context !== 'compact' && value.context !== 'clear' && value.context !== 'restart') {
       throw new WorkflowValidationError(
-        `Loop '${loopId}' step '${value.id}' context must be either 'compact' or 'clear', got: ${value.context}`
+        `Loop '${loopId}' step '${value.id}' context must be either 'compact', 'clear', or 'restart', got: ${value.context}`
       );
     }
   }
@@ -170,9 +170,9 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
     if (!isString(value.context)) {
       throw new WorkflowValidationError(`Step '${stepId}' context must be a string`);
     }
-    if (value.context !== 'compact' && value.context !== 'clear') {
+    if (value.context !== 'compact' && value.context !== 'clear' && value.context !== 'restart') {
       throw new WorkflowValidationError(
-        `Step '${stepId}' context must be either 'compact' or 'clear', got: ${value.context}`
+        `Step '${stepId}' context must be either 'compact', 'clear', or 'restart', got: ${value.context}`
       );
     }
   }

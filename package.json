@@ -130,6 +130,11 @@
       {
         "command": "claudeWorktrees.testChime",
         "title": "Lanes: Test Chime"
+      },
+      {
+        "command": "claudeWorktrees.restartSession",
+        "title": "Restart Session",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -165,6 +170,11 @@
           "command": "claudeWorktrees.toggleChime",
           "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "inline@2"
+        },
+        {
+          "command": "claudeWorktrees.restartSession",
+          "group": "inline@4",
+          "when": "view == claudeSessionsView && viewItem == sessionItem"
         }
       ]
     },
