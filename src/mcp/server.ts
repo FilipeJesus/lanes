@@ -262,6 +262,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['name', 'sourceBranch'],
       },
     },
+    {
+      name: 'session_restart',
+      description:
+        'Restart the current Claude session with a fresh context. ' +
+        'The existing terminal will be closed and a new one created with no conversation history. ' +
+        'Workflow state is preserved and will be restored via the SessionStart hook.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {},
+        required: [],
+      },
+    },
   ],
 }));
 
@@ -486,6 +498,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow, repoRoot);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'session_restart': {
+        // Write a restart request file that the VS Code extension will process
+        const result = await tools.restartSession(worktreePath);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };
