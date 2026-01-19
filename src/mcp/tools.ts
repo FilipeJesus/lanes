@@ -356,3 +356,64 @@ export async function createSession(
     };
   }
 }
+
+/**
+ * Restart request configuration.
+ * Written to a JSON file for the VS Code extension to process.
+ */
+export interface RestartSessionConfig {
+  worktreePath: string;
+  requestedAt: string;
+}
+
+/**
+ * Request a session restart with fresh context.
+ * Writes a config file that the VS Code extension will process.
+ *
+ * @param worktreePath The worktree root path
+ * @returns Result object with success status
+ */
+export async function restartSession(
+  worktreePath: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    // 1. Validate worktreePath exists
+    if (!fs.existsSync(worktreePath)) {
+      return {
+        success: false,
+        error: `Worktree path does not exist: ${worktreePath}`
+      };
+    }
+
+    // 2. Ensure restart requests directory exists
+    const repoRoot = path.dirname(path.dirname(worktreePath)); // Go up from .worktrees/session-name
+    const restartDir = path.join(repoRoot, '.lanes', 'restart-requests');
+    if (!fs.existsSync(restartDir)) {
+      fs.mkdirSync(restartDir, { recursive: true });
+    }
+
+    // 3. Create config object
+    const sessionName = path.basename(worktreePath);
+    const config: RestartSessionConfig = {
+      worktreePath,
+      requestedAt: new Date().toISOString()
+    };
+
+    // 4. Write config file with unique name
+    const configId = `${sessionName}-${Date.now()}`;
+    const configPath = path.join(restartDir, `${configId}.json`);
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    // 5. Return success
+    return {
+      success: true,
+      message: `Session restart requested for '${sessionName}'. The terminal will be closed and a new session started.`
+    };
+
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to request session restart: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+}
