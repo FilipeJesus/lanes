@@ -1455,6 +1455,35 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(toggleChimeDisposable);
 
+    // 15. Register RESTART SESSION Command
+    const restartSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.restartSession', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please right-click on a session to restart it.');
+            return;
+        }
+
+        try {
+            const sessionName = path.basename(item.worktreePath);
+            const termName = `Claude: ${sessionName}`;
+
+            // Find and close the existing terminal
+            const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
+            if (existingTerminal) {
+                existingTerminal.dispose();
+                // Brief delay to ensure terminal is closed
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            // Open a new terminal with fresh session
+            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+
+            vscode.window.showInformationMessage(`Session '${sessionName}' restarted with fresh context.`);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to restart session: ${getErrorMessage(err)}`);
+        }
+    });
+    context.subscriptions.push(restartSessionDisposable);
+
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
