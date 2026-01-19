@@ -45,6 +45,14 @@ export interface PendingSessionConfig {
 }
 
 /**
+ * Restart session request from MCP server.
+ */
+export interface RestartSessionConfig {
+    worktreePath: string;
+    requestedAt: string;
+}
+
+/**
  * Get the directory where MCP server writes pending session requests.
  * Uses the workspace's .lanes directory instead of the home directory.
  * @param repoRoot The root directory of the repository
@@ -662,6 +670,55 @@ async function checkPendingSessions(
     }
 }
 
+/**
+ * Process a pending session restart request from the MCP server.
+ * Closes the existing terminal and opens a new one with fresh context.
+ */
+async function processRestartRequest(
+    configPath: string,
+    codeAgent: CodeAgent,
+    baseRepoPath: string | undefined,
+    sessionProvider: ClaudeSessionProvider
+): Promise<void> {
+    try {
+        // Read and parse the config file
+        const configContent = await fsPromises.readFile(configPath, 'utf-8');
+        const config: RestartSessionConfig = JSON.parse(configContent);
+
+        console.log(`Processing restart request for: ${config.worktreePath}`);
+
+        // Delete the config file first to prevent re-processing
+        await fsPromises.unlink(configPath);
+
+        const sessionName = path.basename(config.worktreePath);
+        const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
+
+        // Find and close the existing terminal
+        const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
+        if (existingTerminal) {
+            existingTerminal.dispose();
+            // Brief delay to ensure terminal is closed
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        // Open a new terminal with fresh session
+        // No prompt, so it starts completely fresh
+        await openClaudeTerminal(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+
+        console.log(`Session restarted: ${sessionName}`);
+
+    } catch (err) {
+        console.error(`Failed to process restart request ${configPath}:`, err);
+        // Try to delete the config file even on error to prevent infinite retries
+        try {
+            await fsPromises.unlink(configPath);
+        } catch {
+            // Ignore deletion errors
+        }
+        vscode.window.showErrorMessage(`Failed to restart session: ${getErrorMessage(err)}`);
+    }
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Lanes" is now active!'); // Check Debug Console for this
 
@@ -907,6 +964,26 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Check for any pending sessions on startup
         checkPendingSessions(baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
+    }
+
+    // Watch for session restart requests from MCP
+    if (baseRepoPath) {
+        const restartRequestsDir = path.join(baseRepoPath, '.lanes', 'restart-requests');
+        // Ensure the directory exists for the watcher
+        if (!fs.existsSync(restartRequestsDir)) {
+            fs.mkdirSync(restartRequestsDir, { recursive: true });
+        }
+
+        const restartRequestWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(restartRequestsDir, '*.json')
+        );
+
+        restartRequestWatcher.onDidCreate(async (uri) => {
+            console.log(`Restart request file detected: ${uri.fsPath}`);
+            await processRestartRequest(uri.fsPath, codeAgent, baseRepoPath, sessionProvider);
+        });
+
+        context.subscriptions.push(restartRequestWatcher);
     }
 
     // Listen for configuration changes to update hooks when storage location changes
