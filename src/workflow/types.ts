@@ -14,7 +14,7 @@ export interface AgentConfig {
 /**
  * Context action to perform before executing a step.
  */
-export type StepContextAction = 'compact' | 'clear';
+export type StepContextAction = 'compact' | 'clear' | 'restart';
 
 /**
  * A step within a reusable loop (sub-workflow).

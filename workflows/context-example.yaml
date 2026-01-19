@@ -15,11 +15,17 @@
 # ------------------
 # This workflow demonstrates how to use the context management feature.
 # The context field can be set to:
+#   - restart: Restarts the session with fresh context (no conversation history)
 #   - clear: Clears the conversation history before the step
 #   - compact: Compacts the conversation history before the step
 #   - omitted: No context action (default behavior)
 #
-# Use context: clear for steps that benefit from a fresh start, like:
+# Use context: restart for steps that benefit from a completely fresh session:
+#   - Starting a new phase of work with no conversation history
+#   - Brainstorming new ideas with maximum context refresh
+#   - Analyzing problems from first principles
+#
+# Use context: clear for steps that benefit from a fresh start:
 #   - Brainstorming new ideas
 #   - Analyzing problems from first principles
 #   - Starting a new phase of work
@@ -82,12 +88,12 @@ loops:
 steps:
   - id: brainstorm
     type: action
-    context: clear
+    context: restart
     instructions: |
-      Start with a fresh context and brainstorm ideas.
+      Start with a completely fresh session.
 
-      This step clears previous conversation history, giving you
-      a clean slate for creative thinking and ideation.
+      This step restarts the Claude session with no conversation history.
+      The workflow state is preserved and will be restored.
 
       1. Consider the problem from first principles
       2. Generate multiple solution approaches
