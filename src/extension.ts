@@ -1907,6 +1907,28 @@ When the current step requires an agent/subagent other than orchestrator:
 `;
 }
 
+/**
+ * Count existing terminals for a session to determine the next terminal number.
+ * Counts terminals matching the pattern "{sessionName} [n]" where n is a number.
+ * @param sessionName The session name to count terminals for
+ * @returns The highest terminal number found, or 0 if none exist
+ */
+function countTerminalsForSession(sessionName: string): number {
+    // Escape special regex characters in the session name
+    const escapedName = sessionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedName} \\[(\\d+)\\]$`);
+
+    const numbers: number[] = [];
+    for (const terminal of vscode.window.terminals) {
+        const match = terminal.name.match(pattern);
+        if (match) {
+            numbers.push(parseInt(match[1], 10));
+        }
+    }
+
+    return numbers.length > 0 ? Math.max(...numbers) : 0;
+}
+
 // THE CORE FUNCTION: Manages the Terminal Tabs
 async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string): Promise<void> {
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
