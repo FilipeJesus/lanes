@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, ClaudeSessionData, initializeGlobalStorageContext } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, ClaudeSessionData, initializeGlobalStorageContext, getRepoIdentifier } from '../ClaudeSessionProvider';
 import { SessionFormProvider, isValidPermissionMode, PERMISSION_MODES } from '../SessionFormProvider';
 import { combinePromptAndCriteria } from '../extension';
 
@@ -31,7 +31,8 @@ suite('Session Tests', () => {
 	// Helper function to create status file in the correct location (global storage)
 	function createStatusFile(worktreePath: string, statusData: { status: string; timestamp?: string; message?: string }): void {
 		const sessionName = path.basename(worktreePath);
-		const statusDir = path.join(globalStorageDir, sessionName);
+		const repoIdentifier = getRepoIdentifier(tempDir); // Use tempDir as the repo base
+		const statusDir = path.join(globalStorageDir, repoIdentifier, sessionName);
 		fs.mkdirSync(statusDir, { recursive: true });
 		fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 	}
@@ -39,7 +40,8 @@ suite('Session Tests', () => {
 	// Helper function to create session file in the correct location (global storage)
 	function createSessionFile(worktreePath: string, sessionData: { sessionId: string; timestamp?: string; workflow?: string }): void {
 		const sessionName = path.basename(worktreePath);
-		const sessionDir = path.join(globalStorageDir, sessionName);
+		const repoIdentifier = getRepoIdentifier(tempDir); // Use tempDir as the repo base
+		const sessionDir = path.join(globalStorageDir, repoIdentifier, sessionName);
 		fs.mkdirSync(sessionDir, { recursive: true });
 		fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
 	}
@@ -209,11 +211,7 @@ suite('Session Tests', () => {
 		test('should return correct status for valid waiting_for_user .claude-status file', () => {
 			// Arrange: Create a .claude-status file with waiting_for_user status
 			const statusData = { status: 'waiting_for_user' };
-			// With global storage initialized, files are stored in global storage
-			const sessionName = path.basename(tempDir);
-			const statusDir = path.join(globalStorageDir, sessionName);
-			fs.mkdirSync(statusDir, { recursive: true });
-			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
+			createStatusFile(tempDir, statusData);
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -226,11 +224,7 @@ suite('Session Tests', () => {
 		test('should return correct status for valid working .claude-status file', () => {
 			// Arrange: Create a .claude-status file with working status
 			const statusData = { status: 'working' };
-			// With global storage initialized, files are stored in global storage
-			const sessionName = path.basename(tempDir);
-			const statusDir = path.join(globalStorageDir, sessionName);
-			fs.mkdirSync(statusDir, { recursive: true });
-			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
+			createStatusFile(tempDir, statusData);
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -252,7 +246,10 @@ suite('Session Tests', () => {
 
 		test('should return null for invalid JSON in .claude-status', () => {
 			// Arrange: Create a .claude-status file with invalid JSON
-			fs.writeFileSync(path.join(tempDir, '.claude-status'), 'not valid json {{{');
+			const sessionName = path.basename(tempDir);
+			const statusDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(statusDir, { recursive: true });
+			fs.writeFileSync(path.join(statusDir, '.claude-status'), 'not valid json {{{');
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -264,7 +261,10 @@ suite('Session Tests', () => {
 		test('should return null when status field is not a valid value', () => {
 			// Arrange: Create a .claude-status file with invalid status value
 			const statusData = { status: 'invalid' };
-			fs.writeFileSync(path.join(tempDir, '.claude-status'), JSON.stringify(statusData));
+			const sessionName = path.basename(tempDir);
+			const statusDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(statusDir, { recursive: true });
+			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -280,7 +280,7 @@ suite('Session Tests', () => {
 				timestamp: '2025-12-21T10:30:00Z',
 				message: 'Waiting for user confirmation'
 			};
-			fs.writeFileSync(path.join(tempDir, '.claude-status'), JSON.stringify(statusData));
+			createStatusFile(tempDir, statusData);
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -728,7 +728,7 @@ suite('Session Tests', () => {
 				sessionId: 'abc123-def456-ghi789',
 				timestamp: '2025-12-21T10:30:00Z'
 			};
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+			createSessionFile(tempDir, sessionData);
 
 			// Act
 			const result = getSessionId(tempDir);
@@ -751,7 +751,10 @@ suite('Session Tests', () => {
 
 		test('should return null for invalid JSON in .claude-session', () => {
 			// Arrange: Create a .claude-session file with invalid JSON
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), 'not valid json {{{');
+			const sessionName = path.basename(tempDir);
+			const sessionDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(sessionDir, { recursive: true });
+			fs.writeFileSync(path.join(sessionDir, '.claude-session'), 'not valid json {{{');
 
 			// Act
 			const result = getSessionId(tempDir);
@@ -763,7 +766,10 @@ suite('Session Tests', () => {
 		test('should return null when sessionId field is missing', () => {
 			// Arrange: Create a .claude-session file without sessionId
 			const sessionData = { timestamp: '2025-12-21T10:30:00Z' };
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+			const sessionName = path.basename(tempDir);
+			const sessionDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(sessionDir, { recursive: true });
+			fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
 
 			// Act
 			const result = getSessionId(tempDir);
@@ -775,7 +781,10 @@ suite('Session Tests', () => {
 		test('should return null when sessionId is empty string', () => {
 			// Arrange: Create a .claude-session file with empty sessionId
 			const sessionData = { sessionId: '', timestamp: '2025-12-21T10:30:00Z' };
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+			const sessionName = path.basename(tempDir);
+			const sessionDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(sessionDir, { recursive: true });
+			fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
 
 			// Act
 			const result = getSessionId(tempDir);
@@ -787,7 +796,10 @@ suite('Session Tests', () => {
 		test('should return null when sessionId is whitespace only', () => {
 			// Arrange: Create a .claude-session file with whitespace-only sessionId
 			const sessionData = { sessionId: '   ', timestamp: '2025-12-21T10:30:00Z' };
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+			const sessionName = path.basename(tempDir);
+			const sessionDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			fs.mkdirSync(sessionDir, { recursive: true });
+			fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
 
 			// Act
 			const result = getSessionId(tempDir);
@@ -864,7 +876,7 @@ suite('Session Tests', () => {
 				sessionId: 'session-abc-123-xyz',
 				timestamp: '2025-12-21T14:00:00Z'
 			};
-			fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+			createSessionFile(tempDir, sessionData);
 
 			// Act: Call getSessionId - this is what openClaudeTerminal uses internally
 			const result = getSessionId(tempDir);
@@ -1000,7 +1012,7 @@ suite('Session Tests', () => {
 			for (const validId of validIds) {
 				// Arrange: Create a .claude-session file with valid session ID
 				const sessionData = { sessionId: validId, timestamp: '2025-12-21T14:00:00Z' };
-				fs.writeFileSync(path.join(tempDir, '.claude-session'), JSON.stringify(sessionData));
+				createSessionFile(tempDir, sessionData);
 
 				// Act: Call getSessionId
 				const result = getSessionId(tempDir);
