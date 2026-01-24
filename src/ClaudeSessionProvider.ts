@@ -17,6 +17,11 @@ export interface ClaudeStatus {
 // Valid status values for validation
 const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
 
+/**
+ * Fixed path for non-global session storage (relative to repo root)
+ */
+const NON_GLOBAL_SESSION_PATH = '.lanes/session_management';
+
 // Global storage context - set during extension activation
 let globalStorageUri: vscode.Uri | undefined;
 let baseRepoPathForStorage: string | undefined;
@@ -234,53 +239,10 @@ export function getWorktreesFolder(): string {
 }
 
 /**
- * Validates and sanitizes a relative path for security.
- * Rejects absolute paths and parent directory traversal attempts.
- * @param relativePath The user-provided relative path
- * @param worktreePath The base worktree path
- * @param filename The filename to append (e.g., 'workflow-state.json')
- * @returns The validated full path, or the default path if validation fails
- */
-function validateAndBuildPath(relativePath: string, worktreePath: string, filename: string): string {
-    const defaultPath = path.join(worktreePath, filename);
-
-    if (!relativePath || !relativePath.trim()) {
-        return defaultPath;
-    }
-
-    const trimmedPath = relativePath.trim()
-        .replace(/\\/g, '/'); // Normalize backslashes to forward slashes
-
-    // Security: Reject absolute paths
-    if (path.isAbsolute(trimmedPath)) {
-        console.warn(`Lanes: Absolute paths not allowed in configuration: ${trimmedPath}. Using default.`);
-        return defaultPath;
-    }
-
-    // Security: Reject parent directory traversal
-    if (trimmedPath.includes('..')) {
-        console.warn(`Lanes: Parent directory traversal not allowed: ${trimmedPath}. Using default.`);
-        return defaultPath;
-    }
-
-    const resolvedPath = path.join(worktreePath, trimmedPath, filename);
-
-    // Security: Verify the resolved path is within worktree (belt and suspenders)
-    const normalizedWorktree = path.normalize(worktreePath + path.sep);
-    const normalizedResolved = path.normalize(resolvedPath);
-    if (!normalizedResolved.startsWith(normalizedWorktree)) {
-        console.warn(`Lanes: Path traversal detected. Using default.`);
-        return defaultPath;
-    }
-
-    return resolvedPath;
-}
-
-/**
  * Get the configured path for .claude-session file relative to a worktree.
  * Returns the full path to the .claude-session file.
  * If global storage is enabled, returns the path in global storage.
- * Security: Validates path to prevent directory traversal attacks.
+ * If global storage is disabled, returns the path in .lanes/session_management/.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to .claude-session based on configuration
  */
@@ -294,19 +256,20 @@ export function getClaudeSessionPath(worktreePath: string): string {
         if (globalPath) {
             return globalPath;
         }
-        // Fall back to worktree path if global storage not initialized
+        // Fall back to non-global path if global storage not initialized
     }
 
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>('claudeSessionPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, sessionFileName);
+    // Non-global mode: use fixed .lanes/session_management path
+    const sessionName = getSessionNameFromWorktree(worktreePath);
+    const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;
+    return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, sessionFileName);
 }
 
 /**
  * Get the configured path for .claude-status file relative to a worktree.
  * Returns the full path to the .claude-status file.
  * If global storage is enabled, returns the path in global storage.
- * Security: Validates path to prevent directory traversal attacks.
+ * If global storage is disabled, returns the path in .lanes/session_management/.
  * @param worktreePath Path to the worktree directory
  * @returns Full path to .claude-status based on configuration
  */
@@ -320,12 +283,13 @@ export function getClaudeStatusPath(worktreePath: string): string {
         if (globalPath) {
             return globalPath;
         }
-        // Fall back to worktree path if global storage not initialized
+        // Fall back to non-global path if global storage not initialized
     }
 
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>('claudeStatusPath', '');
-    return validateAndBuildPath(relativePath, worktreePath, statusFileName);
+    // Non-global mode: use fixed .lanes/session_management path
+    const sessionName = getSessionNameFromWorktree(worktreePath);
+    const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;
+    return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, statusFileName);
 }
 
 // Session data from .claude-session file
