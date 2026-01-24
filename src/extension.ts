@@ -18,7 +18,9 @@ import {
     getWorktreesFolder,
     getPromptsPath,
     getSessionWorkflow,
-    saveSessionWorkflow
+    saveSessionWorkflow,
+    getClaudeStatusPath,
+    getClaudeSessionPath
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -503,56 +505,35 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
 }
 
 /**
- * Get the glob pattern for watching a file based on configuration.
- * Security: Validates path to prevent directory traversal in glob patterns.
- * @param configKey The configuration key to read
- * @param filename The filename to watch (e.g., 'workflow-state.json')
- * @returns Glob pattern for watching the file in worktrees
- */
-function getWatchPattern(configKey: string, filename: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>(configKey, '');
-    const worktreesFolder = getWorktreesFolder();
-
-    if (relativePath && relativePath.trim()) {
-        // Normalize backslashes and remove leading/trailing slashes
-        const normalizedPath = relativePath.trim()
-            .replace(/\\/g, '/') // Convert Windows backslashes to forward slashes
-            .replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
-
-        // Security: Reject absolute paths
-        if (path.isAbsolute(normalizedPath)) {
-            console.warn(`Lanes: Absolute paths not allowed in ${configKey}. Using default.`);
-            return `${worktreesFolder}/**/${filename}`;
-        }
-
-        // Security: Reject paths with parent directory traversal
-        if (normalizedPath.includes('..')) {
-            console.warn(`Lanes: Invalid path in ${configKey}: ${normalizedPath}. Using default.`);
-            return `${worktreesFolder}/**/${filename}`;
-        }
-
-        return `${worktreesFolder}/**/${normalizedPath}/${filename}`;
-    }
-    return `${worktreesFolder}/**/${filename}`;
-}
-
-/**
  * Get the glob pattern for watching .claude-status based on configuration.
- * Security: Validates path to prevent directory traversal in glob patterns.
- * @returns Glob pattern for watching .claude-status in worktrees
+ * When global storage is enabled, returns pattern for global storage.
+ * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
+ * @returns Glob pattern for watching .claude-status
  */
 function getStatusWatchPattern(): string {
-    return getWatchPattern('claudeStatusPath', '.claude-status');
+    if (isGlobalStorageEnabled()) {
+        // For global storage, files are watched by the global storage file watcher
+        // Return minimal pattern since global storage handles watching differently
+        return '**/.claude-status';
+    }
+    // Non-global mode: watch .lanes/session_management/**/*/.claude-status
+    return '.lanes/session_management/**/*/.claude-status';
 }
 
 /**
  * Get the glob pattern for watching .claude-session based on configuration.
- * Security: Validates path to prevent directory traversal in glob patterns.
- * @returns Glob pattern for watching .claude-session in worktrees
+ * When global storage is enabled, returns pattern for global storage.
+ * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
+ * @returns Glob pattern for watching .claude-session
  */
 function getSessionWatchPattern(): string {
-    return getWatchPattern('claudeSessionPath', '.claude-session');
+    if (isGlobalStorageEnabled()) {
+        // For global storage, files are watched by the global storage file watcher
+        // Return minimal pattern since global storage handles watching differently
+        return '**/.claude-session';
+    }
+    // Non-global mode: watch .lanes/session_management/**/*/.claude-session
+    return '.lanes/session_management/**/*/.claude-session';
 }
 
 /**
@@ -2173,33 +2154,6 @@ interface HookEntry {
 }
 
 /**
- * Get the relative path for status/session files based on configuration.
- * Returns an empty string if the path is at the root, otherwise returns the path with a trailing slash.
- * @param configKey The configuration key to read
- * @returns The relative path prefix for the file (empty string or 'path/')
- */
-function getRelativeFilePath(configKey: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    const relativePath = config.get<string>(configKey, '');
-
-    if (!relativePath || !relativePath.trim()) {
-        return '';
-    }
-
-    const trimmedPath = relativePath.trim()
-        .replace(/\\/g, '/') // Normalize backslashes to forward slashes
-        .replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
-
-    // Security: Reject paths with parent directory traversal
-    if (trimmedPath.includes('..')) {
-        console.warn(`Lanes: Invalid path in ${configKey}: ${trimmedPath}. Using default.`);
-        return '';
-    }
-
-    return trimmedPath + '/';
-}
-
-/**
  * Creates or updates the extension settings file in global storage.
  * This file contains hooks for status tracking and session ID capture.
  * When a workflow is specified, it also includes MCP server configuration.
@@ -2278,48 +2232,15 @@ exit 0
     // Write the hook script with executable permissions
     await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
 
-    // Determine status and session file paths
-    const useGlobalStorage = isGlobalStorageEnabled();
-    let statusFilePath: string;
-    let sessionFilePath: string;
+    // Determine status and session file paths using the helper functions
+    // These functions handle both global and non-global modes automatically
+    const statusFilePath = getClaudeStatusPath(worktreePath);
+    const sessionFilePath = getClaudeSessionPath(worktreePath);
 
-    if (useGlobalStorage) {
-        // Use absolute paths to global storage
-        const globalStatusPath = getGlobalStoragePath(worktreePath, '.claude-status');
-        const globalSessionPath = getGlobalStoragePath(worktreePath, '.claude-session');
+    // Ensure the directories exist for both files
+    await fsPromises.mkdir(path.dirname(statusFilePath), { recursive: true });
+    await fsPromises.mkdir(path.dirname(sessionFilePath), { recursive: true });
 
-        if (globalStatusPath && globalSessionPath) {
-            statusFilePath = globalStatusPath;
-            sessionFilePath = globalSessionPath;
-
-            // Ensure the global storage directory exists (both files are in same directory)
-            await fsPromises.mkdir(path.dirname(globalStatusPath), { recursive: true });
-        } else {
-            // Fall back to relative paths if global storage not initialized
-            const statusRelPath = getRelativeFilePath('claudeStatusPath');
-            const sessionRelPath = getRelativeFilePath('claudeSessionPath');
-            statusFilePath = `${statusRelPath}.claude-status`;
-            sessionFilePath = `${sessionRelPath}.claude-session`;
-        }
-    } else {
-        // Use relative paths within the worktree
-        const statusRelPath = getRelativeFilePath('claudeStatusPath');
-        const sessionRelPath = getRelativeFilePath('claudeSessionPath');
-        statusFilePath = `${statusRelPath}.claude-status`;
-        sessionFilePath = `${sessionRelPath}.claude-session`;
-
-        // Ensure status file directory exists if configured
-        if (statusRelPath) {
-            const statusDir = path.join(worktreePath, statusRelPath.replace(/\/$/, ''));
-            await fsPromises.mkdir(statusDir, { recursive: true });
-        }
-
-        // Ensure session file directory exists if configured
-        if (sessionRelPath) {
-            const sessionDir = path.join(worktreePath, sessionRelPath.replace(/\/$/, ''));
-            await fsPromises.mkdir(sessionDir, { recursive: true });
-        }
-    }
 
     // Build hooks configuration
     let hooks: ClaudeSettings['hooks'];
