@@ -1929,6 +1929,46 @@ function countTerminalsForSession(sessionName: string): number {
     return numbers.length > 0 ? Math.max(...numbers) : 0;
 }
 
+/**
+ * Create a new plain shell terminal for a session.
+ * The terminal is named "{sessionName} [n]" where n is the terminal count.
+ * @param item The SessionItem to create a terminal for
+ */
+async function createTerminalForSession(item: SessionItem): Promise<void> {
+    // Validate worktree path
+    if (!item.resourceUri) {
+        vscode.window.showErrorMessage("Cannot determine worktree path for this session");
+        return;
+    }
+
+    const worktreePath = item.resourceUri.fsPath;
+    const sessionName = item.label;
+
+    // Verify worktree exists
+    if (!fs.existsSync(worktreePath)) {
+        vscode.window.showErrorMessage(`Worktree path does not exist: ${worktreePath}`);
+        return;
+    }
+
+    try {
+        // Count existing terminals for this session
+        const terminalCount = countTerminalsForSession(sessionName);
+        const nextNumber = terminalCount + 1;
+
+        // Create terminal with incremented name
+        const terminalName = `${sessionName} [${nextNumber}]`;
+        const terminal = vscode.window.createTerminal({
+            name: terminalName,
+            cwd: worktreePath,
+            iconPath: new vscode.ThemeIcon('terminal')
+        });
+
+        terminal.show();
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to create terminal: ${getErrorMessage(err)}`);
+    }
+}
+
 // THE CORE FUNCTION: Manages the Terminal Tabs
 async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string): Promise<void> {
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
