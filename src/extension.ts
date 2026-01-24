@@ -1565,6 +1565,17 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(clearSessionDisposable);
 
+    // 16. Register CREATE TERMINAL Command
+    const createTerminalDisposable = vscode.commands.registerCommand('claudeWorktrees.createTerminal', async (item: SessionItem) => {
+        if (!item || !item.resourceUri) {
+            vscode.window.showErrorMessage('Please right-click on a session to create a terminal.');
+            return;
+        }
+
+        await createTerminalForSession(item);
+    });
+    context.subscriptions.push(createTerminalDisposable);
+
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
