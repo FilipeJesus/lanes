@@ -51,252 +51,106 @@ suite('Configuration Test Suite', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	suite('Configurable Claude Session and Status Paths', () => {
+	suite('Non-Global Session Management Path', () => {
 
 		let tempDir: string;
 
 		setup(async () => {
-			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'config-session-status-paths-test-'));
-			// Disable global storage for these tests since we're testing worktree-based path resolution
+			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-global-test-'));
+			// Disable global storage for these tests
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
+			// Initialize global storage context with tempDir as base repo
+			const mockUri = vscode.Uri.file(path.join(os.tmpdir(), 'vscode-mock-global-storage'));
+			fs.mkdirSync(mockUri.fsPath, { recursive: true });
+			initializeGlobalStorageContext(mockUri, tempDir);
 		});
 
 		teardown(async () => {
-			// Reset all configuration values to default after each test
+			// Reset configuration after each test
 			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', undefined, vscode.ConfigurationTarget.Global);
-			await config.update('claudeStatusPath', undefined, vscode.ConfigurationTarget.Global);
 			await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		});
 
-		test('should return worktree root path for .claude-session when claudeSessionPath config is empty', async () => {
-			// Arrange: Ensure config is empty (default)
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', '', vscode.ConfigurationTarget.Global);
+		test('should return .lanes/session_management path when useGlobalStorage is false for getClaudeStatusPath', async () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
 			// Act
-			const result = getClaudeSessionPath(tempDir);
+			const result = getClaudeStatusPath(worktreePath);
 
-			// Assert
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-session'),
-				'Should return .claude-session at worktree root when config is empty'
-			);
+			// Assert: Should return .lanes/session_management path
+			const expectedPath = path.join(tempDir, '.lanes', 'session_management', 'test-session', '.claude-status');
+			assert.strictEqual(result, expectedPath, 'Should use fixed .lanes/session_management path');
 		});
 
-		test('should return custom path for .claude-session when claudeSessionPath is configured', async () => {
-			// Arrange: Set custom path
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', '.claude', vscode.ConfigurationTarget.Global);
+		test('should return .lanes/session_management path when useGlobalStorage is false for getClaudeSessionPath', async () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, '.worktrees', 'my-feature');
 
 			// Act
-			const result = getClaudeSessionPath(tempDir);
+			const result = getClaudeSessionPath(worktreePath);
 
-			// Assert
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude', '.claude-session'),
-				'Should return .claude-session at worktree/.claude when config is set to .claude'
-			);
+			// Assert: Should return .lanes/session_management path
+			const expectedPath = path.join(tempDir, '.lanes', 'session_management', 'my-feature', '.claude-session');
+			assert.strictEqual(result, expectedPath, 'Should use fixed .lanes/session_management path');
 		});
 
-		test('should return worktree root path for .claude-status when claudeStatusPath config is empty', async () => {
-			// Arrange: Ensure config is empty (default)
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeStatusPath', '', vscode.ConfigurationTarget.Global);
+		test('should create session-specific subdirectories within .lanes/session_management', async () => {
+			// Arrange
+			const session1Path = path.join(tempDir, '.worktrees', 'session-a');
+			const session2Path = path.join(tempDir, '.worktrees', 'session-b');
 
 			// Act
-			const result = getClaudeStatusPath(tempDir);
+			const status1 = getClaudeStatusPath(session1Path);
+			const status2 = getClaudeStatusPath(session2Path);
 
-			// Assert
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-status'),
-				'Should return .claude-status at worktree root when config is empty'
-			);
+			// Assert: Each session should have its own subdirectory
+			assert.ok(status1.includes('session-a'), 'Session A path should include session-a subdirectory');
+			assert.ok(status2.includes('session-b'), 'Session B path should include session-b subdirectory');
+			assert.ok(status1.includes('.lanes/session_management'), 'Should include .lanes/session_management path');
+			assert.ok(status2.includes('.lanes/session_management'), 'Should include .lanes/session_management path');
 		});
 
-		test('should return custom path for .claude-status when claudeStatusPath is configured', async () => {
-			// Arrange: Set custom path
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeStatusPath', '.claude', vscode.ConfigurationTarget.Global);
+		test('should read and write session files from .lanes/session_management when useGlobalStorage is false', async () => {
+			// Arrange
+			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+			const statusPath = getClaudeStatusPath(worktreePath);
 
-			// Act
-			const result = getClaudeStatusPath(tempDir);
-
-			// Assert
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude', '.claude-status'),
-				'Should return .claude-status at worktree/.claude when config is set to .claude'
-			);
-		});
-
-		test('should read session ID from configured claudeSessionPath location', async () => {
-			// Arrange: Set custom path and create .claude-session in that location
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', '.claude', vscode.ConfigurationTarget.Global);
-
-			// Create the .claude directory and .claude-session in it
-			const claudeDir = path.join(tempDir, '.claude');
-			fs.mkdirSync(claudeDir, { recursive: true });
-			const sessionData = {
-				sessionId: 'custom-session-123',
-				timestamp: '2025-12-21T10:00:00Z'
-			};
-			fs.writeFileSync(path.join(claudeDir, '.claude-session'), JSON.stringify(sessionData));
-
-			// Act
-			const result = getSessionId(tempDir);
-
-			// Assert
-			assert.ok(result, 'Should find the session in the custom path');
-			assert.strictEqual(result.sessionId, 'custom-session-123', 'Should return the correct session ID');
-			assert.strictEqual(result.timestamp, '2025-12-21T10:00:00Z', 'Should return the correct timestamp');
-		});
-
-		test('should read Claude status from configured claudeStatusPath location', async () => {
-			// Arrange: Set custom path and create .claude-status in that location
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeStatusPath', '.claude', vscode.ConfigurationTarget.Global);
-
-			// Create the .claude directory and .claude-status in it
-			const claudeDir = path.join(tempDir, '.claude');
-			fs.mkdirSync(claudeDir, { recursive: true });
+			// Act: Write a status file
+			const sessionDir = path.dirname(statusPath);
+			fs.mkdirSync(sessionDir, { recursive: true });
 			const statusData = {
 				status: 'waiting_for_user',
-				timestamp: '2025-12-21T10:30:00Z',
-				message: 'Waiting for confirmation'
+				timestamp: '2026-01-21T10:00:00Z',
+				message: 'Test status'
 			};
-			fs.writeFileSync(path.join(claudeDir, '.claude-status'), JSON.stringify(statusData));
+			fs.writeFileSync(statusPath, JSON.stringify(statusData));
 
-			// Act
-			const result = getClaudeStatus(tempDir);
-
-			// Assert
-			assert.ok(result, 'Should find the status in the custom path');
-			assert.strictEqual(result.status, 'waiting_for_user', 'Should return the correct status');
-			assert.strictEqual(result.timestamp, '2025-12-21T10:30:00Z', 'Should return the correct timestamp');
-			assert.strictEqual(result.message, 'Waiting for confirmation', 'Should return the correct message');
+			// Assert: Read it back using getClaudeStatus
+			const result = getClaudeStatus(worktreePath);
+			assert.ok(result, 'Should read status from .lanes/session_management');
+			assert.strictEqual(result.status, 'waiting_for_user');
+			assert.strictEqual(result.message, 'Test status');
 		});
 
-		test('should reject claudeSessionPath with parent directory traversal and fall back to worktree root', async () => {
-			// Arrange: Set malicious path with parent directory traversal
+		test('should fall back to global storage when useGlobalStorage is true', async () => {
+			// Arrange: Enable global storage
 			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', '../../etc', vscode.ConfigurationTarget.Global);
+			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
+
+			const globalStorageDir = path.join(os.tmpdir(), 'test-global-storage');
+			const mockUri = vscode.Uri.file(globalStorageDir);
+			initializeGlobalStorageContext(mockUri, tempDir);
+
+			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
 			// Act
-			const result = getClaudeSessionPath(tempDir);
+			const result = getClaudeStatusPath(worktreePath);
 
-			// Assert: Should fall back to default path
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-session'),
-				'Should reject path traversal and use default for .claude-session'
-			);
-		});
-
-		test('should reject claudeStatusPath with parent directory traversal and fall back to worktree root', async () => {
-			// Arrange: Set malicious path with parent directory traversal
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeStatusPath', '../../../tmp', vscode.ConfigurationTarget.Global);
-
-			// Act
-			const result = getClaudeStatusPath(tempDir);
-
-			// Assert: Should fall back to default path
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-status'),
-				'Should reject path traversal and use default for .claude-status'
-			);
-		});
-
-		test('should reject claudeSessionPath with absolute path and fall back to worktree root', async () => {
-			// Arrange: Set absolute path
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeSessionPath', '/etc/passwd', vscode.ConfigurationTarget.Global);
-
-			// Act
-			const result = getClaudeSessionPath(tempDir);
-
-			// Assert: Should fall back to default path
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-session'),
-				'Should reject absolute paths and use default for .claude-session'
-			);
-		});
-
-		test('should reject claudeStatusPath with absolute path and fall back to worktree root', async () => {
-			// Arrange: Set absolute path
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('claudeStatusPath', '/tmp/evil', vscode.ConfigurationTarget.Global);
-
-			// Act
-			const result = getClaudeStatusPath(tempDir);
-
-			// Assert: Should fall back to default path
-			assert.strictEqual(
-				result,
-				path.join(tempDir, '.claude-status'),
-				'Should reject absolute paths and use default for .claude-status'
-			);
-		});
-
-		test('should verify package.json has correct configuration schema for claudeSessionPath', () => {
-			// Read and parse package.json from the project root
-			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
-			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-
-			// Assert: package.json has contributes.configuration section
-			assert.ok(
-				packageJson.contributes?.configuration,
-				'package.json should have contributes.configuration section'
-			);
-
-			// Assert: claudeSessionPath configuration exists with correct schema
-			const sessionConfig = getConfigProperty(packageJson.contributes.configuration, 'lanes.claudeSessionPath');
-			assert.ok(
-				sessionConfig,
-				'package.json should have lanes.claudeSessionPath configuration'
-			);
-			assert.strictEqual(
-				sessionConfig.type,
-				'string',
-				'claudeSessionPath should have type "string"'
-			);
-			assert.strictEqual(
-				sessionConfig.default,
-				'',
-				'claudeSessionPath should have default value of empty string'
-			);
-		});
-
-		test('should verify package.json has correct configuration schema for claudeStatusPath', () => {
-			// Read and parse package.json from the project root
-			const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
-			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-
-			// Assert: claudeStatusPath configuration exists with correct schema
-			const statusConfig = getConfigProperty(packageJson.contributes.configuration, 'lanes.claudeStatusPath');
-			assert.ok(
-				statusConfig,
-				'package.json should have lanes.claudeStatusPath configuration'
-			);
-			assert.strictEqual(
-				statusConfig.type,
-				'string',
-				'claudeStatusPath should have type "string"'
-			);
-			assert.strictEqual(
-				statusConfig.default,
-				'',
-				'claudeStatusPath should have default value of empty string'
-			);
+			// Assert: Should return global storage path
+			assert.ok(result.startsWith(globalStorageDir), 'Should use global storage when enabled');
 		});
 	});
 
@@ -803,11 +657,10 @@ suite('Configuration Test Suite', () => {
 			// Assert: Advanced section should exist
 			assert.ok(advancedSection, 'Advanced section should exist');
 
-			// Assert: Advanced section should contain all expected settings
+			// Assert: Advanced section should contain expected settings (claudeSessionPath and claudeStatusPath removed)
 			const expectedSettings = [
 				'lanes.useGlobalStorage',
-				'lanes.claudeSessionPath',
-				'lanes.claudeStatusPath'
+				'lanes.localSettingsPropagation'
 			];
 
 			for (const setting of expectedSettings) {
@@ -817,21 +670,26 @@ suite('Configuration Test Suite', () => {
 				);
 			}
 
-			// Assert: Settings should have correct order (1-3)
+			// Assert: Deprecated settings should NOT exist
+			assert.ok(
+				!advancedSection.properties?.['lanes.claudeSessionPath'],
+				'Advanced section should NOT contain deprecated claudeSessionPath'
+			);
+			assert.ok(
+				!advancedSection.properties?.['lanes.claudeStatusPath'],
+				'Advanced section should NOT contain deprecated claudeStatusPath'
+			);
+
+			// Assert: Settings should have correct order (1-2, updated after removing 2 settings)
 			assert.strictEqual(
 				advancedSection.properties['lanes.useGlobalStorage'].order,
 				1,
 				'useGlobalStorage should have order 1'
 			);
 			assert.strictEqual(
-				advancedSection.properties['lanes.claudeSessionPath'].order,
+				advancedSection.properties['lanes.localSettingsPropagation'].order,
 				2,
-				'claudeSessionPath should have order 2'
-			);
-			assert.strictEqual(
-				advancedSection.properties['lanes.claudeStatusPath'].order,
-				3,
-				'claudeStatusPath should have order 3'
+				'localSettingsPropagation should have order 2 (was 4, now 2 after removing 2 settings)'
 			);
 		});
 
@@ -996,20 +854,6 @@ suite('Configuration Test Suite', () => {
 				true,
 				'useGlobalStorage should default to true'
 			);
-
-			const claudeSessionPath = getConfigProperty(config, 'lanes.claudeSessionPath');
-			assert.strictEqual(
-				claudeSessionPath.default,
-				'',
-				'claudeSessionPath should default to empty string'
-			);
-
-			const claudeStatusPath = getConfigProperty(config, 'lanes.claudeStatusPath');
-			assert.strictEqual(
-				claudeStatusPath.default,
-				'',
-				'claudeStatusPath should default to empty string'
-			);
 		});
 	});
 
@@ -1027,9 +871,7 @@ suite('Configuration Test Suite', () => {
 				'lanes.promptsFolder': "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
 				'lanes.baseBranch': 'Branch to compare against when viewing changes. Leave empty for auto-detection (tries origin/main, origin/master, main, master)',
 				'lanes.includeUncommittedChanges': 'Show uncommitted changes (staged and unstaged) when viewing session changes. Default: enabled',
-				'lanes.useGlobalStorage': 'Store session tracking files in VS Code\'s storage instead of worktree folders. Keeps worktrees cleaner but files are hidden from version control. Default: enabled',
-				'lanes.claudeSessionPath': 'Relative path for .claude-session file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root',
-				'lanes.claudeStatusPath': 'Relative path for .claude-status file within each worktree. Only used when Use Global Storage is disabled. Leave empty for worktree root'
+				'lanes.useGlobalStorage': "Store session tracking files in VS Code's global storage. When enabled, files are stored in VS Code storage. When disabled, files are stored in .lanes/session_management/ at the repository root. Default: enabled"
 			};
 
 			for (const [key, expectedDescription] of Object.entries(expectedDescriptions)) {

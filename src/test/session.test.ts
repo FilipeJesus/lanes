@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, ClaudeSessionData } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, ClaudeSessionData, initializeGlobalStorageContext } from '../ClaudeSessionProvider';
 import { SessionFormProvider, isValidPermissionMode, PERMISSION_MODES } from '../SessionFormProvider';
 import { combinePromptAndCriteria } from '../extension';
 
@@ -11,16 +11,21 @@ suite('Session Tests', () => {
 
 	let tempDir: string;
 	let worktreesDir: string;
+	let globalStorageDir: string;
 
 	// Create a temp directory structure before tests
 	setup(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-session-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
+		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-session-global-storage-'));
+		// Initialize global storage context to enable global storage mode
+		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 	});
 
 	// Clean up after each test
 	teardown(() => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
+		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
 	suite('SessionItem', () => {
@@ -188,7 +193,11 @@ suite('Session Tests', () => {
 		test('should return correct status for valid waiting_for_user .claude-status file', () => {
 			// Arrange: Create a .claude-status file with waiting_for_user status
 			const statusData = { status: 'waiting_for_user' };
-			fs.writeFileSync(path.join(tempDir, '.claude-status'), JSON.stringify(statusData));
+			// With global storage initialized, files are stored in global storage
+			const sessionName = path.basename(tempDir);
+			const statusDir = path.join(globalStorageDir, sessionName);
+			fs.mkdirSync(statusDir, { recursive: true });
+			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
 			// Act
 			const result = getClaudeStatus(tempDir);
@@ -201,7 +210,11 @@ suite('Session Tests', () => {
 		test('should return correct status for valid working .claude-status file', () => {
 			// Arrange: Create a .claude-status file with working status
 			const statusData = { status: 'working' };
-			fs.writeFileSync(path.join(tempDir, '.claude-status'), JSON.stringify(statusData));
+			// With global storage initialized, files are stored in global storage
+			const sessionName = path.basename(tempDir);
+			const statusDir = path.join(globalStorageDir, sessionName);
+			fs.mkdirSync(statusDir, { recursive: true });
+			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
 			// Act
 			const result = getClaudeStatus(tempDir);

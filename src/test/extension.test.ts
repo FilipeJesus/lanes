@@ -47,8 +47,6 @@ suite('Extension Settings File', () => {
 		// Reset configuration
 		const config = vscode.workspace.getConfiguration('lanes');
 		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
-		await config.update('claudeStatusPath', undefined, vscode.ConfigurationTarget.Global);
-		await config.update('claudeSessionPath', undefined, vscode.ConfigurationTarget.Global);
 
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
@@ -287,12 +285,12 @@ suite('Extension Settings File', () => {
 			);
 		});
 
-		test('should use relative paths when useGlobalStorage is disabled', async () => {
+		test('should use .lanes/session_management path when useGlobalStorage is disabled', async () => {
 			// Arrange
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
 
-			const sessionName = 'relative-paths-test';
+			const sessionName = 'non-global-paths-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
 
@@ -300,12 +298,18 @@ suite('Extension Settings File', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Check that hooks use relative paths
+			// Assert: Check that hooks use the new fixed .lanes/session_management path
 			const stopHook = settings.hooks.Stop[0].hooks[0];
 			const statusPath = stopHook.command.match(/"([^"]+\.claude-status)"/)?.[1] || '';
+			// The path should include .lanes/session_management/<sessionName>/
 			assert.ok(
-				!path.isAbsolute(statusPath) || statusPath === '.claude-status',
-				'Status file path in hooks should be relative when global storage is disabled'
+				statusPath.includes('.lanes/session_management') && statusPath.includes(sessionName),
+				`Status file path should use .lanes/session_management path structure with session name, got: ${statusPath}`
+			);
+			// The path should be absolute (pointing to the repo root's .lanes/session_management)
+			assert.ok(
+				path.isAbsolute(statusPath),
+				`Status file path should be absolute path to .lanes/session_management, got: ${statusPath}`
 			);
 		});
 	});
@@ -426,50 +430,6 @@ suite('Extension Settings File', () => {
 			assert.ok(
 				sessionStartHook.command.includes('.claude-session'),
 				'SessionStart hook should write to .claude-session'
-			);
-		});
-
-		test('should respect claudeStatusPath configuration for relative paths', async () => {
-			// Arrange
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-			await config.update('claudeStatusPath', '.claude', vscode.ConfigurationTarget.Global);
-
-			const sessionName = 'status-path-config';
-			const worktreePath = path.join(worktreesDir, sessionName);
-			fs.mkdirSync(worktreePath, { recursive: true });
-
-			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
-			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-
-			// Assert: Status path should include the configured subdirectory
-			const stopHook = settings.hooks.Stop[0].hooks[0];
-			assert.ok(
-				stopHook.command.includes('.claude/') || stopHook.command.includes('.claude-status'),
-				'Status path should respect configuration'
-			);
-		});
-
-		test('should respect claudeSessionPath configuration for relative paths', async () => {
-			// Arrange
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-			await config.update('claudeSessionPath', '.claude', vscode.ConfigurationTarget.Global);
-
-			const sessionName = 'session-path-config';
-			const worktreePath = path.join(worktreesDir, sessionName);
-			fs.mkdirSync(worktreePath, { recursive: true });
-
-			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
-			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-
-			// Assert: Session path should include the configured subdirectory
-			const sessionStartHook = settings.hooks.SessionStart[0].hooks[0];
-			assert.ok(
-				sessionStartHook.command.includes('.claude/') || sessionStartHook.command.includes('.claude-session'),
-				'Session path should respect configuration'
 			);
 		});
 

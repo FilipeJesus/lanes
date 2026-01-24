@@ -244,6 +244,10 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'extra-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
+				// With non-global storage, status files are now in .lanes/session_management/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'extra-fields-test');
+				fs.mkdirSync(statusDir, { recursive: true });
+
 				const statusWithExtras = {
 					status: 'working',
 					timestamp: '2025-01-01T00:00:00Z',
@@ -253,7 +257,7 @@ suite('Edge Cases Test Suite', () => {
 				};
 
 				fs.writeFileSync(
-					path.join(sessionDir, '.claude-status'),
+					path.join(statusDir, '.claude-status'),
 					JSON.stringify(statusWithExtras)
 				);
 
@@ -268,6 +272,10 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'null-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
+				// With non-global storage, status files are now in .lanes/session_management/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'null-fields-test');
+				fs.mkdirSync(statusDir, { recursive: true });
+
 				const statusWithNulls = {
 					status: 'idle',
 					timestamp: null,
@@ -275,7 +283,7 @@ suite('Edge Cases Test Suite', () => {
 				};
 
 				fs.writeFileSync(
-					path.join(sessionDir, '.claude-status'),
+					path.join(statusDir, '.claude-status'),
 					JSON.stringify(statusWithNulls)
 				);
 
@@ -320,8 +328,11 @@ suite('Edge Cases Test Suite', () => {
 				for (let i = 0; i < statuses.length; i++) {
 					const sessionDir = path.join(worktreesDir, `status-concurrent-${i}`);
 					fs.mkdirSync(sessionDir, { recursive: true });
+					// With non-global storage, status files are now in .lanes/session_management/<sessionName>/
+					const statusDir = path.join(tempDir, '.lanes', 'session_management', `status-concurrent-${i}`);
+					fs.mkdirSync(statusDir, { recursive: true });
 					fs.writeFileSync(
-						path.join(sessionDir, '.claude-status'),
+						path.join(statusDir, '.claude-status'),
 						JSON.stringify({ status: statuses[i] })
 					);
 					sessionDirs.push(sessionDir);
