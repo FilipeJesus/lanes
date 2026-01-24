@@ -28,6 +28,22 @@ suite('Session Tests', () => {
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
+	// Helper function to create status file in the correct location (global storage)
+	function createStatusFile(worktreePath: string, statusData: { status: string; timestamp?: string; message?: string }): void {
+		const sessionName = path.basename(worktreePath);
+		const statusDir = path.join(globalStorageDir, sessionName);
+		fs.mkdirSync(statusDir, { recursive: true });
+		fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
+	}
+
+	// Helper function to create session file in the correct location (global storage)
+	function createSessionFile(worktreePath: string, sessionData: { sessionId: string; timestamp?: string; workflow?: string }): void {
+		const sessionName = path.basename(worktreePath);
+		const sessionDir = path.join(globalStorageDir, sessionName);
+		fs.mkdirSync(sessionDir, { recursive: true });
+		fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
+	}
+
 	suite('SessionItem', () => {
 
 		test('should create item with correct label and path', () => {
