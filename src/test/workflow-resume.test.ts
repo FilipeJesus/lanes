@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { WorkflowStateMachine, loadWorkflowTemplateFromString } from '../workflow';
+import { WorkflowStateMachine, loadWorkflowTemplateFromString, type WorkflowState } from '../workflow';
 import { saveState, loadState, getStatePath } from '../mcp/tools';
 
 // Valid workflow template YAML for testing resume behavior
@@ -194,5 +194,123 @@ suite('Workflow Resume Tests', () => {
 		// Assert: Path should be correct
 		assert.strictEqual(statePath, path.join(tempDir, 'workflow-state.json'));
 		assert.ok(statePath.endsWith('workflow-state.json'), 'Path should end with workflow-state.json');
+	});
+
+	suite('Workflow Definition Snapshot', () => {
+		test('initial state includes workflow_definition snapshot', async () => {
+			// Arrange: Create a workflow machine and start it
+			const template = loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+			const machine = new WorkflowStateMachine(template);
+			machine.start();
+
+			// Act: Get the state
+			const state = machine.getState();
+
+			// Assert: workflow_definition should be included
+			assert.ok(state.workflow_definition, 'State should include workflow_definition snapshot');
+			assert.strictEqual(state.workflow_definition!.name, 'test-resume-workflow', 'Workflow name should match');
+			assert.strictEqual(state.workflow_definition!.description, 'A test workflow for resume functionality', 'Workflow description should match');
+			assert.strictEqual(state.workflow_definition!.steps.length, 3, 'Should have 3 steps');
+		});
+
+		test('workflow_definition survives save/load round trip', async () => {
+			// Arrange: Create a workflow machine and start it
+			const template = loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+			const machine = new WorkflowStateMachine(template);
+			machine.start();
+			machine.advance('Plan done');
+
+			// Act: Save and load state
+			await saveState(tempDir, machine.getState());
+			const loadedState = await loadState(tempDir);
+
+			// Assert: workflow_definition should be preserved
+			assert.ok(loadedState, 'State should be loaded');
+			assert.ok(loadedState!.workflow_definition, 'Loaded state should include workflow_definition');
+			assert.strictEqual(loadedState!.workflow_definition!.name, 'test-resume-workflow', 'Workflow name should match');
+			assert.strictEqual(loadedState!.workflow_definition!.steps.length, 3, 'Should have 3 steps');
+		});
+
+		test('fromState uses workflow_definition when available', async () => {
+			// Arrange: Create a workflow machine with original template
+			const originalTemplate = loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+			const originalMachine = new WorkflowStateMachine(originalTemplate);
+			originalMachine.start();
+
+			// Save state (which includes workflow_definition)
+			await saveState(tempDir, originalMachine.getState());
+			const loadedState = await loadState(tempDir);
+
+			// Create a MODIFIED template (simulating YAML file changes during session)
+			const modifiedYaml = TEST_WORKFLOW_YAML.replace('Plan the work', 'PLANNING PHASE - MODIFIED');
+			const modifiedTemplate = loadWorkflowTemplateFromString(modifiedYaml);
+
+			// Act: Restore using modified template - should use saved workflow_definition instead
+			const restoredMachine = WorkflowStateMachine.fromState(modifiedTemplate, loadedState!);
+			const restoredStatus = restoredMachine.getStatus();
+
+			// Assert: Should use the SAVED definition, not the modified template
+			// The instructions should be from the original, not the modified version
+			assert.ok(restoredStatus.instructions.includes('Plan the work'), 'Should use original instructions from saved workflow_definition');
+			assert.ok(!restoredStatus.instructions.includes('PLANNING PHASE - MODIFIED'), 'Should NOT use modified template instructions');
+		});
+
+		test('fromState falls back to provided template when workflow_definition is missing', async () => {
+			// Arrange: Create a state WITHOUT workflow_definition (simulating old state files)
+			const stateWithoutDefinition: WorkflowState = {
+				status: 'running',
+				step: 'plan',
+				stepType: 'action',
+				tasks: {},
+				outputs: {},
+				artefacts: [],
+				currentStepArtefacts: false,
+				contextActionExecuted: false,
+				// workflow_definition is intentionally undefined
+			};
+
+			// Create a template
+			const template = loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+
+			// Act: Restore state without workflow_definition
+			const restoredMachine = WorkflowStateMachine.fromState(template, stateWithoutDefinition);
+			const restoredStatus = restoredMachine.getStatus();
+
+			// Assert: Should fall back to the provided template
+			assert.strictEqual(restoredStatus.step, 'plan', 'Step should be restored');
+			assert.ok(restoredStatus.instructions.includes('Plan the work'), 'Should use provided template');
+		});
+
+		test('workflow_definition enables resume even if YAML file is deleted', async () => {
+			// Arrange: Create a workflow machine and save state
+			const template = loadWorkflowTemplateFromString(TEST_WORKFLOW_YAML);
+			const machine = new WorkflowStateMachine(template);
+			machine.start();
+			machine.advance('Plan complete');
+
+			// Save state (which includes workflow_definition)
+			await saveState(tempDir, machine.getState());
+			const loadedState = await loadState(tempDir);
+
+			// Create a dummy template (simulating deleted/missing YAML file)
+			const dummyYaml = `
+name: dummy
+description: Dummy template
+steps:
+  - id: dummy
+    type: action
+    instructions: This should not be used
+`;
+			const dummyTemplate = loadWorkflowTemplateFromString(dummyYaml);
+
+			// Act: Restore using dummy template - should use saved workflow_definition instead
+			const restoredMachine = WorkflowStateMachine.fromState(dummyTemplate, loadedState!);
+			const restoredStatus = restoredMachine.getStatus();
+
+			// Assert: Should use the SAVED definition, not the dummy template
+			assert.strictEqual(restoredStatus.step, 'task_loop', 'Should be at task_loop step (advanced from plan)');
+			assert.ok(restoredStatus.stepType === 'loop', 'Should be a loop step');
+			assert.ok(!restoredStatus.instructions.includes('This should not be used'), 'Should NOT use dummy template instructions');
+		});
 	});
 });
