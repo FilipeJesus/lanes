@@ -1646,7 +1646,7 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
             // Check if the file exists
             if (!fs.existsSync(workflowStatePath)) {
-                vscode.window.showErrorMessage(`No workflow state found for session '${item.label}'`);
+                vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state file is created when a workflow is started.`);
                 return;
             }
 

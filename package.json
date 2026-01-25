@@ -154,7 +154,7 @@
       {
         "command": "claudeWorktrees.openWorkflowState",
         "title": "Open Workflow State",
-        "icon": "$(file)"
+        "icon": "$(eye)"
       }
     ],
     "menus": {
@@ -178,7 +178,7 @@
         },
         {
           "command": "claudeWorktrees.openWorkflowState",
-          "when": "view == claudeSessionsView && viewItem == sessionItem && lanes.hasWorkflow",
+          "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "inline@2"
         },
         {
