@@ -86,6 +86,10 @@ let machine: WorkflowStateMachine | null = null;
 /**
  * Ensures the machine is loaded, either from memory or from disk.
  * Returns null if no workflow state exists anywhere.
+ *
+ * Prioritizes the workflow_definition snapshot from the saved state to ensure
+ * consistent resumption even if the YAML file has changed. Falls back to loading
+ * from YAML for backwards compatibility with old state files.
  */
 async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
   // Return existing machine if already in memory
@@ -97,7 +101,16 @@ async function ensureMachineLoaded(): Promise<WorkflowStateMachine | null> {
   try {
     const existingState = await tools.loadState(worktreePath);
     if (existingState) {
+      // Use the saved workflow_definition if available (ensures consistent resumption)
+      if (existingState.workflow_definition) {
+        console.error(`Resuming workflow from saved definition (workflow-state.json)`);
+        machine = WorkflowStateMachine.fromState(existingState.workflow_definition, existingState);
+        return machine;
+      }
+
+      // Backwards compatibility: load from YAML if no workflow_definition in state
       try {
+        console.error(`Loading workflow template from ${workflowPath}`);
         const template = await loadWorkflowTemplate(workflowPath);
         machine = WorkflowStateMachine.fromState(template, existingState);
         return machine;

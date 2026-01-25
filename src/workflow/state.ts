@@ -48,6 +48,8 @@ export class WorkflowStateMachine {
       artefacts: [],
       currentStepArtefacts: firstStep.artefacts,
       contextActionExecuted: false,
+      // Include a snapshot of the workflow definition to ensure consistent resumption
+      workflow_definition: JSON.parse(JSON.stringify(this.template)),
     };
 
     // Initialize ralph iteration if first step is ralph
@@ -630,12 +632,16 @@ export class WorkflowStateMachine {
 
   /**
    * Creates a WorkflowStateMachine from persisted state.
-   * @param template - The workflow template
+   * If the state contains a workflow_definition snapshot, it will be used instead of the provided template.
+   * This ensures the workflow definition doesn't change during a session even if the YAML file is modified.
+   * @param template - The workflow template (used as fallback if state doesn't contain workflow_definition)
    * @param state - The persisted state to restore
    * @returns A new WorkflowStateMachine at the restored position
    */
   static fromState(template: WorkflowTemplate, state: WorkflowState): WorkflowStateMachine {
-    const machine = new WorkflowStateMachine(template);
+    // Use the saved workflow_definition if available (ensures consistency across session restarts)
+    const effectiveTemplate = state.workflow_definition || template;
+    const machine = new WorkflowStateMachine(effectiveTemplate);
     machine.state = JSON.parse(JSON.stringify(state));
     return machine;
   }
