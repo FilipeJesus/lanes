@@ -3,18 +3,22 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, getClaudeSessionPath, getClaudeStatusPath } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, getClaudeSessionPath, getClaudeStatusPath, initializeGlobalStorageContext } from '../ClaudeSessionProvider';
 import { SessionFormProvider } from '../SessionFormProvider';
 
 suite('Edge Cases Test Suite', () => {
 
 	let tempDir: string;
 	let worktreesDir: string;
+	let globalStorageDir: string;
 
 	// Create a temp directory structure before tests
 	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-edge-cases-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
+		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-edge-cases-global-storage-'));
+		// Initialize global storage context
+		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 		// Disable global storage for these tests since we're testing worktree-based file paths
 		const config = vscode.workspace.getConfiguration('lanes');
 		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
@@ -26,6 +30,7 @@ suite('Edge Cases Test Suite', () => {
 		const config = vscode.workspace.getConfiguration('lanes');
 		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 		fs.rmSync(tempDir, { recursive: true, force: true });
+		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
 	suite('Extension Activation', () => {
@@ -244,6 +249,10 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'extra-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
+				// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'extra-fields-test');
+				fs.mkdirSync(statusDir, { recursive: true });
+
 				const statusWithExtras = {
 					status: 'working',
 					timestamp: '2025-01-01T00:00:00Z',
@@ -253,7 +262,7 @@ suite('Edge Cases Test Suite', () => {
 				};
 
 				fs.writeFileSync(
-					path.join(sessionDir, '.claude-status'),
+					path.join(statusDir, '.claude-status'),
 					JSON.stringify(statusWithExtras)
 				);
 
@@ -268,6 +277,10 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'null-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
+				// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'null-fields-test');
+				fs.mkdirSync(statusDir, { recursive: true });
+
 				const statusWithNulls = {
 					status: 'idle',
 					timestamp: null,
@@ -275,7 +288,7 @@ suite('Edge Cases Test Suite', () => {
 				};
 
 				fs.writeFileSync(
-					path.join(sessionDir, '.claude-status'),
+					path.join(statusDir, '.claude-status'),
 					JSON.stringify(statusWithNulls)
 				);
 
@@ -320,8 +333,11 @@ suite('Edge Cases Test Suite', () => {
 				for (let i = 0; i < statuses.length; i++) {
 					const sessionDir = path.join(worktreesDir, `status-concurrent-${i}`);
 					fs.mkdirSync(sessionDir, { recursive: true });
+					// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
+					const statusDir = path.join(tempDir, '.lanes', 'session_management', `status-concurrent-${i}`);
+					fs.mkdirSync(statusDir, { recursive: true });
 					fs.writeFileSync(
-						path.join(sessionDir, '.claude-status'),
+						path.join(statusDir, '.claude-status'),
 						JSON.stringify({ status: statuses[i] })
 					);
 					sessionDirs.push(sessionDir);

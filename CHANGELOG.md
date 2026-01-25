@@ -5,6 +5,29 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Simplified Session Storage Configuration** - Removed `lanes.claudeSessionPath` and `lanes.claudeStatusPath` settings
+- When global storage is disabled, session files now use fixed `.lanes/session_management/<session-name>/` path structure
+- Updated `lanes.useGlobalStorage` description to clarify non-global behavior
+
+### Removed
+
+- `lanes.claudeSessionPath` configuration setting
+- `lanes.claudeStatusPath` configuration setting
+
+### Migration
+
+Users with custom `claudeSessionPath` or `claudeStatusPath` settings need to:
+1. Note their current settings (will be automatically removed)
+2. Decide which mode to use:
+   - **Global storage (recommended):** Leave `lanes.useGlobalStorage` enabled (default)
+   - **Non-global:** Disable `lanes.useGlobalStorage` to use `.lanes/session_management/`
+3. Move existing session files to the new location if needed
+4. See migration guide in `docs/plans/2026-01-21-simplify-config-migration-guide.md`
+
 ## [1.0.4] - 2026-01-15
 
 ### Added
