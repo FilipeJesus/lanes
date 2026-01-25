@@ -150,6 +150,11 @@
         "command": "claudeWorktrees.searchInWorktree",
         "title": "Search in Worktree",
         "icon": "$(search)"
+      },
+      {
+        "command": "claudeWorktrees.openWorkflowState",
+        "title": "Open Workflow State",
+        "icon": "$(file)"
       }
     ],
     "menus": {
@@ -170,6 +175,11 @@
           "command": "claudeWorktrees.showGitChanges",
           "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "inline@1"
+        },
+        {
+          "command": "claudeWorktrees.openWorkflowState",
+          "when": "view == claudeSessionsView && viewItem == sessionItem && lanes.hasWorkflow",
+          "group": "inline@2"
         },
         {
           "command": "claudeWorktrees.setupStatusHooks",
