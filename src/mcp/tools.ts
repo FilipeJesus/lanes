@@ -135,12 +135,8 @@ export async function workflowStartFromPath(
     machine.setSummary(summary.trim());
   }
 
-  // Snapshot the template in the state to prevent drift
-  const state = machine.getState();
-  state.workflow_definition = template;
-
-  // Save initial state with template snapshot
-  await saveState(worktreePath, state);
+  // Save initial state
+  await saveState(worktreePath, machine.getState());
 
   return { machine, status };
 }
