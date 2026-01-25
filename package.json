@@ -145,6 +145,11 @@
         "command": "claudeWorktrees.createTerminal",
         "title": "Create Terminal",
         "icon": "$(terminal)"
+      },
+      {
+        "command": "claudeWorktrees.searchInWorktree",
+        "title": "Search in Worktree",
+        "icon": "$(search)"
       }
     ],
     "menus": {
@@ -194,6 +199,11 @@
           "command": "claudeWorktrees.createTerminal",
           "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "navigation"
+        },
+        {
+          "command": "claudeWorktrees.searchInWorktree",
+          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "group": "inline@3"
         }
       ]
     },

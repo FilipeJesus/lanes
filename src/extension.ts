@@ -1582,6 +1582,38 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(createTerminalDisposable);
 
+    // 17. Register SEARCH IN WORKTREE Command
+    const searchInWorktreeDisposable = vscode.commands.registerCommand('claudeWorktrees.searchInWorktree', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            return;
+        }
+
+        // Verify worktree exists
+        if (!fs.existsSync(item.worktreePath)) {
+            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
+            return;
+        }
+
+        try {
+            // Get the worktrees folder and session name to build relative path pattern
+            const worktreesFolder = getWorktreesFolder();
+            const sessionName = path.basename(item.worktreePath);
+
+            // Build the files to include pattern relative to repo root
+            // This pattern tells VS Code search to only look in this worktree
+            const filesToInclude = `${worktreesFolder}/${sessionName}/**`;
+
+            // Open VS Code's search panel with the scoped pattern
+            await vscode.commands.executeCommand('workbench.action.findInFiles', {
+                query: '',
+                filesToInclude: filesToInclude,
+            });
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to open search in worktree: ${getErrorMessage(err)}`);
+        }
+    });
+    context.subscriptions.push(searchInWorktreeDisposable);
+
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
