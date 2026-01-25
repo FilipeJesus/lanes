@@ -7,11 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Worktree Status Display** - Active sessions now show their Git worktree status (branch name, commit info) directly in the sidebar
+- **Search in Worktree** - Quick search button for each session that opens VS Code search scoped to that session's worktree
+- **Open Workflow State** - Inline button to open workflow-state.json for sessions with active workflows
+- **Create Terminal** - Context menu option to create additional terminals for a session
+- **Chime Sound Selection** - New setting to choose from multiple chime sounds when sessions complete
+- **Local Settings Propagation** - Automatically propagate `.claude/settings.local.json` to new worktrees (configurable: copy/symlink/disabled)
+- **Blog Section** - Added blog with development updates and project announcements
+- **Local Install Script** - `scripts/install-local.sh` for quick local development installation
+- **Session Clear Feature** - "Clear Session" command to reset session state while preserving the worktree
+- **Resume Prompts** - Resume prompt guidance for cleared workflow sessions
+- **Session Start Hook** - Workflow status synchronization on session start
+- **Natural Speech Skill** - New natural-speech skill with refactored skill structure
+
 ### Changed
 
+- **Improved Context Menu** - Reorganized session context menu with dynamic Enable/Disable Chime options
+- **Session Restart → Session Clear** - Renamed restart functionality to "Clear Session" for better clarity
+- **Artefact Tracking** - Improved artefact hook system with JSON context output and workflow definition snapshots
+- **Workflow Resumption** - `workflow_status` MCP tool now automatically resumes workflows from persisted state
+- **Context Management** - Enhanced workflow system with context management types for better agent coordination
 - **Simplified Session Storage Configuration** - Removed `lanes.claudeSessionPath` and `lanes.claudeStatusPath` settings
-- When global storage is disabled, session files now use fixed `.lanes/session_management/<session-name>/` path structure
-- Updated `lanes.useGlobalStorage` description to clarify non-global behavior
+- **Fixed Session Storage Path** - When global storage is disabled, session files now use fixed `.lanes/session_management/<session-name>/` path structure
+- **Global Storage Setting Description** - Updated `lanes.useGlobalStorage` description to clarify non-global behavior
+- **Blog Formatting** - Improved blog formatting and standardized navigation across website
+
+### Fixed
+
+- **Session ID Clearing** - Fixed session ID not being cleared when clearing session (prevents accidental --resume with old session)
+- **Create Terminal Path** - Fixed Create Terminal to use correct worktreePath instead of resourceUri
+- **Chime Context Key** - Fixed chime context key to update immediately after enable/disable
+- **Artefact Hook JSON Path** - Corrected JSON path references and extracted artefact hook to separate script
+- **Workflow Template Snapshot** - Removed problematic workflow definition snapshot that caused template loading issues
 
 ### Removed
 
