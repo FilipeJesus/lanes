@@ -21,8 +21,7 @@ import {
     getSessionWorkflow,
     saveSessionWorkflow,
     getClaudeStatusPath,
-    getClaudeSessionPath,
-    getWorkflowStatus
+    getClaudeSessionPath
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -762,40 +761,16 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
 
-    // Helper function to update context keys based on selected session
-    const updateSessionContextKeys = async (item: SessionItem | undefined): Promise<void> => {
-        if (item && item.worktreePath) {
-            const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
-            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
-
-            // Set workflow context key to show/hide workflow button
-            const workflowStatus = getWorkflowStatus(item.worktreePath);
-            await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
-        } else {
-            // No session selected - reset context keys to default values
-            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', false);
-            await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', false);
-        }
-    };
-
-    // Update chime and workflow context keys when session selection changes
+    // Update chime context key when session selection changes
     sessionTreeView.onDidChangeSelection(async (e) => {
-        const item = e.selection.length > 0 ? e.selection[0] as SessionItem : undefined;
-        await updateSessionContextKeys(item);
+        if (e.selection.length > 0) {
+            const item = e.selection[0] as SessionItem;
+            if (item.worktreePath) {
+                const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
+                await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+            }
+        }
     });
-
-    // Initialize context keys immediately after tree view is created
-    // Check children synchronously and set context keys before UI renders
-    const children = await sessionProvider.getChildren();
-    if (children.length > 0 && children[0] instanceof SessionItem) {
-        // Set context keys based on first session immediately
-        await updateSessionContextKeys(children[0]);
-        // Then reveal to update the visual selection (async, doesn't block)
-        void sessionTreeView.reveal(children[0], { select: true, focus: false, expand: false });
-    } else {
-        // No sessions - set default values
-        await updateSessionContextKeys(undefined);
-    }
 
     // Initialize Previous Sessions Provider
     const previousSessionProvider = new PreviousSessionProvider(workspaceRoot, baseRepoPath);
@@ -1666,7 +1641,7 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
             // Check if the file exists
             if (!fs.existsSync(workflowStatePath)) {
-                vscode.window.showErrorMessage(`No workflow state found for session '${item.label}'`);
+                vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state file is created when a workflow is started.`);
                 return;
             }
 

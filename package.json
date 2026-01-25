@@ -178,7 +178,7 @@
         },
         {
           "command": "claudeWorktrees.openWorkflowState",
-          "when": "view == claudeSessionsView && viewItem == sessionItem && lanes.hasWorkflow",
+          "when": "view == claudeSessionsView && viewItem == sessionItem",
           "group": "inline@2"
         },
         {
