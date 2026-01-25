@@ -21,7 +21,8 @@ import {
     getSessionWorkflow,
     saveSessionWorkflow,
     getClaudeStatusPath,
-    getClaudeSessionPath
+    getClaudeSessionPath,
+    getWorkflowStatus
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -761,13 +762,17 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
 
-    // Update chime context key when session selection changes
+    // Update chime and workflow context keys when session selection changes
     sessionTreeView.onDidChangeSelection(async (e) => {
         if (e.selection.length > 0) {
             const item = e.selection[0] as SessionItem;
             if (item.worktreePath) {
                 const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
                 await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+
+                // Set workflow context key to show/hide workflow button
+                const workflowStatus = getWorkflowStatus(item.worktreePath);
+                await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
             }
         }
     });
