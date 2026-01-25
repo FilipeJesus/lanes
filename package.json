@@ -178,7 +178,6 @@
         },
         {
           "command": "claudeWorktrees.clearSession",
-          "group": "inline@4",
           "when": "view == claudeSessionsView && viewItem == sessionItem"
         },
         {
