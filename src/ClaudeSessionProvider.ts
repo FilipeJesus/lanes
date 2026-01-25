@@ -537,6 +537,38 @@ export function getSessionId(worktreePath: string): ClaudeSessionData | null {
     }
 }
 
+/**
+ * Clear the Claude session ID from a worktree's .claude-session file.
+ * This preserves workflow and user preferences like isChimeEnabled, only removing the sessionId.
+ * @param worktreePath Path to the worktree directory
+ */
+export function clearSessionId(worktreePath: string): void {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+
+    try {
+        if (!fs.existsSync(sessionPath)) {
+            return; // Nothing to clear
+        }
+
+        const content = fs.readFileSync(sessionPath, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Remove only the sessionId field
+        delete data.sessionId;
+
+        // Preserve timestamp if it exists
+        if (!data.timestamp) {
+            data.timestamp = new Date().toISOString();
+        }
+
+        // Write back the modified data
+        fs.writeFileSync(sessionPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+        // Log but don't throw - this is a cleanup operation
+        console.warn(`Lanes: Failed to clear session ID from ${sessionPath}:`, err);
+    }
+}
+
 // Workflow status interface for display purposes
 export interface WorkflowStatus {
     active: boolean;

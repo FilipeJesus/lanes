@@ -8,6 +8,7 @@ import {
     getSessionId,
     getSessionChimeEnabled,
     setSessionChimeEnabled,
+    clearSessionId,
     initializeGlobalStorageContext,
     isGlobalStorageEnabled,
     getGlobalStoragePath,
@@ -672,6 +673,9 @@ async function processClearRequest(
         // Delete the config file first to prevent re-processing
         await fsPromises.unlink(configPath);
 
+        // Clear the session ID so the new terminal starts fresh instead of resuming
+        clearSessionId(config.worktreePath);
+
         const sessionName = path.basename(config.worktreePath);
         const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
@@ -683,9 +687,8 @@ async function processClearRequest(
             await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
         }
 
-        // Open a new terminal with fresh session
-        // No prompt, so it starts completely fresh
-        await openClaudeTerminal(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+        // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
+        await openClaudeTerminal(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
         console.log(`Session cleared: ${sessionName}`);
 
@@ -751,8 +754,23 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
     const sessionProvider = new ClaudeSessionProvider(workspaceRoot, baseRepoPath);
-    vscode.window.registerTreeDataProvider('claudeSessionsView', sessionProvider);
+    const sessionTreeView = vscode.window.createTreeView('claudeSessionsView', {
+        treeDataProvider: sessionProvider,
+        showCollapseAll: false
+    });
+    context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
+
+    // Update chime context key when session selection changes
+    sessionTreeView.onDidChangeSelection(async (e) => {
+        if (e.selection.length > 0) {
+            const item = e.selection[0] as SessionItem;
+            if (item.worktreePath) {
+                const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
+                await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+            }
+        }
+    });
 
     // Initialize Previous Sessions Provider
     const previousSessionProvider = new PreviousSessionProvider(workspaceRoot, baseRepoPath);
@@ -1483,36 +1501,43 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(testChimeDisposable);
 
-    // 14. Register TOGGLE CHIME Command
-    const toggleChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.toggleChime', async (item: SessionItem) => {
+    // 14. Register ENABLE CHIME Command
+    const enableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.enableChime', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please right-click on a session to toggle chime.');
+            vscode.window.showErrorMessage('Please right-click on a session to enable chime.');
             return;
         }
 
         try {
-            // Get the current chime state
-            const currentState = getSessionChimeEnabled(item.worktreePath);
-
-            // Toggle the boolean
-            const newState = !currentState;
-
-            // Persist the change
-            setSessionChimeEnabled(item.worktreePath, newState);
-
-            // Show user feedback
-            const message = newState
-                ? `Chime enabled for session '${item.label}'`
-                : `Chime disabled for session '${item.label}'`;
-            vscode.window.showInformationMessage(message);
-
-            // Refresh the session provider to update UI
+            setSessionChimeEnabled(item.worktreePath, true);
+            // Update context key so menu items update immediately
+            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', true);
+            vscode.window.showInformationMessage(`Chime enabled for session '${item.label}'`);
             sessionProvider.refresh();
         } catch (err) {
-            vscode.window.showErrorMessage(`Failed to toggle chime: ${getErrorMessage(err)}`);
+            vscode.window.showErrorMessage(`Failed to enable chime: ${getErrorMessage(err)}`);
         }
     });
-    context.subscriptions.push(toggleChimeDisposable);
+    context.subscriptions.push(enableChimeDisposable);
+
+    // 14b. Register DISABLE CHIME Command
+    const disableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.disableChime', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please right-click on a session to disable chime.');
+            return;
+        }
+
+        try {
+            setSessionChimeEnabled(item.worktreePath, false);
+            // Update context key so menu items update immediately
+            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', false);
+            vscode.window.showInformationMessage(`Chime disabled for session '${item.label}'`);
+            sessionProvider.refresh();
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to disable chime: ${getErrorMessage(err)}`);
+        }
+    });
+    context.subscriptions.push(disableChimeDisposable);
 
     // 15. Register CLEAR SESSION Command
     const clearSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.clearSession', async (item: SessionItem) => {
@@ -1526,6 +1551,9 @@ export async function activate(context: vscode.ExtensionContext) {
             // Use consistent terminal name logic
             const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
+            // Clear the session ID so the new terminal starts fresh instead of resuming
+            clearSessionId(item.worktreePath);
+
             // Find and close the existing terminal
             const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
             if (existingTerminal) {
@@ -1534,8 +1562,8 @@ export async function activate(context: vscode.ExtensionContext) {
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
             }
 
-            // Open a new terminal with fresh session
-            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+            // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
+            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
             vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
         } catch (err) {
@@ -1546,8 +1574,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 16. Register CREATE TERMINAL Command
     const createTerminalDisposable = vscode.commands.registerCommand('claudeWorktrees.createTerminal', async (item: SessionItem) => {
-        if (!item || !item.resourceUri) {
-            vscode.window.showErrorMessage('Please right-click on a session to create a terminal.');
+        if (!item) {
             return;
         }
 
@@ -1926,12 +1953,12 @@ function countTerminalsForSession(sessionName: string): number {
  */
 async function createTerminalForSession(item: SessionItem): Promise<void> {
     // Validate worktree path
-    if (!item.resourceUri) {
+    if (!item.worktreePath) {
         vscode.window.showErrorMessage("Cannot determine worktree path for this session");
         return;
     }
 
-    const worktreePath = item.resourceUri.fsPath;
+    const worktreePath = item.worktreePath;
     const sessionName = item.label;
 
     // Verify worktree exists
@@ -1960,7 +1987,7 @@ async function createTerminalForSession(item: SessionItem): Promise<void> {
 }
 
 // THE CORE FUNCTION: Manages the Terminal Tabs
-async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string): Promise<void> {
+async function openClaudeTerminal(taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string, skipWorkflowPrompt?: boolean): Promise<void> {
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
     const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
 
@@ -2076,9 +2103,20 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
 
         // For workflow sessions, prepend orchestrator instructions
         if (workflow && combinedPrompt) {
+            // User provided a prompt - prepend orchestrator instructions
             combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + combinedPrompt;
+        } else if (workflow && skipWorkflowPrompt) {
+            // Cleared session with workflow - add resume prompt
+            combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + `This is a Lanes workflow session that has been cleared.
+
+To resume your work:
+1. Call workflow_status to check the current state of the workflow
+2. Review any artifacts from the previous session to understand what was completed
+3. Continue with the next steps in the workflow
+
+Proceed with resuming the workflow from where it left off.`;
         } else if (workflow) {
-            // Even without a user prompt, workflow sessions need orchestrator instructions
+            // New workflow session without user prompt - add start prompt
             combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + 'Start the workflow and follow the steps.';
         }
 
