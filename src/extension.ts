@@ -784,20 +784,18 @@ export async function activate(context: vscode.ExtensionContext) {
         await updateSessionContextKeys(item);
     });
 
-    // Initialize context keys based on initial selection after tree is loaded
-    // Use reveal to ensure the first session is selected and context keys are set
-    sessionProvider.getChildren().then(async (children) => {
-        if (children.length > 0) {
-            const firstChild = children[0];
-            if (firstChild instanceof SessionItem) {
-                // Reveal the first item to trigger selection and context key update
-                await sessionTreeView.reveal(firstChild, { select: true, focus: false, expand: false });
-            }
-        } else {
-            // No sessions - set default values
-            await updateSessionContextKeys(undefined);
-        }
-    });
+    // Initialize context keys immediately after tree view is created
+    // Check children synchronously and set context keys before UI renders
+    const children = await sessionProvider.getChildren();
+    if (children.length > 0 && children[0] instanceof SessionItem) {
+        // Set context keys based on first session immediately
+        await updateSessionContextKeys(children[0]);
+        // Then reveal to update the visual selection (async, doesn't block)
+        void sessionTreeView.reveal(children[0], { select: true, focus: false, expand: false });
+    } else {
+        // No sessions - set default values
+        await updateSessionContextKeys(undefined);
+    }
 
     // Initialize Previous Sessions Provider
     const previousSessionProvider = new PreviousSessionProvider(workspaceRoot, baseRepoPath);
