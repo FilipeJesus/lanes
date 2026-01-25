@@ -762,18 +762,40 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
 
+    // Helper function to update context keys based on selected session
+    const updateSessionContextKeys = async (item: SessionItem | undefined): Promise<void> => {
+        if (item && item.worktreePath) {
+            const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
+            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+
+            // Set workflow context key to show/hide workflow button
+            const workflowStatus = getWorkflowStatus(item.worktreePath);
+            await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
+        } else {
+            // No session selected - reset context keys to default values
+            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', false);
+            await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', false);
+        }
+    };
+
     // Update chime and workflow context keys when session selection changes
     sessionTreeView.onDidChangeSelection(async (e) => {
-        if (e.selection.length > 0) {
-            const item = e.selection[0] as SessionItem;
-            if (item.worktreePath) {
-                const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
-                await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+        const item = e.selection.length > 0 ? e.selection[0] as SessionItem : undefined;
+        await updateSessionContextKeys(item);
+    });
 
-                // Set workflow context key to show/hide workflow button
-                const workflowStatus = getWorkflowStatus(item.worktreePath);
-                await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
+    // Initialize context keys based on initial selection after tree is loaded
+    // Use reveal to ensure the first session is selected and context keys are set
+    sessionProvider.getChildren().then(async (children) => {
+        if (children.length > 0) {
+            const firstChild = children[0];
+            if (firstChild instanceof SessionItem) {
+                // Reveal the first item to trigger selection and context key update
+                await sessionTreeView.reveal(firstChild, { select: true, focus: false, expand: false });
             }
+        } else {
+            // No sessions - set default values
+            await updateSessionContextKeys(undefined);
         }
     });
 
