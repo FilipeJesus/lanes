@@ -123,9 +123,14 @@
         "icon": "$(wrench)"
       },
       {
-        "command": "claudeWorktrees.toggleChime",
-        "title": "Toggle Chime",
+        "command": "claudeWorktrees.enableChime",
+        "title": "Enable Chime",
         "icon": "$(bell)"
+      },
+      {
+        "command": "claudeWorktrees.disableChime",
+        "title": "Disable Chime",
+        "icon": "$(bell-slash)"
       },
       {
         "command": "claudeWorktrees.testChime",
@@ -172,9 +177,14 @@
           "group": "inline"
         },
         {
-          "command": "claudeWorktrees.toggleChime",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
-          "group": "inline@2"
+          "command": "claudeWorktrees.enableChime",
+          "when": "view == claudeSessionsView && viewItem == sessionItem && !lanes.chimeEnabled",
+          "group": "navigation"
+        },
+        {
+          "command": "claudeWorktrees.disableChime",
+          "when": "view == claudeSessionsView && viewItem == sessionItem && lanes.chimeEnabled",
+          "group": "navigation"
         },
         {
           "command": "claudeWorktrees.clearSession",
@@ -183,7 +193,7 @@
         {
           "command": "claudeWorktrees.createTerminal",
           "when": "view == claudeSessionsView && viewItem == sessionItem",
-          "group": "inline@3"
+          "group": "navigation"
         }
       ]
     },
