@@ -21,7 +21,8 @@ import {
     getSessionWorkflow,
     saveSessionWorkflow,
     getClaudeStatusPath,
-    getClaudeSessionPath
+    getClaudeSessionPath,
+    getWorkflowStatus
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -761,13 +762,17 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
 
-    // Update chime context key when session selection changes
+    // Update chime and workflow context keys when session selection changes
     sessionTreeView.onDidChangeSelection(async (e) => {
         if (e.selection.length > 0) {
             const item = e.selection[0] as SessionItem;
             if (item.worktreePath) {
                 const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
                 await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
+
+                // Set workflow context key to show/hide workflow button
+                const workflowStatus = getWorkflowStatus(item.worktreePath);
+                await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
             }
         }
     });
@@ -1613,6 +1618,46 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
     context.subscriptions.push(searchInWorktreeDisposable);
+
+    // 18. Register OPEN WORKFLOW STATE Command
+    const openWorkflowStateDisposable = vscode.commands.registerCommand('claudeWorktrees.openWorkflowState', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please select a session to open workflow state.');
+            return;
+        }
+
+        // Verify the worktree path exists (consistent with showGitChanges)
+        if (!fs.existsSync(item.worktreePath)) {
+            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
+            return;
+        }
+
+        // Validate that the workflow state path stays within the worktree
+        const workflowStatePath = path.join(item.worktreePath, 'workflow-state.json');
+        const resolvedPath = path.resolve(workflowStatePath);
+        const resolvedWorktreePath = path.resolve(item.worktreePath);
+
+        // Ensure the workflow-state.json is inside the worktree (security check)
+        if (!resolvedPath.startsWith(resolvedWorktreePath)) {
+            vscode.window.showErrorMessage('Invalid workflow state path');
+            return;
+        }
+
+        try {
+            // Check if the file exists
+            if (!fs.existsSync(workflowStatePath)) {
+                vscode.window.showErrorMessage(`No workflow state found for session '${item.label}'`);
+                return;
+            }
+
+            // Open the file in the editor
+            const document = await vscode.workspace.openTextDocument(workflowStatePath);
+            await vscode.window.showTextDocument(document, { preview: false });
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to open workflow state: ${getErrorMessage(err)}`);
+        }
+    });
+    context.subscriptions.push(openWorkflowStateDisposable);
 
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
