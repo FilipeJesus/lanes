@@ -84,7 +84,7 @@ steps:
     type: action
     context: clear
     instructions: |
-      Start with a completely fresh session.
+      Start with a fresh context and brainstorm ideas.
 
       This step clears the Claude session by starting a new one with no conversation history.
       The workflow state is preserved and will be restored.
