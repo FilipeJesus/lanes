@@ -1565,6 +1565,17 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(clearSessionDisposable);
 
+    // 16. Register CREATE TERMINAL Command
+    const createTerminalDisposable = vscode.commands.registerCommand('claudeWorktrees.createTerminal', async (item: SessionItem) => {
+        if (!item || !item.resourceUri) {
+            vscode.window.showErrorMessage('Please right-click on a session to create a terminal.');
+            return;
+        }
+
+        await createTerminalForSession(item);
+    });
+    context.subscriptions.push(createTerminalDisposable);
+
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
@@ -1905,6 +1916,68 @@ When the current step requires an agent/subagent other than orchestrator:
 ## User Request
 
 `;
+}
+
+/**
+ * Count existing terminals for a session to determine the next terminal number.
+ * Counts terminals matching the pattern "{sessionName} [n]" where n is a number.
+ * @param sessionName The session name to count terminals for
+ * @returns The highest terminal number found, or 0 if none exist
+ */
+function countTerminalsForSession(sessionName: string): number {
+    // Escape special regex characters in the session name
+    const escapedName = sessionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedName} \\[(\\d+)\\]$`);
+
+    const numbers: number[] = [];
+    for (const terminal of vscode.window.terminals) {
+        const match = terminal.name.match(pattern);
+        if (match) {
+            numbers.push(parseInt(match[1], 10));
+        }
+    }
+
+    return numbers.length > 0 ? Math.max(...numbers) : 0;
+}
+
+/**
+ * Create a new plain shell terminal for a session.
+ * The terminal is named "{sessionName} [n]" where n is the terminal count.
+ * @param item The SessionItem to create a terminal for
+ */
+async function createTerminalForSession(item: SessionItem): Promise<void> {
+    // Validate worktree path
+    if (!item.resourceUri) {
+        vscode.window.showErrorMessage("Cannot determine worktree path for this session");
+        return;
+    }
+
+    const worktreePath = item.resourceUri.fsPath;
+    const sessionName = item.label;
+
+    // Verify worktree exists
+    if (!fs.existsSync(worktreePath)) {
+        vscode.window.showErrorMessage(`Worktree path does not exist: ${worktreePath}`);
+        return;
+    }
+
+    try {
+        // Count existing terminals for this session
+        const terminalCount = countTerminalsForSession(sessionName);
+        const nextNumber = terminalCount + 1;
+
+        // Create terminal with incremented name
+        const terminalName = `${sessionName} [${nextNumber}]`;
+        const terminal = vscode.window.createTerminal({
+            name: terminalName,
+            cwd: worktreePath,
+            iconPath: new vscode.ThemeIcon('terminal')
+        });
+
+        terminal.show();
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to create terminal: ${getErrorMessage(err)}`);
+    }
 }
 
 // THE CORE FUNCTION: Manages the Terminal Tabs

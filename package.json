@@ -135,6 +135,11 @@
         "command": "claudeWorktrees.clearSession",
         "title": "Clear Session",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "claudeWorktrees.createTerminal",
+        "title": "Create Terminal",
+        "icon": "$(terminal)"
       }
     ],
     "menus": {
@@ -175,6 +180,11 @@
           "command": "claudeWorktrees.clearSession",
           "group": "inline@4",
           "when": "view == claudeSessionsView && viewItem == sessionItem"
+        },
+        {
+          "command": "claudeWorktrees.createTerminal",
+          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "group": "inline@3"
         }
       ]
     },
