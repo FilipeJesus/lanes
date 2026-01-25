@@ -154,7 +154,7 @@
       {
         "command": "claudeWorktrees.openWorkflowState",
         "title": "Open Workflow State",
-        "icon": "$(file)"
+        "icon": "$(eye)"
       }
     ],
     "menus": {
