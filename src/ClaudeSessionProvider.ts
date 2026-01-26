@@ -298,6 +298,7 @@ export interface ClaudeSessionData {
     timestamp?: string;
     workflow?: string;
     isChimeEnabled?: boolean;
+    taskListId?: string;
 }
 
 /**
@@ -567,6 +568,93 @@ export function clearSessionId(worktreePath: string): void {
         // Log but don't throw - this is a cleanup operation
         console.warn(`Lanes: Failed to clear session ID from ${sessionPath}:`, err);
     }
+}
+
+/**
+ * Generate a unique task list ID for a session.
+ * Combines the session name with a random suffix for uniqueness.
+ * @param sessionName The base session name
+ * @returns A unique task list ID string
+ */
+export function generateTaskListId(sessionName: string): string {
+    // Generate a random 6-character suffix (alphanumeric)
+    const randomSuffix = crypto.randomBytes(3).toString('base64')
+        .replace(/[+/=]/g, '') // Remove URL-unsafe characters
+        .substring(0, 6);
+    return `${sessionName}-${randomSuffix}`;
+}
+
+/**
+ * Get the task list ID from a worktree's .claude-session file.
+ * If no task list ID exists, returns null.
+ * @param worktreePath Path to the worktree directory
+ * @returns Task list ID if exists, null otherwise
+ */
+export function getTaskListId(worktreePath: string): string | null {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+
+    try {
+        if (!fs.existsSync(sessionPath)) {
+            return null;
+        }
+
+        const content = fs.readFileSync(sessionPath, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Return taskListId if it exists and is a non-empty string
+        if (data.taskListId && typeof data.taskListId === 'string' && data.taskListId.trim() !== '') {
+            return data.taskListId;
+        }
+
+        return null;
+    } catch {
+        // Graceful fallback for any error
+        return null;
+    }
+}
+
+/**
+ * Get or create a task list ID for a session.
+ * If an existing task list ID exists in the session file, returns it.
+ * Otherwise, generates a new unique ID and stores it in the session file.
+ * @param worktreePath Path to the worktree directory
+ * @param sessionName The session name (used for generating new IDs)
+ * @returns The task list ID
+ */
+export function getOrCreateTaskListId(worktreePath: string, sessionName: string): string {
+    // Try to get existing task list ID
+    const existingId = getTaskListId(worktreePath);
+    if (existingId) {
+        return existingId;
+    }
+
+    // Generate a new task list ID
+    const newId = generateTaskListId(sessionName);
+
+    // Store it in the session file
+    const sessionPath = getClaudeSessionPath(worktreePath);
+    try {
+        // Ensure the directory exists
+        fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
+
+        // Read existing data or create new object
+        let data: Record<string, unknown> = {};
+        if (fs.existsSync(sessionPath)) {
+            const content = fs.readFileSync(sessionPath, 'utf-8');
+            data = JSON.parse(content);
+        }
+
+        // Add the task list ID
+        data.taskListId = newId;
+
+        // Write back the updated data
+        fs.writeFileSync(sessionPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+        // Log but don't fail - we'll still return the generated ID
+        console.warn(`Lanes: Failed to save task list ID to ${sessionPath}:`, err);
+    }
+
+    return newId;
 }
 
 // Workflow status interface for display purposes
