@@ -2050,16 +2050,12 @@ async function createTerminalForSession(item: SessionItem): Promise<void> {
         const terminalCount = countTerminalsForSession(sessionName);
         const nextNumber = terminalCount + 1;
 
-        // Get or create a unique task list ID for this session
-        const taskListId = getOrCreateTaskListId(worktreePath, sessionName);
-
         // Create terminal with incremented name
         const terminalName = `${sessionName} [${nextNumber}]`;
         const terminal = vscode.window.createTerminal({
             name: terminalName,
             cwd: worktreePath,
-            iconPath: new vscode.ThemeIcon('terminal'),
-            env: { CLAUDE_CODE_TASK_LIST_ID: taskListId }
+            iconPath: new vscode.ThemeIcon('terminal')
         });
 
         terminal.show();
