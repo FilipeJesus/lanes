@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog - Lanes</title>
+    <title>Lanes 1.1: Changing Lanes In a Fast Agentic World - Lanes</title>
     <meta name="description" content="Manage multiple, isolated Claude Code sessions directly inside VS Code.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -101,99 +101,92 @@
     </nav>
     <main class="pt-24 pb-16">
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
+    <article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="mb-8 text-sm">
+        <a href="index.html" class="text-vscode-accent hover:underline">&larr; Back to Blog</a>
+      </nav>
+
+      <header class="mb-8">
+        <div class="flex flex-wrap gap-2 mb-4">
+          <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">release</span>
+        </div>
         <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-          Lanes Blog
+          Lanes 1.1: Changing Lanes In a Fast Agentic World
         </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">
-          Projects, tutorials, and updates from the Lanes community
-        </p>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
+          <span>January 26, 2026</span>
+          <span>&middot;</span>
+          <span>5 min read</span>
+        </div>
+      </header>
+
+      <div class="prose dark:prose-invert max-w-none">
+        <p>In December, it felt like the world finally woke up to <strong>Claude Code</strong> This sudden fanaticism caught me by surprise, as a long term Claude Code user I hadn't really noticed much of a difference since the release of Claude's Opus 4.5 in November and to be honest, Opus wasn't much of an improvement over Sonnet 4.5 which released in September.</p>
+<p>Despite this, the hype is justified, Claude Code has changed how I work. But let’s be real: it’s not perfect. Anthropic is certainly aware of this, recently they have been seriously ramping up development of new features in Claude Code, often implementing features inspired by the open-source community.</p>
+<p>Key features introduced by Anthropic in the last 2 weeks:</p>
+<ul>
+<li><strong>Claude Cowork:</strong> A desktop app to manage sessions and handle work outside the programming space.</li>
+</ul>
+<ul>
+<li><strong>Context Clearing:</strong> A prompted reset between planning and implementation stages.</li>
+<li><strong>Task Management:</strong> A new, exciting system for tracking complex objectives.</li>
+</ul>
+<p>So where does this leave lanes?</p>
+<h1>Introducing Lanes 1.1</h1>
+<p>Fortunately, <strong>Lanes</strong> is safe. Nothing Anthropic has released overlaps with the Lanes workflow system. In fact, Lanes' session management remains superior for coders who prefer VS Code over the new Claude Desktop app. If anything, the new features make Lanes even better.</p>
+<p>Here is what is new in Lanes 1.1</p>
+<ul>
+<li>New Task Support</li>
+<li>Context management tools e.g. <code>clear</code> context</li>
+<li>Artefact Tracking</li>
+<li>Easy within session (worktree) search</li>
+<li>Create new terminals in your session with ease</li>
+<li>Setup chimes to get a audio notification when your session needs input.</li>
+</ul>
+<p>Further breakdown of these features below.</p>
+<h2>Claude Code Tasks Support</h2>
+<p>The new Claude Code task system takes a lot of inspiration from Beads, Gastown and Claude Flow. It replaces the todos system with a persistent coordination engine capable of managing complex projects with multiple dependencies. It creates a file-system-based dependency graph, the system ensures that tasks and their relationships ("blocked by") survive session restarts, context clearing, and terminal closures.</p>
+<p>This architecture enables <strong>parallel agentic 'swarms,'</strong> allowing Claude to orchestrate multiple sub-agents simultaneously. This not only accelerates development but also optimises resources by automatically routing each task to the most appropriate model (e.g., Haiku for searches, Opus for reasoning).</p>
+<p>Crucially, you must set the <code>CLAUDE_CODE_TASK_LIST_ID</code> environment variable for each Claude Code session for tasks to survive restarts. <strong>Lanes now handles this automatically</strong> for every session, ensuring smooth restarts.</p>
+<h2>Clear Context</h2>
+<p>Anthropic recently released a feature where Claude will now prompt you to clear its context between the planning and implementation stage of a workflow. The benefit of this is your orchestrator now has a clean context window to support larger feature development loops.</p>
+<p>This is a nice feature if you manage all your work through artefacts, this is something I started doing using the Superpower plugin. To make this more deterministic Lanes now has a <code>context</code> field in the workflow steps. If this is set to <code>clear</code> lanes will clear your session when it reaches this step.</p>
+<pre><code>steps:
+- id: subagent-driven-development
+  type: action
+  context: clear
+  instructions: |
+    Here is where you will do the implementations.
+    Use the "/subagent-driven-development" skill from superpower to start
+</code></pre>
+<p><em>Note: This field is optional and should only be used if you are confident in your workflow's ability to save plans in artefacts.</em></p>
+<h2>Artefact Tracking</h2>
+<p>You can now specify an <code>artefacts</code> field for your workflow steps. When set to <code>true</code>, Lanes introduces a hook to your Claude Code session that saves the path of any file created during that step.</p>
+<p>Downstream steps are then made aware of these artefacts. Claude can decide whether to read them to gain context for the work ahead. This is vital if you clear your context before moving to the next step.</p>
+<pre><code>steps:
+- id: writing-plans
+  type: action
+  artefacts: true
+  instructions: |
+    In this step you will plan out the features based on the
+    brainstorming you just did.
+    Use the "/writing-plans" skill from superpower to start
+</code></pre>
+<h2>Session Search</h2>
+<p>On each session you can click the search icon which will open the vscode search feature with the <code>include</code> box pre-populated for your worktree. This should hopefully be a nice quality of life feature.</p>
+<p><img src="./media/worktree_search_preview.png" alt="Worktree Search"></p>
+<h2>New Terminal</h2>
+<p>This feature is simple, you can open a new terminal in your worktree through the lanes extension. All you need to do is <strong>Right click on your session -&gt; Click 'Create Terminal'</strong>. Nothing more to really say here, it will hopefully save you from needing to cd into worktrees multiple times a day.</p>
+<p><img src="./media/create_new_terminal_preview.png" alt="New terminal Preview"></p>
+<h2>Chimes [Preview]</h2>
+<p>Lanes has always had a notification icon, but you won't always have your eyes on it. For sessions demanding immediate attention, you can now enable <strong>Chimes</strong>. <strong>Right click on your session -&gt; Click 'Enable Chime'</strong>.</p>
+<p>Now, whenever Claude needs your input, you will hear a chime. You can select your preferred sound in the extension settings and test them using the 'Test Chime' command in your Command Palette.</p>
+<p><em>Current Limitation: This works by making the session form emit a noise, meaning the session panel must be active for the chime to work. This is why the feature is currently in preview.</em></p>
+
       </div>
 
-      <div class="flex gap-2 mb-8 flex-wrap justify-center">
-        <button class="tag-btn active px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-vscode-accent text-white" data-tag="all">All Posts</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="release">release</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="tutorial">tutorial</button>
-        <button class="tag-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" data-tag="workflows">workflows</button>
-      </div>
 
-      <div class="grid gap-6" id="posts-container">
-
-        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">release</span>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="2026-01-26-lanes-1-1.html" class="hover:text-vscode-accent transition-colors">Lanes 1.1: Changing Lanes In a Fast Agentic World</a>
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">Lanes 1.1 has just release. Learn all about it&#039;s new features here.</p>
-          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
-            <span>January 26, 2026</span>
-            <span>&middot;</span>
-            <span>5 min read</span>
-          </div>
-          <a href="2026-01-26-lanes-1-1.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
-            Read more
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-        </article>
-
-        <article class="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-white/10 p-6 hover:border-vscode-accent/50 transition-colors">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">tutorial</span><span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">workflows</span>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            <a href="2026-01-17-lanes-x-superpower.html" class="hover:text-vscode-accent transition-colors">Lanes X Superpower</a>
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">Learn how to use Lanes&#039; structured workflow system with the Superpowers skills plugin to guide AI agents through complex tasks.</p>
-          <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
-            <span>January 17, 2026</span>
-            <span>&middot;</span>
-            <span>9 min read</span>
-          </div>
-          <a href="2026-01-17-lanes-x-superpower.html" class="inline-flex items-center gap-2 text-vscode-accent hover:underline font-medium mt-4">
-            Read more
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-        </article>
-      </div>
-
-      <script>
-        // Tag filtering
-        const tagBtns = document.querySelectorAll('.tag-btn');
-        const postsContainer = document.getElementById('posts-container');
-        const allPosts = postsContainer.querySelectorAll('article');
-
-        // Store original order
-        const postsData = Array.from(allPosts).map(article => ({
-          element: article,
-          tags: Array.from(article.querySelectorAll('.text-blue-600')).map(el => el.textContent.toLowerCase())
-        }));
-
-        tagBtns.forEach(btn => {
-          btn.addEventListener('click', () => {
-            const selectedTag = btn.dataset.tag;
-
-            // Update active button
-            tagBtns.forEach(b => {
-              b.classList.remove('bg-vscode-accent', 'text-white');
-              b.classList.add('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            });
-            btn.classList.remove('bg-gray-200', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-300');
-            btn.classList.add('bg-vscode-accent', 'text-white');
-
-            // Filter posts
-            postsContainer.innerHTML = '';
-            const filteredPosts = selectedTag === 'all'
-              ? postsData
-              : postsData.filter(p => p.tags.includes(selectedTag.toLowerCase()));
-
-            filteredPosts.forEach(p => postsContainer.appendChild(p.element));
-          });
-        });
-      </script>
-    </div>
+    </article>
     </main>
     <footer class="border-t border-gray-200 dark:border-white/10 py-12 bg-gray-100 dark:bg-vscode-sidebar">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
