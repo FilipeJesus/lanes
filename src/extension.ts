@@ -22,7 +22,8 @@ import {
     saveSessionWorkflow,
     getClaudeStatusPath,
     getClaudeSessionPath,
-    getWorkflowStatus
+    getWorkflowStatus,
+    getOrCreateTaskListId
 } from './ClaudeSessionProvider';
 import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
 import { initializeGitPath, execGit } from './gitService';
@@ -2049,12 +2050,16 @@ async function createTerminalForSession(item: SessionItem): Promise<void> {
         const terminalCount = countTerminalsForSession(sessionName);
         const nextNumber = terminalCount + 1;
 
+        // Get or create a unique task list ID for this session
+        const taskListId = getOrCreateTaskListId(worktreePath, sessionName);
+
         // Create terminal with incremented name
         const terminalName = `${sessionName} [${nextNumber}]`;
         const terminal = vscode.window.createTerminal({
             name: terminalName,
             cwd: worktreePath,
-            iconPath: new vscode.ThemeIcon('terminal')
+            iconPath: new vscode.ThemeIcon('terminal'),
+            env: { CLAUDE_CODE_TASK_LIST_ID: taskListId }
         });
 
         terminal.show();
@@ -2082,11 +2087,16 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
     // B. Create a Brand New Terminal Tab
     // Use CodeAgent for terminal icon configuration if available
     const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
+
+    // Get or create a unique task list ID for this session
+    const taskListId = getOrCreateTaskListId(worktreePath, taskName);
+
     const terminal = vscode.window.createTerminal({
         name: terminalName,      // <--- This sets the tab name in the UI
         cwd: worktreePath,       // <--- Starts shell directly inside the isolated worktree
         iconPath: new vscode.ThemeIcon(iconConfig.id), // Terminal icon
-        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen') // Color code the tab
+        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen'), // Color code the tab
+        env: { CLAUDE_CODE_TASK_LIST_ID: taskListId } // Enable Claude Code task persistence with unique ID
     });
 
     terminal.show();
