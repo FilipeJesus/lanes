@@ -11,8 +11,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
-import * as fsPromises from 'fs/promises';
+
+import { ensureDir } from './services/FileService';
 import type { ServiceContainer } from './types/serviceContainer';
 import { getStatusWatchPattern, getSessionWatchPattern } from './services/SettingsService';
 import { checkPendingSessions, checkClearRequests, getPendingSessionsDir } from './services/SessionProcessService';
@@ -75,7 +75,7 @@ export function registerWatchers(
         const globalStoragePath = path.join(context.globalStorageUri.fsPath, repoIdentifier);
 
         // Ensure the global storage directory exists
-        fsPromises.mkdir(globalStoragePath, { recursive: true }).catch(err => {
+        ensureDir(globalStoragePath).catch(err => {
             console.warn('Lanes: Failed to create global storage directory:', err);
         });
 
@@ -182,10 +182,10 @@ export function registerWatchers(
     // ============================================
     if (baseRepoPath) {
         const pendingSessionsDir = getPendingSessionsDir(baseRepoPath);
-        // Ensure the directory exists for the watcher
-        if (!fs.existsSync(pendingSessionsDir)) {
-            fs.mkdirSync(pendingSessionsDir, { recursive: true });
-        }
+        // Ensure the directory exists for the watcher (fire-and-forget, watcher will work once dir exists)
+        ensureDir(pendingSessionsDir).catch(err => {
+            console.warn('Lanes: Failed to create pending sessions directory:', err);
+        });
 
         const pendingSessionWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(pendingSessionsDir, '*.json')
@@ -212,10 +212,10 @@ export function registerWatchers(
     // ============================================
     if (baseRepoPath) {
         const clearRequestsDir = path.join(baseRepoPath, '.lanes', 'clear-requests');
-        // Ensure the directory exists for the watcher
-        if (!fs.existsSync(clearRequestsDir)) {
-            fs.mkdirSync(clearRequestsDir, { recursive: true });
-        }
+        // Ensure the directory exists for the watcher (fire-and-forget, watcher will work once dir exists)
+        ensureDir(clearRequestsDir).catch(err => {
+            console.warn('Lanes: Failed to create clear requests directory:', err);
+        });
 
         const clearRequestWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(clearRequestsDir, '*.json')

@@ -10,7 +10,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
+
+import { fileExists, readDir, isDirectory } from './services/FileService';
 
 import {
     ClaudeSessionProvider,
@@ -213,7 +214,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 // Offer to update existing worktrees
                 if (baseRepoPath) {
                     const worktreesDir = path.join(baseRepoPath, getWorktreesFolder());
-                    if (fs.existsSync(worktreesDir)) {
+                    if (await fileExists(worktreesDir)) {
                         const updateExisting = await vscode.window.showQuickPick(
                             [
                                 { label: 'Yes', description: 'Update hooks in all existing worktrees' },
@@ -227,11 +228,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
                         if (updateExisting?.label === 'Yes') {
                             try {
-                                const worktrees = fs.readdirSync(worktreesDir);
+                                const worktrees = await readDir(worktreesDir);
                                 let updated = 0;
                                 for (const worktree of worktrees) {
                                     const worktreePath = path.join(worktreesDir, worktree);
-                                    if (fs.statSync(worktreePath).isDirectory()) {
+                                    if (await isDirectory(worktreePath)) {
                                         await SettingsService.getOrCreateExtensionSettingsFile(worktreePath);
                                         updated++;
                                     }
