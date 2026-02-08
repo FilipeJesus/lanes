@@ -179,7 +179,7 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     // If workflow not provided, try to restore from saved session data
     let effectiveWorkflow = workflow;
     if (!effectiveWorkflow) {
-        const savedWorkflow = getSessionWorkflow(worktreePath);
+        const savedWorkflow = await getSessionWorkflow(worktreePath);
         if (savedWorkflow) {
             effectiveWorkflow = savedWorkflow;
             console.log(`Lanes: Restored workflow '${effectiveWorkflow}' from session data`);
@@ -321,7 +321,7 @@ exit 0
         // Save workflow path to session file for future restoration
         // Only save if this is a new workflow (not restored from session data)
         if (workflow) {
-            saveSessionWorkflow(worktreePath, effectiveWorkflow);
+            await saveSessionWorkflow(worktreePath, effectiveWorkflow);
         }
         // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
         // instead of being included in the settings file

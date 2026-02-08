@@ -339,7 +339,7 @@ export function registerSessionCommands(
         }
 
         try {
-            setSessionChimeEnabled(item.worktreePath, true);
+            await setSessionChimeEnabled(item.worktreePath, true);
             await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', true);
             vscode.window.showInformationMessage(`Chime enabled for session '${item.label}'`);
             sessionProvider.refresh();
@@ -356,7 +356,7 @@ export function registerSessionCommands(
         }
 
         try {
-            setSessionChimeEnabled(item.worktreePath, false);
+            await setSessionChimeEnabled(item.worktreePath, false);
             await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', false);
             vscode.window.showInformationMessage(`Chime disabled for session '${item.label}'`);
             sessionProvider.refresh();
@@ -376,7 +376,7 @@ export function registerSessionCommands(
             const sessionName = path.basename(item.worktreePath);
             const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
-            clearSessionId(item.worktreePath);
+            await clearSessionId(item.worktreePath);
 
             const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
             if (existingTerminal) {

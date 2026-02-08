@@ -23,19 +23,19 @@ suite('Session Provider', () => {
 
 	suite('Workflow Status Display', () => {
 
-		test('getWorkflowStatus returns null when no workflow-state.json exists', () => {
+		test('getWorkflowStatus returns null when no workflow-state.json exists', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'no-workflow');
 			fs.mkdirSync(worktreePath, { recursive: true });
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.strictEqual(status, null, 'Should return null when workflow-state.json does not exist');
 		});
 
-		test('getWorkflowStatus returns workflow status from valid state file', () => {
+		test('getWorkflowStatus returns workflow status from valid state file', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'with-workflow');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -53,7 +53,7 @@ suite('Session Provider', () => {
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');
@@ -63,7 +63,7 @@ suite('Session Provider', () => {
 			assert.strictEqual(status.progress, 'Task 2', 'Should include task progress (1-indexed)');
 		});
 
-		test('getWorkflowStatus returns inactive for completed workflow', () => {
+		test('getWorkflowStatus returns inactive for completed workflow', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'completed-workflow');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -80,14 +80,14 @@ suite('Session Provider', () => {
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');
 			assert.strictEqual(status.active, false, 'Should be inactive when status is complete');
 		});
 
-		test('getWorkflowStatus returns null for invalid JSON', () => {
+		test('getWorkflowStatus returns null for invalid JSON', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'invalid-json');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -99,13 +99,13 @@ suite('Session Provider', () => {
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.strictEqual(status, null, 'Should return null for invalid JSON');
 		});
 
-		test('getWorkflowStatus returns null for missing status field', () => {
+		test('getWorkflowStatus returns null for missing status field', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'missing-status');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -121,7 +121,7 @@ suite('Session Provider', () => {
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.strictEqual(status, null, 'Should return null when status field is missing');

@@ -32,43 +32,43 @@ suite('Session Status', () => {
 
 	suite('getClaudeStatus', () => {
 
-		test('should return correct status for valid waiting_for_user .claude-status file', () => {
+		test('should return correct status for valid waiting_for_user .claude-status file', async () => {
 			// Arrange: Create a .claude-status file with waiting_for_user status
 			const statusData = { status: 'waiting_for_user' };
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');
 			assert.strictEqual(result.status, 'waiting_for_user');
 		});
 
-		test('should return correct status for valid working .claude-status file', () => {
+		test('should return correct status for valid working .claude-status file', async () => {
 			// Arrange: Create a .claude-status file with working status
 			const statusData = { status: 'working' };
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');
 			assert.strictEqual(result.status, 'working');
 		});
 
-		test('should return null when .claude-status file does not exist', () => {
+		test('should return null when .claude-status file does not exist', async () => {
 			// Arrange: tempDir exists but has no .claude-status file
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
 		});
 
-		test('should return null for invalid JSON in .claude-status', () => {
+		test('should return null for invalid JSON in .claude-status', async () => {
 			// Arrange: Create a .claude-status file with invalid JSON
 			const sessionName = path.basename(tempDir);
 			const statusDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
@@ -76,13 +76,13 @@ suite('Session Status', () => {
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), 'not valid json {{{');
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
 		});
 
-		test('should return null when status field is not a valid value', () => {
+		test('should return null when status field is not a valid value', async () => {
 			// Arrange: Create a .claude-status file with invalid status value
 			const statusData = { status: 'invalid' };
 			const sessionName = path.basename(tempDir);
@@ -91,13 +91,13 @@ suite('Session Status', () => {
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
 		});
 
-		test('should correctly parse optional timestamp and message fields', () => {
+		test('should correctly parse optional timestamp and message fields', async () => {
 			// Arrange: Create a .claude-status file with all fields
 			const statusData = {
 				status: 'waiting_for_user',
@@ -107,7 +107,7 @@ suite('Session Status', () => {
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = getClaudeStatus(tempDir);
+			const result = await getClaudeStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');

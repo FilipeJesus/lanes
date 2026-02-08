@@ -121,11 +121,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         if (e.selection.length > 0) {
             const item = e.selection[0] as SessionItem;
             if (item.worktreePath) {
-                const chimeEnabled = getSessionChimeEnabled(item.worktreePath);
+                const chimeEnabled = await getSessionChimeEnabled(item.worktreePath);
                 await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', chimeEnabled);
 
                 // Set workflow context key to show/hide workflow button
-                const workflowStatus = getWorkflowStatus(item.worktreePath);
+                const workflowStatus = await getWorkflowStatus(item.worktreePath);
                 await vscode.commands.executeCommand('setContext', 'lanes.hasWorkflow', workflowStatus !== null);
             }
         }
@@ -259,7 +259,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
-        const sessionData = getSessionId(workspaceRoot);
+        const sessionData = await getSessionId(workspaceRoot);
         if (sessionData?.sessionId) {
             const sessionName = path.basename(workspaceRoot);
             // Brief delay to ensure VS Code is fully ready

@@ -163,9 +163,9 @@ export async function processClearRequest(
     // Internal functions from extension (temporary)
     clearSessionIdFn?: any
 ): Promise<void> {
-    const clearSessionIdImpl = clearSessionIdFn || ((path: string) => {
+    const clearSessionIdImpl = clearSessionIdFn || (async (path: string) => {
         const { clearSessionId: _clearSessionId } = require('../ClaudeSessionProvider');
-        _clearSessionId(path);
+        await _clearSessionId(path);
     });
 
     try {
@@ -180,7 +180,7 @@ export async function processClearRequest(
 
         // Clear the session ID so the new terminal starts fresh instead of resuming
         if (clearSessionIdImpl) {
-            clearSessionIdImpl(config.worktreePath);
+            await clearSessionIdImpl(config.worktreePath);
         }
 
         const sessionName = path.basename(config.worktreePath);

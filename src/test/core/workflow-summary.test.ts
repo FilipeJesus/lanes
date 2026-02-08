@@ -178,7 +178,7 @@ steps:
 
 	suite('getWorkflowStatus Summary Extraction', () => {
 
-		test('getWorkflowStatus extracts summary from workflow-state.json when present', () => {
+		test('getWorkflowStatus extracts summary from workflow-state.json when present', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'with-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -197,14 +197,14 @@ steps:
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');
 			assert.strictEqual(status.summary, 'Add dark mode toggle', 'Summary should be extracted from state');
 		});
 
-		test('getWorkflowStatus returns undefined summary when not present in workflow-state.json', () => {
+		test('getWorkflowStatus returns undefined summary when not present in workflow-state.json', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'without-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -221,14 +221,14 @@ steps:
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');
 			assert.strictEqual(status.summary, undefined, 'Summary should be undefined when not in state');
 		});
 
-		test('getWorkflowStatus returns undefined summary for empty string', () => {
+		test('getWorkflowStatus returns undefined summary for empty string', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'empty-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -246,14 +246,14 @@ steps:
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');
 			assert.strictEqual(status.summary, undefined, 'Summary should be undefined for empty string');
 		});
 
-		test('getWorkflowStatus returns undefined summary for whitespace-only string', () => {
+		test('getWorkflowStatus returns undefined summary for whitespace-only string', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'whitespace-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -271,7 +271,7 @@ steps:
 			);
 
 			// Act
-			const status = getWorkflowStatus(worktreePath);
+			const status = await getWorkflowStatus(worktreePath);
 
 			// Assert
 			assert.ok(status, 'Should return workflow status');

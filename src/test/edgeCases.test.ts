@@ -217,7 +217,7 @@ suite('Edge Cases Test Suite', () => {
 				}
 			});
 
-			test('should handle empty .claude-session file gracefully', () => {
+			test('should handle empty .claude-session file gracefully', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 				const sessionDir = path.join(worktreesDir, 'empty-session-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
@@ -225,11 +225,11 @@ suite('Edge Cases Test Suite', () => {
 				// Write empty file
 				fs.writeFileSync(path.join(sessionDir, '.claude-session'), '');
 
-				const result = getSessionId(sessionDir);
+				const result = await getSessionId(sessionDir);
 				assert.strictEqual(result, null, 'Empty .claude-session should return null');
 			});
 
-			test('should handle .claude-session with only whitespace', () => {
+			test('should handle .claude-session with only whitespace', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 				const sessionDir = path.join(worktreesDir, 'whitespace-session-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
@@ -237,14 +237,14 @@ suite('Edge Cases Test Suite', () => {
 				// Write whitespace-only file
 				fs.writeFileSync(path.join(sessionDir, '.claude-session'), '   \n\t  ');
 
-				const result = getSessionId(sessionDir);
+				const result = await getSessionId(sessionDir);
 				assert.strictEqual(result, null, 'Whitespace-only .claude-session should return null');
 			});
 		});
 
 		suite('Claude Status Edge Cases', () => {
 
-			test('should handle .claude-status with extra unexpected fields gracefully', () => {
+			test('should handle .claude-status with extra unexpected fields gracefully', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 				const sessionDir = path.join(worktreesDir, 'extra-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
@@ -266,13 +266,13 @@ suite('Edge Cases Test Suite', () => {
 					JSON.stringify(statusWithExtras)
 				);
 
-				const result = getClaudeStatus(sessionDir);
+				const result = await getClaudeStatus(sessionDir);
 				assert.strictEqual(result?.status, 'working');
 				assert.strictEqual(result?.timestamp, '2025-01-01T00:00:00Z');
 				assert.strictEqual(result?.message, 'Test message');
 			});
 
-			test('should handle .claude-status with null values for optional fields', () => {
+			test('should handle .claude-status with null values for optional fields', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 				const sessionDir = path.join(worktreesDir, 'null-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
@@ -292,11 +292,11 @@ suite('Edge Cases Test Suite', () => {
 					JSON.stringify(statusWithNulls)
 				);
 
-				const result = getClaudeStatus(sessionDir);
+				const result = await getClaudeStatus(sessionDir);
 				assert.strictEqual(result?.status, 'idle');
 			});
 
-			test('should reject .claude-status with invalid status value', () => {
+			test('should reject .claude-status with invalid status value', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 				const sessionDir = path.join(worktreesDir, 'invalid-status-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
@@ -316,7 +316,7 @@ suite('Edge Cases Test Suite', () => {
 						JSON.stringify(invalidStatus)
 					);
 
-					const result = getClaudeStatus(sessionDir);
+					const result = await getClaudeStatus(sessionDir);
 					assert.strictEqual(result, null, `Invalid status ${JSON.stringify(invalidStatus)} should return null`);
 				}
 			});
@@ -345,7 +345,7 @@ suite('Edge Cases Test Suite', () => {
 
 				// Call getClaudeStatus concurrently
 				const results = await Promise.all(
-					sessionDirs.map(dir => Promise.resolve(getClaudeStatus(dir)))
+					sessionDirs.map(dir => getClaudeStatus(dir))
 				);
 
 				// Verify each result

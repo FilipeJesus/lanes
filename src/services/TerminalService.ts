@@ -198,7 +198,7 @@ export async function openClaudeTerminal(
     const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
 
     // Get or create a unique task list ID for this session
-    const taskListId = getOrCreateTaskListId(worktreePath, taskName);
+    const taskListId = await getOrCreateTaskListId(worktreePath, taskName);
 
     const terminal = vscode.window.createTerminal({
         name: terminalName,      // <--- This sets the tab name in the UI
@@ -217,7 +217,7 @@ export async function openClaudeTerminal(
     // Determine effective workflow: use provided workflow or restore from session data
     let effectiveWorkflow = workflow;
     if (!effectiveWorkflow) {
-        const savedWorkflow = getSessionWorkflow(worktreePath);
+        const savedWorkflow = await getSessionWorkflow(worktreePath);
         if (savedWorkflow) {
             effectiveWorkflow = savedWorkflow;
         }
@@ -263,7 +263,7 @@ export async function openClaudeTerminal(
     }
 
     // D. Auto-start Claude - resume if session ID exists, otherwise start fresh
-    const sessionData = getSessionId(worktreePath);
+    const sessionData = await getSessionId(worktreePath);
     let shouldStartFresh = true;
 
     if (sessionData?.sessionId) {

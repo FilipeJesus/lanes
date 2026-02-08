@@ -96,3 +96,53 @@ export async function fileExists(filePath: string): Promise<boolean> {
 export async function readFile(filePath: string): Promise<string> {
     return await fs.readFile(filePath, 'utf-8');
 }
+
+/**
+ * Read the entries of a directory.
+ * Returns an empty array if the directory does not exist (ENOENT).
+ *
+ * @param dirPath - The directory path to read
+ * @returns Array of directory entry names
+ */
+export async function readDir(dirPath: string): Promise<string[]> {
+    try {
+        return await fs.readdir(dirPath);
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+            return [];
+        }
+        throw err;
+    }
+}
+
+/**
+ * Check if a path is a directory.
+ * Returns false if the path does not exist.
+ *
+ * @param filePath - The path to check
+ * @returns true if the path is a directory, false otherwise
+ */
+export async function isDirectory(filePath: string): Promise<boolean> {
+    try {
+        const stat = await fs.stat(filePath);
+        return stat.isDirectory();
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Check if a path is a file.
+ * Returns false if the path does not exist.
+ *
+ * @param filePath - The path to check
+ * @returns true if the path is a file, false otherwise
+ */
+export async function isFile(filePath: string): Promise<boolean> {
+    try {
+        const stat = await fs.stat(filePath);
+        return stat.isFile();
+    } catch {
+        return false;
+    }
+}

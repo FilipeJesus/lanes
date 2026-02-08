@@ -109,7 +109,7 @@ suite('Extension Settings Workflow Configuration', () => {
 
 			// Assert: Workflow path should be saved to session data for restoration
 			const { getSessionWorkflow } = await import('../../ClaudeSessionProvider.js');
-			const savedWorkflow = getSessionWorkflow(worktreePath);
+			const savedWorkflow = await getSessionWorkflow(worktreePath);
 			assert.strictEqual(savedWorkflow, workflowPath, 'Workflow path should be saved to session data');
 		});
 
