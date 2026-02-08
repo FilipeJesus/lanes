@@ -15,17 +15,11 @@ import type { ClearSessionConfig } from '../types/extension';
 import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
 import { CodeAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
+import { createSession as createSessionService } from './SessionService';
 
-// Re-export from extension for now (temporary measure)
-// These will be resolved when SessionService is extracted in 07-03
-let createSession: any = null;
+// Terminal function still comes from extension.ts (will be resolved in Task 3)
 let openClaudeTerminal: any = null;
-let clearSessionId: any = null;
 let validateWorkflow: any = null;
-
-// Lazy import from extension to avoid circular dependency
-// These functions are internal to extension.ts and not exported
-// The service accepts them as parameters for now
 
 /**
  * Get the directory where MCP server writes pending session requests.
@@ -40,9 +34,6 @@ export function getPendingSessionsDir(repoRoot: string): string {
 /**
  * Process a pending session request from the MCP server.
  * Creates the session and opens the terminal, then deletes the config file.
- *
- * Note: This function temporarily calls createSession from extension.ts.
- * This will be resolved when SessionService is extracted in plan 07-03.
  */
 export async function processPendingSession(
     configPath: string,
@@ -50,8 +41,7 @@ export async function processPendingSession(
     extensionPath: string,
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent,
-    // Internal functions from extension (temporary)
-    createSessionFn?: any,
+    // Internal functions from extension (temporary - validateWorkflow still from extension)
     validateWorkflowFn?: any
 ): Promise<void> {
     if (!workspaceRoot) {
@@ -59,14 +49,8 @@ export async function processPendingSession(
         return;
     }
 
-    // Use passed functions or get from extension
-    const createSessionImpl = createSessionFn;
+    // Use passed validateWorkflow function or fall back to parameter
     const validateWorkflowImpl = validateWorkflowFn;
-
-    if (!createSessionImpl) {
-        console.error('processPendingSession: createSession function not provided');
-        return;
-    }
 
     try {
         // Read and parse the config file
@@ -101,8 +85,8 @@ export async function processPendingSession(
         // Delete the config file first to prevent re-processing
         await fsPromises.unlink(configPath);
 
-        // Use the provided createSession logic
-        await createSessionImpl(
+        // Use SessionService.createSession
+        await createSessionService(
             config.name,
             config.prompt || '',
             '', // acceptanceCriteria
@@ -129,19 +113,14 @@ export async function processPendingSession(
 /**
  * Check for and process any pending session requests.
  * Called on startup and when new files are detected.
- *
- * Note: This function temporarily calls processPendingSession with extension functions.
- * This will be resolved when SessionService is extracted in plan 07-03.
  */
 export async function checkPendingSessions(
     workspaceRoot: string | undefined,
     extensionPath: string,
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent,
-    // Internal functions from extension (temporary)
-    createSessionFn?: any,
-    validateWorkflowFn?: any,
-    processPendingSessionFn?: any
+    // Internal functions from extension (temporary - validateWorkflow still from extension)
+    validateWorkflowFn?: any
 ): Promise<void> {
     if (!workspaceRoot) {
         return;
@@ -159,12 +138,7 @@ export async function checkPendingSessions(
 
         for (const file of jsonFiles) {
             const configPath = path.join(pendingSessionsDir, file);
-
-            if (processPendingSessionFn) {
-                await processPendingSessionFn(configPath, workspaceRoot, extensionPath, sessionProvider, codeAgent);
-            } else {
-                await processPendingSession(configPath, workspaceRoot, extensionPath, sessionProvider, codeAgent, createSessionFn, validateWorkflowFn);
-            }
+            await processPendingSession(configPath, workspaceRoot, extensionPath, sessionProvider, codeAgent, validateWorkflowFn);
         }
     } catch (err) {
         console.error('Failed to check pending sessions:', err);
@@ -175,8 +149,7 @@ export async function checkPendingSessions(
  * Process a pending session clear request from the MCP server.
  * Closes the existing terminal and opens a new one with fresh context.
  *
- * Note: This function temporarily calls openClaudeTerminal from extension.ts.
- * This will be resolved when SessionService is extracted in plan 07-03.
+ * Note: This function still calls openClaudeTerminal from extension.ts (will be resolved in Task 3).
  */
 export async function processClearRequest(
     configPath: string,
