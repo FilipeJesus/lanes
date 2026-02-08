@@ -45,7 +45,7 @@ import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
 import type { PendingSessionConfig, ClearSessionConfig } from './types/extension';
 import type { ServiceContainer } from './types/serviceContainer';
-import { registerSessionCommands } from './commands/sessionCommands';
+import { registerAllCommands } from './commands';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
@@ -648,8 +648,8 @@ export async function activate(context: vscode.ExtensionContext) {
         codeAgent
     };
 
-    // Register session commands
-    registerSessionCommands(context, services);
+    // Register all commands (session, workflow, repair)
+    registerAllCommands(context, services, refreshWorkflows);
 
     // 2. Register CREATE Command (for command palette / keybinding usage)
     let createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
