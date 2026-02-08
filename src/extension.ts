@@ -46,6 +46,9 @@ import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSet
 import type { PendingSessionConfig, ClearSessionConfig } from './types/extension';
 import type { ServiceContainer } from './types/serviceContainer';
 import { registerAllCommands } from './commands';
+import { registerWatchers } from './watchers';
+import { getPendingSessionsDir, checkPendingSessions, processClearRequest } from './services/SessionProcessService';
+
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
@@ -54,16 +57,6 @@ const sanitizeSessionName = _sanitizeSessionName;
 
 // Track branches that have shown merge-base warnings (debounce to avoid spam)
 const warnedMergeBaseBranches = SessionService.warnedMergeBaseBranches;
-
-/**
- * Get the directory where MCP server writes pending session requests.
- * Uses the workspace's .lanes directory instead of the home directory.
- * @param repoRoot The root directory of the repository
- * @returns The path to the pending sessions directory
- */
-function getPendingSessionsDir(repoRoot: string): string {
-    return path.join(repoRoot, '.lanes', 'pending-sessions');
-}
 
 /**
  * Directory containing bundled workflow templates.
@@ -121,166 +114,6 @@ async function validateWorkflow(
 // Re-export sanitizeSessionName from utils for backwards compatibility
 export { sanitizeSessionName } from './utils';
 
-
-/**
- * Process a pending session request from the MCP server.
- * Creates the session and opens the terminal, then deletes the config file.
- */
-async function processPendingSession(
-    configPath: string,
-    workspaceRoot: string | undefined,
-    extensionPath: string,
-    sessionProvider: ClaudeSessionProvider,
-    codeAgent?: CodeAgent
-): Promise<void> {
-    if (!workspaceRoot) {
-        console.error('Cannot process pending session: no workspace root');
-        return;
-    }
-
-    try {
-        // Read and parse the config file
-        const configContent = await fsPromises.readFile(configPath, 'utf-8');
-        const config: PendingSessionConfig = JSON.parse(configContent);
-
-        console.log(`Processing pending session request: ${config.name}`);
-
-        // Validate and resolve workflow if provided
-        let resolvedWorkflowPath: string | null = null;
-        if (config.workflow) {
-            const { isValid, resolvedPath, availableWorkflows } = await validateWorkflow(
-                config.workflow,
-                extensionPath,
-                workspaceRoot
-            );
-            if (!isValid) {
-                // Delete config file to prevent re-processing
-                await fsPromises.unlink(configPath);
-                const availableList = availableWorkflows.length > 0
-                    ? availableWorkflows.join(', ')
-                    : 'none found';
-                vscode.window.showErrorMessage(
-                    `Invalid workflow '${config.workflow}'. Available workflows: ${availableList}. ` +
-                    `Session '${config.name}' was not created.`
-                );
-                return;
-            }
-            resolvedWorkflowPath = resolvedPath || null;
-        }
-
-        // Delete the config file first to prevent re-processing
-        await fsPromises.unlink(configPath);
-
-        // Use the existing createSession logic
-        // Note: createSession expects these parameters:
-        // name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, workspaceRoot, sessionProvider, codeAgent
-        await createSession(
-            config.name,
-            config.prompt || '',
-            '', // acceptanceCriteria
-            'default' as PermissionMode, // permissionMode
-            config.sourceBranch,
-            resolvedWorkflowPath, // workflow - resolved path to workflow YAML file
-            workspaceRoot,
-            sessionProvider,
-            codeAgent
-        );
-
-    } catch (err) {
-        console.error(`Failed to process pending session ${configPath}:`, err);
-        // Try to delete the config file even on error to prevent infinite retries
-        try {
-            await fsPromises.unlink(configPath);
-        } catch {
-            // Ignore deletion errors
-        }
-        vscode.window.showErrorMessage(`Failed to create session from MCP request: ${getErrorMessage(err)}`);
-    }
-}
-
-/**
- * Check for and process any pending session requests.
- * Called on startup and when new files are detected.
- */
-async function checkPendingSessions(
-    workspaceRoot: string | undefined,
-    extensionPath: string,
-    sessionProvider: ClaudeSessionProvider,
-    codeAgent?: CodeAgent
-): Promise<void> {
-    if (!workspaceRoot) {
-        return;
-    }
-
-    try {
-        const pendingSessionsDir = getPendingSessionsDir(workspaceRoot);
-        // Ensure directory exists
-        if (!fs.existsSync(pendingSessionsDir)) {
-            return;
-        }
-
-        const files = await fsPromises.readdir(pendingSessionsDir);
-        const jsonFiles = files.filter(f => f.endsWith('.json'));
-
-        for (const file of jsonFiles) {
-            const configPath = path.join(pendingSessionsDir, file);
-            await processPendingSession(configPath, workspaceRoot, extensionPath, sessionProvider, codeAgent);
-        }
-    } catch (err) {
-        console.error('Failed to check pending sessions:', err);
-    }
-}
-
-/**
- * Process a pending session clear request from the MCP server.
- * Closes the existing terminal and opens a new one with fresh context.
- */
-async function processClearRequest(
-    configPath: string,
-    codeAgent: CodeAgent,
-    baseRepoPath: string | undefined,
-    sessionProvider: ClaudeSessionProvider
-): Promise<void> {
-    try {
-        // Read and parse the config file
-        const configContent = await fsPromises.readFile(configPath, 'utf-8');
-        const config: ClearSessionConfig = JSON.parse(configContent);
-
-        console.log(`Processing clear request for: ${config.worktreePath}`);
-
-        // Delete the config file first to prevent re-processing
-        await fsPromises.unlink(configPath);
-
-        // Clear the session ID so the new terminal starts fresh instead of resuming
-        clearSessionId(config.worktreePath);
-
-        const sessionName = path.basename(config.worktreePath);
-        const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
-
-        // Find and close the existing terminal
-        const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
-        if (existingTerminal) {
-            existingTerminal.dispose();
-            // Brief delay to ensure terminal is closed
-            await new Promise(resolve => setTimeout(resolve, TerminalService.TERMINAL_CLOSE_DELAY_MS));
-        }
-
-        // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
-        await openClaudeTerminal(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
-
-        console.log(`Session cleared: ${sessionName}`);
-
-    } catch (err) {
-        console.error(`Failed to process clear request ${configPath}:`, err);
-        // Try to delete the config file even on error to prevent infinite retries
-        try {
-            await fsPromises.unlink(configPath);
-        } catch {
-            // Ignore deletion errors
-        }
-        vscode.window.showErrorMessage(`Failed to clear session: ${getErrorMessage(err)}`);
-    }
-}
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, "Lanes" is now active!'); // Check Debug Console for this
@@ -401,176 +234,22 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initial workflow load
     refreshWorkflows();
 
-    // Watch for .claude-status file changes to refresh the sidebar
-    // Use baseRepoPath for file watchers to monitor sessions in the main repo
-    const watchPath = baseRepoPath || workspaceRoot;
-    if (watchPath) {
-        const statusWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, SettingsService.getStatusWatchPattern())
-        );
+    // Create service container for dependency injection
+    const services: ServiceContainer = {
+        extensionContext: context,
+        sessionProvider,
+        sessionFormProvider,
+        previousSessionProvider,
+        workflowsProvider,
+        workspaceRoot,
+        baseRepoPath,
+        extensionPath: context.extensionPath,
+        codeAgent
+    };
 
-        // Refresh on any status file change
-        statusWatcher.onDidChange(() => sessionProvider.refresh());
-        statusWatcher.onDidCreate(() => sessionProvider.refresh());
-        statusWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(statusWatcher);
-
-        // Also watch for .claude-session file changes to refresh the sidebar
-        const sessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, SettingsService.getSessionWatchPattern())
-        );
-
-        sessionWatcher.onDidChange(() => sessionProvider.refresh());
-        sessionWatcher.onDidCreate(() => sessionProvider.refresh());
-        sessionWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(sessionWatcher);
-    }
-
-    // Watch global storage directory for file changes if global storage is enabled
-    if (isGlobalStorageEnabled() && baseRepoPath) {
-        const repoIdentifier = getRepoIdentifier(baseRepoPath);
-        const globalStoragePath = path.join(context.globalStorageUri.fsPath, repoIdentifier);
-
-        // Ensure the global storage directory exists
-        fsPromises.mkdir(globalStoragePath, { recursive: true }).catch(err => {
-            console.warn('Lanes: Failed to create global storage directory:', err);
-        });
-
-        const globalStorageWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/.claude-status')
-        );
-
-        // Refresh on any status file change
-        globalStorageWatcher.onDidChange(() => sessionProvider.refresh());
-        globalStorageWatcher.onDidCreate(() => sessionProvider.refresh());
-        globalStorageWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(globalStorageWatcher);
-
-        // Also watch for .claude-session in global storage
-        const globalSessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/.claude-session')
-        );
-
-        globalSessionWatcher.onDidChange(() => sessionProvider.refresh());
-        globalSessionWatcher.onDidCreate(() => sessionProvider.refresh());
-        globalSessionWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(globalSessionWatcher);
-    }
-
-    // Watch for changes to the prompts folder to refresh previous sessions
-    // getPromptsDir returns an absolute path (may be in global storage or repo-relative)
-    if (watchPath) {
-        const promptsDirPath = getPromptsDir(watchPath);
-        if (promptsDirPath) {
-            const promptsWatcher = vscode.workspace.createFileSystemWatcher(
-                new vscode.RelativePattern(promptsDirPath, '*.txt')
-            );
-
-            promptsWatcher.onDidChange(() => previousSessionProvider.refresh());
-            promptsWatcher.onDidCreate(() => previousSessionProvider.refresh());
-            promptsWatcher.onDidDelete(() => previousSessionProvider.refresh());
-
-            context.subscriptions.push(promptsWatcher);
-        }
-    }
-
-    // Watch for changes to the custom workflows folder to refresh workflows
-    if (workspaceRoot) {
-        const config = vscode.workspace.getConfiguration('lanes');
-        const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.lanes/workflows');
-        const customWorkflowsPath = path.join(workspaceRoot, customWorkflowsFolder);
-
-        const workflowsWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(customWorkflowsPath, '*.yaml')
-        );
-
-        workflowsWatcher.onDidChange(() => refreshWorkflows());
-        workflowsWatcher.onDidCreate(() => refreshWorkflows());
-        workflowsWatcher.onDidDelete(() => refreshWorkflows());
-
-        context.subscriptions.push(workflowsWatcher);
-    }
-
-    // Watch for worktree folder changes to refresh both active and previous sessions
-    if (watchPath) {
-        const worktreesFolder = getWorktreesFolder();
-        const worktreeFolderWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, `${worktreesFolder}/*`)
-        );
-
-        // When worktrees are added/removed, both views need updating
-        worktreeFolderWatcher.onDidCreate(() => {
-            sessionProvider.refresh();
-            previousSessionProvider.refresh();
-        });
-        worktreeFolderWatcher.onDidDelete(() => {
-            sessionProvider.refresh();
-            previousSessionProvider.refresh();
-        });
-
-        context.subscriptions.push(worktreeFolderWatcher);
-    }
-
-    // Watch for custom workflows folder changes
-    if (watchPath) {
-        const customWorkflowsFolder = vscode.workspace.getConfiguration('lanes').get<string>('customWorkflowsFolder', '.lanes/workflows');
-        const customWorkflowsWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, `${customWorkflowsFolder}/*.yaml`)
-        );
-
-        customWorkflowsWatcher.onDidChange(() => workflowsProvider.refresh());
-        customWorkflowsWatcher.onDidCreate(() => workflowsProvider.refresh());
-        customWorkflowsWatcher.onDidDelete(() => workflowsProvider.refresh());
-
-        context.subscriptions.push(customWorkflowsWatcher);
-    }
-
-    // Watch for pending session requests from MCP
-    if (baseRepoPath) {
-        const pendingSessionsDir = getPendingSessionsDir(baseRepoPath);
-        // Ensure the directory exists for the watcher
-        if (!fs.existsSync(pendingSessionsDir)) {
-            fs.mkdirSync(pendingSessionsDir, { recursive: true });
-        }
-
-        const pendingSessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(pendingSessionsDir, '*.json')
-        );
-
-        pendingSessionWatcher.onDidCreate(async (uri) => {
-            console.log(`Pending session file detected: ${uri.fsPath}`);
-            await processPendingSession(uri.fsPath, baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
-        });
-
-        context.subscriptions.push(pendingSessionWatcher);
-
-        // Check for any pending sessions on startup
-        checkPendingSessions(baseRepoPath, context.extensionPath, sessionProvider, codeAgent);
-    }
-
-    // Watch for session clear requests from MCP
-    if (baseRepoPath) {
-        const clearRequestsDir = path.join(baseRepoPath, '.lanes', 'clear-requests');
-        // Ensure the directory exists for the watcher
-        if (!fs.existsSync(clearRequestsDir)) {
-            fs.mkdirSync(clearRequestsDir, { recursive: true });
-        }
-
-        const clearRequestWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(clearRequestsDir, '*.json')
-        );
-
-        clearRequestWatcher.onDidCreate(async (uri) => {
-            console.log(`Clear request file detected: ${uri.fsPath}`);
-            await processClearRequest(uri.fsPath, codeAgent, baseRepoPath, sessionProvider);
-        });
-
-        context.subscriptions.push(clearRequestWatcher);
-    }
+    // Register all file system watchers
+    // This includes watchers for status files, session files, prompts, workflows, worktrees, and MCP requests
+    registerWatchers(context, services, refreshWorkflows, validateWorkflow);
 
     // Listen for configuration changes to update hooks when storage location changes
     // Use a flag to prevent concurrent execution during async operations
@@ -634,19 +313,6 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(configChangeDisposable);
-
-    // Create service container for dependency injection
-    const services: ServiceContainer = {
-        extensionContext: context,
-        sessionProvider,
-        sessionFormProvider,
-        previousSessionProvider,
-        workflowsProvider,
-        workspaceRoot,
-        baseRepoPath,
-        extensionPath: context.extensionPath,
-        codeAgent
-    };
 
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);

@@ -146,6 +146,12 @@ export async function checkPendingSessions(
 }
 
 /**
+ * Alias for processClearRequest to match the naming pattern of checkPendingSessions.
+ * This is used by the file watcher to process clear requests.
+ */
+export const checkClearRequests = processClearRequest;
+
+/**
  * Process a pending session clear request from the MCP server.
  * Closes the existing terminal and opens a new one with fresh context.
  */
