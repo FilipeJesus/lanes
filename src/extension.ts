@@ -1,122 +1,76 @@
+/**
+ * Lanes Extension - Main Entry Point
+ *
+ * This is the main entry point for the VS Code extension.
+ * It initializes all services, providers, commands, and watchers.
+ *
+ * The extension manages isolated Claude Code sessions using Git worktrees.
+ * Each session gets its own worktree and dedicated terminal.
+ */
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as fsPromises from 'fs/promises';
+
 import {
     ClaudeSessionProvider,
     SessionItem,
     getSessionId,
     getSessionChimeEnabled,
-    setSessionChimeEnabled,
     clearSessionId,
     initializeGlobalStorageContext,
     isGlobalStorageEnabled,
     getGlobalStoragePath,
-    getGlobalStorageUri,
-    getBaseRepoPathForStorage,
-    getSessionNameFromWorktree,
     getRepoIdentifier,
     getWorktreesFolder,
-    getPromptsPath,
-    getSessionWorkflow,
-    saveSessionWorkflow,
-    getClaudeStatusPath,
-    getClaudeSessionPath,
-    getWorkflowStatus,
-    getOrCreateTaskListId
+    getWorkflowStatus
 } from './ClaudeSessionProvider';
-import { SessionFormProvider, PermissionMode, isValidPermissionMode } from './SessionFormProvider';
-import { initializeGitPath, execGit } from './gitService';
-import { GitChangesPanel, OnBranchChangeCallback } from './GitChangesPanel';
-import { PreviousSessionProvider, PreviousSessionItem, getPromptsDir } from './PreviousSessionProvider';
+
+import { SessionFormProvider, PermissionMode } from './SessionFormProvider';
+import { initializeGitPath } from './gitService';
+import { PreviousSessionProvider } from './PreviousSessionProvider';
 import { WorkflowsProvider } from './WorkflowsProvider';
-import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from './workflow';
-import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
+
+import { clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 import * as BrokenWorktreeService from './services/BrokenWorktreeService';
 import * as SettingsService from './services/SettingsService';
-import * as DiffService from './services/DiffService';
 import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
-import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage, validateBranchName, ValidationResult } from './utils';
-import { validateSessionName } from './validation';
-import { AsyncQueue } from './AsyncQueue';
-import { LanesError, GitError, ValidationError } from './errors';
+import { getErrorMessage } from './utils';
+
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
-import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
-import type { PendingSessionConfig, ClearSessionConfig } from './types/extension';
 import type { ServiceContainer } from './types/serviceContainer';
+
 import { registerAllCommands } from './commands';
 import { registerWatchers } from './watchers';
-import { getPendingSessionsDir, checkPendingSessions, processClearRequest } from './services/SessionProcessService';
+import { validateWorkflow as validateWorkflowService } from './services/WorkflowService';
+import { createSession } from './services/SessionService';
+import { openClaudeTerminal } from './services/TerminalService';
 
-// Use local reference for internal use
-const sanitizeSessionName = _sanitizeSessionName;
+// ============================================================================
+// RE-EXPORTS FOR TESTS
+// These are temporary re-exports for backward compatibility with tests.
+// Tests should be updated to import directly from service modules.
+// ============================================================================
 
-// Session creation queue - now managed by SessionService
-// Access via SessionService.getSessionCreationQueue()
-
-// Track branches that have shown merge-base warnings (debounce to avoid spam)
-const warnedMergeBaseBranches = SessionService.warnedMergeBaseBranches;
-
-/**
- * Directory containing bundled workflow templates.
- * Located at extension root/workflows/ (from compiled code in out/, go up one level)
- */
-const WORKFLOWS_DIR = path.join(__dirname, '..', 'workflows');
-
-/**
- * Validate that a workflow exists and resolve it to a full path.
- * Accepts either a workflow name (e.g., 'copy-writer') or a full path to a YAML file.
- * Checks both built-in workflows (in WORKFLOWS_DIR) and custom workflows (in .lanes/workflows/).
- *
- * @param workflow The workflow name or path to validate
- * @param extensionPath The extension root path (for built-in workflows)
- * @param workspaceRoot The workspace root path (for custom workflows)
- * @returns Object with isValid flag, resolved path if valid, and available workflows if invalid
- */
-async function validateWorkflow(
-    workflow: string,
-    extensionPath: string,
-    workspaceRoot: string
-): Promise<{ isValid: boolean; resolvedPath?: string; availableWorkflows: string[] }> {
-    // If workflow is already an absolute path ending in .yaml, check if it exists
-    if (path.isAbsolute(workflow) && workflow.endsWith('.yaml')) {
-        try {
-            await fsPromises.access(workflow, fs.constants.R_OK);
-            return { isValid: true, resolvedPath: workflow, availableWorkflows: [] };
-        } catch {
-            // Path doesn't exist, fall through to name-based lookup
-        }
-    }
-
-    // Discover all available workflows (built-in and custom)
-    const allWorkflows = await discoverWorkflows({
-        extensionPath,
-        workspaceRoot
-    });
-
-    // Try to find the workflow by name (case-insensitive for convenience)
-    const workflowLower = workflow.toLowerCase();
-    const matchedWorkflow = allWorkflows.find(w => w.name.toLowerCase() === workflowLower);
-
-    if (matchedWorkflow) {
-        return { isValid: true, resolvedPath: matchedWorkflow.path, availableWorkflows: [] };
-    }
-
-    // Not found - return available workflow names for error message
-    const availableWorkflows = allWorkflows.map(w => w.name);
-    return { isValid: false, availableWorkflows };
-}
-
-
-// getPromptsDir is imported from PreviousSessionProvider.ts
-
-// Re-export sanitizeSessionName from utils for backwards compatibility
 export { sanitizeSessionName } from './utils';
+export { detectBrokenWorktrees, repairWorktree, branchExists, checkAndRepairBrokenWorktrees } from './services/BrokenWorktreeService';
+export type { BrokenWorktree } from './services/BrokenWorktreeService';
+export { getBaseRepoPath, getRepoName, getOrCreateExtensionSettingsFile } from './services/SettingsService';
+export { parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff, getBaseBranch } from './services/DiffService';
+export { createSession, getBranchesInWorktrees } from './services/SessionService';
+export { openClaudeTerminal, combinePromptAndCriteria } from './services/TerminalService';
 
-
-export async function activate(context: vscode.ExtensionContext) {
-    console.log('Congratulations, "Lanes" is now active!'); // Check Debug Console for this
+/**
+ * Activate the extension.
+ *
+ * This is the main entry point called by VS Code when the extension is activated.
+ * It initializes all services, providers, commands, and watchers.
+ *
+ * @param context - VS Code extension context
+ */
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+    console.log('Congratulations, "Lanes" is now active!');
 
     // Inject openClaudeTerminal into SessionService
     // This must be done early, before any session creation calls
@@ -130,7 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
 
-    // DEBUG: Check if we found a workspace
+    // Debug: Check if we found a workspace
     if (!workspaceRoot) {
         console.error("No workspace detected!");
     } else {
@@ -249,7 +203,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register all file system watchers
     // This includes watchers for status files, session files, prompts, workflows, worktrees, and MCP requests
-    registerWatchers(context, services, refreshWorkflows, validateWorkflow);
+    registerWatchers(context, services, refreshWorkflows, validateWorkflowService);
 
     // Listen for configuration changes to update hooks when storage location changes
     // Use a flag to prevent concurrent execution during async operations
@@ -317,555 +271,6 @@ export async function activate(context: vscode.ExtensionContext) {
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);
 
-    // 2. Register CREATE Command (for command palette / keybinding usage)
-    let createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
-        console.log("Create Session Command Triggered!");
-
-        // Get session name via input box
-        const name = await vscode.window.showInputBox({
-            prompt: "Session Name (creates new branch)",
-            placeHolder: "fix-login"
-        });
-
-        if (!name) {
-            vscode.window.showInformationMessage("Creation cancelled");
-            return;
-        }
-
-        // Use the shared createSession function (no prompt, acceptance criteria, source branch, or workflow when using command palette)
-        // Use baseRepoPath to create sessions in the main repo even when in a worktree
-        await createSession(name, '', '', 'default', '', null, baseRepoPath, sessionProvider, codeAgent);
-    });
-
-    // 3. Register OPEN/RESUME Command
-    let openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
-    });
-
-    // ---------------------------------------------------------
-    // 4. INSERT DELETE COMMAND HERE (New Code)
-    // ---------------------------------------------------------
-    let deleteDisposable = vscode.commands.registerCommand('claudeWorktrees.deleteSession', async (item: SessionItem) => {
-        
-        // A. Confirm with user
-        const answer = await vscode.window.showWarningMessage(
-            `Delete session '${item.label}'?`, 
-            { modal: true }, 
-            "Delete"
-        );
-        if (answer !== "Delete") {
-            return;
-        }
-
-        try {
-            // B. Kill Terminal
-            const termName = `Claude: ${item.label}`;
-            const terminal = vscode.window.terminals.find(t => t.name === termName);
-            if (terminal) {
-                terminal.dispose();
-            }
-
-            // C. Remove from Project Manager
-            await removeProject(item.worktreePath);
-
-            // D. Remove Worktree
-            // Use baseRepoPath to ensure git worktree command works from the main repo
-            if (baseRepoPath) {
-                // --force is required if the worktree is not clean, but usually safe for temp agent work
-                await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
-            }
-
-            // E. Clean up global storage files if global storage is enabled
-            if (isGlobalStorageEnabled()) {
-                const globalStoragePath = getGlobalStoragePath(item.worktreePath, '.claude-status');
-                if (globalStoragePath) {
-                    const sessionStorageDir = path.dirname(globalStoragePath);
-                    await fsPromises.rm(sessionStorageDir, { recursive: true, force: true }).catch(() => {
-                        // Ignore errors - files may not exist
-                    });
-                }
-            }
-
-            // F. Refresh List
-            sessionProvider.refresh();
-            vscode.window.showInformationMessage(`Deleted session: ${item.label}`);
-
-        } catch (err) {
-            let userMessage = 'Failed to delete session.';
-            if (err instanceof GitError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof ValidationError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof LanesError) {
-                userMessage = err.userMessage;
-            } else {
-                userMessage = `Failed to delete: ${getErrorMessage(err)}`;
-            }
-            vscode.window.showErrorMessage(userMessage);
-        }
-    });
-
-    // 5. Register SETUP STATUS HOOKS Command
-    // This command regenerates the extension settings file with hooks
-    let setupHooksDisposable = vscode.commands.registerCommand('claudeWorktrees.setupStatusHooks', async (item?: SessionItem) => {
-        if (!item) {
-            vscode.window.showErrorMessage('Please right-click on a session to setup status hooks.');
-            return;
-        }
-        try {
-            const settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(item.worktreePath);
-            vscode.window.showInformationMessage(`Status hooks configured for '${item.label}' at ${settingsPath}`);
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to setup hooks: ${getErrorMessage(err)}`);
-        }
-    });
-
-    // 6. Register SHOW GIT CHANGES Command
-    // Helper function to generate diff content for a worktree
-    async function generateDiffContent(worktreePath: string, baseBranch: string): Promise<string> {
-        return DiffService.generateDiffContent(worktreePath, baseBranch, warnedMergeBaseBranches);
-    }
-
-    // Register the branch change callback for GitChangesPanel
-    // This handles when users change the base branch in the diff viewer
-    GitChangesPanel.setOnBranchChange(async (branchName: string, worktreePath: string) => {
-        try {
-            // Validate the branch exists (check local branches, remote branches, and tags)
-            let actualBranch = branchName.trim();
-            const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
-
-            // Validate branch name format to prevent issues
-            if (!branchNameRegex.test(actualBranch)) {
-                vscode.window.showWarningMessage(`Invalid branch name format: '${branchName}'. Using default base branch.`);
-                actualBranch = await DiffService.getBaseBranch(worktreePath);
-            } else {
-                // Check if the branch/ref exists
-                let refExists = false;
-
-                // Check local branch
-                try {
-                    await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${actualBranch}`], worktreePath);
-                    refExists = true;
-                } catch {
-                    // Not a local branch
-                }
-
-                // Check remote branch (exact match)
-                if (!refExists) {
-                    try {
-                        await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${actualBranch}`], worktreePath);
-                        refExists = true;
-                    } catch {
-                        // Not a remote branch
-                    }
-                }
-
-                // Check if it's a valid ref (commit, tag, etc.)
-                if (!refExists) {
-                    try {
-                        await execGit(['rev-parse', '--verify', `${actualBranch}^{commit}`], worktreePath);
-                        refExists = true;
-                    } catch {
-                        // Not a valid ref
-                    }
-                }
-
-                if (!refExists) {
-                    vscode.window.showWarningMessage(`Branch '${branchName}' not found. Using default base branch.`);
-                    actualBranch = await DiffService.getBaseBranch(worktreePath);
-                }
-            }
-
-            // Generate new diff content
-            const diffContent = await generateDiffContent(worktreePath, actualBranch);
-
-            if (!diffContent || diffContent.trim() === '') {
-                vscode.window.showInformationMessage(`No changes found when comparing to '${actualBranch}'.`);
-                return { diffContent: '', baseBranch: actualBranch };
-            }
-
-            return { diffContent, baseBranch: actualBranch };
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to change branch: ${getErrorMessage(err)}`);
-            return null;
-        }
-    });
-
-    let showGitChangesDisposable = vscode.commands.registerCommand('claudeWorktrees.showGitChanges', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please right-click on a session to view git changes.');
-            return;
-        }
-
-        // Verify the worktree path exists
-        if (!fs.existsSync(item.worktreePath)) {
-            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
-            return;
-        }
-
-        // Validate branch name before Git operations
-        const branchValidation = validateBranchName(item.label);
-        if (!branchValidation.valid) {
-            vscode.window.showErrorMessage(branchValidation.error || `Branch '${item.label}' contains invalid characters. Cannot view changes.`);
-            return;
-        }
-
-        try {
-            // Determine the base branch (main or master)
-            const baseBranch = await DiffService.getBaseBranch(item.worktreePath);
-
-            // Generate the diff content
-            const diffContent = await generateDiffContent(item.worktreePath, baseBranch);
-
-            // Check if there are any changes
-            if (!diffContent || diffContent.trim() === '') {
-                vscode.window.showInformationMessage(`No changes found when comparing to '${baseBranch}'.`);
-                return;
-            }
-
-            // Open the GitChangesPanel with the diff content, worktree path, and base branch
-            GitChangesPanel.createOrShow(context.extensionUri, item.label, diffContent, item.worktreePath, baseBranch);
-        } catch (err) {
-            let userMessage = 'Failed to get git changes.';
-            if (err instanceof GitError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof ValidationError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof LanesError) {
-                userMessage = err.userMessage;
-            } else {
-                userMessage = `Failed to get git changes: ${getErrorMessage(err)}`;
-            }
-            vscode.window.showErrorMessage(userMessage);
-        }
-    });
-
-    // 7. Register OPEN IN NEW WINDOW Command
-    let openWindowDisposable = vscode.commands.registerCommand('claudeWorktrees.openInNewWindow', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please click on a session to open in new window.');
-            return;
-        }
-
-        // Verify the worktree path exists
-        if (!fs.existsSync(item.worktreePath)) {
-            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
-            return;
-        }
-
-        // Check if there's an active terminal for this session
-        const terminalName = `Claude: ${item.label}`;
-        const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
-
-        if (existingTerminal) {
-            // Session has an active terminal - ask user what to do
-            const choice = await vscode.window.showQuickPick(
-                [
-                    {
-                        label: 'Transfer session',
-                        description: 'Close the terminal here and resume in the new window',
-                        action: 'transfer'
-                    },
-                    {
-                        label: 'Open anyway',
-                        description: 'Open new window without closing terminal (session will conflict)',
-                        action: 'open'
-                    }
-                ],
-                {
-                    placeHolder: 'This session has an active Claude terminal. What would you like to do?',
-                    title: 'Active Session Detected'
-                }
-            );
-
-            if (!choice) {
-                // User cancelled
-                return;
-            }
-
-            if (choice.action === 'transfer') {
-                // Close the terminal before opening new window
-                existingTerminal.dispose();
-                // Brief delay to ensure terminal is closed
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-            // If 'open', just continue without closing the terminal
-        }
-
-        try {
-            // Ensure the project is saved in Project Manager before opening
-            // This handles the edge case where a session was created before Project Manager integration
-            if (baseRepoPath) {
-                // Get sanitized repo name for project naming
-                const repoName = SettingsService.getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
-                const projectName = `${repoName}-${item.label}`;
-                await addProject(projectName, item.worktreePath, ['lanes']);
-            }
-
-            // Open the folder in a new VS Code window
-            // The second parameter 'true' opens in a new window
-            await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.worktreePath), true);
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to open in new window: ${getErrorMessage(err)}`);
-        }
-    });
-
-    // 8. Register OPEN PREVIOUS SESSION PROMPT Command
-    let openPreviousPromptDisposable = vscode.commands.registerCommand('claudeWorktrees.openPreviousSessionPrompt', async (item: PreviousSessionItem) => {
-        if (!item || !item.promptFilePath) {
-            vscode.window.showErrorMessage('Please click on a previous session to view its prompt.');
-            return;
-        }
-
-        try {
-            // Open the prompt file in the editor
-            const document = await vscode.workspace.openTextDocument(item.promptFilePath);
-            await vscode.window.showTextDocument(document, { preview: false });
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to open prompt file: ${getErrorMessage(err)}`);
-        }
-    });
-
-    // 9. Register CREATE WORKFLOW Command
-    let createWorkflowDisposable = vscode.commands.registerCommand('lanes.createWorkflow', async () => {
-        await createWorkflow(context.extensionPath, workspaceRoot, workflowsProvider);
-        // Refresh workflows in both the tree view and the session form dropdown
-        await refreshWorkflows();
-    });
-
-    // 10. Register VALIDATE WORKFLOW Command
-    let validateWorkflowDisposable = vscode.commands.registerCommand('lanes.validateWorkflow', async () => {
-        // 1. Get the active editor
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showWarningMessage('No file is open');
-            return;
-        }
-
-        // 2. Check if it's a YAML file
-        const document = editor.document;
-        const fileName = document.fileName;
-        if (!fileName.endsWith('.yaml') && !fileName.endsWith('.yml')) {
-            vscode.window.showWarningMessage('Current file is not a YAML file');
-            return;
-        }
-
-        // 3. Get the file content
-        const content = document.getText();
-
-        // 4. Try to validate using loadWorkflowTemplateFromString
-        try {
-            const template = loadWorkflowTemplateFromString(content);
-            vscode.window.showInformationMessage(`Workflow "${template.name}" is valid!`);
-        } catch (error) {
-            if (error instanceof WorkflowValidationError) {
-                vscode.window.showErrorMessage(`Workflow validation failed: ${error.message}`);
-            } else {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`Invalid YAML: ${errorMessage}`);
-            }
-        }
-    });
-
-    context.subscriptions.push(createDisposable);
-    context.subscriptions.push(openDisposable);
-    context.subscriptions.push(deleteDisposable);
-    context.subscriptions.push(setupHooksDisposable);
-    context.subscriptions.push(showGitChangesDisposable);
-    context.subscriptions.push(openWindowDisposable);
-    context.subscriptions.push(openPreviousPromptDisposable);
-    context.subscriptions.push(createWorkflowDisposable);
-    context.subscriptions.push(validateWorkflowDisposable);
-
-    // 11. Register REPAIR BROKEN WORKTREES Command
-    const repairBrokenWorktreesDisposable = vscode.commands.registerCommand('lanes.repairBrokenWorktrees', async () => {
-        if (!baseRepoPath) {
-            vscode.window.showErrorMessage('No workspace folder open');
-            return;
-        }
-        await BrokenWorktreeService.checkAndRepairBrokenWorktrees(baseRepoPath);
-    });
-    context.subscriptions.push(repairBrokenWorktreesDisposable);
-
-    // 12. Register PLAY CHIME Command (internal command for playing chime sound)
-    const playChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.playChime', () => {
-        sessionFormProvider.playChime();
-    });
-    context.subscriptions.push(playChimeDisposable);
-
-    // 13. Register TEST CHIME Command (for debugging)
-    const testChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.testChime', async () => {
-        try {
-            sessionFormProvider.playChime();
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to test chime: ${getErrorMessage(err)}`);
-        }
-    });
-    context.subscriptions.push(testChimeDisposable);
-
-    // 14. Register ENABLE CHIME Command
-    const enableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.enableChime', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please right-click on a session to enable chime.');
-            return;
-        }
-
-        try {
-            setSessionChimeEnabled(item.worktreePath, true);
-            // Update context key so menu items update immediately
-            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', true);
-            vscode.window.showInformationMessage(`Chime enabled for session '${item.label}'`);
-            sessionProvider.refresh();
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to enable chime: ${getErrorMessage(err)}`);
-        }
-    });
-    context.subscriptions.push(enableChimeDisposable);
-
-    // 14b. Register DISABLE CHIME Command
-    const disableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.disableChime', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please right-click on a session to disable chime.');
-            return;
-        }
-
-        try {
-            setSessionChimeEnabled(item.worktreePath, false);
-            // Update context key so menu items update immediately
-            await vscode.commands.executeCommand('setContext', 'lanes.chimeEnabled', false);
-            vscode.window.showInformationMessage(`Chime disabled for session '${item.label}'`);
-            sessionProvider.refresh();
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to disable chime: ${getErrorMessage(err)}`);
-        }
-    });
-    context.subscriptions.push(disableChimeDisposable);
-
-    // 15. Register CLEAR SESSION Command
-    const clearSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.clearSession', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please select a session to clear it.');
-            return;
-        }
-
-        try {
-            const sessionName = path.basename(item.worktreePath);
-            // Use consistent terminal name logic
-            const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
-
-            // Clear the session ID so the new terminal starts fresh instead of resuming
-            clearSessionId(item.worktreePath);
-
-            // Find and close the existing terminal
-            const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
-            if (existingTerminal) {
-                existingTerminal.dispose();
-                // Brief delay to ensure terminal is closed
-                await new Promise(resolve => setTimeout(resolve, TerminalService.TERMINAL_CLOSE_DELAY_MS));
-            }
-
-            // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
-            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
-
-            vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
-        } catch (err) {
-            let userMessage = 'Failed to clear session.';
-            if (err instanceof GitError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof ValidationError) {
-                userMessage = err.userMessage;
-            } else if (err instanceof LanesError) {
-                userMessage = err.userMessage;
-            } else {
-                userMessage = `Failed to clear session: ${getErrorMessage(err)}`;
-            }
-            vscode.window.showErrorMessage(userMessage);
-        }
-    });
-    context.subscriptions.push(clearSessionDisposable);
-
-    // 16. Register CREATE TERMINAL Command
-    const createTerminalDisposable = vscode.commands.registerCommand('claudeWorktrees.createTerminal', async (item: SessionItem) => {
-        if (!item) {
-            return;
-        }
-
-        await createTerminalForSession(item);
-    });
-    context.subscriptions.push(createTerminalDisposable);
-
-    // 17. Register SEARCH IN WORKTREE Command
-    const searchInWorktreeDisposable = vscode.commands.registerCommand('claudeWorktrees.searchInWorktree', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            return;
-        }
-
-        // Verify worktree exists
-        if (!fs.existsSync(item.worktreePath)) {
-            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
-            return;
-        }
-
-        try {
-            // Get the worktrees folder and session name to build relative path pattern
-            const worktreesFolder = getWorktreesFolder();
-            const sessionName = path.basename(item.worktreePath);
-
-            // Build the files to include pattern relative to repo root
-            // This pattern tells VS Code search to only look in this worktree
-            const filesToInclude = `${worktreesFolder}/${sessionName}/**`;
-
-            // Open VS Code's search panel with the scoped pattern
-            await vscode.commands.executeCommand('workbench.action.findInFiles', {
-                query: '',
-                filesToInclude: filesToInclude,
-            });
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to open search in worktree: ${getErrorMessage(err)}`);
-        }
-    });
-    context.subscriptions.push(searchInWorktreeDisposable);
-
-    // 18. Register OPEN WORKFLOW STATE Command
-    const openWorkflowStateDisposable = vscode.commands.registerCommand('claudeWorktrees.openWorkflowState', async (item: SessionItem) => {
-        if (!item || !item.worktreePath) {
-            vscode.window.showErrorMessage('Please select a session to open workflow state.');
-            return;
-        }
-
-        // Verify the worktree path exists (consistent with showGitChanges)
-        if (!fs.existsSync(item.worktreePath)) {
-            vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
-            return;
-        }
-
-        // Validate that the workflow state path stays within the worktree
-        const workflowStatePath = path.join(item.worktreePath, 'workflow-state.json');
-        const resolvedPath = path.resolve(workflowStatePath);
-        const resolvedWorktreePath = path.resolve(item.worktreePath);
-
-        // Ensure the workflow-state.json is inside the worktree (security check)
-        if (!resolvedPath.startsWith(resolvedWorktreePath)) {
-            vscode.window.showErrorMessage('Invalid workflow state path');
-            return;
-        }
-
-        try {
-            // Check if the file exists
-            if (!fs.existsSync(workflowStatePath)) {
-                vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state file is created when a workflow is started.`);
-                return;
-            }
-
-            // Open the file in the editor
-            const document = await vscode.workspace.openTextDocument(workflowStatePath);
-            await vscode.window.showTextDocument(document, { preview: false });
-        } catch (err) {
-            vscode.window.showErrorMessage(`Failed to open workflow state: ${getErrorMessage(err)}`);
-        }
-    });
-    context.subscriptions.push(openWorkflowStateDisposable);
-
     // Auto-resume Claude session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = getSessionId(workspaceRoot);
@@ -883,314 +288,8 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * Creates a new Claude session with optional starting prompt and acceptance criteria.
- * @deprecated Import from SessionService instead
- */
-export const createSession = SessionService.createSession;
-
-/**
- * Count existing terminals for a session to determine the next terminal number.
- * @deprecated Import from TerminalService instead
- */
-export const countTerminalsForSession = TerminalService.countTerminalsForSession;
-
-/**
- * Create a new plain shell terminal for a session.
- * @deprecated Import from TerminalService instead
- */
-export const createTerminalForSession = TerminalService.createTerminalForSession;
-
-/**
- * Open a Claude Code terminal for a session.
- * @deprecated Import from TerminalService instead
- */
-export const openClaudeTerminal = TerminalService.openClaudeTerminal;
-
-/**
- * Combines prompt and acceptance criteria into a single formatted string.
- * @deprecated Import from TerminalService instead
- */
-export const combinePromptAndCriteria = TerminalService.combinePromptAndCriteria;
-
-/**
- * Get a set of branch names that are currently checked out in worktrees.
- * @deprecated Import from SessionService instead
- */
-export const getBranchesInWorktrees = SessionService.getBranchesInWorktrees;
-
-
-/**
- * Blank workflow template for "Start from scratch" option.
- */
-const BLANK_WORKFLOW_TEMPLATE = `name: my-workflow
-description: Custom workflow description
-
-agents:
-  orchestrator:
-    description: Plans work and coordinates
-    tools:
-      - Read
-      - Glob
-      - Grep
-      - Task
-    cannot:
-      - Write
-      - Edit
-      - Bash
-      - commit
-
-loops: {}
-
-steps:
-  - id: plan
-    type: action
-    agent: orchestrator
-    instructions: |
-      Analyze the goal and create a plan.
-`;
-
-/**
- * Creates a new workflow template by copying from an existing template or creating from scratch.
+ * Deactivate the extension.
  *
- * Flow:
- * 1. Show quick pick to select base template (built-in templates or start from scratch)
- * 2. Prompt for new workflow name
- * 3. Copy selected template to custom workflows folder
- * 4. Open the new file for editing
- *
- * @param extensionPath Path to the extension directory (for built-in templates)
- * @param workspaceRoot Path to the workspace root
- * @param workflowsProvider The workflows provider to refresh after creation
- */
-async function createWorkflow(
-    extensionPath: string,
-    workspaceRoot: string | undefined,
-    workflowsProvider: WorkflowsProvider
-): Promise<void> {
-    // 1. Check workspace root
-    if (!workspaceRoot) {
-        vscode.window.showErrorMessage('Please open a workspace folder first.');
-        return;
-    }
-
-    // 2. Discover available templates for selection
-    const config = vscode.workspace.getConfiguration('lanes');
-    const customWorkflowsFolder = config.get<string>('customWorkflowsFolder', '.lanes/workflows');
-
-    let templates: WorkflowMetadata[] = [];
-    try {
-        templates = await discoverWorkflows({
-            extensionPath,
-            workspaceRoot,
-            customWorkflowsFolder
-        });
-    } catch (err) {
-        console.warn('Lanes: Failed to discover workflows:', err);
-        // Continue with empty list - user can still create from scratch
-    }
-
-    // 3. Build quick pick items
-    interface WorkflowQuickPickItem extends vscode.QuickPickItem {
-        action: 'scratch' | 'template';
-        template?: WorkflowMetadata;
-    }
-
-    const quickPickItems: WorkflowQuickPickItem[] = [
-        {
-            label: '$(file-add) Start from scratch',
-            description: 'Create a blank workflow template',
-            action: 'scratch'
-        }
-    ];
-
-    // Add built-in templates first
-    const builtInTemplates = templates.filter(t => t.isBuiltIn);
-    if (builtInTemplates.length > 0) {
-        quickPickItems.push({
-            label: 'Built-in Templates',
-            kind: vscode.QuickPickItemKind.Separator,
-            action: 'scratch' // Won't be selected
-        });
-        for (const template of builtInTemplates) {
-            quickPickItems.push({
-                label: `$(symbol-event) ${template.name}`,
-                description: template.description,
-                action: 'template',
-                template
-            });
-        }
-    }
-
-    // Add custom templates if any
-    const customTemplates = templates.filter(t => !t.isBuiltIn);
-    if (customTemplates.length > 0) {
-        quickPickItems.push({
-            label: 'Custom Templates',
-            kind: vscode.QuickPickItemKind.Separator,
-            action: 'scratch' // Won't be selected
-        });
-        for (const template of customTemplates) {
-            quickPickItems.push({
-                label: `$(file-code) ${template.name}`,
-                description: template.description,
-                action: 'template',
-                template
-            });
-        }
-    }
-
-    // 4. Show quick pick
-    const selected = await vscode.window.showQuickPick(quickPickItems, {
-        placeHolder: 'Select a base template or start from scratch',
-        title: 'Create Workflow Template'
-    });
-
-    if (!selected || selected.kind === vscode.QuickPickItemKind.Separator) {
-        return;
-    }
-
-    // 5. Prompt for new workflow name
-    const workflowName = await vscode.window.showInputBox({
-        prompt: 'Enter a name for your workflow',
-        placeHolder: 'my-custom-workflow',
-        validateInput: (value) => {
-            if (!value || !value.trim()) {
-                return 'Workflow name is required';
-            }
-            const trimmed = value.trim();
-            // Only allow alphanumeric, hyphens, and underscores
-            if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-                return 'Use only letters, numbers, hyphens, and underscores';
-            }
-            // Check for reserved names
-            if (trimmed === 'default' || trimmed === 'feature' || trimmed === 'bugfix' || trimmed === 'refactor') {
-                return `'${trimmed}' is a built-in workflow name. Please choose a different name.`;
-            }
-            return null;
-        }
-    });
-
-    if (!workflowName) {
-        return;
-    }
-
-    const trimmedName = workflowName.trim();
-
-    // 6. Validate custom workflows folder and create if needed
-    // Security: Reject path traversal
-    if (customWorkflowsFolder.includes('..')) {
-        vscode.window.showErrorMessage('Invalid custom workflows folder path (contains parent directory traversal).');
-        return;
-    }
-
-    const customPath = path.join(workspaceRoot, customWorkflowsFolder);
-
-    // Verify resolved path is within workspace
-    const normalizedWorkspace = path.normalize(workspaceRoot + path.sep);
-    const normalizedCustomPath = path.normalize(customPath + path.sep);
-    if (!normalizedCustomPath.startsWith(normalizedWorkspace)) {
-        vscode.window.showErrorMessage('Custom workflows folder resolves outside the workspace.');
-        return;
-    }
-
-    try {
-        await fsPromises.mkdir(customPath, { recursive: true });
-    } catch (err) {
-        vscode.window.showErrorMessage(`Failed to create custom workflows folder: ${getErrorMessage(err)}`);
-        return;
-    }
-
-    // 7. Create the target file path
-    const targetPath = path.join(customPath, `${trimmedName}.yaml`);
-
-    // Check if file already exists
-    try {
-        await fsPromises.access(targetPath);
-        // File exists
-        const overwrite = await vscode.window.showWarningMessage(
-            `A workflow named '${trimmedName}' already exists. Overwrite?`,
-            { modal: true },
-            'Overwrite'
-        );
-        if (overwrite !== 'Overwrite') {
-            return;
-        }
-    } catch {
-        // File doesn't exist - good
-    }
-
-    // 8. Create the workflow file
-    try {
-        let content: string;
-        if (selected.action === 'scratch') {
-            // Create blank template with the user's name
-            content = BLANK_WORKFLOW_TEMPLATE.replace('name: my-workflow', `name: ${trimmedName}`);
-        } else if (selected.template) {
-            // Copy from existing template
-            const sourceContent = await fsPromises.readFile(selected.template.path, 'utf-8');
-            // Replace the name in the content
-            content = sourceContent.replace(/^name:\s*.+$/m, `name: ${trimmedName}`);
-        } else {
-            vscode.window.showErrorMessage('Invalid template selection.');
-            return;
-        }
-
-        await fsPromises.writeFile(targetPath, content, 'utf-8');
-    } catch (err) {
-        let userMessage = 'Failed to create workflow file.';
-        if (err instanceof GitError) {
-            userMessage = err.userMessage;
-        } else if (err instanceof ValidationError) {
-            userMessage = err.userMessage;
-        } else if (err instanceof LanesError) {
-            userMessage = err.userMessage;
-        } else {
-            userMessage = `Failed to create workflow file: ${getErrorMessage(err)}`;
-        }
-        vscode.window.showErrorMessage(userMessage);
-        return;
-    }
-
-    // 9. Refresh the workflows view
-    workflowsProvider.refresh();
-
-    // 10. Open the file for editing
-    try {
-        const doc = await vscode.workspace.openTextDocument(targetPath);
-        await vscode.window.showTextDocument(doc, { preview: false });
-        vscode.window.showInformationMessage(`Created workflow template: ${trimmedName}`);
-    } catch (err) {
-        vscode.window.showErrorMessage(`Failed to open workflow file: ${getErrorMessage(err)}`);
-    }
-}
-
-// ============================================================================
-// BACKWARDS COMPATIBILITY RE-EXPORTS
-// These re-exports are deprecated. Import from the respective service modules.
-// ============================================================================
-
-/**
- * @deprecated Import from './services/BrokenWorktreeService' instead
- */
-export type { BrokenWorktree } from './services/BrokenWorktreeService';
-
-/**
- * @deprecated Import from './services/BrokenWorktreeService' instead
- */
-export { detectBrokenWorktrees, repairWorktree, branchExists, checkAndRepairBrokenWorktrees } from './services/BrokenWorktreeService';
-
-/**
- * @deprecated Import from './services/SettingsService' instead
- */
-export { getBaseRepoPath, getRepoName, getOrCreateExtensionSettingsFile } from './services/SettingsService';
-
-/**
- * @deprecated Import from './services/DiffService' instead
- */
-export { parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff, getBaseBranch } from './services/DiffService';
-
-/**
- * Called when the extension is deactivated.
  * VS Code handles cleanup of subscriptions automatically,
  * but we also clear cached references to other extensions.
  */
