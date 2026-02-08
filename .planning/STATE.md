@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 7 of 8 (Module Extraction)
-Plan: 3 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-08 — Completed SessionService and TerminalService extraction
+Last activity: 2026-02-08 — Completed command extraction with ServiceContainer
 
 Progress: [██████████] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: 6 min
-- Total execution time: 1.8 hours
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
@@ -34,7 +34,7 @@ Progress: [██████████] 90%
 | 04-security-auditing | 1 | 2 min | 2 min |
 | 05-test-foundation | 4 | 43 min | 11 min |
 | 06-integration-testing | 3 | 22 min | 7 min |
-| 07-module-extraction | 3 | 85 min | 28 min |
+| 07-module-extraction | 4 | 92 min | 23 min |
 
 **Recent Trend:**
 - Last 5 plans: 15 min avg (10 completed)
@@ -60,6 +60,12 @@ Recent decisions affecting current work:
 - SessionProcessService now imports directly from SessionService and TerminalService instead of using parameter injection
 - extension.ts reduced by 594 lines (28%) in this plan alone, from 2109 to 1515 lines
 
+**Phase 07-04 Decisions:**
+- ServiceContainer interface for dependency injection: holds all providers, paths, and code agent needed by commands
+- Commands organized by functional domain: sessionCommands, workflowCommands, repairCommands
+- registerAllCommands coordinator function in commands/index.ts for clean activation
+- refreshWorkflows callback passed to workflow commands for view updates
+
 **Phase 06-03 Decisions:**
 - Use sinon.stub(gitService, 'execGit') directly instead of setupGitStubs for proper restore()
 - Use sinon.match.array.deepEquals() for proper argument matching in stubs
@@ -69,7 +75,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 **Next Phase Steps:**
-- Continue with remaining module extraction plans (07-04, 07-05)
+- Continue with remaining module extraction plan (07-05)
 - Note: 07-02 was completed in a previous session
 
 ### Blockers/Concerns
@@ -80,10 +86,20 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed SessionService and TerminalService extraction (07-03)
-Resume file: .planning/phases/07-module-extraction/07-03-SUMMARY.md
+Stopped at: Completed command extraction with ServiceContainer (07-04)
+Resume file: .planning/phases/07-module-extraction/07-04-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 07-04:**
+- src/types/serviceContainer.d.ts (created - 43 lines)
+- src/commands/sessionCommands.ts (created - 507 lines)
+- src/commands/workflowCommands.ts (created - 304 lines)
+- src/commands/repairCommands.ts (created - 29 lines)
+- src/commands/index.ts (created - 30 lines)
+- src/extension.ts (modified - added registerAllCommands call)
+- .planning/phases/07-module-extraction/07-04-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 07-03:**
 - src/services/SessionService.ts (created - 486 lines)
