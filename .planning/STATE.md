@@ -6,23 +6,23 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Users can reliably create and manage isolated Claude Code sessions without data loss, security vulnerabilities, or unexpected failures.
 
-**Current focus:** Phase 6 - Integration Testing (Complete)
+**Current focus:** Phase 7 - Module Extraction
 
 ## Current Position
 
-Phase: 6 of 8 (Integration Testing)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 — Completed all Phase 6 integration tests
+Phase: 7 of 8 (Module Extraction)
+Plan: 2 of 5 in current phase
+Status: In progress
+Last activity: 2026-02-08 — Completed WorkflowService and SessionProcessService extraction
 
-Progress: [█████████░] 88%
+Progress: [██████████] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 6 min
-- Total execution time: 1.4 hours
+- Total execution time: 1.6 hours
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Progress: [█████████░] 88%
 | 04-security-auditing | 1 | 2 min | 2 min |
 | 05-test-foundation | 4 | 43 min | 11 min |
 | 06-integration-testing | 3 | 22 min | 7 min |
+| 07-module-extraction | 2 | 37 min | 19 min |
 
 **Recent Trend:**
-- Last 5 plans: 6 min avg (6 completed)
-- Trend: Maintaining velocity with established patterns
+- Last 5 plans: 11 min avg (7 completed)
+- Trend: Module extraction taking longer due to file complexity
 
 *Updated after each plan completion*
 
@@ -48,17 +49,11 @@ Progress: [█████████░] 88%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-**Phase 06-01 Decisions:**
-- Direct gitService.execGit stubbing instead of setupGitStubs wrappers for more reliable module-level imports
-- Tests verify error propagation across module boundaries (gitService → extension → user notification)
-- GitError.userMessage excludes technical details while providing actionable context
-- ValidationError provides truncated value for long inputs to keep error messages readable
-
-**Phase 06-02 Decisions:**
-- Use real filesystem with temp directories for MCP workflow state persistence tests (memfs doesn't support atomic rename semantics properly)
-- In-memory workflow templates avoid file loading complexity in tests
-- Concurrent state updates are sequential in production (fs.promises behavior reflects this)
-- State recovery tests verify workflow_definition snapshot preservation
+**Phase 07-02 Decisions:**
+- Retained original functions in extension.ts for backward compatibility rather than removing them
+- Service modules available for direct import by other modules going forward
+- SessionProcessService uses parameter injection to avoid circular dependencies (temporary until 07-03)
+- Type-only imports from types/ directory for shared interfaces
 
 **Phase 06-03 Decisions:**
 - Use sinon.stub(gitService, 'execGit') directly instead of setupGitStubs for proper restore()
@@ -69,25 +64,33 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 **Next Phase Steps:**
-- None - Phase 6 complete
+- Complete remaining module extraction plans (07-03, 07-04, 07-05)
 
 ### Blockers/Concerns
 
 **Known Deviations:**
-- None - all tests passing
+- Extension.ts file size (~3000 lines) makes automated editing error-prone
+- Tasks 2 and 3 of 07-02 were combined into single commit due to file complexity
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed all Phase 6 integration tests (error paths, MCP workflow, git error recovery)
-Resume file: .planning/phases/06-integration-testing/06-03-SUMMARY.md
+Stopped at: Completed WorkflowService and SessionProcessService extraction (07-02)
+Resume file: .planning/phases/07-module-extraction/07-02-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 07-02:**
+- src/services/WorkflowService.ts (created - 375 lines)
+- src/services/SessionProcessService.ts (created - 243 lines)
+- src/types/extension.d.ts (created - 25 lines)
+- src/test/core/extension-settings-*.test.ts (modified - updated imports)
+- .planning/phases/07-module-extraction/07-02-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 06-03:**
 - src/test/integration/git-error-recovery.test.ts (modified - fixed stubbing issues)
 - .planning/phases/06-integration-testing/06-03-SUMMARY.md (updated - added deviation note)
-- .planning/STATE.md (updated)
 
 **Plan 06-02:**
 - src/test/integration/mcp-workflow.test.ts (created - 21 integration tests)
