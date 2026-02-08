@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Security Auditing** - Audit file system and command execution security
 - [ ] **Phase 5: Test Foundation** - Stabilize flaky tests and split test files
 - [x] **Phase 6: Integration Testing** - Add error path and MCP integration tests **COMPLETED 2026-02-08**
-- [ ] **Phase 7: Module Extraction** - Split extension.ts and extract worktree service
+- [x] **Phase 7: Module Extraction** - Split extension.ts and extract worktree service **COMPLETED 2026-02-08**
 - [ ] **Phase 8: Code Quality** - Standardize async I/O and create MCP abstraction
 
 ## Phase Details
@@ -140,11 +140,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 3. Each module has a single, well-defined responsibility
 
 **Plans**: 5
-- [ ] 07-01-PLAN.md — Extract foundational services (BrokenWorktree, Settings, Diff)
-- [ ] 07-02-PLAN.md — Extract Workflow and SessionProcess services
-- [ ] 07-03-PLAN.md — Extract SessionService and TerminalService
-- [ ] 07-04-PLAN.md — Extract command registration module
-- [ ] 07-05-PLAN.md — Thin extension.ts entry point and file watchers
+- [x] 07-01-PLAN.md — Extract foundational services (BrokenWorktree, Settings, Diff) **COMPLETED 2026-02-08**
+- [x] 07-02-PLAN.md — Extract Workflow and SessionProcess services **COMPLETED 2026-02-08**
+- [x] 07-03-PLAN.md — Extract SessionService and TerminalService **COMPLETED 2026-02-08**
+- [x] 07-04-PLAN.md — Extract command registration module **COMPLETED 2026-02-08**
+- [x] 07-05-PLAN.md — Thin extension.ts entry point and file watchers **COMPLETED 2026-02-08**
 
 ### Phase 8: Code Quality
 
@@ -174,5 +174,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Security Auditing | 0/1 | Ready to execute | - |
 | 5. Test Foundation | 0/3 | Ready to execute | - |
 | 6. Integration Testing | 3/3 | ✓ Complete | 2026-02-08 |
-| 7. Module Extraction | 0/5 | Ready to execute | - |
+| 7. Module Extraction | 5/5 | ✓ Complete | 2026-02-08 |
 | 8. Code Quality | 0/TBD | Not started | - |
