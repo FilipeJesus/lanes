@@ -38,6 +38,7 @@ import { AsyncQueue } from './AsyncQueue';
 import { LanesError, GitError, ValidationError } from './errors';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
+import type { PendingSessionConfig, ClearSessionConfig } from './types/extension';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
@@ -47,25 +48,6 @@ const sessionCreationQueue = new AsyncQueue();
 
 // Track branches that have shown merge-base warnings (debounce to avoid spam)
 const warnedMergeBaseBranches = new Set<string>();
-
-/**
- * Pending session request from MCP server.
- */
-export interface PendingSessionConfig {
-    name: string;
-    sourceBranch: string;
-    prompt?: string;
-    workflow?: string;
-    requestedAt: string;
-}
-
-/**
- * Clear session request from MCP server.
- */
-export interface ClearSessionConfig {
-    worktreePath: string;
-    requestedAt: string;
-}
 
 /**
  * Get the directory where MCP server writes pending session requests.
