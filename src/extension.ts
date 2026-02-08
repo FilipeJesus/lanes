@@ -1328,6 +1328,13 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        // Validate branch name before Git operations
+        const branchValidation = validateBranchName(item.label);
+        if (!branchValidation.valid) {
+            vscode.window.showErrorMessage(branchValidation.error || `Branch '${item.label}' contains invalid characters. Cannot view changes.`);
+            return;
+        }
+
         try {
             // Determine the base branch (main or master)
             const baseBranch = await getBaseBranch(item.worktreePath);
@@ -1748,20 +1755,11 @@ async function createSession(
 
             const trimmedName = sanitizedName;
 
-            // 3c. Validate branch name characters (git-safe) - should pass after sanitization
-            if (!branchNameRegex.test(trimmedName)) {
-                const errorMsg = "Error: Session name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
-                vscode.window.showErrorMessage(errorMsg);
-                throw new Error(errorMsg);
-            }
-
-            // 3d. Prevent names that could cause git issues - should pass after sanitization
-            if (trimmedName.startsWith('-') || trimmedName.startsWith('.') ||
-                trimmedName.endsWith('.') || trimmedName.includes('..') ||
-                trimmedName.endsWith('.lock')) {
-                const errorMsg = "Error: Session name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'";
-                vscode.window.showErrorMessage(errorMsg);
-                throw new Error(errorMsg);
+            // 3c. Validate branch name using Git rules (pre-flight validation for better UX)
+            const nameValidation = validateBranchName(trimmedName);
+            if (!nameValidation.valid) {
+                vscode.window.showErrorMessage(nameValidation.error || "Session name contains invalid characters.");
+                throw new Error(nameValidation.error || "Session name contains invalid characters.");
             }
 
             const worktreePath = path.join(workspaceRoot, getWorktreesFolder(), trimmedName);
@@ -1855,11 +1853,11 @@ async function createSession(
                     // If sourceBranch is provided, use it as the starting point
                     const trimmedSourceBranch = sourceBranch.trim();
                     if (trimmedSourceBranch) {
-                        // Validate branch name format before checking existence
-                        if (!branchNameRegex.test(trimmedSourceBranch)) {
-                            const errorMsg = "Error: Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
-                            vscode.window.showErrorMessage(errorMsg);
-                            throw new Error(errorMsg);
+                        // Validate branch name using Git rules before checking existence
+                        const sourceValidation = validateBranchName(trimmedSourceBranch);
+                        if (!sourceValidation.valid) {
+                            vscode.window.showErrorMessage(sourceValidation.error || "Source branch name contains invalid characters.");
+                            throw new Error(sourceValidation.error || "Source branch name contains invalid characters.");
                         }
 
                         // Parse remote and branch from the source branch
