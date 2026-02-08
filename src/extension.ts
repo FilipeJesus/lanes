@@ -34,6 +34,7 @@ import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, Wo
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage, validateBranchName, ValidationResult } from './utils';
 import { AsyncQueue } from './AsyncQueue';
+import { LanesError, GitError, ValidationError } from './errors';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
 // Use local reference for internal use
@@ -1136,7 +1137,17 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(`Deleted session: ${item.label}`);
 
         } catch (err) {
-            vscode.window.showErrorMessage(`Failed to delete: ${getErrorMessage(err)}`);
+            let userMessage = 'Failed to delete session.';
+            if (err instanceof GitError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof ValidationError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof LanesError) {
+                userMessage = err.userMessage;
+            } else {
+                userMessage = `Failed to delete: ${getErrorMessage(err)}`;
+            }
+            vscode.window.showErrorMessage(userMessage);
         }
     });
 
@@ -1375,7 +1386,17 @@ export async function activate(context: vscode.ExtensionContext) {
             // Open the GitChangesPanel with the diff content, worktree path, and base branch
             GitChangesPanel.createOrShow(context.extensionUri, item.label, diffContent, item.worktreePath, baseBranch);
         } catch (err) {
-            vscode.window.showErrorMessage(`Failed to get git changes: ${getErrorMessage(err)}`);
+            let userMessage = 'Failed to get git changes.';
+            if (err instanceof GitError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof ValidationError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof LanesError) {
+                userMessage = err.userMessage;
+            } else {
+                userMessage = `Failed to get git changes: ${getErrorMessage(err)}`;
+            }
+            vscode.window.showErrorMessage(userMessage);
         }
     });
 
@@ -1608,7 +1629,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
             vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
         } catch (err) {
-            vscode.window.showErrorMessage(`Failed to clear session: ${getErrorMessage(err)}`);
+            let userMessage = 'Failed to clear session.';
+            if (err instanceof GitError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof ValidationError) {
+                userMessage = err.userMessage;
+            } else if (err instanceof LanesError) {
+                userMessage = err.userMessage;
+            } else {
+                userMessage = `Failed to clear session: ${getErrorMessage(err)}`;
+            }
+            vscode.window.showErrorMessage(userMessage);
         }
     });
     context.subscriptions.push(clearSessionDisposable);
@@ -1965,9 +1996,19 @@ async function createSession(
 
             } catch (err) {
                 console.error(err);
-                const errorMsg = `Git Error: ${getErrorMessage(err)}`;
-                vscode.window.showErrorMessage(errorMsg);
-                throw new Error(errorMsg);
+                let userMessage = 'Failed to create session.';
+                if (err instanceof GitError) {
+                    userMessage = err.userMessage;
+                } else if (err instanceof ValidationError) {
+                    userMessage = err.userMessage;
+                } else if (err instanceof LanesError) {
+                    userMessage = err.userMessage;
+                } else {
+                    // Generic fallback
+                    userMessage = `Git Error: ${getErrorMessage(err)}`;
+                }
+                vscode.window.showErrorMessage(userMessage);
+                throw err;
             }
         }
     }, 30000); // 30 second timeout
@@ -2919,7 +2960,17 @@ async function createWorkflow(
 
         await fsPromises.writeFile(targetPath, content, 'utf-8');
     } catch (err) {
-        vscode.window.showErrorMessage(`Failed to create workflow file: ${getErrorMessage(err)}`);
+        let userMessage = 'Failed to create workflow file.';
+        if (err instanceof GitError) {
+            userMessage = err.userMessage;
+        } else if (err instanceof ValidationError) {
+            userMessage = err.userMessage;
+        } else if (err instanceof LanesError) {
+            userMessage = err.userMessage;
+        } else {
+            userMessage = `Failed to create workflow file: ${getErrorMessage(err)}`;
+        }
+        vscode.window.showErrorMessage(userMessage);
         return;
     }
 
