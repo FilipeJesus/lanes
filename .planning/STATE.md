@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 8 (Code Quality)
-Plan: 1 of 5 in current phase
+Plan: 2 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-08 - Completed 08-01-PLAN.md (FileService and ESLint)
+Last activity: 2026-02-08 - Completed 08-02-PLAN.md (MCP Abstraction Layer)
 
-Progress: [████████████████████████░░░░░░░░░░░░░░░░] 60% (24/40 plans)
+Progress: [█████████████████████████░░░░░░░░░░░░░░░] 63% (25/40 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: 6 min
-- Total execution time: 2.25 hours
+- Total execution time: 2.28 hours
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: [███████████████████████
 | 05-test-foundation | 4 | 43 min | 11 min |
 | 06-integration-testing | 3 | 22 min | 7 min |
 | 07-module-extraction | 5 | 110 min | 22 min |
-| 08-code-quality | 1 | 3 min | 3 min |
+| 08-code-quality | 2 | 5 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 18 min avg
-- Trend: Code quality phase started, fast execution
+- Last 5 plans: 15 min avg
+- Trend: Code quality phase progressing rapidly
 
 *Updated after each plan completion*
 
@@ -49,6 +49,11 @@ Progress: [███████████████████████
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+**Phase 08-02 Decisions:**
+- McpAdapter uses FileService pure functions directly: No class injection needed since FileService exports standalone functions
+- Separate PendingSessionConfig in mcp.d.ts: Different abstraction level from extension.d.ts version (MCP adapter vs extension layer)
+- Singleton export pattern: No constructor args required for McpAdapter
 
 **Phase 08-01 Decisions:**
 - ESLint sync fs ban at warn level: 57 existing violations would block all commits at error level; will promote after migration
@@ -66,8 +71,8 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 **Next Phase Steps:**
-- Plan 08-02: Create MCP abstraction layer
-- Plans 08-03 to 08-05: Migrate existing sync fs calls to FileService
+- Plan 08-03: Migrate ClaudeSessionProvider and PreviousSessionProvider to FileService
+- Plans 08-04 to 08-05: Migrate MCP tools, workflow state, and final pass
 - After migration complete: promote ESLint sync fs rule from warn to error
 
 ### Blockers/Concerns
@@ -78,10 +83,16 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 08-01-PLAN.md (FileService and ESLint)
-Resume file: .planning/phases/08-code-quality/08-01-SUMMARY.md
+Stopped at: Completed 08-02-PLAN.md (MCP Abstraction Layer)
+Resume file: .planning/phases/08-code-quality/08-02-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 08-02:**
+- src/types/mcp.d.ts (created - 43 lines, IMcpAdapter + PendingSessionConfig interfaces)
+- src/services/McpAdapter.ts (created - 101 lines, McpAdapter class + singleton)
+- .planning/phases/08-code-quality/08-02-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 08-01:**
 - src/services/FileService.ts (created - 98 lines, 6 async functions)
