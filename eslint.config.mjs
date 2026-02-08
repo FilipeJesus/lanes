@@ -25,8 +25,8 @@ export default [{
         semi: "warn",
 
         // Ban synchronous fs methods - use fs/promises async methods instead
-        // Level: warn (will be promoted to error after migration in plans 08-03 through 08-05)
-        "no-restricted-syntax": ["warn",
+        // Promoted to error: all production code now uses async I/O (completed in plan 08-05)
+        "no-restricted-syntax": ["error",
             {
                 "selector": "CallExpression[callee.object.name='fs'][callee.property.name=/^(readFileSync|writeFileSync|existsSync|mkdirSync|readdirSync|unlinkSync|rmdirSync)$/]",
                 "message": "Avoid synchronous fs methods (fsSync). Use fs/promises async methods instead. Import from 'fs/promises' and use async/await. See src/services/FileService.ts for helpers."
