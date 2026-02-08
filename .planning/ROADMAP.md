@@ -159,7 +159,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. MCP integration is isolated behind an abstraction layer
 3. Code style follows established conventions (verified by linting)
 
-**Plans**: TBD
+**Plans**: 5
+- [ ] 08-01-PLAN.md — Create FileService and enhance ESLint
+- [ ] 08-02-PLAN.md — Create MCP abstraction layer
+- [ ] 08-03-PLAN.md — Migrate ClaudeSessionProvider and PreviousSessionProvider
+- [ ] 08-04-PLAN.md — Migrate MCP tools, workflow state, and session commands
+- [ ] 08-05-PLAN.md — Complete final migration pass
 
 ## Progress
 
