@@ -162,7 +162,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5
 - [x] 08-01-PLAN.md — Create FileService and enhance ESLint **COMPLETED 2026-02-08**
 - [x] 08-02-PLAN.md — Create MCP abstraction layer **COMPLETED 2026-02-08**
-- [ ] 08-03-PLAN.md — Migrate ClaudeSessionProvider and PreviousSessionProvider
+- [x] 08-03-PLAN.md — Migrate ClaudeSessionProvider and PreviousSessionProvider **COMPLETED 2026-02-08**
 - [x] 08-04-PLAN.md — Migrate MCP tools, workflow state, and session commands **COMPLETED 2026-02-08**
 - [ ] 08-05-PLAN.md — Complete final migration pass
 
@@ -180,4 +180,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Test Foundation | 0/3 | Ready to execute | - |
 | 6. Integration Testing | 3/3 | ✓ Complete | 2026-02-08 |
 | 7. Module Extraction | 5/5 | ✓ Complete | 2026-02-08 |
-| 8. Code Quality | 3/5 | In progress | - |
+| 8. Code Quality | 4/5 | In progress | - |

@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 8 (Code Quality)
-Plan: 3 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-08 - Completed 08-04-PLAN.md (MCP Tools and Workflow Migration)
+Last activity: 2026-02-08 - Completed 08-03-PLAN.md (Provider Async Migration)
 
-Progress: [██████████████████████████░░░░░░░░░░░░░░] 65% (26/40 plans)
+Progress: [████████████████████████████░░░░░░░░░░░░] 68% (27/40 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26
+- Total plans completed: 27
 - Average duration: 6 min
-- Total execution time: 2.38 hours
+- Total execution time: 2.63 hours
 
 **By Phase:**
 
@@ -35,7 +35,7 @@ Progress: [███████████████████████
 | 05-test-foundation | 4 | 43 min | 11 min |
 | 06-integration-testing | 3 | 22 min | 7 min |
 | 07-module-extraction | 5 | 110 min | 22 min |
-| 08-code-quality | 3 | 11 min | 4 min |
+| 08-code-quality | 4 | 26 min | 7 min |
 
 **Recent Trend:**
 - Last 5 plans: 12 min avg
@@ -49,6 +49,10 @@ Progress: [███████████████████████
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+**Phase 08-03 Decisions:**
+- Pre-resolve async chimeEnabled for SessionItem constructor: Constructors cannot be async, so getSessionChimeEnabled awaited in getSessionsInDir and passed as parameter
+- Added readDir, isDirectory, isFile to FileService: Needed to replace fs.readdirSync and fs.statSync with async equivalents
 
 **Phase 08-04 Decisions:**
 - Used FileService directly for session file ops in tools.ts: McpAdapter has different path conventions (.git/.lanes/) than existing MCP server (.lanes/pending-sessions/)
@@ -75,22 +79,34 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 **Next Phase Steps:**
-- Plan 08-03: Migrate ClaudeSessionProvider and PreviousSessionProvider to FileService (parallel, may already be in progress)
 - Plan 08-05: Final pass - migrate remaining files and promote ESLint sync fs rule from warn to error
 - After migration complete: promote ESLint sync fs rule from warn to error
 
 ### Blockers/Concerns
 
 **Known Deviations:**
-- ESLint sync fs rule at warn level (remaining violations in ClaudeSessionProvider, PreviousSessionProvider, extension.ts, SessionProcessService, SessionService, TerminalService, watchers.ts)
+- ESLint sync fs rule at warn level (remaining violations in extension.ts, SessionProcessService, SessionService, TerminalService, watchers.ts)
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 08-04-PLAN.md (MCP Tools and Workflow Migration)
-Resume file: .planning/phases/08-code-quality/08-04-SUMMARY.md
+Stopped at: Completed 08-03-PLAN.md (Provider Async Migration)
+Resume file: .planning/phases/08-code-quality/08-03-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 08-03:**
+- src/ClaudeSessionProvider.ts (modified - all 30 sync fs ops replaced with async FileService)
+- src/PreviousSessionProvider.ts (modified - all 6 sync fs ops replaced with async FileService)
+- src/services/FileService.ts (modified - added readDir, isDirectory, isFile)
+- src/extension.ts (modified - await async provider functions)
+- src/services/SettingsService.ts (modified - await saveSessionWorkflow, getSessionWorkflow)
+- src/services/TerminalService.ts (modified - await getOrCreateTaskListId, getSessionWorkflow, getSessionId)
+- src/services/SessionProcessService.ts (modified - await clearSessionId)
+- src/commands/sessionCommands.ts (modified - await setSessionChimeEnabled, clearSessionId)
+- src/test/ (5 test files updated to use async/await)
+- .planning/phases/08-code-quality/08-03-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 08-04:**
 - src/mcp/tools.ts (modified - replaced fs with mcpAdapter + FileService)
