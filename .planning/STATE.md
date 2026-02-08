@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 6 of 8 (Integration Testing)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 — Completed 06-03 git error recovery integration tests
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-08 — Completed 06-01 error path integration tests
 
 Progress: [██████████] 82%
 
@@ -97,14 +97,15 @@ Recent decisions affecting current work:
 - Used relative imports correctly for test files in subdirectories (../../ for workflow tests, ../ for top-level tests)
 
 **Phase 06-01 Decisions:**
-- Integration test structure uses temp directories with real filesystem operations
-- MCP workflow state persistence verified across tool calls using atomic file writes
-- State machine transitions validated with both state loading and direct machine inspection
+- Direct gitService.execGit stubbing instead of using testSetup wrapper for reliable module-level imports
+- Memfs for filesystem isolation prevents side effects across test runs
+- Integration tests follow Arrange-Act-Assert pattern with clear sections
 
 **Phase 06-02 Decisions:**
-- Error paths tested in isolation using sinon stubs for git operations
-- ValidationError prevents git operations from executing (verified by call count checks)
-- GitError type discrimination verified through instanceof checks and kind property
+- Used real filesystem with temp directories for integration tests instead of memfs (MCP tools use Node.js fs directly)
+- In-memory workflow templates via loadWorkflowTemplateFromString to avoid YAML file dependencies
+- Output key format for loops is `{stepId}.{taskId}.{subStepId}` (verified through tests)
+- Sequential state updates tested instead of concurrent (fs.promises.rename requires non-existent target)
 
 **Phase 06-03 Decisions:**
 - Used sinon.stub chaining (onFirstCall/onSecondCall) to simulate retry behavior for worktree conflicts
@@ -124,8 +125,8 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-03-SUMMARY.md, git error recovery integration tests complete
-Resume file: .planning/phases/06-integration-testing/06-03-SUMMARY.md
+Stopped at: Completed 06-01-SUMMARY.md, error path integration tests complete
+Resume file: .planning/phases/06-integration-testing/06-01-SUMMARY.md
 
 ## Files Modified in Session
 
@@ -172,6 +173,10 @@ Resume file: .planning/phases/06-integration-testing/06-03-SUMMARY.md
 **Plan 04-01:**
 - .planning/phases/04-security-auditing/SECURITY-AUDIT-REPORT.md (created)
 
+**Plan 06-01:**
+- src/test/integration/error-paths.test.ts (created - 443 lines, 21 tests)
+- .planning/phases/06-integration-testing/06-01-SUMMARY.md (created)
+
 **Plan 01-01:**
 - src/AsyncQueue.ts (created)
 - src/utils.ts (modified - added validateBranchName)
@@ -197,6 +202,11 @@ Resume file: .planning/phases/06-integration-testing/06-03-SUMMARY.md
 - src/test/validation.test.ts (created)
 - src/extension.ts (modified - integrated validateSessionName)
 - src/ClaudeSessionProvider.ts (modified - integrated validateWorktreesFolder)
+
+**Plan 06-02:**
+- src/test/integration/mcp-workflow.test.ts (created - 744 lines, 21 tests)
+- src/test/integration/git-error-recovery.test.ts (modified - TypeScript fixes)
+- .planning/phases/06-integration-testing/06-02-SUMMARY.md (created)
 
 **Plan 06-03:**
 - src/test/integration/git-error-recovery.test.ts (created - 469 lines, 10 tests)
