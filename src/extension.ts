@@ -43,6 +43,9 @@ const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed befor
 // Session creation queue - prevents race conditions when rapidly creating sessions
 const sessionCreationQueue = new AsyncQueue();
 
+// Track branches that have shown merge-base warnings (debounce to avoid spam)
+const warnedMergeBaseBranches = new Set<string>();
+
 /**
  * Pending session request from MCP server.
  */
@@ -1159,6 +1162,19 @@ export async function activate(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration('lanes');
         const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
 
+        // Auto-fetch for remote branches before merge-base computation
+        if (baseBranch.startsWith('origin/') || baseBranch.includes('/')) {
+            try {
+                const parts = baseBranch.split('/');
+                const remote = parts[0];
+                const branch = parts.slice(1).join('/');
+                await execGit(['fetch', remote, branch], worktreePath);
+            } catch (fetchErr) {
+                console.warn(`Lanes: Failed to fetch ${baseBranch}:`, getErrorMessage(fetchErr));
+                // Continue anyway - local ref may exist
+            }
+        }
+
         // Get the diff - either including working directory changes or only committed changes
         let diffArgs: string[];
         if (includeUncommitted) {
@@ -1167,9 +1183,17 @@ export async function activate(context: vscode.ExtensionContext) {
                 const mergeBase = await execGit(['merge-base', baseBranch, 'HEAD'], worktreePath);
                 diffArgs = ['diff', mergeBase.trim()];
             } catch (mergeBaseErr) {
-                // If merge-base fails, fall back to comparing against base branch directly
-                console.warn(`Lanes: Could not get merge-base for ${baseBranch}, using base branch directly:`, getErrorMessage(mergeBaseErr));
-                diffArgs = ['diff', baseBranch];
+                // If merge-base fails, use three-dot syntax which finds merge-base implicitly
+                console.warn(`Lanes: Could not get merge-base for ${baseBranch}, using three-dot fallback:`, getErrorMessage(mergeBaseErr));
+
+                // Show warning once per branch to avoid spam
+                if (!warnedMergeBaseBranches.has(baseBranch)) {
+                    vscode.window.showWarningMessage(`Using fallback diff method - merge-base unavailable for '${baseBranch}'`);
+                    warnedMergeBaseBranches.add(baseBranch);
+                }
+
+                // Use three-dot syntax (A...B) which finds merge-base implicitly and shows committed changes
+                diffArgs = ['diff', `${baseBranch}...HEAD`];
             }
         } else {
             diffArgs = ['diff', `${baseBranch}...HEAD`];  // Compare base branch to HEAD (committed only)
