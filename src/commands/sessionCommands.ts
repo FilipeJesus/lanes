@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import type { ServiceContainer } from '../types/serviceContainer';
 import type { SessionItem } from '../ClaudeSessionProvider';
@@ -14,6 +13,7 @@ import { execGit } from '../gitService';
 import { GitChangesPanel } from '../GitChangesPanel';
 import { validateBranchName, getErrorMessage } from '../utils';
 import { LanesError, GitError, ValidationError } from '../errors';
+import { fileExists } from '../services/FileService';
 import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
@@ -222,7 +222,7 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!fs.existsSync(item.worktreePath)) {
+        if (!(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
@@ -265,7 +265,7 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!fs.existsSync(item.worktreePath)) {
+        if (!(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
@@ -417,7 +417,7 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!fs.existsSync(item.worktreePath)) {
+        if (!(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
@@ -443,7 +443,7 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!fs.existsSync(item.worktreePath)) {
+        if (!(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
@@ -458,7 +458,7 @@ export function registerSessionCommands(
         }
 
         try {
-            if (!fs.existsSync(workflowStatePath)) {
+            if (!(await fileExists(workflowStatePath))) {
                 vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state file is created when a workflow is started.`);
                 return;
             }
