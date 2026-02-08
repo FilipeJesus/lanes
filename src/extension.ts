@@ -33,6 +33,7 @@ import { WorkflowsProvider } from './WorkflowsProvider';
 import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from './workflow';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
 import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage, validateBranchName, ValidationResult } from './utils';
+import { validateSessionName } from './validation';
 import { AsyncQueue } from './AsyncQueue';
 import { LanesError, GitError, ValidationError } from './errors';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
@@ -1808,9 +1809,18 @@ async function createSession(
                 throw new Error(errorMsg);
             }
 
+            // 3c. Security: Validate session name before using in path operations
+            // This check prevents path traversal attacks and other malicious inputs
+            const sessionNameValidation = validateSessionName(sanitizedName);
+            if (!sessionNameValidation.valid) {
+                const errorMsg = `Invalid session name: ${sessionNameValidation.error}`;
+                vscode.window.showErrorMessage(errorMsg);
+                throw new ValidationError('sessionName', sanitizedName, sessionNameValidation.error || 'Session name validation failed');
+            }
+
             const trimmedName = sanitizedName;
 
-            // 3c. Validate branch name using Git rules (pre-flight validation for better UX)
+            // 3d. Validate branch name using Git rules (pre-flight validation for better UX)
             const nameValidation = validateBranchName(trimmedName);
             if (!nameValidation.valid) {
                 vscode.window.showErrorMessage(nameValidation.error || "Session name contains invalid characters.");

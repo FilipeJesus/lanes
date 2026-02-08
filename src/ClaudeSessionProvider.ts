@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { CodeAgent, SessionData, AgentStatus } from './codeAgents';
+import { validateWorktreesFolder } from './validation';
 
 // Valid Claude status states
 export type ClaudeStatusState = 'working' | 'waiting_for_user' | 'idle' | 'error';
@@ -203,35 +204,27 @@ export function isGlobalStorageEnabled(): boolean {
 
 /**
  * Get the configured worktrees folder name.
- * Security: Validates path to prevent directory traversal.
+ * Security: Validates path to prevent directory traversal using centralized validator.
  * @returns The worktrees folder name (default: '.worktrees')
  */
 export function getWorktreesFolder(): string {
     const config = vscode.workspace.getConfiguration('lanes');
     const folder = config.get<string>('worktreesFolder', '.worktrees');
 
-    if (!folder || !folder.trim()) {
+    // Use centralized validator for consistency and security
+    const validation = validateWorktreesFolder(folder);
+    if (!validation.valid) {
+        console.warn(`Lanes: Invalid worktreesFolder configuration: ${validation.error}. Using default.`);
         return '.worktrees';
     }
 
+    // Normalization for path handling (remove leading/trailing slashes, normalize backslashes)
     const trimmedFolder = folder.trim()
-        .replace(/\\/g, '/') // Normalize backslashes
-        .replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+        .replace(/\\/g, '/')
+        .replace(/^\/+|\/+$/g, '');
 
-    // Security: Reject empty result after normalization
+    // Final safety check - return default if normalization results in empty
     if (!trimmedFolder) {
-        return '.worktrees';
-    }
-
-    // Security: Reject absolute paths
-    if (path.isAbsolute(trimmedFolder)) {
-        console.warn('Lanes: Absolute paths not allowed in worktreesFolder. Using default.');
-        return '.worktrees';
-    }
-
-    // Security: Reject parent directory traversal
-    if (trimmedFolder.includes('..')) {
-        console.warn('Lanes: Invalid worktreesFolder path. Using default.');
         return '.worktrees';
     }
 
