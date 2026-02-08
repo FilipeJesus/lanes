@@ -102,8 +102,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. Test files are organized by functionality (not monolithic files)
 3. File system operations in tests use proper mocking to avoid race conditions
 
-**Plans**: 1
-- [ ] 05-01-PLAN.md — Test utilities (memfs, sinon), fix flaky tests, split large test files
+**Plans**: 4
+- [ ] 05-01-PLAN.md — Install test utilities (memfs, sinon) and create testSetup.ts
+- [ ] 05-02-PLAN.md — Fix flaky tests (brokenWorktree, gitChanges) with mocking
+- [ ] 05-03-PLAN.md — Split large test files into organized modules
+- [ ] 05-04-PLAN.md — Close gaps: split remaining large files (diff, settings, mcp, previousSession)
 
 ### Phase 6: Integration Testing
 
@@ -161,7 +164,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Error Handling | 1/1 | ✓ Complete | 2026-02-08 |
 | 3. Input Validation | 1/1 | ✓ Complete | 2026-02-08 |
 | 4. Security Auditing | 0/1 | Ready to execute | - |
-| 5. Test Foundation | 0/1 | Ready to execute | - |
+| 5. Test Foundation | 0/3 | Ready to execute | - |
 | 6. Integration Testing | 0/TBD | Not started | - |
 | 7. Module Extraction | 0/TBD | Not started | - |
 | 8. Code Quality | 0/TBD | Not started | - |
