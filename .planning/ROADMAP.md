@@ -160,7 +160,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 3. Code style follows established conventions (verified by linting)
 
 **Plans**: 5
-- [ ] 08-01-PLAN.md — Create FileService and enhance ESLint
+- [x] 08-01-PLAN.md — Create FileService and enhance ESLint **COMPLETED 2026-02-08**
 - [ ] 08-02-PLAN.md — Create MCP abstraction layer
 - [ ] 08-03-PLAN.md — Migrate ClaudeSessionProvider and PreviousSessionProvider
 - [ ] 08-04-PLAN.md — Migrate MCP tools, workflow state, and session commands
@@ -180,4 +180,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Test Foundation | 0/3 | Ready to execute | - |
 | 6. Integration Testing | 3/3 | ✓ Complete | 2026-02-08 |
 | 7. Module Extraction | 5/5 | ✓ Complete | 2026-02-08 |
-| 8. Code Quality | 0/TBD | Not started | - |
+| 8. Code Quality | 1/5 | In progress | - |
