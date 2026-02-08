@@ -32,6 +32,8 @@ import { PreviousSessionProvider, PreviousSessionItem, getPromptsDir } from './P
 import { WorkflowsProvider } from './WorkflowsProvider';
 import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from './workflow';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
+import * as BrokenWorktreeService from './services/BrokenWorktreeService';
+import * as SettingsService from './services/SettingsService';
 import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage, validateBranchName, ValidationResult } from './utils';
 import { validateSessionName } from './validation';
 import { AsyncQueue } from './AsyncQueue';
@@ -109,433 +111,12 @@ async function validateWorkflow(
     return { isValid: false, availableWorkflows };
 }
 
-/**
- * Represents a broken worktree that needs repair.
- * A worktree is broken when its .git file points to a non-existent metadata directory.
- */
-export interface BrokenWorktree {
-    /** Full path to the worktree directory */
-    path: string;
-    /** Session name (folder name, which equals the branch name) */
-    sessionName: string;
-    /** Expected branch name (same as session name in Lanes) */
-    expectedBranch: string;
-}
-
-/**
- * Detects broken worktrees in the .worktrees directory.
- * A worktree is broken when:
- * 1. It has a .git file (not directory) - indicating it's a worktree
- * 2. The .git file contains a gitdir reference to a metadata directory
- * 3. That metadata directory does not exist (e.g., after container rebuild)
- *
- * @param baseRepoPath The path to the base repository
- * @returns Array of broken worktrees that need repair
- */
-export async function detectBrokenWorktrees(baseRepoPath: string): Promise<BrokenWorktree[]> {
-    const worktreesDir = path.join(baseRepoPath, getWorktreesFolder());
-    const brokenWorktrees: BrokenWorktree[] = [];
-
-    // Check if .worktrees directory exists
-    try {
-        await fsPromises.access(worktreesDir);
-    } catch {
-        // Directory doesn't exist, no worktrees to check
-        return brokenWorktrees;
-    }
-
-    // Read all entries in the worktrees directory
-    let entries: string[];
-    try {
-        entries = await fsPromises.readdir(worktreesDir);
-    } catch (err) {
-        console.warn('Lanes: Failed to read worktrees directory:', getErrorMessage(err));
-        return brokenWorktrees;
-    }
-
-    // Check each entry
-    for (const entry of entries) {
-        // Validate entry name to prevent path traversal
-        if (!entry || entry.includes('..') || entry.includes('/') || entry.includes('\\')) {
-            continue;
-        }
-
-        const worktreePath = path.join(worktreesDir, entry);
-
-        // Check if it's a directory
-        try {
-            const stat = await fsPromises.stat(worktreePath);
-            if (!stat.isDirectory()) {
-                continue;
-            }
-        } catch {
-            continue;
-        }
-
-        // Check for .git file (not directory)
-        const gitPath = path.join(worktreePath, '.git');
-        try {
-            const gitStat = await fsPromises.stat(gitPath);
-
-            // Skip if .git is a directory (not a worktree reference)
-            if (gitStat.isDirectory()) {
-                continue;
-            }
-
-            // .git is a file - read its content
-            const gitContent = await fsPromises.readFile(gitPath, 'utf-8');
-
-            // Parse the gitdir reference
-            // Format: "gitdir: /path/to/.git/worktrees/<name>"
-            const gitdirMatch = gitContent.match(/^gitdir:\s*(.+)$/m);
-            if (!gitdirMatch) {
-                continue;
-            }
-
-            const metadataPath = gitdirMatch[1].trim();
-
-            // Check if the metadata directory exists
-            try {
-                await fsPromises.access(metadataPath);
-                // Metadata exists - worktree is healthy
-            } catch {
-                // Metadata doesn't exist - worktree is broken
-                brokenWorktrees.push({
-                    path: worktreePath,
-                    sessionName: entry,
-                    expectedBranch: entry // In Lanes, folder name = branch name
-                });
-            }
-        } catch {
-            // No .git file or can't read it - not a worktree or already broken differently
-            continue;
-        }
-    }
-
-    return brokenWorktrees;
-}
-
-/**
- * Repairs a broken worktree by recreating it while preserving existing files.
- *
- * Strategy:
- * 1. Verify the branch exists
- * 2. Rename the broken worktree directory temporarily
- * 3. Create a fresh worktree at the original path
- * 4. Copy non-.git files from the temp directory to the new worktree
- * 5. Remove the temp directory
- *
- * @param baseRepoPath The path to the base repository
- * @param brokenWorktree The broken worktree to repair
- * @returns Object with success status and optional error message
- */
-export async function repairWorktree(
-    baseRepoPath: string,
-    brokenWorktree: BrokenWorktree
-): Promise<{ success: boolean; error?: string }> {
-    const { path: worktreePath, expectedBranch } = brokenWorktree;
-
-    // Step 1: Verify the branch exists
-    const branchExistsResult = await branchExists(baseRepoPath, expectedBranch);
-    if (!branchExistsResult) {
-        return {
-            success: false,
-            error: `Branch '${expectedBranch}' does not exist in the repository`
-        };
-    }
-
-    // Step 2: Create a temp directory name for the backup
-    const tempPath = `${worktreePath}.repair-backup-${Date.now()}`;
-
-    // Step 3: Rename the broken worktree directory
-    try {
-        await fsPromises.rename(worktreePath, tempPath);
-    } catch (err) {
-        return {
-            success: false,
-            error: `Failed to rename worktree for repair: ${getErrorMessage(err)}`
-        };
-    }
-
-    // Step 4: Create a fresh worktree
-    try {
-        await execGit(
-            ['worktree', 'add', worktreePath, expectedBranch],
-            baseRepoPath
-        );
-    } catch (err) {
-        // Try to restore the original directory on failure
-        try {
-            await fsPromises.rename(tempPath, worktreePath);
-        } catch (restoreErr) {
-            // Restore failed - include backup location in error message
-            return {
-                success: false,
-                error: `Failed to create worktree: ${getErrorMessage(err)}. ` +
-                       `WARNING: Original files backed up at ${tempPath} could not be restored.`
-            };
-        }
-        return {
-            success: false,
-            error: `Failed to create worktree: ${getErrorMessage(err)}`
-        };
-    }
-
-    // Step 5: Copy all non-.git files from temp to new worktree
-    // We always prefer the user's version to preserve any modifications
-    try {
-        await copyDirectoryContents(tempPath, worktreePath);
-    } catch (err) {
-        // Log but don't fail - the worktree is fixed, just some files might not be copied
-        console.warn(`Lanes: Failed to copy some files during repair: ${getErrorMessage(err)}`);
-    }
-
-    // Step 6: Remove the temp directory
-    try {
-        await fsPromises.rm(tempPath, { recursive: true, force: true });
-    } catch (err) {
-        // Log but don't fail - the repair was successful
-        console.warn(`Lanes: Failed to clean up temp directory: ${getErrorMessage(err)}`);
-    }
-
-    return { success: true };
-}
-
-/**
- * Copy contents from source directory to destination, overwriting existing files.
- * Skips the .git file/directory in the source. Used to restore user's files after worktree repair.
- */
-async function copyDirectoryContents(src: string, dest: string): Promise<void> {
-    const entries = await fsPromises.readdir(src, { withFileTypes: true });
-
-    for (const entry of entries) {
-        // Skip .git file (it was stale anyway)
-        if (entry.name === '.git') {
-            continue;
-        }
-
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-
-        if (entry.isSymbolicLink()) {
-            // Remove existing and recreate symlink
-            try {
-                await fsPromises.rm(destPath, { recursive: true, force: true });
-            } catch {
-                // Destination doesn't exist, that's fine
-            }
-            const linkTarget = await fsPromises.readlink(srcPath);
-            await fsPromises.symlink(linkTarget, destPath);
-        } else if (entry.isDirectory()) {
-            // Recursively copy directory contents
-            await fsPromises.mkdir(destPath, { recursive: true });
-            await copyDirectoryContents(srcPath, destPath);
-        } else {
-            // Copy file, overwriting if exists (preserves user's modifications)
-            await fsPromises.copyFile(srcPath, destPath);
-            // Preserve file permissions
-            const srcStat = await fsPromises.stat(srcPath);
-            await fsPromises.chmod(destPath, srcStat.mode);
-        }
-    }
-}
-
-/**
- * Recursively copy a directory, preserving symlinks and file permissions.
- */
-async function copyDirectory(src: string, dest: string): Promise<void> {
-    await fsPromises.mkdir(dest, { recursive: true });
-    const entries = await fsPromises.readdir(src, { withFileTypes: true });
-
-    for (const entry of entries) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-
-        if (entry.isSymbolicLink()) {
-            // Preserve symbolic links
-            const linkTarget = await fsPromises.readlink(srcPath);
-            await fsPromises.symlink(linkTarget, destPath);
-        } else if (entry.isDirectory()) {
-            await copyDirectory(srcPath, destPath);
-        } else {
-            await fsPromises.copyFile(srcPath, destPath);
-            // Preserve file permissions
-            const srcStat = await fsPromises.stat(srcPath);
-            await fsPromises.chmod(destPath, srcStat.mode);
-        }
-    }
-}
-
-/**
- * Checks for broken worktrees and prompts the user to repair them.
- * Called during extension activation.
- *
- * @param baseRepoPath The path to the base repository
- */
-export async function checkAndRepairBrokenWorktrees(baseRepoPath: string): Promise<void> {
-    // Step 1: Detect broken worktrees
-    const brokenWorktrees = await detectBrokenWorktrees(baseRepoPath);
-
-    // Step 2: Return immediately if none found
-    if (brokenWorktrees.length === 0) {
-        return;
-    }
-
-    // Step 3: Build list of session names for the message
-    const sessionNames = brokenWorktrees.map(w => w.sessionName).join(', ');
-    const count = brokenWorktrees.length;
-    const plural = count > 1 ? 's' : '';
-
-    // Step 4: Show warning message asking user if they want to repair
-    const answer = await vscode.window.showWarningMessage(
-        `Found ${count} broken worktree${plural}: ${sessionNames}. This can happen after a container rebuild. Would you like to repair them?`,
-        'Repair',
-        'Ignore'
-    );
-
-    if (answer !== 'Repair') {
-        return;
-    }
-
-    // Step 5: Repair each broken worktree
-    let successCount = 0;
-    const failures: string[] = [];
-
-    for (const brokenWorktree of brokenWorktrees) {
-        const result = await repairWorktree(baseRepoPath, brokenWorktree);
-        if (result.success) {
-            successCount++;
-        } else {
-            failures.push(`${brokenWorktree.sessionName}: ${result.error}`);
-        }
-    }
-
-    // Step 6: Show result message
-    if (failures.length === 0) {
-        vscode.window.showInformationMessage(
-            `Successfully repaired ${successCount} worktree${successCount > 1 ? 's' : ''}.`
-        );
-    } else if (successCount > 0) {
-        vscode.window.showWarningMessage(
-            `Repaired ${successCount} worktree${successCount > 1 ? 's' : ''}, but ${failures.length} failed. Check the console for details.`
-        );
-        console.error('Lanes: Failed to repair some worktrees:', failures);
-    } else {
-        vscode.window.showErrorMessage(
-            `Failed to repair worktrees. Check the console for details.`
-        );
-        console.error('Lanes: Failed to repair worktrees:', failures);
-    }
-}
 
 // getPromptsDir is imported from PreviousSessionProvider.ts
 
 // Re-export sanitizeSessionName from utils for backwards compatibility
 export { sanitizeSessionName } from './utils';
 
-/**
- * Check if the given path is a git worktree and return the base repo path.
- * Uses `git rev-parse --git-common-dir` to detect worktrees.
- *
- * - In a regular repo, this returns `.git` (relative) or `/path/to/repo/.git`
- * - In a worktree, this returns `/path/to/repo/.git` (the main repo's .git dir)
- *
- * @param workspacePath The current workspace path
- * @returns The base repo path if in a worktree, or the original path if not
- */
-export async function getBaseRepoPath(workspacePath: string): Promise<string> {
-    try {
-        // Get the common git directory (shared across all worktrees)
-        const gitCommonDir = await execGit(['rev-parse', '--git-common-dir'], workspacePath);
-        const trimmedGitDir = gitCommonDir.trim();
-
-        // If we get just '.git', we're in a regular repo (not a worktree)
-        if (trimmedGitDir === '.git') {
-            return workspacePath;
-        }
-
-        // We're in a worktree - resolve the base repo path
-        // gitCommonDir will be an absolute path like:
-        // - /path/to/repo/.git (for regular repos when run with absolute paths)
-        // - /path/to/repo/.git (for worktrees - always absolute)
-
-        // Resolve to absolute path if relative
-        const absoluteGitDir = path.isAbsolute(trimmedGitDir)
-            ? trimmedGitDir
-            : path.resolve(workspacePath, trimmedGitDir);
-
-        // The base repo is the parent of the .git directory
-        // Handle both cases:
-        // - /path/to/repo/.git -> /path/to/repo
-        // - /path/to/repo/.git/worktrees/branch-name -> (needs to go up to .git, then to repo)
-
-        // Normalize the path to handle any trailing slashes
-        const normalizedGitDir = path.normalize(absoluteGitDir);
-
-        // Check if this looks like a worktree git dir (contains /worktrees/)
-        if (normalizedGitDir.includes(path.join('.git', 'worktrees'))) {
-            // This is the worktree-specific git dir, go up to the main .git
-            // e.g., /repo/.git/worktrees/branch -> /repo/.git -> /repo
-            const gitDirIndex = normalizedGitDir.indexOf(path.join('.git', 'worktrees'));
-            const mainGitDir = normalizedGitDir.substring(0, gitDirIndex + '.git'.length);
-            return path.dirname(mainGitDir);
-        }
-
-        // Standard case: just get parent of .git
-        if (normalizedGitDir.endsWith('.git') || normalizedGitDir.endsWith('.git' + path.sep)) {
-            return path.dirname(normalizedGitDir);
-        }
-
-        // Fallback: return original path if we can't determine the base
-        return workspacePath;
-
-    } catch (err) {
-        // Not a git repository or git command failed - return original path
-        console.warn('Lanes: getBaseRepoPath failed:', getErrorMessage(err));
-        return workspacePath;
-    }
-}
-
-/**
- * Get the glob pattern for watching .claude-status based on configuration.
- * When global storage is enabled, returns pattern for global storage.
- * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
- * @returns Glob pattern for watching .claude-status
- */
-function getStatusWatchPattern(): string {
-    if (isGlobalStorageEnabled()) {
-        // For global storage, files are watched by the global storage file watcher
-        // Return minimal pattern since global storage handles watching differently
-        return '**/.claude-status';
-    }
-    // Non-global mode: watch .lanes/session_management/**/*/.claude-status
-    return '.lanes/session_management/**/*/.claude-status';
-}
-
-/**
- * Get the glob pattern for watching .claude-session based on configuration.
- * When global storage is enabled, returns pattern for global storage.
- * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
- * @returns Glob pattern for watching .claude-session
- */
-function getSessionWatchPattern(): string {
-    if (isGlobalStorageEnabled()) {
-        // For global storage, files are watched by the global storage file watcher
-        // Return minimal pattern since global storage handles watching differently
-        return '**/.claude-session';
-    }
-    // Non-global mode: watch .lanes/session_management/**/*/.claude-session
-    return '.lanes/session_management/**/*/.claude-session';
-}
-
-/**
- * Get the repository name from a path.
- * @param repoPath Path to the repository
- * @returns The repository folder name
- */
-export function getRepoName(repoPath: string): string {
-    return path.basename(repoPath);
-}
 
 /**
  * Process a pending session request from the MCP server.
@@ -717,7 +298,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Detect if we're in a worktree and resolve the base repository path
     // This ensures sessions are listed from the main repo even when opened in a worktree
-    const baseRepoPath = workspaceRoot ? await getBaseRepoPath(workspaceRoot) : undefined;
+    const baseRepoPath = workspaceRoot ? await SettingsService.getBaseRepoPath(workspaceRoot) : undefined;
 
     // Track if we're in a worktree - we'll use this to auto-resume session after setup
     const isInWorktree = baseRepoPath && baseRepoPath !== workspaceRoot;
@@ -729,7 +310,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Check for and offer to repair broken worktrees (e.g., after container rebuild)
     if (baseRepoPath) {
         // Run asynchronously to not block extension activation
-        checkAndRepairBrokenWorktrees(baseRepoPath).catch(err => {
+        BrokenWorktreeService.checkAndRepairBrokenWorktrees(baseRepoPath).catch(err => {
             console.error('Lanes: Error checking for broken worktrees:', getErrorMessage(err));
         });
     }
@@ -817,7 +398,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const watchPath = baseRepoPath || workspaceRoot;
     if (watchPath) {
         const statusWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, getStatusWatchPattern())
+            new vscode.RelativePattern(watchPath, SettingsService.getStatusWatchPattern())
         );
 
         // Refresh on any status file change
@@ -829,7 +410,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Also watch for .claude-session file changes to refresh the sidebar
         const sessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(watchPath, getSessionWatchPattern())
+            new vscode.RelativePattern(watchPath, SettingsService.getSessionWatchPattern())
         );
 
         sessionWatcher.onDidChange(() => sessionProvider.refresh());
@@ -1024,7 +605,7 @@ export async function activate(context: vscode.ExtensionContext) {
                                 for (const worktree of worktrees) {
                                     const worktreePath = path.join(worktreesDir, worktree);
                                     if (fs.statSync(worktreePath).isDirectory()) {
-                                        await getOrCreateExtensionSettingsFile(worktreePath);
+                                        await SettingsService.getOrCreateExtensionSettingsFile(worktreePath);
                                         updated++;
                                     }
                                 }
@@ -1142,7 +723,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
         try {
-            const settingsPath = await getOrCreateExtensionSettingsFile(item.worktreePath);
+            const settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(item.worktreePath);
             vscode.window.showInformationMessage(`Status hooks configured for '${item.label}' at ${settingsPath}`);
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to setup hooks: ${getErrorMessage(err)}`);
@@ -1440,7 +1021,7 @@ export async function activate(context: vscode.ExtensionContext) {
             // This handles the edge case where a session was created before Project Manager integration
             if (baseRepoPath) {
                 // Get sanitized repo name for project naming
-                const repoName = getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
+                const repoName = SettingsService.getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
                 const projectName = `${repoName}-${item.label}`;
                 await addProject(projectName, item.worktreePath, ['lanes']);
             }
@@ -1526,7 +1107,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage('No workspace folder open');
             return;
         }
-        await checkAndRepairBrokenWorktrees(baseRepoPath);
+        await BrokenWorktreeService.checkAndRepairBrokenWorktrees(baseRepoPath);
     });
     context.subscriptions.push(repairBrokenWorktreesDisposable);
 
@@ -1819,7 +1400,7 @@ async function createSession(
                 await ensureWorktreeDirExists(workspaceRoot);
 
                 // Check if the branch already exists
-                const branchAlreadyExists = await branchExists(workspaceRoot, trimmedName);
+                const branchAlreadyExists = await BrokenWorktreeService.branchExists(workspaceRoot, trimmedName);
 
                 if (branchAlreadyExists) {
                     // Check if the branch is already in use by another worktree
@@ -1935,7 +1516,7 @@ async function createSession(
                         }
 
                         // Verify the source branch exists before using it
-                        const sourceBranchExists = await branchExists(workspaceRoot, trimmedSourceBranch);
+                        const sourceBranchExists = await BrokenWorktreeService.branchExists(workspaceRoot, trimmedSourceBranch);
                         // Also check for remote branches (origin/branch-name format)
                         let remoteSourceExists = false;
                         if (!sourceBranchExists) {
@@ -1964,7 +1545,7 @@ async function createSession(
 
                 // 5. Add worktree as a project in Project Manager
                 // Get sanitized repo name for project naming
-                const repoName = getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
+                const repoName = SettingsService.getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
                 const projectName = `${repoName}-${trimmedName}`;
                 await addProject(projectName, worktreePath, ['lanes']);
 
@@ -2173,14 +1754,14 @@ async function openClaudeTerminal(taskName: string, worktreePath: string, prompt
     }
 
     try {
-        settingsPath = await getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
+        settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
 
         // If workflow is active (provided or restored), add MCP config flag separately
         // (--settings only loads hooks, not mcpServers)
         // effectiveWorkflow is now the full path to the workflow YAML file
         if (effectiveWorkflow) {
             // Determine the repo root for MCP server (needed for pending sessions directory)
-            const effectiveRepoRoot = repoRoot || await getBaseRepoPath(worktreePath);
+            const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
 
             // Use CodeAgent to get MCP config if available and supported
             if (codeAgent && codeAgent.supportsMcp()) {
@@ -2324,27 +1905,6 @@ Proceed with resuming the workflow from where it left off.`;
 }
 
 /**
- * Check if a branch exists in the git repository.
- * @param cwd The working directory (git repo root)
- * @param branchName The name of the branch to check
- * @returns true if the branch exists, false otherwise
- * @note Returns false for invalid branch names or on any git command failure
- */
-export async function branchExists(cwd: string, branchName: string): Promise<boolean> {
-    // Validate branch name to prevent issues
-    const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
-    if (!branchNameRegex.test(branchName)) {
-        return false;
-    }
-    try {
-        await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], cwd);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Get a set of branch names that are currently checked out in worktrees.
  * Parses the output of `git worktree list --porcelain`.
  * @param cwd The working directory (git repo root)
@@ -2381,217 +1941,6 @@ async function ensureWorktreeDirExists(root: string): Promise<void> {
     }
 }
 
-/**
- * Interface for Claude settings.json structure
- */
-interface ClaudeSettings {
-    hooks?: {
-        SessionStart?: HookEntry[];
-        Stop?: HookEntry[];
-        UserPromptSubmit?: HookEntry[];
-        Notification?: HookEntry[];
-        PreToolUse?: HookEntry[];
-        [key: string]: HookEntry[] | undefined;
-    };
-    mcpServers?: {
-        [name: string]: {
-            command: string;
-            args: string[];
-        };
-    };
-    [key: string]: unknown;
-}
-
-interface HookEntry {
-    matcher?: string;
-    hooks: { type: string; command: string }[];
-}
-
-/**
- * Creates or updates the extension settings file in global storage.
- * This file contains hooks for status tracking and session ID capture.
- * When a workflow is specified, it also includes MCP server configuration.
- * The file is stored at: globalStorageUri/<repo-identifier>/<session-name>/claude-settings.json
- *
- * @param worktreePath Path to the worktree
- * @param workflow Optional workflow template name. When provided, includes MCP server config.
- * @param codeAgent Optional CodeAgent instance for agent-specific configuration
- * @returns The absolute path to the settings file
- */
-export async function getOrCreateExtensionSettingsFile(worktreePath: string, workflow?: string | null, codeAgent?: CodeAgent): Promise<string> {
-    // Get the session name from the worktree path
-    const sessionName = getSessionNameFromWorktree(worktreePath);
-
-    // Validate session name to prevent path traversal and command injection
-    // Session names should only contain [a-zA-Z0-9_\-./] (enforced by sanitizeSessionName at creation)
-    if (!sessionName || sessionName.includes('..') || !/^[a-zA-Z0-9_\-./]+$/.test(sessionName)) {
-        throw new Error(`Invalid session name derived from worktree path: ${sessionName}`);
-    }
-
-    // If workflow not provided, try to restore from saved session data
-    let effectiveWorkflow = workflow;
-    if (!effectiveWorkflow) {
-        const savedWorkflow = getSessionWorkflow(worktreePath);
-        if (savedWorkflow) {
-            effectiveWorkflow = savedWorkflow;
-            console.log(`Lanes: Restored workflow '${effectiveWorkflow}' from session data`);
-        }
-    }
-
-    const globalStorageUriObj = getGlobalStorageUri();
-    const baseRepoPath = getBaseRepoPathForStorage();
-
-    if (!globalStorageUriObj || !baseRepoPath) {
-        throw new Error('Global storage not initialized. Cannot create extension settings file.');
-    }
-
-    const repoIdentifier = getRepoIdentifier(baseRepoPath);
-    const settingsDir = path.join(globalStorageUriObj.fsPath, repoIdentifier, sessionName);
-    // Use CodeAgent for settings file naming if available, otherwise fallback to hardcoded
-    const settingsFileName = codeAgent ? codeAgent.getSettingsFileName() : 'claude-settings.json';
-    const settingsFilePath = path.join(settingsDir, settingsFileName);
-
-    // Ensure the directory exists
-    await fsPromises.mkdir(settingsDir, { recursive: true });
-
-    // Generate the artefact registration hook script in global storage
-    const hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
-    const hookScriptContent = `#!/bin/bash
-
-# Read hook input from stdin
-INPUT=$(cat)
-WORKTREE_PATH="$(echo "$INPUT" | jq -r '.cwd // empty')"
-
-# Only register if we're in a worktree with an active workflow
-if [ -n "$WORKTREE_PATH" ] && [ -f "$WORKTREE_PATH/workflow-state.json" ]; then
-    # Check if artefact tracking is enabled for the current step
-    ARTEFACTS_ENABLED="$(jq -r '.currentStepArtefacts // false' "$WORKTREE_PATH/workflow-state.json")"
-
-    if [ "$ARTEFACTS_ENABLED" = "true" ]; then
-        # Extract the file path from Write tool input (FIXED: use tool_input.file_path)
-        FILE_PATH="$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')"
-
-        if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
-            # Add the file to artefacts array if not already present
-            STATE_FILE="$WORKTREE_PATH/workflow-state.json"
-            tmp=$(mktemp)
-            jq --arg path "$FILE_PATH" \\
-                'if .artefacts == null then .artefacts = [] end |
-                 if .artefacts | index($path) == null then .artefacts += [$path] else . end' \\
-                "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
-        fi
-    fi
-fi
-
-exit 0
-`;
-
-    // Write the hook script with executable permissions
-    await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
-
-    // Determine status and session file paths using the helper functions
-    // These functions handle both global and non-global modes automatically
-    const statusFilePath = getClaudeStatusPath(worktreePath);
-    const sessionFilePath = getClaudeSessionPath(worktreePath);
-
-    // Ensure the directories exist for both files
-    await fsPromises.mkdir(path.dirname(statusFilePath), { recursive: true });
-    await fsPromises.mkdir(path.dirname(sessionFilePath), { recursive: true });
-
-
-    // Build hooks configuration
-    let hooks: ClaudeSettings['hooks'];
-
-    if (codeAgent) {
-        // Use CodeAgent to generate hooks
-        // Pass effectiveWorkflow to enable workflow status hook
-        // Pass hookScriptPath to enable PostToolUse artefact registration hook
-        // Convert null to undefined for type compatibility
-        const workflowParam = effectiveWorkflow || undefined;
-        const hookConfigs = codeAgent.generateHooksConfig(worktreePath, sessionFilePath, statusFilePath, workflowParam, hookScriptPath);
-
-        // Convert HookConfig[] to ClaudeSettings hooks format
-        hooks = {};
-        for (const hookConfig of hookConfigs) {
-            const entry: HookEntry = {
-                hooks: hookConfig.commands
-            };
-            if (hookConfig.matcher) {
-                entry.matcher = hookConfig.matcher;
-            }
-
-            if (!hooks[hookConfig.event]) {
-                hooks[hookConfig.event] = [];
-            }
-            hooks[hookConfig.event]!.push(entry);
-        }
-    } else {
-        // Fallback to hardcoded hooks for backward compatibility
-        const statusWriteWaiting = {
-            type: 'command',
-            command: `echo '{"status":"waiting_for_user"}' > "${statusFilePath}"`
-        };
-
-        const statusWriteWorking = {
-            type: 'command',
-            command: `echo '{"status":"working"}' > "${statusFilePath}"`
-        };
-
-        // Session ID is provided via stdin as JSON: {"session_id": "...", ...}
-        // The hook merges with existing file data to preserve workflow and other metadata
-        const sessionIdCapture = {
-            type: 'command',
-            command: `old=$(cat "${sessionFilePath}" 2>/dev/null || echo '{}'); jq -r --argjson old "$old" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '$old + {sessionId: .session_id, timestamp: $ts}' > "${sessionFilePath}"`
-        };
-
-        hooks = {
-            SessionStart: [{ hooks: [sessionIdCapture] }],
-            Stop: [{ hooks: [statusWriteWaiting] }],
-            UserPromptSubmit: [{ hooks: [statusWriteWorking] }],
-            Notification: [{ matcher: 'permission_prompt', hooks: [statusWriteWaiting] }],
-            PreToolUse: [{ matcher: '.*', hooks: [statusWriteWorking] }]
-        };
-    }
-
-    // Build the settings object
-    const settings: ClaudeSettings = {
-        hooks
-    };
-
-    // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
-    // effectiveWorkflow is now the full path to the workflow YAML file
-    if (effectiveWorkflow) {
-        // Validate workflow path to prevent command injection
-        // Must be an absolute path ending in .yaml
-        if (!path.isAbsolute(effectiveWorkflow)) {
-            throw new Error(`Invalid workflow path: ${effectiveWorkflow}. Must be an absolute path.`);
-        }
-        if (!effectiveWorkflow.endsWith('.yaml')) {
-            throw new Error(`Invalid workflow path: ${effectiveWorkflow}. Must end with .yaml`);
-        }
-
-        // Save workflow path to session file for future restoration
-        // Only save if this is a new workflow (not restored from session data)
-        if (workflow) {
-            saveSessionWorkflow(worktreePath, effectiveWorkflow);
-        }
-        // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
-        // instead of being included in the settings file
-    }
-
-    // Write the settings file atomically with cleanup on failure
-    const tempPath = path.join(settingsDir, `${settingsFileName}.${Date.now()}.tmp`);
-    try {
-        await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
-        await fsPromises.rename(tempPath, settingsFilePath);
-    } catch (err) {
-        // Clean up temp file on failure
-        await fsPromises.unlink(tempPath).catch(() => {});
-        throw err;
-    }
-
-    return settingsFilePath;
-}
 
 /**
  * Parse untracked files from git status --porcelain output.
@@ -2978,6 +2327,26 @@ async function createWorkflow(
         vscode.window.showErrorMessage(`Failed to open workflow file: ${getErrorMessage(err)}`);
     }
 }
+
+// ============================================================================
+// BACKWARDS COMPATIBILITY RE-EXPORTS
+// These re-exports are deprecated. Import from the respective service modules.
+// ============================================================================
+
+/**
+ * @deprecated Import from './services/BrokenWorktreeService' instead
+ */
+export type { BrokenWorktree } from './services/BrokenWorktreeService';
+
+/**
+ * @deprecated Import from './services/BrokenWorktreeService' instead
+ */
+export { detectBrokenWorktrees, repairWorktree, branchExists, checkAndRepairBrokenWorktrees } from './services/BrokenWorktreeService';
+
+/**
+ * @deprecated Import from './services/SettingsService' instead
+ */
+export { getBaseRepoPath, getRepoName, getOrCreateExtensionSettingsFile } from './services/SettingsService';
 
 /**
  * Called when the extension is deactivated.
