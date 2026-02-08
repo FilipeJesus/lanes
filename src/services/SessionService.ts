@@ -13,8 +13,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+
+import { fileExists } from './FileService';
 import { execGit } from '../gitService';
 import {
     ClaudeSessionProvider,
@@ -218,7 +219,7 @@ async function createSession(
     }
 
     // 2. Check Git Status (early check, outside queue for fast feedback)
-    const isGit = fs.existsSync(path.join(workspaceRoot, '.git'));
+    const isGit = await fileExists(path.join(workspaceRoot, '.git'));
     if (!isGit) {
         const errorMsg = "Error: Current folder is not a git repository. Run 'git init' first.";
         vscode.window.showErrorMessage(errorMsg);

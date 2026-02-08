@@ -14,7 +14,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import * as fs from 'fs';
+import { constants } from 'fs';
 import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from '../workflow';
 import { getErrorMessage } from '../utils';
 import { LanesError, GitError, ValidationError } from '../errors';
@@ -43,7 +43,7 @@ export async function validateWorkflow(
     // If workflow is already an absolute path ending in .yaml, check if it exists
     if (path.isAbsolute(workflow) && workflow.endsWith('.yaml')) {
         try {
-            await fsPromises.access(workflow, fs.constants.R_OK);
+            await fsPromises.access(workflow, constants.R_OK);
             return { isValid: true, resolvedPath: workflow, availableWorkflows: [] };
         } catch {
             // Path doesn't exist, fall through to name-based lookup

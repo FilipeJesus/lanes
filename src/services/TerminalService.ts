@@ -11,8 +11,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+
+import { fileExists } from './FileService';
 import { SessionItem } from '../ClaudeSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
@@ -124,7 +125,7 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
     const sessionName = item.label;
 
     // Verify worktree exists
-    if (!fs.existsSync(worktreePath)) {
+    if (!await fileExists(worktreePath)) {
         vscode.window.showErrorMessage(`Worktree path does not exist: ${worktreePath}`);
         return;
     }

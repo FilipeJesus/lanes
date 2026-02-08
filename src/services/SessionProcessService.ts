@@ -8,8 +8,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+
+import { fileExists } from './FileService';
 import type { PendingSessionConfig } from '../types/extension';
 import type { ClearSessionConfig } from '../types/extension';
 import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
@@ -129,7 +130,7 @@ export async function checkPendingSessions(
     try {
         const pendingSessionsDir = getPendingSessionsDir(workspaceRoot);
         // Ensure directory exists
-        if (!fs.existsSync(pendingSessionsDir)) {
+        if (!await fileExists(pendingSessionsDir)) {
             return;
         }
 
