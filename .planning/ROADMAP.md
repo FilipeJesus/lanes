@@ -38,7 +38,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. User can view Git changes for branches with non-standard names (e.g., feature/., feature/*)
 3. No "Cannot get merge-base" errors when showing changes from remote branches
 
-**Plans**: TBD
+**Plans**: 1
+- [ ] 01-01-PLAN.md — Async queue, branch validation, and merge-base improvements
 
 ### Phase 2: Error Handling
 
@@ -152,7 +153,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bug Fixes | 0/TBD | Not started | - |
+| 1. Critical Bug Fixes | 0/1 | Ready to execute | - |
 | 2. Error Handling | 0/TBD | Not started | - |
 | 3. Input Validation | 0/TBD | Not started | - |
 | 4. Security Auditing | 0/TBD | Not started | - |
