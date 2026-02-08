@@ -86,7 +86,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. External command execution uses proper argument escaping
 3. Security audit report documents all reviewed operations
 
-**Plans**: TBD
+**Plans**: 1
+- [ ] 04-01-PLAN.md — Security audit of file system and command execution operations
 
 ### Phase 5: Test Foundation
 
@@ -158,7 +159,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Critical Bug Fixes | 0/1 | Ready to execute | - |
 | 2. Error Handling | 1/1 | ✓ Complete | 2026-02-08 |
 | 3. Input Validation | 1/1 | ✓ Complete | 2026-02-08 |
-| 4. Security Auditing | 0/TBD | Not started | - |
+| 4. Security Auditing | 0/1 | Ready to execute | - |
 | 5. Test Foundation | 0/TBD | Not started | - |
 | 6. Integration Testing | 0/TBD | Not started | - |
 | 7. Module Extraction | 0/TBD | Not started | - |
