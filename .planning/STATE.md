@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 5 of 8 (Test Foundation)
-Plan: 3 of 3 in current phase
+Plan: 4 of 4 in current phase
 Status: Phase complete
-Last activity: 2026-02-08 — Completed 05-03 test file organization
+Last activity: 2026-02-08 — Completed 05-04 test file organization gap closure
 
 Progress: [██████████] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 6 min
-- Total execution time: 0.7 hours
+- Total execution time: 0.8 hours
 
 **By Phase:**
 
@@ -32,7 +32,7 @@ Progress: [██████████] 75%
 | 02-error-handling | 1 | 6 min | 6 min |
 | 03-input-validation | 1 | 5 min | 5 min |
 | 04-security-auditing | 1 | 2 min | 2 min |
-| 05-test-foundation | 3 | 18 min | 6 min |
+| 05-test-foundation | 4 | 43 min | 11 min |
 
 **Recent Trend:**
 - Last 5 plans: 5 min avg (6 completed)
@@ -89,24 +89,51 @@ Recent decisions affecting current work:
 - Fixed package.json path resolution for tests in subdirectory structure (3 levels up from out/test/subdir/)
 - 3 files remain over 500 lines (diff.test.ts: 1795, settings.test.ts: 1341, mcp.test.ts: 856) - noted for future splitting
 
+**Phase 05-04 Decisions:**
+- Split test files by test suite rather than by functionality - preserves test structure
+- Each new file includes complete setup/teardown and imports for independent execution
+- No test logic or assertions modified - only file organization changed
+- Used relative imports correctly for test files in subdirectories (../../ for workflow tests, ../ for top-level tests)
+
 ### Pending Todos
 
 **Phase 5 Next Steps:**
-- Further split remaining large files (diff.test.ts, settings.test.ts, mcp.test.ts) if maintainability becomes an issue
+- None - phase complete
 
 ### Blockers/Concerns
 
 **Known Deviations:**
-- 3 test files still exceed 500-line target (documented in 05-03-SUMMARY.md)
-- These files require more complex splitting due to interdependent test suites
+- None - all large test files have been split
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 05-03-SUMMARY.md, test file organization complete
-Resume file: .planning/phases/05-test-foundation/05-03-SUMMARY.md
+Stopped at: Completed 05-04-SUMMARY.md, test file organization gap closure complete
+Resume file: .planning/phases/05-test-foundation/05-04-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 05-04:**
+- src/test/git/diff-base-branch.test.ts (created)
+- src/test/git/diff-branches.test.ts (created)
+- src/test/git/diff-command.test.ts (created)
+- src/test/git/diff-comments.test.ts (created)
+- src/test/git/diff-parsing.test.ts (created)
+- src/test/git/diff-webview.test.ts (created)
+- src/test/git/diff.test.ts (deleted - 1795 lines)
+- src/test/config/global-storage.test.ts (created)
+- src/test/config/package-config.test.ts (created)
+- src/test/config/prompts-storage.test.ts (created)
+- src/test/config/settings.test.ts (deleted - 1341 lines)
+- src/test/workflow/mcp-workflow-control.test.ts (created)
+- src/test/workflow/mcp-state-context.test.ts (created)
+- src/test/workflow/mcp-artefacts.test.ts (created)
+- src/test/workflow/mcp.test.ts (deleted - 856 lines)
+- src/test/previous-session-item.test.ts (created)
+- src/test/previous-session-provider.test.ts (created)
+- src/test/previousSession.test.ts (deleted - 521 lines)
+- .planning/phases/05-test-foundation/05-04-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 05-03:**
 - src/test/core/*.test.ts (9 files created)
