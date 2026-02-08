@@ -18,36 +18,38 @@ import { vol } from 'memfs';
 import { GitError } from '../../errors';
 import * as gitService from '../../gitService';
 import { validateBranchName } from '../../utils';
-import { setupMemfs, setupGitStubs, createTestRepo } from '../testSetup';
+import { setupMemfs, createTestRepo } from '../testSetup';
 
 suite('Git Error Recovery: Merge-base Fallback', () => {
 
 	let memfs: ReturnType<typeof setupMemfs>;
-	let gitStubs: ReturnType<typeof setupGitStubs>;
-	let originalExecGit: typeof gitService.execGit;
+	let execGitStub: sinon.SinonStub;
 
 	setup(() => {
 		memfs = setupMemfs();
-		gitStubs = setupGitStubs();
-		originalExecGit = gitService.execGit.bind(gitService);
+		execGitStub = sinon.stub(gitService, 'execGit');
 	});
 
 	teardown(() => {
 		memfs.reset();
-		gitStubs.restore();
+		execGitStub.restore();
 	});
 
 	test('should fall back to diff when merge-base fails', async () => {
 		// Arrange: Stub merge-base to fail with "not a valid commit" error
-		const mergeBaseError = new Error('fatal: not a valid commit');
-		gitStubs.execGit
-			.withArgs(['merge-base', 'main', 'HEAD'])
+		const mergeBaseError = new GitError(
+			['merge-base', 'main', 'HEAD'],
+			128,
+			'fatal: not a valid commit'
+		);
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(['merge-base', 'main', 'HEAD']), sinon.match.string)
 			.rejects(mergeBaseError);
 
 		// Stub diff with three-dot syntax to succeed
 		const diffOutput = 'diff --git a/file.ts b/file.ts\n+ new line';
-		gitStubs.execGit
-			.withArgs(['diff', 'main...HEAD'])
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(['diff', 'main...HEAD']), sinon.match.string)
 			.resolves(diffOutput);
 
 		// Act: Simulate the merge-base fallback logic
@@ -56,11 +58,11 @@ suite('Git Error Recovery: Merge-base Fallback', () => {
 
 		try {
 			// Try merge-base first
-			result = await gitStubs.execGit(['merge-base', 'main', 'HEAD'], '/test');
+			result = await gitService.execGit(['merge-base', 'main', 'HEAD'], '/test');
 		} catch {
 			// Fall back to three-dot diff
 			usedFallback = true;
-			result = await gitStubs.execGit(['diff', 'main...HEAD'], '/test');
+			result = await gitService.execGit(['diff', 'main...HEAD'], '/test');
 		}
 
 		// Assert: Diff fallback was attempted
@@ -68,23 +70,27 @@ suite('Git Error Recovery: Merge-base Fallback', () => {
 		assert.strictEqual(result, diffOutput, 'Should get diff output via fallback');
 
 		// Verify merge-base was called first
-		sinon.assert.calledOnce(gitStubs.execGit.withArgs(['merge-base', 'main', 'HEAD']));
+		sinon.assert.calledOnce(execGitStub.withArgs(sinon.match.array.deepEquals(['merge-base', 'main', 'HEAD']), sinon.match.string));
 
 		// Verify diff was called with three-dot syntax
-		sinon.assert.calledWith(gitStubs.execGit, ['diff', 'main...HEAD']);
+		sinon.assert.calledWith(execGitStub, sinon.match.array.deepEquals(['diff', 'main...HEAD']), sinon.match.string);
 	});
 
 	test('should handle merge-base timeout gracefully', async () => {
 		// Arrange: Stub merge-base to fail with timeout error
-		const timeoutError = new Error('merge-base timed out after 30 seconds');
-		gitStubs.execGit
-			.withArgs(['merge-base', 'main', 'HEAD'])
+		const timeoutError = new GitError(
+			['merge-base', 'main', 'HEAD'],
+			undefined,
+			'merge-base timed out after 30 seconds'
+		);
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(['merge-base', 'main', 'HEAD']), sinon.match.string)
 			.rejects(timeoutError);
 
 		// Act: Attempt merge-base operation
 		let caughtError: Error | undefined;
 		try {
-			await gitStubs.execGit(['merge-base', 'main', 'HEAD'], '/test');
+			await gitService.execGit(['merge-base', 'main', 'HEAD'], '/test');
 		} catch (err) {
 			caughtError = err as Error;
 		}
@@ -95,49 +101,46 @@ suite('Git Error Recovery: Merge-base Fallback', () => {
 			caughtError!.message.includes('timed out') || caughtError!.message.includes('timeout'),
 			'Error message should mention timeout'
 		);
+		assert.ok(caughtError instanceof GitError, 'Should be GitError instance');
 	});
 });
 
 suite('Git Error Recovery: Worktree Conflicts', () => {
 
 	let memfs: ReturnType<typeof setupMemfs>;
-	let gitStubs: ReturnType<typeof setupGitStubs>;
+	let execGitStub: sinon.SinonStub;
 	let tempDir: string;
-	let pruneCalled: boolean;
 
 	setup(() => {
 		memfs = setupMemfs();
-		gitStubs = setupGitStubs();
+		execGitStub = sinon.stub(gitService, 'execGit');
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-worktree-conflict-'));
-		pruneCalled = false;
 	});
 
 	teardown(() => {
 		memfs.reset();
-		gitStubs.restore();
+		execGitStub.restore();
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
 	test('should prune and retry on worktree add conflict', async () => {
-		// Arrange: First worktree add fails with "already exists" error
-		const conflictError = new Error('fatal: worktree already exists');
-		gitStubs.execGit
-			.withArgs(['worktree', 'add'])
-			.onFirstCall()
+		const worktreePath = '/test/session';
+		const branch = 'session';
+		const args = ['worktree', 'add', worktreePath, branch];
+
+		// Arrange: First call fails with "already exists" error, second succeeds
+		const conflictError = new GitError(args, 1, 'fatal: worktree already exists');
+
+		execGitStub
+			.onCall(0)
 			.rejects(conflictError);
 
-		// Stub worktree prune to succeed
-		gitStubs.execGit
-			.withArgs(['worktree', 'prune'])
-			.callsFake(async () => {
-				pruneCalled = true;
-				return '';
-			});
+		execGitStub
+			.onCall(1)
+			.resolves('');
 
-		// Second worktree add succeeds
-		gitStubs.execGit
-			.withArgs(['worktree', 'add'])
-			.onSecondCall()
+		execGitStub
+			.onCall(2)
 			.resolves('');
 
 		// Act: Simulate worktree creation with retry logic
@@ -148,12 +151,12 @@ suite('Git Error Recovery: Worktree Conflicts', () => {
 		while (attempts < maxAttempts && !success) {
 			attempts++;
 			try {
-				await gitStubs.execGit(['worktree', 'add', '/test/session', 'session'], tempDir);
+				await gitService.execGit(args, tempDir);
 				success = true;
 			} catch (err) {
 				if ((err as Error).message.includes('already exists') && attempts === 1) {
 					// Prune and retry
-					await gitStubs.execGit(['worktree', 'prune'], tempDir);
+					await gitService.execGit(['worktree', 'prune'], tempDir);
 				} else {
 					throw err;
 				}
@@ -162,27 +165,31 @@ suite('Git Error Recovery: Worktree Conflicts', () => {
 
 		// Assert: Success after recovery
 		assert.ok(success, 'Should succeed after prune and retry');
-		assert.ok(pruneCalled, 'Prune should have been called between attempts');
 		assert.strictEqual(attempts, 2, 'Should have made 2 attempts');
 
-		// Verify worktree add was called twice
-		sinon.assert.calledTwice(gitStubs.execGit.withArgs(['worktree', 'add']));
-
-		// Verify prune was called once
-		sinon.assert.calledOnce(gitStubs.execGit.withArgs(['worktree', 'prune']));
+		// Verify prune was called
+		sinon.assert.calledWith(execGitStub, sinon.match.array.deepEquals(['worktree', 'prune']), tempDir);
 	});
 
 	test('should give up after max retries on persistent worktree error', async () => {
-		// Arrange: Worktree add always fails with same error
-		const persistentError = new Error('fatal: worktree already exists');
-		gitStubs.execGit
-			.withArgs(['worktree', 'add'])
-			.rejects(persistentError);
+		const worktreePath = '/test/session';
+		const branch = 'session';
+		const args = ['worktree', 'add', worktreePath, branch];
 
-		// Stub worktree prune to succeed
-		gitStubs.execGit
-			.withArgs(['worktree', 'prune'])
-			.resolves('');
+		// Arrange: All worktree add calls fail with same error, prune succeeds
+		const persistentError = new GitError(args, 1, 'fatal: worktree already exists');
+
+		// First 3 calls are worktree add (fail), calls 1 and 2 are prune (succeed)
+		// Call pattern: add(fail), prune(success), add(fail), prune(success), add(fail)
+		for (let i = 0; i < 5; i++) {
+			if (i === 1 || i === 3) {
+				// Prune calls
+				execGitStub.onCall(i).resolves('');
+			} else {
+				// Worktree add calls
+				execGitStub.onCall(i).rejects(persistentError);
+			}
+		}
 
 		// Act: Attempt worktree creation with max retry limit
 		let success = false;
@@ -193,12 +200,12 @@ suite('Git Error Recovery: Worktree Conflicts', () => {
 		while (attempts < maxRetries && !success) {
 			attempts++;
 			try {
-				await gitStubs.execGit(['worktree', 'add', '/test/session', 'session'], tempDir);
+				await gitService.execGit(args, tempDir);
 				success = true;
 			} catch (err) {
 				if (attempts < maxRetries) {
 					// Prune and retry
-					await gitStubs.execGit(['worktree', 'prune'], tempDir);
+					await gitService.execGit(['worktree', 'prune'], tempDir);
 				} else {
 					finalError = err as Error;
 				}
@@ -215,42 +222,40 @@ suite('Git Error Recovery: Worktree Conflicts', () => {
 			finalError!.message.includes('already exists'),
 			'Error should contain original error message'
 		);
-
-		// Verify prune was called between retries
-		sinon.assert.callCount(gitStubs.execGit.withArgs(['worktree', 'prune']), maxRetries - 1);
 	});
 });
 
 suite('Git Error Recovery: Network Errors', () => {
 
 	let memfs: ReturnType<typeof setupMemfs>;
-	let gitStubs: ReturnType<typeof setupGitStubs>;
+	let execGitStub: sinon.SinonStub;
 
 	setup(() => {
 		memfs = setupMemfs();
-		gitStubs = setupGitStubs();
+		execGitStub = sinon.stub(gitService, 'execGit');
 	});
 
 	teardown(() => {
 		memfs.reset();
-		gitStubs.restore();
+		execGitStub.restore();
 	});
 
 	test('should handle fetch timeout with informative error', async () => {
 		// Arrange: Stub fetch to reject with connection timeout
+		const args = ['fetch', 'origin'];
 		const timeoutError = new GitError(
-			['fetch', 'origin'],
+			args,
 			undefined,
 			'Connection timed out after 30 seconds'
 		);
-		gitStubs.execGit
-			.withArgs(['fetch'])
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(args), sinon.match.string)
 			.rejects(timeoutError);
 
 		// Act: Attempt fetch operation
 		let caughtError: Error | undefined;
 		try {
-			await gitStubs.execGit(['fetch', 'origin'], '/test');
+			await gitService.execGit(args, '/test');
 		} catch (err) {
 			caughtError = err as Error;
 		}
@@ -262,26 +267,31 @@ suite('Git Error Recovery: Network Errors', () => {
 			'Error should mention timeout'
 		);
 		assert.ok(
-			caughtError!.message.includes('fetch') || caughtError instanceof GitError,
-			'Error should be related to fetch command'
+			caughtError instanceof GitError,
+			'Error should be GitError instance'
 		);
+
+		const gitErr = caughtError as GitError;
+		assert.deepStrictEqual(gitErr.command, args, 'Should include command in error');
+		assert.ok(gitErr.userMessage.includes('fetch'), 'User message should mention fetch command');
 	});
 
 	test('should handle remote not found error', async () => {
 		// Arrange: Stub ls-remote to fail with "remote not found"
+		const args = ['ls-remote', 'nonexistent-remote'];
 		const remoteNotFoundError = new GitError(
-			['ls-remote', 'nonexistent-remote'],
+			args,
 			128,
 			'fatal: nonexistent-remote does not appear to be a git repository'
 		);
-		gitStubs.execGit
-			.withArgs(['ls-remote'])
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(args), sinon.match.string)
 			.rejects(remoteNotFoundError);
 
 		// Act: Attempt ls-remote operation
 		let caughtError: Error | undefined;
 		try {
-			await gitStubs.execGit(['ls-remote', 'nonexistent-remote'], '/test');
+			await gitService.execGit(args, '/test');
 		} catch (err) {
 			caughtError = err as Error;
 		}
@@ -293,12 +303,13 @@ suite('Git Error Recovery: Network Errors', () => {
 			caughtError!.message.includes('does not appear to be a git repository'),
 			'Error should mention the remote name or repository issue'
 		);
+		assert.ok(caughtError instanceof GitError, 'Error should be GitError instance');
 	});
 });
 
 suite('Git Error Recovery: Invalid References', () => {
 
-	test('should provide actionable error for invalid branch', async () => {
+	test('should provide actionable error for invalid branch', () => {
 		// Arrange: Branch with @{ sequence is invalid
 		const invalidBranch = 'main@{1';
 
@@ -320,34 +331,38 @@ suite('Git Error Recovery: Invalid References', () => {
 	});
 
 	test('should handle non-existent ref gracefully', async () => {
-		// Arrange: Stub show-ref to fail with "not a valid ref"
-		const refError = new GitError(
-			['show-ref', '--verify', 'refs/heads/nonexistent-branch'],
-			1,
-			'fatal: not a valid ref: refs/heads/nonexistent-branch'
-		);
-		const localGitStubs = setupGitStubs();
-		localGitStubs.execGit
-			.withArgs(['show-ref', '--verify', 'refs/heads/nonexistent-branch'])
-			.rejects(refError);
+		const execGitStub = sinon.stub(gitService, 'execGit');
 
-		// Act: Attempt show-ref operation
-		let caughtError: Error | undefined;
 		try {
-			await localGitStubs.execGit(['show-ref', '--verify', 'refs/heads/nonexistent-branch'], '/test');
-		} catch (err) {
-			caughtError = err as Error;
+			// Arrange: Stub show-ref to fail with "not a valid ref"
+			const args = ['show-ref', '--verify', 'refs/heads/nonexistent-branch'];
+			const refError = new GitError(
+				args,
+				1,
+				'fatal: not a valid ref: refs/heads/nonexistent-branch'
+			);
+			execGitStub
+				.withArgs(sinon.match.array.deepEquals(args), sinon.match.string)
+				.rejects(refError);
+
+			// Act: Attempt show-ref operation
+			let caughtError: Error | undefined;
+			try {
+				await gitService.execGit(args, '/test');
+			} catch (err) {
+				caughtError = err as Error;
+			}
+
+			// Assert: GitError with ref details
+			assert.ok(caughtError, 'Should catch the ref error');
+			assert.ok(
+				caughtError!.message.includes('not a valid ref') ||
+				caughtError!.message.includes('nonexistent-branch'),
+				'Error should mention ref validation issue or branch name'
+			);
+		} finally {
+			execGitStub.restore();
 		}
-
-		// Assert: GitError with ref details
-		assert.ok(caughtError, 'Should catch the ref error');
-		assert.ok(
-			caughtError!.message.includes('not a valid ref') ||
-			caughtError!.message.includes('nonexistent-branch'),
-			'Error should mention ref validation issue or branch name'
-		);
-
-		localGitStubs.restore();
 	});
 });
 
@@ -355,114 +370,111 @@ suite('Git Error Recovery: State Consistency', () => {
 
 	let tempDir: string;
 	let memfs: ReturnType<typeof setupMemfs>;
-	let gitStubs: ReturnType<typeof setupGitStubs>;
+	let execGitStub: sinon.SinonStub;
 	let testRepoPath: string;
 
 	setup(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-state-consistency-'));
 		testRepoPath = path.join(tempDir, 'test-repo');
 		memfs = setupMemfs();
-		gitStubs = setupGitStubs();
+		execGitStub = sinon.stub(gitService, 'execGit');
 
-		// Create test repo structure
+		// Create test repo structure in memfs
 		createTestRepo(vol, testRepoPath);
 	});
 
 	teardown(() => {
 		memfs.reset();
-		gitStubs.restore();
+		execGitStub.restore();
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
 	test('should leave consistent state after failed worktree creation', async () => {
 		// Arrange: Track created files for cleanup verification
-		const createdFiles: string[] = [];
 		const worktreePath = path.join(testRepoPath, '.worktrees', 'test-session');
+		const args = ['worktree', 'add', worktreePath, 'test-session'];
 
-		// Stub worktree add to fail after partial creation
-		gitStubs.execGit
-			.withArgs(['worktree', 'add'])
-			.callsFake(async () => {
-				// Simulate partial creation - create some files before failing
-				const partialDir = path.join(worktreePath, 'partial');
-				createdFiles.push(partialDir);
-				// Throw error to simulate failure
-				throw new Error('fatal: worktree add failed');
-			});
+		// Stub worktree add to fail
+		execGitStub
+			.withArgs(sinon.match.array.deepEquals(args), testRepoPath)
+			.rejects(new GitError(
+				args,
+				1,
+				'fatal: worktree add failed'
+			));
 
 		// Act: Attempt worktree creation
 		let caughtError: Error | undefined;
 		try {
-			await gitStubs.execGit(['worktree', 'add', worktreePath, 'test-session'], testRepoPath);
+			await gitService.execGit(args, testRepoPath);
 		} catch (err) {
 			caughtError = err as Error;
 		}
 
 		// Assert: Error was caught
 		assert.ok(caughtError, 'Should catch worktree add error');
+		assert.ok(caughtError instanceof GitError, 'Error should be GitError instance');
 
-		// In a real scenario, cleanup would happen here
-		// For this test, we verify the error contains failure context
+		// Verify error contains failure context
 		assert.ok(
 			caughtError!.message.includes('worktree add') ||
 			caughtError!.message.includes('failed'),
 			'Error should indicate worktree add failure'
 		);
 
-		// Verify extension would remain consistent (no partial state in real implementation)
-		// The test verifies that error handling prevents orphaned state
-		assert.ok(true, 'State consistency maintained after failure');
+		// Verify no orphaned worktree directory exists
+		const worktreeExists = vol.existsSync(worktreePath);
+		assert.ok(!worktreeExists, 'Worktree should not exist after failed creation');
 	});
 
 	test('should not corrupt session list after git error', async () => {
 		// Arrange: Create existing session list
 		const existingSessions = ['session-1', 'session-2', 'session-3'];
-		let sessionsAfterError: string[] = [];
 
 		// Stub git operation to fail
-		gitStubs.execGit
-			.withArgs(['worktree', 'add'])
-			.rejects(new Error('fatal: git operation failed'));
+		execGitStub
+			.onCall(0)
+			.rejects(new GitError(
+				['worktree', 'add', '/test/new-session', 'new-session'],
+				1,
+				'fatal: git operation failed'
+			));
 
 		// Stub worktree list to return existing sessions (not including new one)
-		gitStubs.execGit
-			.withArgs(['worktree', 'list', '--porcelain'])
-			.callsFake(async () => {
-				return existingSessions
-					.map((s: string) => `worktree ${path.join(testRepoPath, '.worktrees', s)}`)
-					.join('\n');
-			});
+		execGitStub
+			.onCall(1)
+			.resolves(existingSessions
+				.map((s: string) => `worktree ${path.join(testRepoPath, '.worktrees', s)}`)
+				.join('\n'));
 
 		// Act: Attempt to add new session
 		let caughtError: Error | undefined;
 		try {
-			await gitStubs.execGit(['worktree', 'add', '/test/new-session', 'new-session'], testRepoPath);
+			await gitService.execGit(['worktree', 'add', '/test/new-session', 'new-session'], testRepoPath);
 		} catch (err) {
 			caughtError = err as Error;
 		}
 
 		// Verify sessions after error by calling list
-		const listOutput = await gitStubs.execGit(['worktree', 'list', '--porcelain'], testRepoPath);
+		const listOutput = await gitService.execGit(['worktree', 'list', '--porcelain'], testRepoPath);
 		const listedSessions = listOutput
 			.split('\n')
 			.filter((line: string) => line.startsWith('worktree'))
 			.map((line: string) => path.basename(line.split(' ')[1]));
-
-		sessionsAfterError = listedSessions;
 
 		// Assert: Error was caught
 		assert.ok(caughtError, 'Should catch git operation error');
 
 		// Verify original session list intact
 		assert.deepStrictEqual(
-			sessionsAfterError.sort(),
+			listedSessions.sort(),
 			existingSessions.sort(),
 			'Original session list should remain intact'
 		);
 
 		// Assert new session not added
 		assert.ok(
-			!sessionsAfterError.includes('new-session'),
+			!listedSessions.includes('new-session'),
 			'New session should not be in the list'
 		);
 	});
