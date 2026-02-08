@@ -139,7 +139,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. Worktree operations are isolated behind a clear service interface
 3. Each module has a single, well-defined responsibility
 
-**Plans**: TBD
+**Plans**: 5
+- [ ] 07-01-PLAN.md — Extract foundational services (BrokenWorktree, Settings, Diff)
+- [ ] 07-02-PLAN.md — Extract Workflow and SessionProcess services
+- [ ] 07-03-PLAN.md — Extract SessionService and TerminalService
+- [ ] 07-04-PLAN.md — Extract command registration module
+- [ ] 07-05-PLAN.md — Thin extension.ts entry point and file watchers
 
 ### Phase 8: Code Quality
 
@@ -169,5 +174,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Security Auditing | 0/1 | Ready to execute | - |
 | 5. Test Foundation | 0/3 | Ready to execute | - |
 | 6. Integration Testing | 3/3 | ✓ Complete | 2026-02-08 |
-| 7. Module Extraction | 0/TBD | Not started | - |
+| 7. Module Extraction | 0/5 | Ready to execute | - |
 | 8. Code Quality | 0/TBD | Not started | - |
