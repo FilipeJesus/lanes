@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 8 (Code Quality)
-Plan: 2 of 5 in current phase
+Plan: 3 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-08 - Completed 08-02-PLAN.md (MCP Abstraction Layer)
+Last activity: 2026-02-08 - Completed 08-04-PLAN.md (MCP Tools and Workflow Migration)
 
-Progress: [█████████████████████████░░░░░░░░░░░░░░░] 63% (25/40 plans)
+Progress: [██████████████████████████░░░░░░░░░░░░░░] 65% (26/40 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
+- Total plans completed: 26
 - Average duration: 6 min
-- Total execution time: 2.28 hours
+- Total execution time: 2.38 hours
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress: [███████████████████████
 | 05-test-foundation | 4 | 43 min | 11 min |
 | 06-integration-testing | 3 | 22 min | 7 min |
 | 07-module-extraction | 5 | 110 min | 22 min |
-| 08-code-quality | 2 | 5 min | 3 min |
+| 08-code-quality | 3 | 11 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 15 min avg
+- Last 5 plans: 12 min avg
 - Trend: Code quality phase progressing rapidly
 
 *Updated after each plan completion*
@@ -49,6 +49,10 @@ Progress: [███████████████████████
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+**Phase 08-04 Decisions:**
+- Used FileService directly for session file ops in tools.ts: McpAdapter has different path conventions (.git/.lanes/) than existing MCP server (.lanes/pending-sessions/)
+- Made registerArtefacts async: All callers already in async contexts, enables fileExists await
 
 **Phase 08-02 Decisions:**
 - McpAdapter uses FileService pure functions directly: No class injection needed since FileService exports standalone functions
@@ -71,22 +75,30 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 **Next Phase Steps:**
-- Plan 08-03: Migrate ClaudeSessionProvider and PreviousSessionProvider to FileService
-- Plans 08-04 to 08-05: Migrate MCP tools, workflow state, and final pass
+- Plan 08-03: Migrate ClaudeSessionProvider and PreviousSessionProvider to FileService (parallel, may already be in progress)
+- Plan 08-05: Final pass - migrate remaining files and promote ESLint sync fs rule from warn to error
 - After migration complete: promote ESLint sync fs rule from warn to error
 
 ### Blockers/Concerns
 
 **Known Deviations:**
-- ESLint sync fs rule at warn level (57 existing violations, will be resolved in plans 08-03 to 08-05)
+- ESLint sync fs rule at warn level (remaining violations in ClaudeSessionProvider, PreviousSessionProvider, extension.ts, SessionProcessService, SessionService, TerminalService, watchers.ts)
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 08-02-PLAN.md (MCP Abstraction Layer)
-Resume file: .planning/phases/08-code-quality/08-02-SUMMARY.md
+Stopped at: Completed 08-04-PLAN.md (MCP Tools and Workflow Migration)
+Resume file: .planning/phases/08-code-quality/08-04-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 08-04:**
+- src/mcp/tools.ts (modified - replaced fs with mcpAdapter + FileService)
+- src/workflow/state.ts (modified - replaced fs.existsSync with async fileExists)
+- src/commands/sessionCommands.ts (modified - replaced fs.existsSync with async fileExists)
+- src/test/workflow/workflow-resume.test.ts (modified - await registerArtefacts)
+- .planning/phases/08-code-quality/08-04-SUMMARY.md (created)
+- .planning/STATE.md (updated)
 
 **Plan 08-02:**
 - src/types/mcp.d.ts (created - 43 lines, IMcpAdapter + PendingSessionConfig interfaces)
