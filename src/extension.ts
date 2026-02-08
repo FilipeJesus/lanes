@@ -44,6 +44,8 @@ import { LanesError, GitError, ValidationError } from './errors';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
 import type { PendingSessionConfig, ClearSessionConfig } from './types/extension';
+import type { ServiceContainer } from './types/serviceContainer';
+import { registerSessionCommands } from './commands/sessionCommands';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 
@@ -632,6 +634,22 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(configChangeDisposable);
+
+    // Create service container for dependency injection
+    const services: ServiceContainer = {
+        extensionContext: context,
+        sessionProvider,
+        sessionFormProvider,
+        previousSessionProvider,
+        workflowsProvider,
+        workspaceRoot,
+        baseRepoPath,
+        extensionPath: context.extensionPath,
+        codeAgent
+    };
+
+    // Register session commands
+    registerSessionCommands(context, services);
 
     // 2. Register CREATE Command (for command palette / keybinding usage)
     let createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
