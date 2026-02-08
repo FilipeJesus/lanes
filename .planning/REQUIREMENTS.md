@@ -77,24 +77,24 @@ Deferred to future milestone.
 |-------------|-------|--------|
 | REL-01 | Phase 1 | Pending |
 | REL-02 | Phase 1 | Pending |
-| REL-03 | Phase 4 | Pending |
 | REL-04 | Phase 2 | Pending |
-| REL-05 | Phase 4 | Pending |
 | REL-06 | Phase 2 | Pending |
+| TEST-01 | Phase 2 | Pending |
 | SEC-01 | Phase 3 | Pending |
 | SEC-02 | Phase 3 | Pending |
 | SEC-03 | Phase 3 | Pending |
-| SEC-04 | Phase 3 | Pending |
-| SEC-05 | Phase 3 | Pending |
-| MAINT-01 | Phase 5 | Pending |
-| MAINT-02 | Phase 5 | Pending |
-| MAINT-03 | Phase 5 | Pending |
-| MAINT-04 | Phase 5 | Pending |
-| MAINT-05 | Phase 4 | Pending |
-| MAINT-06 | Phase 5 | Pending |
-| TEST-01 | Phase 2 | Pending |
-| TEST-02 | Phase 4 | Pending |
-| TEST-03 | Phase 4 | Pending |
+| SEC-04 | Phase 4 | Pending |
+| SEC-05 | Phase 4 | Pending |
+| REL-03 | Phase 5 | Pending |
+| MAINT-05 | Phase 5 | Pending |
+| TEST-03 | Phase 5 | Pending |
+| REL-05 | Phase 6 | Pending |
+| TEST-02 | Phase 6 | Pending |
+| MAINT-01 | Phase 7 | Pending |
+| MAINT-03 | Phase 7 | Pending |
+| MAINT-02 | Phase 8 | Pending |
+| MAINT-04 | Phase 8 | Pending |
+| MAINT-06 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 20 total
@@ -103,4 +103,4 @@ Deferred to future milestone.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after initial definition*
+*Last updated: 2026-02-08 after roadmap creation*

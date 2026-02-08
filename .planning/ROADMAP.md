@@ -1,0 +1,162 @@
+# Roadmap: Lanes Stabilization
+
+## Overview
+
+Lanes stabilization progresses through five focus areas: critical bugs, error handling, security hardening, testing reliability, and maintainability improvements. Each phase delivers verifiable improvements to reliability, security, or code quality while maintaining backwards compatibility for existing users.
+
+The journey begins by eliminating known race conditions and Git instability, then establishes proper error handling throughout the codebase. Security hardening follows with input validation and audits, after which testing improvements stabilize the flaky test environment. The stabilization concludes with major refactoring to improve long-term maintainability.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Critical Bug Fixes** - Eliminate race conditions and Git instability
+- [ ] **Phase 2: Error Handling** - Replace null returns with proper error types
+- [ ] **Phase 3: Input Validation** - Harden security through strict input validation
+- [ ] **Phase 4: Security Auditing** - Audit file system and command execution security
+- [ ] **Phase 5: Test Foundation** - Stabilize flaky tests and split test files
+- [ ] **Phase 6: Integration Testing** - Add error path and MCP integration tests
+- [ ] **Phase 7: Module Extraction** - Split extension.ts and extract worktree service
+- [ ] **Phase 8: Code Quality** - Standardize async I/O and create MCP abstraction
+
+## Phase Details
+
+### Phase 1: Critical Bug Fixes
+
+**Goal**: Users can create sessions reliably without race conditions or Git errors
+
+**Depends on**: Nothing (first phase)
+
+**Requirements**: REL-01, REL-02
+
+**Success Criteria** (what must be TRUE):
+1. User can create sessions rapidly without worktree initialization failures
+2. User can view Git changes for branches with non-standard names (e.g., feature/., feature/*)
+3. No "Cannot get merge-base" errors when showing changes from remote branches
+
+**Plans**: TBD
+
+### Phase 2: Error Handling
+
+**Goal**: Users receive clear, actionable error messages instead of silent failures
+
+**Depends on**: Phase 1
+
+**Requirements**: REL-04, REL-06, TEST-01
+
+**Success Criteria** (what must be TRUE):
+1. User sees descriptive error messages when operations fail (not generic errors)
+2. All critical functions have tests covering error paths
+3. Error types are consistent across the codebase (no mixed null/throw patterns)
+
+**Plans**: TBD
+
+### Phase 3: Input Validation
+
+**Goal**: User inputs are validated before use, preventing security vulnerabilities
+
+**Depends on**: Phase 2
+
+**Requirements**: SEC-01, SEC-02, SEC-03
+
+**Success Criteria** (what must be TRUE):
+1. User cannot create sessions with malicious names (e.g., ../../etc/passwd)
+2. Invalid configuration values are rejected with clear error messages
+3. All user-facing inputs pass through validation before use
+
+**Plans**: TBD
+
+### Phase 4: Security Auditing
+
+**Goal**: File system and command execution operations are secure against exploitation
+
+**Depends on**: Phase 3
+
+**Requirements**: SEC-04, SEC-05
+
+**Success Criteria** (what must be TRUE):
+1. All file system operations use safe path handling
+2. External command execution uses proper argument escaping
+3. Security audit report documents all reviewed operations
+
+**Plans**: TBD
+
+### Phase 5: Test Foundation
+
+**Goal**: Tests pass reliably in CI without flakiness
+
+**Depends on**: Phase 4
+
+**Requirements**: REL-03, MAINT-05, TEST-03
+
+**Success Criteria** (what must be TRUE):
+1. Test suite passes consistently in CI environment (no intermittent failures)
+2. Test files are organized by functionality (not monolithic files)
+3. File system operations in tests use proper mocking to avoid race conditions
+
+**Plans**: TBD
+
+### Phase 6: Integration Testing
+
+**Goal**: Error paths and MCP integration are thoroughly tested
+
+**Depends on**: Phase 5
+
+**Requirements**: REL-05, TEST-02
+
+**Success Criteria** (what must be TRUE):
+1. All error scenarios have documented test coverage
+2. MCP workflow integration tests verify end-to-end functionality
+3. Test suite can be run reproducibly in any environment
+
+**Plans**: TBD
+
+### Phase 7: Module Extraction
+
+**Goal**: Extension code is organized in focused, maintainable modules
+
+**Depends on**: Phase 6
+
+**Requirements**: MAINT-01, MAINT-03
+
+**Success Criteria** (what must be TRUE):
+1. extension.ts is split into modules by functionality (session management, workflow, MCP)
+2. Worktree operations are isolated behind a clear service interface
+3. Each module has a single, well-defined responsibility
+
+**Plans**: TBD
+
+### Phase 8: Code Quality
+
+**Goal**: Code follows consistent patterns with standardized async I/O
+
+**Depends on**: Phase 7
+
+**Requirements**: MAINT-02, MAINT-04, MAINT-06
+
+**Success Criteria** (what must be TRUE):
+1. All file I/O operations use async/await consistently
+2. MCP integration is isolated behind an abstraction layer
+3. Code style follows established conventions (verified by linting)
+
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Critical Bug Fixes | 0/TBD | Not started | - |
+| 2. Error Handling | 0/TBD | Not started | - |
+| 3. Input Validation | 0/TBD | Not started | - |
+| 4. Security Auditing | 0/TBD | Not started | - |
+| 5. Test Foundation | 0/TBD | Not started | - |
+| 6. Integration Testing | 0/TBD | Not started | - |
+| 7. Module Extraction | 0/TBD | Not started | - |
+| 8. Code Quality | 0/TBD | Not started | - |
