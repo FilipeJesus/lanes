@@ -19,7 +19,6 @@ import {
   loadWorkflowTemplate,
 } from '../workflow';
 import * as path from 'path';
-import * as fs from 'fs';
 
 // Parse command-line arguments
 // Expected: node server.js --worktree <path> --workflow-path <path> --repo-root <path>
