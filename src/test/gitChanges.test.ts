@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import sinon from 'sinon';
+import * as gitService from '../gitService';
 import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
 import { branchExists, getBranchesInWorktrees, getBaseBranch, getBaseRepoPath, parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff } from '../extension';
 import { parseDiff, GitChangesPanel, FileDiff, ReviewComment, formatReviewForClipboard } from '../GitChangesPanel';
@@ -11,15 +13,60 @@ suite('Git Changes Test Suite', () => {
 
 	let tempDir: string;
 	let worktreesDir: string;
+	let execGitStub: sinon.SinonStub;
+	let originalExecGit: typeof gitService.execGit;
 
 	// Create a temp directory structure before tests
 	setup(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-git-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
+
+		// Save original execGit before stubbing
+		originalExecGit = gitService.execGit.bind(gitService);
+
+		// Set up git stubs for mocking to prevent parent directory traversal
+		execGitStub = sinon.stub(gitService, 'execGit');
+
+		// Configure stub behavior for different git commands
+		execGitStub.callsFake(async (args: string[], cwd: string, options?: gitService.ExecGitOptions) => {
+			// Mock worktree list command - return empty output for non-git directories
+			if (args[0] === 'worktree' && args[1] === 'list' && args.includes('--porcelain')) {
+				// Check if this is a real git repo by looking for .git directory
+				const gitDir = path.join(cwd, '.git');
+				try {
+					fs.statSync(gitDir);
+					// This is a real git repo, use real git
+					return await originalExecGit(args, cwd, options);
+				} catch {
+					// Not a git repo, return empty output
+					return '';
+				}
+			}
+
+			// Mock rev-parse for non-git directories
+			if (args.includes('rev-parse')) {
+				const gitDir = path.join(cwd, '.git');
+				try {
+					fs.statSync(gitDir);
+					// This is a real git repo, use real git
+					return await originalExecGit(args, cwd, options);
+				} catch {
+					// Not a git repo, throw error
+					throw new Error('not a git repository');
+				}
+			}
+
+			// For other commands, use real git
+			return await originalExecGit(args, cwd, options);
+		});
 	});
 
 	// Clean up after each test
 	teardown(() => {
+		// Restore stubs
+		if (execGitStub) {
+			execGitStub.restore();
+		}
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
@@ -75,11 +122,9 @@ suite('Git Changes Test Suite', () => {
 			assert.ok(result.size > 0, 'getBranchesInWorktrees should return at least one branch for repository with worktrees');
 		});
 
-		// Skip: Git traverses parent directories to find repositories, making this test
-		// environment-dependent. In VS Code test environments, git may find the parent repo.
-		test.skip('getBranchesInWorktrees should return empty set when no worktrees have branches', async () => {
+		test('getBranchesInWorktrees should return empty set when no worktrees have branches', async () => {
 			// Arrange: Create a temporary directory that is NOT a git repository
-			// This will cause the git command to fail, returning an empty set
+			// Our stub will return empty output for non-git directories
 			const tempNonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-dir-'));
 
 			try {
@@ -220,10 +265,9 @@ suite('Git Changes Test Suite', () => {
 			}
 		});
 
-		// Skip: Git traverses parent directories to find repositories, making this test
-		// environment-dependent. In VS Code test environments, git may find the parent repo.
-		test.skip('should return main as fallback for non-git directory', async () => {
+		test('should return main as fallback for non-git directory', async () => {
 			// Arrange: Create a temporary directory that is NOT a git repository
+			// Our stub will throw an error for non-git directories, causing the function to use fallback
 			const tempNonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-base-branch-'));
 
 			try {
@@ -1150,10 +1194,9 @@ index 7654321..gfedcba 100644
 			}
 		});
 
-		// Skip: Git traverses parent directories to find repositories, making this test
-		// environment-dependent. In VS Code test environments, git may find the parent repo.
-		test.skip('should return original path for non-git directory', async () => {
+		test('should return original path for non-git directory', async () => {
 			// Arrange: Create a temporary directory that is NOT a git repository
+			// Our stub will throw an error for non-git directories, causing the function to return original path
 			const tempNonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-worktree-test-'));
 
 			try {
@@ -1172,10 +1215,9 @@ index 7654321..gfedcba 100644
 			}
 		});
 
-		// Skip: Git traverses parent directories to find repositories, making this test
-		// environment-dependent. In VS Code test environments, git may find the parent repo.
-		test.skip('should log warning when git command fails in non-git directory', async () => {
+		test('should log warning when git command fails in non-git directory', async () => {
 			// Arrange: Create a temporary directory that is NOT a git repository
+			// Our stub will throw an error for non-git directories, causing the function to return original path
 			const tempNonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-warning-test-'));
 
 			try {
