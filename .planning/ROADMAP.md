@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Input Validation** - Harden security through strict input validation **COMPLETED 2026-02-08**
 - [ ] **Phase 4: Security Auditing** - Audit file system and command execution security
 - [ ] **Phase 5: Test Foundation** - Stabilize flaky tests and split test files
-- [ ] **Phase 6: Integration Testing** - Add error path and MCP integration tests
+- [x] **Phase 6: Integration Testing** - Add error path and MCP integration tests **COMPLETED 2026-02-08**
 - [ ] **Phase 7: Module Extraction** - Split extension.ts and extract worktree service
 - [ ] **Phase 8: Code Quality** - Standardize async I/O and create MCP abstraction
 
@@ -121,7 +121,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. MCP workflow integration tests verify end-to-end functionality
 3. Test suite can be run reproducibly in any environment
 
-**Plans**: TBD
+**Plans**: 3
+- [x] 06-01-PLAN.md — Error path integration tests (GitError, ValidationError propagation) **COMPLETED 2026-02-08**
+- [x] 06-02-PLAN.md — MCP workflow integration tests (state persistence, transitions) **COMPLETED 2026-02-08**
+- [x] 06-03-PLAN.md — Git error recovery tests (fallback behaviors, retries) **COMPLETED 2026-02-08**
 
 ### Phase 7: Module Extraction
 
@@ -165,6 +168,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Input Validation | 1/1 | ✓ Complete | 2026-02-08 |
 | 4. Security Auditing | 0/1 | Ready to execute | - |
 | 5. Test Foundation | 0/3 | Ready to execute | - |
-| 6. Integration Testing | 0/TBD | Not started | - |
+| 6. Integration Testing | 3/3 | ✓ Complete | 2026-02-08 |
 | 7. Module Extraction | 0/TBD | Not started | - |
 | 8. Code Quality | 0/TBD | Not started | - |

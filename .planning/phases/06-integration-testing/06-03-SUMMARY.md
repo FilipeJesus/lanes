@@ -102,7 +102,7 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+**[Rule 1 - Bug] Fixed stubbing issues in git-error-recovery.test.ts** — Found during: Final verification | Issue: Tests used setupGitStubs() which created fresh anonymous stubs that couldn't be restored | Fix: Changed to use `sinon.stub(gitService, 'execGit')` directly with proper argument matching using `sinon.match.array.deepEquals()` | Files modified: `src/test/integration/git-error-recovery.test.ts` | Verification: All 10 git error recovery tests pass | Commit hash: `3ef1e22`
 
 ## Issues Encountered
 
