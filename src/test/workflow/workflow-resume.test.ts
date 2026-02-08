@@ -141,7 +141,7 @@ suite('Workflow Resume Tests', () => {
 		const machine = new WorkflowStateMachine(template);
 		machine.start();
 		machine.setSummary('Test summary');
-		machine.registerArtefacts([testFile]);
+		await machine.registerArtefacts([testFile]);
 		machine.advance('Step 1 output');
 
 		const originalState = machine.getState();

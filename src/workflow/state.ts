@@ -2,8 +2,8 @@
  * Workflow state machine for tracking and advancing through workflow execution.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
+import { fileExists } from '../services/FileService';
 
 import type {
   WorkflowTemplate,
@@ -590,11 +590,11 @@ export class WorkflowStateMachine {
    * @param paths - Array of file paths (absolute or relative)
    * @returns Object containing registered, duplicates, and invalid paths
    */
-  registerArtefacts(paths: string[]): {
+  async registerArtefacts(paths: string[]): Promise<{
     registered: string[];
     duplicates: string[];
     invalid: string[];
-  } {
+  }> {
     const workspaceRoot = process.cwd();
     const registered: string[] = [];
     const duplicates: string[] = [];
@@ -613,7 +613,7 @@ export class WorkflowStateMachine {
         : path.resolve(workspaceRoot, rawPath);
 
       // Validate file exists
-      if (!fs.existsSync(absolutePath)) {
+      if (!(await fileExists(absolutePath))) {
         invalid.push(absolutePath);
         continue;
       }

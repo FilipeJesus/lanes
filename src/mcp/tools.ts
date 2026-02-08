@@ -219,7 +219,7 @@ export async function workflowRegisterArtefacts(
   paths: string[],
   worktreePath: string
 ): Promise<{ registered: string[]; duplicates: string[]; invalid: string[] }> {
-  const result = machine.registerArtefacts(paths);
+  const result = await machine.registerArtefacts(paths);
 
   // Persist state after registration
   await saveState(worktreePath, machine.getState());
