@@ -20,3 +20,6 @@ tests.json
 # Git worktrees directory
 .worktrees/
 socials/
+
+# Coverage reports
+coverage/
