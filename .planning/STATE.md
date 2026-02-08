@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 5 of 8 (Test Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-08 — Completed 05-01 test mocking infrastructure
+Last activity: 2026-02-08 — Completed 05-02 flaky test fixes
 
-Progress: [███████░░░] 65%
+Progress: [████████░░] 69%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 5 min
-- Total execution time: 0.4 hours
+- Total execution time: 0.5 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [███████░░░] 65%
 | 02-error-handling | 1 | 6 min | 6 min |
 | 03-input-validation | 1 | 5 min | 5 min |
 | 04-security-auditing | 1 | 2 min | 2 min |
-| 05-test-foundation | 1 | 2 min | 2 min |
+| 05-test-foundation | 2 | 8 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min avg (5 completed)
+- Last 5 plans: 5 min avg (6 completed)
 - Trend: Maintaining velocity with established patterns
 
 *Updated after each plan completion*
@@ -78,6 +78,11 @@ Recent decisions affecting current work:
 - Added createWorktree() utility bonus for worktree-specific metadata structure testing
 - memfs and sinon selected as standard test mocking stack per research recommendations
 
+**Phase 05-02 Decisions:**
+- Direct stubbing of gitService.execGit instead of using testSetup stub wrappers - more reliable for module-level imports
+- Saved original execGit function before stubbing to enable fallback to real git for repo initialization
+- Stub checks for .git directory existence to determine real vs mocked behavior
+
 ### Pending Todos
 
 None yet.
@@ -89,10 +94,15 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 05-01-SUMMARY.md, test mocking infrastructure complete
-Resume file: .planning/phases/05-test-foundation/05-01-SUMMARY.md
+Stopped at: Completed 05-02-SUMMARY.md, flaky test fixes complete
+Resume file: .planning/phases/05-test-foundation/05-02-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 05-02:**
+- src/test/brokenWorktree.test.ts (modified - added sinon stubbing for git operations)
+- src/test/gitChanges.test.ts (modified - added sinon stubbing for parent directory traversal)
+- .planning/phases/05-test-foundation/05-02-SUMMARY.md (created)
 
 **Plan 05-01:**
 - package.json (modified - added memfs, sinon, @types/sinon devDependencies)
