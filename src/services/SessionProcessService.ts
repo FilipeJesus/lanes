@@ -16,9 +16,9 @@ import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
 import { CodeAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
 import { createSession as createSessionService } from './SessionService';
+import { openClaudeTerminal as openClaudeTerminalService } from './TerminalService';
 
-// Terminal function still comes from extension.ts (will be resolved in Task 3)
-let openClaudeTerminal: any = null;
+// validateWorkflow still comes from extension.ts (WorkflowService extraction was in 07-02)
 let validateWorkflow: any = null;
 
 /**
@@ -148,8 +148,6 @@ export async function checkPendingSessions(
 /**
  * Process a pending session clear request from the MCP server.
  * Closes the existing terminal and opens a new one with fresh context.
- *
- * Note: This function still calls openClaudeTerminal from extension.ts (will be resolved in Task 3).
  */
 export async function processClearRequest(
     configPath: string,
@@ -157,20 +155,12 @@ export async function processClearRequest(
     baseRepoPath: string | undefined,
     sessionProvider: ClaudeSessionProvider,
     // Internal functions from extension (temporary)
-    clearSessionIdFn?: any,
-    openClaudeTerminalFn?: any
+    clearSessionIdFn?: any
 ): Promise<void> {
     const clearSessionIdImpl = clearSessionIdFn || ((path: string) => {
         const { clearSessionId: _clearSessionId } = require('../ClaudeSessionProvider');
         _clearSessionId(path);
     });
-
-    const openClaudeTerminalImpl = openClaudeTerminalFn;
-
-    if (!openClaudeTerminalImpl) {
-        console.error('processClearRequest: openClaudeTerminal function not provided');
-        return;
-    }
 
     try {
         // Read and parse the config file
@@ -199,7 +189,7 @@ export async function processClearRequest(
         }
 
         // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
-        await openClaudeTerminalImpl(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+        await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
         console.log(`Session cleared: ${sessionName}`);
 
