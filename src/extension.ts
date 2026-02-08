@@ -32,12 +32,16 @@ import { PreviousSessionProvider, PreviousSessionItem, getPromptsDir } from './P
 import { WorkflowsProvider } from './WorkflowsProvider';
 import { discoverWorkflows, WorkflowMetadata, loadWorkflowTemplateFromString, WorkflowValidationError } from './workflow';
 import { addProject, removeProject, clearCache as clearProjectManagerCache, initialize as initializeProjectManagerService } from './ProjectManagerService';
-import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage } from './utils';
+import { sanitizeSessionName as _sanitizeSessionName, getErrorMessage, validateBranchName, ValidationResult } from './utils';
+import { AsyncQueue } from './AsyncQueue';
 import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from './localSettings';
 // Use local reference for internal use
 const sanitizeSessionName = _sanitizeSessionName;
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
+
+// Session creation queue - prevents race conditions when rapidly creating sessions
+const sessionCreationQueue = new AsyncQueue();
 
 /**
  * Pending session request from MCP server.
@@ -1703,14 +1707,14 @@ async function createSession(
 ): Promise<void> {
     console.log("Create Session triggered!");
 
-    // 1. Check Workspace
+    // 1. Check Workspace (early check, outside queue for fast feedback)
     if (!workspaceRoot) {
         const errorMsg = "Error: You must open a folder/workspace first!";
         vscode.window.showErrorMessage(errorMsg);
         throw new Error(errorMsg);
     }
 
-    // 3. Check Git Status (do this once before the loop)
+    // 2. Check Git Status (early check, outside queue for fast feedback)
     const isGit = fs.existsSync(path.join(workspaceRoot, '.git'));
     if (!isGit) {
         const errorMsg = "Error: Current folder is not a git repository. Run 'git init' first.";
@@ -1718,230 +1722,233 @@ async function createSession(
         throw new Error(errorMsg);
     }
 
-    // Use iterative approach to handle name conflicts
-    let currentName = name;
-    const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
+    // Queue the actual session creation to prevent race conditions
+    return sessionCreationQueue.add(async () => {
+        // Use iterative approach to handle name conflicts
+        let currentName = name;
+        const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
 
-    while (true) {
-        // 2. Validate name exists
-        if (!currentName || !currentName.trim()) {
-            const errorMsg = "Error: Session name is required!";
-            vscode.window.showErrorMessage(errorMsg);
-            throw new Error(errorMsg);
-        }
+        while (true) {
+            // 3. Validate name exists
+            if (!currentName || !currentName.trim()) {
+                const errorMsg = "Error: Session name is required!";
+                vscode.window.showErrorMessage(errorMsg);
+                throw new Error(errorMsg);
+            }
 
-        // 2a. Sanitize the name to make it git-safe
-        const sanitizedName = sanitizeSessionName(currentName);
+            // 3a. Sanitize the name to make it git-safe
+            const sanitizedName = sanitizeSessionName(currentName);
 
-        // 2b. Check if sanitization resulted in an empty string
-        if (!sanitizedName) {
-            const errorMsg = "Error: Session name contains no valid characters. Use letters, numbers, hyphens, underscores, dots, or slashes.";
-            vscode.window.showErrorMessage(errorMsg);
-            throw new Error(errorMsg);
-        }
+            // 3b. Check if sanitization resulted in an empty string
+            if (!sanitizedName) {
+                const errorMsg = "Error: Session name contains no valid characters. Use letters, numbers, hyphens, underscores, dots, or slashes.";
+                vscode.window.showErrorMessage(errorMsg);
+                throw new Error(errorMsg);
+            }
 
-        const trimmedName = sanitizedName;
+            const trimmedName = sanitizedName;
 
-        // 2c. Validate branch name characters (git-safe) - should pass after sanitization
-        if (!branchNameRegex.test(trimmedName)) {
-            const errorMsg = "Error: Session name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
-            vscode.window.showErrorMessage(errorMsg);
-            throw new Error(errorMsg);
-        }
+            // 3c. Validate branch name characters (git-safe) - should pass after sanitization
+            if (!branchNameRegex.test(trimmedName)) {
+                const errorMsg = "Error: Session name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
+                vscode.window.showErrorMessage(errorMsg);
+                throw new Error(errorMsg);
+            }
 
-        // 2d. Prevent names that could cause git issues - should pass after sanitization
-        if (trimmedName.startsWith('-') || trimmedName.startsWith('.') ||
-            trimmedName.endsWith('.') || trimmedName.includes('..') ||
-            trimmedName.endsWith('.lock')) {
-            const errorMsg = "Error: Session name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'";
-            vscode.window.showErrorMessage(errorMsg);
-            throw new Error(errorMsg);
-        }
+            // 3d. Prevent names that could cause git issues - should pass after sanitization
+            if (trimmedName.startsWith('-') || trimmedName.startsWith('.') ||
+                trimmedName.endsWith('.') || trimmedName.includes('..') ||
+                trimmedName.endsWith('.lock')) {
+                const errorMsg = "Error: Session name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'";
+                vscode.window.showErrorMessage(errorMsg);
+                throw new Error(errorMsg);
+            }
 
-        const worktreePath = path.join(workspaceRoot, getWorktreesFolder(), trimmedName);
-        console.log(`Target path: ${worktreePath}`);
+            const worktreePath = path.join(workspaceRoot, getWorktreesFolder(), trimmedName);
+            console.log(`Target path: ${worktreePath}`);
 
-        try {
-            // 4. Create Worktree
-            vscode.window.showInformationMessage(`Creating session '${trimmedName}'...`);
+            try {
+                // 4. Create Worktree
+                vscode.window.showInformationMessage(`Creating session '${trimmedName}'...`);
 
-            await ensureWorktreeDirExists(workspaceRoot);
+                await ensureWorktreeDirExists(workspaceRoot);
 
-            // Check if the branch already exists
-            const branchAlreadyExists = await branchExists(workspaceRoot, trimmedName);
+                // Check if the branch already exists
+                const branchAlreadyExists = await branchExists(workspaceRoot, trimmedName);
 
-            if (branchAlreadyExists) {
-                // Check if the branch is already in use by another worktree
-                const branchesInUse = await getBranchesInWorktrees(workspaceRoot);
+                if (branchAlreadyExists) {
+                    // Check if the branch is already in use by another worktree
+                    const branchesInUse = await getBranchesInWorktrees(workspaceRoot);
 
-                if (branchesInUse.has(trimmedName)) {
-                    // Branch is already checked out in another worktree - cannot use it
-                    const errorMsg = `Branch '${trimmedName}' is already checked out in another worktree. ` +
-                        `Git does not allow the same branch to be checked out in multiple worktrees.`;
-                    vscode.window.showErrorMessage(errorMsg);
-                    throw new Error(errorMsg);
-                }
-
-                // Branch exists but is not in use - prompt user for action
-                const choice = await vscode.window.showQuickPick(
-                    [
-                        {
-                            label: 'Use existing branch',
-                            description: `Create worktree using the existing '${trimmedName}' branch`,
-                            action: 'use-existing'
-                        },
-                        {
-                            label: 'Enter new name',
-                            description: 'Choose a different session name',
-                            action: 'new-name'
-                        }
-                    ],
-                    {
-                        placeHolder: `Branch '${trimmedName}' already exists. What would you like to do?`,
-                        title: 'Branch Already Exists'
+                    if (branchesInUse.has(trimmedName)) {
+                        // Branch is already checked out in another worktree - cannot use it
+                        const errorMsg = `Branch '${trimmedName}' is already checked out in another worktree. ` +
+                            `Git does not allow the same branch to be checked out in multiple worktrees.`;
+                        vscode.window.showErrorMessage(errorMsg);
+                        throw new Error(errorMsg);
                     }
-                );
 
-                if (!choice) {
-                    // User cancelled
-                    vscode.window.showInformationMessage('Session creation cancelled.');
-                    return;
-                }
-
-                if (choice.action === 'new-name') {
-                    // Prompt for new name and continue the loop
-                    const newName = await vscode.window.showInputBox({
-                        prompt: "Enter a new session name (creates new branch)",
-                        placeHolder: "fix-login-v2",
-                        validateInput: (value) => {
-                            if (!value || !value.trim()) {
-                                return 'Session name is required';
+                    // Branch exists but is not in use - prompt user for action
+                    const choice = await vscode.window.showQuickPick(
+                        [
+                            {
+                                label: 'Use existing branch',
+                                description: `Create worktree using the existing '${trimmedName}' branch`,
+                                action: 'use-existing'
+                            },
+                            {
+                                label: 'Enter new name',
+                                description: 'Choose a different session name',
+                                action: 'new-name'
                             }
-                            const trimmed = value.trim();
-                            if (!branchNameRegex.test(trimmed)) {
-                                return 'Use only letters, numbers, hyphens, underscores, dots, or slashes';
-                            }
-                            // Prevent names that could cause git issues
-                            if (trimmed.startsWith('-') || trimmed.startsWith('.') ||
-                                trimmed.endsWith('.') || trimmed.includes('..') ||
-                                trimmed.endsWith('.lock')) {
-                                return "Name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'";
-                            }
-                            return null;
+                        ],
+                        {
+                            placeHolder: `Branch '${trimmedName}' already exists. What would you like to do?`,
+                            title: 'Branch Already Exists'
                         }
-                    });
+                    );
 
-                    if (!newName) {
+                    if (!choice) {
+                        // User cancelled
                         vscode.window.showInformationMessage('Session creation cancelled.');
                         return;
                     }
 
-                    // Update currentName and continue the loop (iterative instead of recursive)
-                    currentName = newName;
-                    continue;
-                }
+                    if (choice.action === 'new-name') {
+                        // Prompt for new name and continue the loop
+                        const newName = await vscode.window.showInputBox({
+                            prompt: "Enter a new session name (creates new branch)",
+                            placeHolder: "fix-login-v2",
+                            validateInput: (value) => {
+                                if (!value || !value.trim()) {
+                                    return 'Session name is required';
+                                }
+                                const trimmed = value.trim();
+                                if (!branchNameRegex.test(trimmed)) {
+                                    return 'Use only letters, numbers, hyphens, underscores, dots, or slashes';
+                                }
+                                // Prevent names that could cause git issues
+                                if (trimmed.startsWith('-') || trimmed.startsWith('.') ||
+                                    trimmed.endsWith('.') || trimmed.includes('..') ||
+                                    trimmed.endsWith('.lock')) {
+                                    return "Name cannot start with '-' or '.', end with '.' or '.lock', or contain '..'";
+                                }
+                                return null;
+                            }
+                        });
 
-                // User chose to use existing branch - create worktree without -b flag
-                console.log(`Running: git worktree add "${worktreePath}" "${trimmedName}"`);
-                await execGit(['worktree', 'add', worktreePath, trimmedName], workspaceRoot);
-            } else {
-                // Branch doesn't exist - create new branch
-                // If sourceBranch is provided, use it as the starting point
-                const trimmedSourceBranch = sourceBranch.trim();
-                if (trimmedSourceBranch) {
-                    // Validate branch name format before checking existence
-                    if (!branchNameRegex.test(trimmedSourceBranch)) {
-                        const errorMsg = "Error: Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
-                        vscode.window.showErrorMessage(errorMsg);
-                        throw new Error(errorMsg);
-                    }
-
-                    // Parse remote and branch from the source branch
-                    // Examples: 'origin/main' -> remote='origin', branch='main'
-                    //           'main' -> remote='origin', branch='main' (default to origin)
-                    //           'upstream/develop' -> remote='upstream', branch='develop'
-                    let remote = 'origin';
-                    let branchName = trimmedSourceBranch;
-
-                    if (trimmedSourceBranch.includes('/')) {
-                        const parts = trimmedSourceBranch.split('/');
-                        remote = parts[0];
-                        branchName = parts.slice(1).join('/');
-                    }
-
-                    // Fetch the source branch from remote to ensure we have the latest version
-                    try {
-                        console.log(`Fetching latest version of ${trimmedSourceBranch} from remote...`);
-                        await execGit(['fetch', remote, branchName], workspaceRoot);
-                        console.log(`Successfully fetched ${remote}/${branchName}`);
-                    } catch (fetchErr) {
-                        // If fetch fails (e.g., offline, remote doesn't exist), warn but continue
-                        const fetchErrMsg = getErrorMessage(fetchErr);
-                        console.warn(`Failed to fetch ${remote}/${branchName}: ${fetchErrMsg}`);
-                        vscode.window.showWarningMessage(
-                            `Could not fetch latest version of '${trimmedSourceBranch}'. Proceeding with local data if available. (${fetchErrMsg})`
-                        );
-                    }
-
-                    // Verify the source branch exists before using it
-                    const sourceBranchExists = await branchExists(workspaceRoot, trimmedSourceBranch);
-                    // Also check for remote branches (origin/branch-name format)
-                    let remoteSourceExists = false;
-                    if (!sourceBranchExists) {
-                        try {
-                            await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${trimmedSourceBranch}`], workspaceRoot);
-                            remoteSourceExists = true;
-                        } catch {
-                            // Remote doesn't exist either
+                        if (!newName) {
+                            vscode.window.showInformationMessage('Session creation cancelled.');
+                            return;
                         }
+
+                        // Update currentName and continue the loop (iterative instead of recursive)
+                        currentName = newName;
+                        continue;
                     }
 
-                    if (!sourceBranchExists && !remoteSourceExists) {
-                        const errorMsg = `Source branch '${trimmedSourceBranch}' does not exist.`;
-                        vscode.window.showErrorMessage(errorMsg);
-                        throw new Error(errorMsg);
-                    }
-
-                    console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}" "${trimmedSourceBranch}"`);
-                    await execGit(['worktree', 'add', worktreePath, '-b', trimmedName, trimmedSourceBranch], workspaceRoot);
+                    // User chose to use existing branch - create worktree without -b flag
+                    console.log(`Running: git worktree add "${worktreePath}" "${trimmedName}"`);
+                    await execGit(['worktree', 'add', worktreePath, trimmedName], workspaceRoot);
                 } else {
-                    // No source branch specified - use HEAD as starting point (default behavior)
-                    console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}"`);
-                    await execGit(['worktree', 'add', worktreePath, '-b', trimmedName], workspaceRoot);
+                    // Branch doesn't exist - create new branch
+                    // If sourceBranch is provided, use it as the starting point
+                    const trimmedSourceBranch = sourceBranch.trim();
+                    if (trimmedSourceBranch) {
+                        // Validate branch name format before checking existence
+                        if (!branchNameRegex.test(trimmedSourceBranch)) {
+                            const errorMsg = "Error: Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.";
+                            vscode.window.showErrorMessage(errorMsg);
+                            throw new Error(errorMsg);
+                        }
+
+                        // Parse remote and branch from the source branch
+                        // Examples: 'origin/main' -> remote='origin', branch='main'
+                        //           'main' -> remote='origin', branch='main' (default to origin)
+                        //           'upstream/develop' -> remote='upstream', branch='develop'
+                        let remote = 'origin';
+                        let branchName = trimmedSourceBranch;
+
+                        if (trimmedSourceBranch.includes('/')) {
+                            const parts = trimmedSourceBranch.split('/');
+                            remote = parts[0];
+                            branchName = parts.slice(1).join('/');
+                        }
+
+                        // Fetch the source branch from remote to ensure we have the latest version
+                        try {
+                            console.log(`Fetching latest version of ${trimmedSourceBranch} from remote...`);
+                            await execGit(['fetch', remote, branchName], workspaceRoot);
+                            console.log(`Successfully fetched ${remote}/${branchName}`);
+                        } catch (fetchErr) {
+                            // If fetch fails (e.g., offline, remote doesn't exist), warn but continue
+                            const fetchErrMsg = getErrorMessage(fetchErr);
+                            console.warn(`Failed to fetch ${remote}/${branchName}: ${fetchErrMsg}`);
+                            vscode.window.showWarningMessage(
+                                `Could not fetch latest version of '${trimmedSourceBranch}'. Proceeding with local data if available. (${fetchErrMsg})`
+                            );
+                        }
+
+                        // Verify the source branch exists before using it
+                        const sourceBranchExists = await branchExists(workspaceRoot, trimmedSourceBranch);
+                        // Also check for remote branches (origin/branch-name format)
+                        let remoteSourceExists = false;
+                        if (!sourceBranchExists) {
+                            try {
+                                await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${trimmedSourceBranch}`], workspaceRoot);
+                                remoteSourceExists = true;
+                            } catch {
+                                // Remote doesn't exist either
+                            }
+                        }
+
+                        if (!sourceBranchExists && !remoteSourceExists) {
+                            const errorMsg = `Source branch '${trimmedSourceBranch}' does not exist.`;
+                            vscode.window.showErrorMessage(errorMsg);
+                            throw new Error(errorMsg);
+                        }
+
+                        console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}" "${trimmedSourceBranch}"`);
+                        await execGit(['worktree', 'add', worktreePath, '-b', trimmedName, trimmedSourceBranch], workspaceRoot);
+                    } else {
+                        // No source branch specified - use HEAD as starting point (default behavior)
+                        console.log(`Running: git worktree add "${worktreePath}" -b "${trimmedName}"`);
+                        await execGit(['worktree', 'add', worktreePath, '-b', trimmedName], workspaceRoot);
+                    }
                 }
-            }
 
-            // 5. Add worktree as a project in Project Manager
-            // Get sanitized repo name for project naming
-            const repoName = getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
-            const projectName = `${repoName}-${trimmedName}`;
-            await addProject(projectName, worktreePath, ['lanes']);
+                // 5. Add worktree as a project in Project Manager
+                // Get sanitized repo name for project naming
+                const repoName = getRepoName(workspaceRoot).replace(/[<>:"/\\|?*]/g, '_');
+                const projectName = `${repoName}-${trimmedName}`;
+                await addProject(projectName, worktreePath, ['lanes']);
 
-            // 5.5. Propagate local settings to worktree
-            try {
-                const config = vscode.workspace.getConfiguration('lanes');
-                const propagationMode = config.get<LocalSettingsPropagationMode>('localSettingsPropagation', 'copy');
-                await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode);
+                // 5.5. Propagate local settings to worktree
+                try {
+                    const config = vscode.workspace.getConfiguration('lanes');
+                    const propagationMode = config.get<LocalSettingsPropagationMode>('localSettingsPropagation', 'copy');
+                    await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode);
+                } catch (err) {
+                    // Log but don't fail session creation
+                    console.warn('Lanes: Failed to propagate local settings:', err);
+                }
+
+                // 6. Success
+                sessionProvider.refresh();
+                await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent, workspaceRoot);
+                vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
+
+                // Exit the loop on success
+                return;
+
             } catch (err) {
-                // Log but don't fail session creation
-                console.warn('Lanes: Failed to propagate local settings:', err);
+                console.error(err);
+                const errorMsg = `Git Error: ${getErrorMessage(err)}`;
+                vscode.window.showErrorMessage(errorMsg);
+                throw new Error(errorMsg);
             }
-
-            // 6. Success
-            sessionProvider.refresh();
-            await openClaudeTerminal(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent, workspaceRoot);
-            vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
-
-            // Exit the loop on success
-            return;
-
-        } catch (err) {
-            console.error(err);
-            const errorMsg = `Git Error: ${getErrorMessage(err)}`;
-            vscode.window.showErrorMessage(errorMsg);
-            throw new Error(errorMsg);
         }
-    }
+    }, 30000); // 30 second timeout
 }
 
 /**
