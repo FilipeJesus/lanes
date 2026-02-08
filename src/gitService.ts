@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import { GitExtension } from './types/git';
+import { GitError } from './errors';
 
 // The git executable path - either from VS Code or 'git' as fallback
 let gitPath: string = 'git';
@@ -64,7 +65,7 @@ export interface ExecGitOptions {
  * @param cwd The working directory
  * @param options Optional settings including environment variables
  * @returns The stdout output
- * @throws Error if the command fails
+ * @throws GitError if the command fails
  */
 export function execGit(args: string[], cwd: string, options?: ExecGitOptions): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -88,14 +89,14 @@ export function execGit(args: string[], cwd: string, options?: ExecGitOptions): 
         });
 
         childProcess.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn git process: ${err.message}`));
+            reject(new GitError(args, undefined, `Failed to spawn git process: ${err.message}`));
         });
 
         childProcess.on('close', (code: number | null) => {
             if (code === 0) {
                 resolve(stdout);
             } else {
-                reject(new Error(stderr || `Git command failed with code ${code}`));
+                reject(new GitError(args, code ?? undefined, stderr || `Git command failed with code ${code}`));
             }
         });
     });
