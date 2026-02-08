@@ -54,7 +54,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. All critical functions have tests covering error paths
 3. Error types are consistent across the codebase (no mixed null/throw patterns)
 
-**Plans**: TBD
+**Plans**: 1
+- [ ] 02-01-PLAN.md — Custom error types (LanesError hierarchy) and error path tests
 
 ### Phase 3: Input Validation
 
@@ -154,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Critical Bug Fixes | 0/1 | Ready to execute | - |
-| 2. Error Handling | 0/TBD | Not started | - |
+| 2. Error Handling | 0/1 | Ready to execute | - |
 | 3. Input Validation | 0/TBD | Not started | - |
 | 4. Security Auditing | 0/TBD | Not started | - |
 | 5. Test Foundation | 0/TBD | Not started | - |
