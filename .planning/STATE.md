@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 5 of 8 (Test Foundation)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-08 — Completed 05-02 flaky test fixes
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 — Completed 05-03 test file organization
 
-Progress: [████████░░] 69%
+Progress: [██████████] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 5 min
-- Total execution time: 0.5 hours
+- Total plans completed: 7
+- Average duration: 6 min
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
@@ -32,7 +32,7 @@ Progress: [████████░░] 69%
 | 02-error-handling | 1 | 6 min | 6 min |
 | 03-input-validation | 1 | 5 min | 5 min |
 | 04-security-auditing | 1 | 2 min | 2 min |
-| 05-test-foundation | 2 | 8 min | 4 min |
+| 05-test-foundation | 3 | 18 min | 6 min |
 
 **Recent Trend:**
 - Last 5 plans: 5 min avg (6 completed)
@@ -83,21 +83,38 @@ Recent decisions affecting current work:
 - Saved original execGit function before stubbing to enable fallback to real git for repo initialization
 - Stub checks for .git directory existence to determine real vs mocked behavior
 
+**Phase 05-03 Decisions:**
+- Organized tests by functionality into subdirectories (core/, session/, workflow/, config/, git/)
+- Preserved test logic while reorganizing - no test assertions were modified
+- Fixed package.json path resolution for tests in subdirectory structure (3 levels up from out/test/subdir/)
+- 3 files remain over 500 lines (diff.test.ts: 1795, settings.test.ts: 1341, mcp.test.ts: 856) - noted for future splitting
+
 ### Pending Todos
 
-None yet.
+**Phase 5 Next Steps:**
+- Further split remaining large files (diff.test.ts, settings.test.ts, mcp.test.ts) if maintainability becomes an issue
 
 ### Blockers/Concerns
 
-None yet.
+**Known Deviations:**
+- 3 test files still exceed 500-line target (documented in 05-03-SUMMARY.md)
+- These files require more complex splitting due to interdependent test suites
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 05-02-SUMMARY.md, flaky test fixes complete
-Resume file: .planning/phases/05-test-foundation/05-02-SUMMARY.md
+Stopped at: Completed 05-03-SUMMARY.md, test file organization complete
+Resume file: .planning/phases/05-test-foundation/05-03-SUMMARY.md
 
 ## Files Modified in Session
+
+**Plan 05-03:**
+- src/test/core/*.test.ts (9 files created)
+- src/test/session/*.test.ts (5 files created/organized)
+- src/test/workflow/*.test.ts (5 files created/organized)
+- src/test/config/settings.test.ts (moved from src/test/configuration.test.ts)
+- src/test/git/*.test.ts (3 files created/organized)
+- .planning/phases/05-test-foundation/05-03-SUMMARY.md (created)
 
 **Plan 05-02:**
 - src/test/brokenWorktree.test.ts (modified - added sinon stubbing for git operations)
