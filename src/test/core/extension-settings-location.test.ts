@@ -7,7 +7,7 @@ import {
 	initializeGlobalStorageContext,
 	getRepoIdentifier,
 } from '../../ClaudeSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../../extension';
+import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
 
 suite('Extension Settings File Location', () => {
 

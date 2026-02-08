@@ -6,7 +6,7 @@ import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
 } from '../../ClaudeSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../../extension';
+import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
 
 suite('Extension Settings Workflow Configuration', () => {
 
