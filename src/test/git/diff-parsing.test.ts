@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { parseDiff, FileDiff } from '../../GitChangesPanel';
-import { parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff } from '../../extension';
+import { parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff } from '../../services/DiffService';
 
 suite('Git Diff Parsing Test Suite', () => {
 

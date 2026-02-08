@@ -47,20 +47,6 @@ import { validateWorkflow as validateWorkflowService } from './services/Workflow
 import { createSession } from './services/SessionService';
 import { openClaudeTerminal } from './services/TerminalService';
 
-// ============================================================================
-// RE-EXPORTS FOR TESTS
-// These are temporary re-exports for backward compatibility with tests.
-// Tests should be updated to import directly from service modules.
-// ============================================================================
-
-export { sanitizeSessionName } from './utils';
-export { detectBrokenWorktrees, repairWorktree, branchExists, checkAndRepairBrokenWorktrees } from './services/BrokenWorktreeService';
-export type { BrokenWorktree } from './services/BrokenWorktreeService';
-export { getBaseRepoPath, getRepoName, getOrCreateExtensionSettingsFile } from './services/SettingsService';
-export { parseUntrackedFiles, isBinaryContent, synthesizeUntrackedFileDiff, getBaseBranch } from './services/DiffService';
-export { createSession, getBranchesInWorktrees } from './services/SessionService';
-export { openClaudeTerminal, combinePromptAndCriteria } from './services/TerminalService';
-
 /**
  * Activate the extension.
  *

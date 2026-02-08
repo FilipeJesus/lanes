@@ -6,7 +6,8 @@ import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
 import { ClaudeSessionProvider } from '../../ClaudeSessionProvider';
-import { getBaseBranch, getBaseRepoPath } from '../../extension';
+import { getBaseBranch } from '../../services/DiffService';
+import * as SettingsService from '../../services/SettingsService';
 
 suite('Git Base Branch Test Suite', () => {
 
@@ -203,7 +204,7 @@ suite('Git Base Branch Test Suite', () => {
 			// Arrange: Use the actual repo root - this is a regular repo from the main
 			// branch perspective, or we're in a worktree
 			// Act
-			const result = await getBaseRepoPath(repoRoot);
+			const result = await SettingsService.getBaseRepoPath(repoRoot);
 
 			// Assert: The result should be a valid directory path
 			assert.ok(
@@ -223,7 +224,7 @@ suite('Git Base Branch Test Suite', () => {
 			// getBaseRepoPath should return: <base-repo>
 
 			// Act
-			const result = await getBaseRepoPath(repoRoot);
+			const result = await SettingsService.getBaseRepoPath(repoRoot);
 
 			// Assert: Check if we're in a worktree by looking at the path structure
 			// If the current repoRoot contains '.worktrees', we're in a worktree
@@ -253,7 +254,7 @@ suite('Git Base Branch Test Suite', () => {
 
 			try {
 				// Act
-				const result = await getBaseRepoPath(tempNonGitDir);
+				const result = await SettingsService.getBaseRepoPath(tempNonGitDir);
 
 				// Assert: Should return the original path unchanged
 				assert.strictEqual(
@@ -274,7 +275,7 @@ suite('Git Base Branch Test Suite', () => {
 
 			try {
 				// Act: getBaseRepoPath should catch the error and return original path
-				const result = await getBaseRepoPath(tempNonGitDir);
+				const result = await SettingsService.getBaseRepoPath(tempNonGitDir);
 
 				// Assert: Should return original path (function handles errors gracefully)
 				assert.strictEqual(
@@ -354,7 +355,7 @@ index 1234567..abcdefg 100644
 			});
 
 			test('branchExists integration for branch validation', async function() {
-				const { branchExists } = require('../../extension');
+				const { branchExists } = await import('../../services/BrokenWorktreeService.js');
 				const repoRoot = path.resolve(__dirname, '..', '..');
 				const mainExists = await branchExists(repoRoot, 'main');
 				if (!mainExists) {

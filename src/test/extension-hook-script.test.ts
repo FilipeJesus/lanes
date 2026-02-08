@@ -7,7 +7,7 @@ import * as os from 'os';
 import {
     initializeGlobalStorageContext,
 } from '../ClaudeSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../extension';
+import { getOrCreateExtensionSettingsFile } from '../services/SettingsService';
 import { ClaudeCodeAgent } from '../codeAgents/ClaudeCodeAgent';
 
 suite('Hook Script Generation', () => {

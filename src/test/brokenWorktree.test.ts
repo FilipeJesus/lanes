@@ -5,7 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../gitService';
-import { detectBrokenWorktrees, repairWorktree, BrokenWorktree } from '../extension';
+import { detectBrokenWorktrees, repairWorktree } from '../services/BrokenWorktreeService';
+import type { BrokenWorktree } from '../services/BrokenWorktreeService';
 
 suite('Broken Worktree Detection', () => {
 

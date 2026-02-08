@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { combinePromptAndCriteria } from '../../extension';
+import { combinePromptAndCriteria } from '../../services/TerminalService';
 
 suite('Extension Integration', () => {
 
