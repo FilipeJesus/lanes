@@ -3,7 +3,7 @@
   "displayName": "Lanes: AI Project Management",
   "publisher": "FilipeMarquesJesus",
   "description": "Manage parallel Claude Code sessions via Git Worktrees",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -271,7 +271,11 @@
           },
           "lanes.localSettingsPropagation": {
             "type": "string",
-            "enum": ["copy", "symlink", "disabled"],
+            "enum": [
+              "copy",
+              "symlink",
+              "disabled"
+            ],
             "enumDescriptions": [
               "Copy settings.local.json to each worktree",
               "Create symlink to settings.local.json in each worktree",
@@ -305,7 +309,12 @@
         "properties": {
           "lanes.chimeSound": {
             "type": "string",
-            "enum": ["chime", "alarm", "level-up", "notification"],
+            "enum": [
+              "chime",
+              "alarm",
+              "level-up",
+              "notification"
+            ],
             "default": "chime",
             "description": "Audio notification sound for session status changes (Note: You must reload VS Code for this to take effect).",
             "enumDescriptions": [

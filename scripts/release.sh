@@ -2,15 +2,25 @@
 set -e
 
 # Lanes Release Script
-# Usage: ./scripts/release.sh [patch|minor|major]
+# Usage: ./scripts/release.sh [patch|minor|major] [--skip-changelog]
 
 VERSION_TYPE=${1:-patch}
+SKIP_CHANGELOG=false
+
+# Check for --skip-changelog flag
+if [[ "$VERSION_TYPE" == "--skip-changelog" ]] || [[ "$2" == "--skip-changelog" ]]; then
+  SKIP_CHANGELOG=true
+  if [[ "$VERSION_TYPE" == "--skip-changelog" ]]; then
+    VERSION_TYPE="patch"
+  fi
+fi
 
 if [[ ! "$VERSION_TYPE" =~ ^(patch|minor|major)$ ]]; then
-  echo "Usage: ./scripts/release.sh [patch|minor|major]"
+  echo "Usage: ./scripts/release.sh [patch|minor|major] [--skip-changelog]"
   echo "  patch - Bug fixes (0.1.0 -> 0.1.1)"
   echo "  minor - New features (0.1.0 -> 0.2.0)"
   echo "  major - Breaking changes (0.1.0 -> 1.0.0)"
+  echo "  --skip-changelog - Skip manual changelog update prompt"
   exit 1
 fi
 
@@ -43,10 +53,14 @@ NEW_VERSION=$(npm version $VERSION_TYPE --no-git-tag-version)
 echo "   New version: $NEW_VERSION"
 
 # Prompt for changelog entry
-echo ""
-echo "📝 Please update CHANGELOG.md with the new version ($NEW_VERSION)"
-echo "   Press Enter when done..."
-read -r
+if [[ "$SKIP_CHANGELOG" == true ]]; then
+  echo "⏭️  Skipping changelog update prompt"
+else
+  echo ""
+  echo "📝 Please update CHANGELOG.md with the new version ($NEW_VERSION)"
+  echo "   Press Enter when done..."
+  read -r
+fi
 
 # Build and package
 echo "🔨 Building extension..."
