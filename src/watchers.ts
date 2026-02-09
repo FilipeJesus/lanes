@@ -223,7 +223,7 @@ export function registerWatchers(
 
         clearRequestWatcher.onDidCreate(async (uri) => {
             console.log(`Clear request file detected: ${uri.fsPath}`);
-            await checkClearRequests(uri.fsPath, codeAgent, baseRepoPath, sessionProvider);
+            await checkClearRequests(uri.fsPath, codeAgent, baseRepoPath, sessionProvider, undefined, workspaceRoot);
         });
 
         context.subscriptions.push(clearRequestWatcher);
