@@ -315,28 +315,6 @@ export async function createWorkflow(
 }
 
 /**
- * Combines a prompt with acceptance criteria into a single string.
- *
- * Format rules:
- * - If both are provided: "request: <prompt>\nacceptance criteria: <criteria>"
- * - If only one is provided: use that value as-is
- * - If neither is provided: returns empty string
- */
-export function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: string): string {
-    const trimmedPrompt = prompt?.trim() || '';
-    const trimmedCriteria = acceptanceCriteria?.trim() || '';
-
-    if (trimmedPrompt && trimmedCriteria) {
-        return `request: ${trimmedPrompt}\nacceptance criteria: ${trimmedCriteria}`;
-    } else if (trimmedPrompt) {
-        return trimmedPrompt;
-    } else if (trimmedCriteria) {
-        return trimmedCriteria;
-    }
-    return '';
-}
-
-/**
  * Generates the workflow orchestrator instructions to prepend to a prompt.
  * These instructions guide Claude through the structured workflow phases.
  */

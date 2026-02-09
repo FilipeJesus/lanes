@@ -167,24 +167,6 @@ suite('Session Form', () => {
 			);
 		});
 
-		test('Workflow dropdown follows same styling as other dropdowns', () => {
-			// Arrange & Act
-			const html = getFormHtml(provider);
-
-			// Assert: Workflow uses select element like permission mode
-			const workflowSelectRegex = /<select[^>]*id="workflow"[^>]*>/;
-			const permissionSelectRegex = /<select[^>]*id="permissionMode"[^>]*>/;
-
-			assert.ok(
-				workflowSelectRegex.test(html),
-				'Workflow should use select element'
-			);
-			assert.ok(
-				permissionSelectRegex.test(html),
-				'Permission mode should use select element'
-			);
-		});
-
 		test('Workflow dropdown is part of form submission data', () => {
 			// Arrange & Act
 			const html = getFormHtml(provider);
@@ -218,7 +200,6 @@ suite('Session Form', () => {
 			const callback: SessionFormSubmitCallback = (
 				name: string,
 				prompt: string,
-				acceptanceCriteria: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
 				workflow: string | null
@@ -242,9 +223,8 @@ suite('Session Form', () => {
 				command: 'createSession',
 				name: 'test-session',
 				prompt: 'Test prompt',
-				acceptanceCriteria: 'Test criteria',
 				sourceBranch: 'main',
-				permissionMode: 'default',
+				permissionMode: 'acceptEdits',
 				workflow: 'feature'
 			});
 
@@ -264,7 +244,6 @@ suite('Session Form', () => {
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
 				_prompt: string,
-				_acceptanceCriteria: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
 				workflow: string | null
@@ -287,9 +266,8 @@ suite('Session Form', () => {
 				command: 'createSession',
 				name: 'test-session',
 				prompt: '',
-				acceptanceCriteria: '',
 				sourceBranch: '',
-				permissionMode: 'default',
+				permissionMode: 'acceptEdits',
 				workflow: null
 			});
 
@@ -307,7 +285,6 @@ suite('Session Form', () => {
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
 				_prompt: string,
-				_acceptanceCriteria: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
 				workflow: string | null
@@ -329,9 +306,8 @@ suite('Session Form', () => {
 				command: 'createSession',
 				name: 'test-session',
 				prompt: '',
-				acceptanceCriteria: '',
 				sourceBranch: '',
-				permissionMode: 'default',
+				permissionMode: 'acceptEdits',
 				workflow: ''
 			});
 
@@ -349,7 +325,6 @@ suite('Session Form', () => {
 			const callback: SessionFormSubmitCallback = (
 				name: string,
 				prompt: string,
-				acceptanceCriteria: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
 				workflow: string | null
@@ -357,7 +332,6 @@ suite('Session Form', () => {
 				// Use all parameters to verify they're in the signature
 				assert.ok(name);
 				assert.ok(typeof prompt === 'string');
-				assert.ok(typeof acceptanceCriteria === 'string');
 				assert.ok(typeof sourceBranch === 'string');
 				assert.ok(PERMISSION_MODES.includes(permissionMode));
 				assert.ok(workflow === null || typeof workflow === 'string');
@@ -375,7 +349,6 @@ suite('Session Form', () => {
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
 				_prompt: string,
-				_acceptanceCriteria: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
 				workflow: string | null
@@ -399,9 +372,8 @@ suite('Session Form', () => {
 					command: 'createSession',
 					name: `test-${workflow || 'none'}`,
 					prompt: '',
-					acceptanceCriteria: '',
 					sourceBranch: '',
-					permissionMode: 'default',
+					permissionMode: 'acceptEdits',
 					workflow: workflow
 				});
 				await new Promise(resolve => setTimeout(resolve, 10));
@@ -468,10 +440,50 @@ suite('Session Form', () => {
 		});
 	});
 
-	suite('Permission Mode Validation', () => {
-		// These tests ensure the existing permission mode functionality still works
-		// alongside the new workflow feature
+	suite('Bypass Permissions Toggle', () => {
+		test('Form has bypass permissions toggle button', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
 
+			// Assert: Toggle button exists
+			assert.ok(
+				html.includes('id="bypassPermissionsBtn"'),
+				'Form should have bypass permissions toggle button'
+			);
+			assert.ok(
+				html.includes('class="bypass-btn"'),
+				'Bypass permissions should be a toggle button'
+			);
+			assert.ok(
+				html.includes('aria-pressed'),
+				'Bypass permissions button should have aria-pressed attribute'
+			);
+		});
+
+		test('Form does not have acceptance criteria field', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: No acceptance criteria
+			assert.ok(
+				!html.includes('acceptanceCriteria'),
+				'Form should not have acceptance criteria field'
+			);
+		});
+
+		test('Form does not have permission mode dropdown', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: No permission mode select
+			assert.ok(
+				!html.includes('id="permissionMode"'),
+				'Form should not have permission mode dropdown'
+			);
+		});
+	});
+
+	suite('Permission Mode Validation', () => {
 		test('isValidPermissionMode validates known modes', () => {
 			for (const mode of PERMISSION_MODES) {
 				assert.ok(
@@ -487,6 +499,8 @@ suite('Session Form', () => {
 			assert.ok(!isValidPermissionMode(null), 'null should not be valid');
 			assert.ok(!isValidPermissionMode(undefined), 'undefined should not be valid');
 			assert.ok(!isValidPermissionMode(123), 'number should not be valid');
+			assert.ok(!isValidPermissionMode('default'), 'default should not be valid');
+			assert.ok(!isValidPermissionMode('dontAsk'), 'dontAsk should not be valid');
 		});
 	});
 });

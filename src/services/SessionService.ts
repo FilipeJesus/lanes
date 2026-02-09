@@ -110,7 +110,7 @@ async function ensureWorktreeDirExists(root: string): Promise<void> {
 // Forward declarations for functions that will be imported from TerminalService
 // These are needed for createSession but will be injected or imported later
 interface OpenClaudeTerminalFn {
-    (taskName: string, worktreePath: string, prompt?: string, acceptanceCriteria?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string, skipWorkflowPrompt?: boolean): Promise<void>;
+    (taskName: string, worktreePath: string, prompt?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string, skipWorkflowPrompt?: boolean): Promise<void>;
 }
 
 let openClaudeTerminalImpl: OpenClaudeTerminalFn | null = null;
@@ -122,26 +122,6 @@ let openClaudeTerminalImpl: OpenClaudeTerminalFn | null = null;
  */
 export function setOpenClaudeTerminal(impl: OpenClaudeTerminalFn): void {
     openClaudeTerminalImpl = impl;
-}
-
-/**
- * Combines prompt and acceptance criteria into a single formatted string.
- * - If both are provided: "request: [prompt]\nacceptance criteria: [criteria]"
- * - If only one is provided: use that value as-is
- * - If neither is provided: returns empty string
- */
-function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: string): string {
-    const trimmedPrompt = prompt?.trim() || '';
-    const trimmedCriteria = acceptanceCriteria?.trim() || '';
-
-    if (trimmedPrompt && trimmedCriteria) {
-        return `request: ${trimmedPrompt}\nacceptance criteria: ${trimmedCriteria}`;
-    } else if (trimmedPrompt) {
-        return trimmedPrompt;
-    } else if (trimmedCriteria) {
-        return trimmedCriteria;
-    }
-    return '';
 }
 
 /**
@@ -190,7 +170,6 @@ When the current step requires an agent/subagent other than orchestrator:
  *
  * @param name Session name (used as branch name)
  * @param prompt Optional starting prompt for Claude
- * @param acceptanceCriteria Optional acceptance criteria for Claude
  * @param permissionMode Permission mode for Claude CLI
  * @param sourceBranch Optional source branch to create worktree from (empty = use default behavior)
  * @param workflow Optional workflow template name to guide Claude through structured phases
@@ -201,7 +180,6 @@ When the current step requires an agent/subagent other than orchestrator:
 async function createSession(
     name: string,
     prompt: string,
-    acceptanceCriteria: string,
     permissionMode: PermissionMode,
     sourceBranch: string,
     workflow: string | null,
@@ -445,7 +423,7 @@ async function createSession(
                 // Use the injected openClaudeTerminal or fall back to a local implementation
                 // This will be set by extension.ts after all services are loaded
                 if (openClaudeTerminalImpl) {
-                    await openClaudeTerminalImpl(trimmedName, worktreePath, prompt, acceptanceCriteria, permissionMode, workflow, codeAgent, workspaceRoot);
+                    await openClaudeTerminalImpl(trimmedName, worktreePath, prompt, permissionMode, workflow, codeAgent, workspaceRoot);
                 } else {
                     // This should not happen in normal operation, but provides a fallback
                     console.warn('SessionService: openClaudeTerminal not injected, session may not open properly');
