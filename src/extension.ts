@@ -153,8 +153,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null) => {
-        await createSession(name, prompt, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider, codeAgent);
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
+        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, codeAgent);
     });
 
     // Helper function to refresh workflows in both the tree view and the session form

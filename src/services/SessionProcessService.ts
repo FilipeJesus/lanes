@@ -93,6 +93,7 @@ export async function processPendingSession(
             'acceptEdits',
             config.sourceBranch,
             resolvedWorkflowPath, // workflow - resolved path to workflow YAML file
+            [], // attachments - MCP sessions don't support attachments yet
             workspaceRoot,
             sessionProvider,
             codeAgent

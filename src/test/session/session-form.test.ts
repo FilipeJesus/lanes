@@ -202,7 +202,8 @@ suite('Session Form', () => {
 				prompt: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
-				workflow: string | null
+				workflow: string | null,
+				attachments: string[]
 			) => {
 				callbackInvoked = true;
 				receivedWorkflow = workflow;
@@ -246,7 +247,8 @@ suite('Session Form', () => {
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
-				workflow: string | null
+				workflow: string | null,
+				attachments: string[]
 			) => {
 				callbackInvoked = true;
 				receivedWorkflow = workflow;
@@ -287,7 +289,8 @@ suite('Session Form', () => {
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
-				workflow: string | null
+				workflow: string | null,
+				attachments: string[]
 			) => {
 				receivedWorkflow = workflow;
 			};
@@ -327,7 +330,8 @@ suite('Session Form', () => {
 				prompt: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
-				workflow: string | null
+				workflow: string | null,
+				attachments: string[]
 			) => {
 				// Use all parameters to verify they're in the signature
 				assert.ok(name);
@@ -351,7 +355,8 @@ suite('Session Form', () => {
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
-				workflow: string | null
+				workflow: string | null,
+				attachments: string[]
 			) => {
 				receivedWorkflows.push(workflow);
 			};
@@ -501,6 +506,248 @@ suite('Session Form', () => {
 			assert.ok(!isValidPermissionMode(123), 'number should not be valid');
 			assert.ok(!isValidPermissionMode('default'), 'default should not be valid');
 			assert.ok(!isValidPermissionMode('dontAsk'), 'dontAsk should not be valid');
+		});
+	});
+
+	suite('File Attachment UI', () => {
+		test('Form has attach button inside textarea wrapper', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: Attach button exists
+			assert.ok(
+				html.includes('id="attachBtn"'),
+				'Form should have attach button with id="attachBtn"'
+			);
+			assert.ok(
+				html.includes('class="attach-btn"'),
+				'Attach button should have attach-btn class'
+			);
+			assert.ok(
+				html.includes('title="Attach files"'),
+				'Attach button should have title attribute'
+			);
+			assert.ok(
+				html.includes('aria-label="Attach files"'),
+				'Attach button should have aria-label'
+			);
+			assert.ok(
+				html.includes('textarea-wrapper'),
+				'Form should have textarea-wrapper container'
+			);
+		});
+
+		test('Form has attachment chips container', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: Attachment chips container exists
+			assert.ok(
+				html.includes('id="attachmentChips"'),
+				'Form should have attachmentChips container'
+			);
+			assert.ok(
+				html.includes('class="attachment-chips"'),
+				'Container should have attachment-chips class'
+			);
+		});
+
+		test('Form JavaScript handles showFilePicker message', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: showFilePicker command is in JavaScript
+			assert.ok(
+				html.includes("command: 'showFilePicker'"),
+				'JavaScript should send showFilePicker message to extension'
+			);
+		});
+
+		test('Form JavaScript handles filesSelected message', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: filesSelected message handler exists
+			assert.ok(
+				html.includes("case 'filesSelected'"),
+				'JavaScript should handle filesSelected message from extension'
+			);
+		});
+
+		test('Form JavaScript includes duplicate detection', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: Duplicate detection logic exists
+			assert.ok(
+				html.includes('.toLowerCase()'),
+				'JavaScript should have case-insensitive duplicate detection'
+			);
+		});
+
+		test('Form JavaScript includes file limit check', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: File limit check exists
+			assert.ok(
+				html.includes('MAX_FILES'),
+				'JavaScript should define MAX_FILES constant'
+			);
+			assert.ok(
+				html.includes('attachments.length >= MAX_FILES'),
+				'JavaScript should check file count against MAX_FILES'
+			);
+		});
+	});
+
+	suite('File Attachment Callback', () => {
+		test('Session form passes attachments to callback', async () => {
+			// Arrange
+			let receivedAttachments: string[] = [];
+			let callbackInvoked = false;
+
+			const callback: SessionFormSubmitCallback = (
+				_name: string,
+				_prompt: string,
+				_sourceBranch: string,
+				_permissionMode: PermissionMode,
+				_workflow: string | null,
+				attachments: string[]
+			) => {
+				callbackInvoked = true;
+				receivedAttachments = attachments;
+			};
+
+			provider.setOnSubmit(callback);
+
+			const mockView = new MockWebviewView();
+			provider.resolveWebviewView(
+				mockView as unknown as vscode.WebviewView,
+				{} as vscode.WebviewViewResolveContext,
+				{ isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) } as vscode.CancellationToken
+			);
+
+			// Act: Simulate form submission with attachments
+			const testAttachments = ['/path/to/file1.ts', '/path/to/file2.ts'];
+			mockView.webview.simulateMessage({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Test prompt',
+				sourceBranch: 'main',
+				permissionMode: 'acceptEdits',
+				workflow: null,
+				attachments: testAttachments
+			});
+
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			// Assert
+			assert.ok(callbackInvoked, 'Callback should have been invoked');
+			assert.deepStrictEqual(receivedAttachments, testAttachments, 'Callback should receive attachments array');
+		});
+
+		test('Session form passes empty attachments when none selected', async () => {
+			// Arrange
+			let receivedAttachments: string[] = ['should-be-empty'];
+
+			const callback: SessionFormSubmitCallback = (
+				_name: string,
+				_prompt: string,
+				_sourceBranch: string,
+				_permissionMode: PermissionMode,
+				_workflow: string | null,
+				attachments: string[]
+			) => {
+				receivedAttachments = attachments;
+			};
+
+			provider.setOnSubmit(callback);
+
+			const mockView = new MockWebviewView();
+			provider.resolveWebviewView(
+				mockView as unknown as vscode.WebviewView,
+				{} as vscode.WebviewViewResolveContext,
+				{ isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) } as vscode.CancellationToken
+			);
+
+			// Act: Simulate form submission without attachments field
+			mockView.webview.simulateMessage({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: 'Test prompt',
+				sourceBranch: 'main',
+				permissionMode: 'acceptEdits',
+				workflow: null
+				// No attachments field
+			});
+
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			// Assert
+			assert.deepStrictEqual(receivedAttachments, [], 'Callback should receive empty array when attachments not provided');
+		});
+
+		test('SessionFormSubmitCallback type includes attachments parameter', () => {
+			// This is a compile-time type check
+			// If the type signature is wrong, this test file won't compile
+
+			// Arrange
+			const callback: SessionFormSubmitCallback = (
+				name: string,
+				prompt: string,
+				sourceBranch: string,
+				permissionMode: PermissionMode,
+				workflow: string | null,
+				attachments: string[]
+			) => {
+				// Use all parameters to verify they're in the signature
+				assert.ok(name);
+				assert.ok(typeof prompt === 'string');
+				assert.ok(typeof sourceBranch === 'string');
+				assert.ok(PERMISSION_MODES.includes(permissionMode));
+				assert.ok(workflow === null || typeof workflow === 'string');
+				assert.ok(Array.isArray(attachments));
+			};
+
+			// Act & Assert: Just verify callback can be set
+			provider.setOnSubmit(callback);
+			assert.ok(true, 'Callback with attachments parameter was accepted');
+		});
+	});
+
+	suite('File Attachment State Persistence', () => {
+		test('Form JavaScript saves attachments in state', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: saveState function includes attachments
+			assert.ok(
+				html.includes('attachments: attachments'),
+				'saveState should include attachments array'
+			);
+		});
+
+		test('Form JavaScript restores attachments from state', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: State restoration includes attachments
+			assert.ok(
+				html.includes('previousState.attachments'),
+				'State restoration should restore attachments array'
+			);
+		});
+
+		test('Form submission includes attachments array', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: Form submission includes attachments
+			assert.ok(
+				html.includes('attachments: attachments.map'),
+				'Form submission should include mapped attachments array'
+			);
 		});
 	});
 });

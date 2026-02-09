@@ -137,7 +137,7 @@ export function registerSessionCommands(
             return;
         }
 
-        await createSession(name, '', 'acceptEdits', '', null, baseRepoPath, sessionProvider, codeAgent);
+        await createSession(name, '', 'acceptEdits', '', null, [], baseRepoPath, sessionProvider, codeAgent);
     });
 
     // Command: Open/resume a session

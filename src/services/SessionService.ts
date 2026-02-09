@@ -163,6 +163,33 @@ When the current step requires an agent/subagent other than orchestrator:
 }
 
 /**
+ * Assemble the starting prompt with optional file attachments.
+ * Attachments are listed BEFORE the user's typed text.
+ */
+function assembleStartingPrompt(userPrompt: string, attachments: string[]): string {
+    let prompt = '';
+
+    if (attachments.length > 0) {
+        prompt += 'Attached files:\n';
+        for (const filePath of attachments) {
+            if (/[\n\r\0]/.test(filePath)) {
+                console.warn(`Lanes: Skipping invalid file path in attachment`);
+                continue;
+            }
+            prompt += `- ${filePath}\n`;
+        }
+        prompt += '\n';
+    }
+
+    const trimmedUserPrompt = userPrompt.trim();
+    if (trimmedUserPrompt) {
+        prompt += trimmedUserPrompt;
+    }
+
+    return prompt;
+}
+
+/**
  * Create a new Claude session with a git worktree.
  *
  * This function creates a new git worktree for the session, sets up the environment,
@@ -173,6 +200,7 @@ When the current step requires an agent/subagent other than orchestrator:
  * @param permissionMode Permission mode for Claude CLI
  * @param sourceBranch Optional source branch to create worktree from (empty = use default behavior)
  * @param workflow Optional workflow template name to guide Claude through structured phases
+ * @param attachments Array of file paths to attach to the starting prompt
  * @param workspaceRoot The workspace root path
  * @param sessionProvider The session provider for refreshing the UI
  * @param codeAgent Optional CodeAgent for custom agent behavior
@@ -183,6 +211,7 @@ async function createSession(
     permissionMode: PermissionMode,
     sourceBranch: string,
     workflow: string | null,
+    attachments: string[],
     workspaceRoot: string | undefined,
     sessionProvider: ClaudeSessionProvider,
     codeAgent?: CodeAgent
@@ -423,7 +452,8 @@ async function createSession(
                 // Use the injected openClaudeTerminal or fall back to a local implementation
                 // This will be set by extension.ts after all services are loaded
                 if (openClaudeTerminalImpl) {
-                    await openClaudeTerminalImpl(trimmedName, worktreePath, prompt, permissionMode, workflow, codeAgent, workspaceRoot);
+                    const assembledPrompt = assembleStartingPrompt(prompt, attachments);
+                    await openClaudeTerminalImpl(trimmedName, worktreePath, assembledPrompt, permissionMode, workflow, codeAgent, workspaceRoot);
                 } else {
                     // This should not happen in normal operation, but provides a fallback
                     console.warn('SessionService: openClaudeTerminal not injected, session may not open properly');
