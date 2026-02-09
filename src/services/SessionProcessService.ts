@@ -152,8 +152,66 @@ export async function checkPendingSessions(
 export const checkClearRequests = processClearRequest;
 
 /**
+ * Atomically claim a clear request file by deleting it.
+ * Returns true if this window successfully claimed the file, false if another window already did.
+ */
+async function claimClearRequest(configPath: string): Promise<boolean> {
+    try {
+        await fsPromises.unlink(configPath);
+        return true;
+    } catch (err: any) {
+        if (err.code === 'ENOENT') {
+            // Another window already claimed this file
+            return false;
+        }
+        throw err;
+    }
+}
+
+/**
+ * Check if the clear request file still exists on disk.
+ */
+async function clearRequestExists(configPath: string): Promise<boolean> {
+    try {
+        await fsPromises.access(configPath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Execute the clear request: clear session ID, dispose terminal, open new terminal.
+ */
+async function executeClearRequest(
+    config: ClearSessionConfig,
+    codeAgent: CodeAgent,
+    baseRepoPath: string | undefined,
+    clearSessionIdImpl: (worktreePath: string) => Promise<void>
+): Promise<void> {
+    await clearSessionIdImpl(config.worktreePath);
+
+    const sessionName = path.basename(config.worktreePath);
+    const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
+
+    const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
+    if (existingTerminal) {
+        existingTerminal.dispose();
+        // Brief delay to ensure terminal is closed
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+    console.log(`Session cleared: ${sessionName}`);
+}
+
+/**
  * Process a pending session clear request from the MCP server.
  * Closes the existing terminal and opens a new one with fresh context.
+ *
+ * When multiple VS Code windows are open for the same project, each window's
+ * file watcher fires on the same clear request file. This function uses terminal
+ * ownership to ensure only the window that owns the terminal processes the request.
  */
 export async function processClearRequest(
     configPath: string,
@@ -161,45 +219,87 @@ export async function processClearRequest(
     baseRepoPath: string | undefined,
     sessionProvider: ClaudeSessionProvider,
     // Internal functions from extension (temporary)
-    clearSessionIdFn?: any
+    clearSessionIdFn?: any,
+    workspaceRoot?: string
 ): Promise<void> {
-    const clearSessionIdImpl = clearSessionIdFn || (async (path: string) => {
+    const clearSessionIdImpl = clearSessionIdFn || (async (worktreePath: string) => {
         const { clearSessionId: _clearSessionId } = require('../ClaudeSessionProvider');
-        await _clearSessionId(path);
+        await _clearSessionId(worktreePath);
     });
 
     try {
-        // Read and parse the config file
+        // Read and parse the config file (but don't delete yet — we need to check ownership)
         const configContent = await fsPromises.readFile(configPath, 'utf-8');
         const config: ClearSessionConfig = JSON.parse(configContent);
 
         console.log(`Processing clear request for: ${config.worktreePath}`);
 
-        // Delete the config file first to prevent re-processing
-        await fsPromises.unlink(configPath);
-
-        // Clear the session ID so the new terminal starts fresh instead of resuming
-        if (clearSessionIdImpl) {
-            await clearSessionIdImpl(config.worktreePath);
-        }
-
         const sessionName = path.basename(config.worktreePath);
         const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
-        // Find and close the existing terminal
-        const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
-        if (existingTerminal) {
-            existingTerminal.dispose();
-            // Brief delay to ensure terminal is closed
-            await new Promise(resolve => setTimeout(resolve, 200));
+        // Check if this window owns the terminal
+        const ownsTerminal = vscode.window.terminals.some(t => t.name === termName);
+
+        if (ownsTerminal) {
+            // This window owns the terminal — atomically claim the request file
+            const claimed = await claimClearRequest(configPath);
+            if (!claimed) {
+                console.log(`Clear request already claimed by another window: ${sessionName}`);
+                return;
+            }
+
+            await executeClearRequest(config, codeAgent, baseRepoPath, clearSessionIdImpl);
+            return;
         }
 
-        // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
-        await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+        // Terminal not found in this window — give the owning window time to claim
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log(`Session cleared: ${sessionName}`);
+        // Check if another window already handled it
+        if (!await clearRequestExists(configPath)) {
+            console.log(`Clear request handled by another window: ${sessionName}`);
+            return;
+        }
 
-    } catch (err) {
+        // File still exists — check if this is the primary window (base repo)
+        const isPrimaryWindow = workspaceRoot !== undefined && baseRepoPath !== undefined && workspaceRoot === baseRepoPath;
+
+        if (isPrimaryWindow) {
+            // Primary window claims as fallback (e.g. terminal was manually closed)
+            const claimed = await claimClearRequest(configPath);
+            if (!claimed) {
+                console.log(`Clear request already claimed by another window: ${sessionName}`);
+                return;
+            }
+
+            console.log(`Primary window claiming orphaned clear request: ${sessionName}`);
+            await executeClearRequest(config, codeAgent, baseRepoPath, clearSessionIdImpl);
+            return;
+        }
+
+        // Non-primary window — wait additional time, then try as last resort
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (!await clearRequestExists(configPath)) {
+            console.log(`Clear request handled by another window: ${sessionName}`);
+            return;
+        }
+
+        // Last resort: no other window handled it, claim it
+        const claimed = await claimClearRequest(configPath);
+        if (!claimed) {
+            console.log(`Clear request already claimed by another window: ${sessionName}`);
+            return;
+        }
+
+        console.log(`Last-resort window claiming clear request: ${sessionName}`);
+        await executeClearRequest(config, codeAgent, baseRepoPath, clearSessionIdImpl);
+
+    } catch (err: any) {
+        if (err.code === 'ENOENT') {
+            // File was already claimed/processed by another window during read
+            return;
+        }
         console.error(`Failed to process clear request ${configPath}:`, err);
         // Try to delete the config file even on error to prevent infinite retries
         try {

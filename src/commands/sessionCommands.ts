@@ -13,7 +13,7 @@ import { execGit } from '../gitService';
 import { GitChangesPanel } from '../GitChangesPanel';
 import { validateBranchName, getErrorMessage } from '../utils';
 import { LanesError, GitError, ValidationError } from '../errors';
-import { fileExists } from '../services/FileService';
+import { fileExists, ensureDir } from '../services/FileService';
 import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
@@ -376,17 +376,41 @@ export function registerSessionCommands(
             const sessionName = path.basename(item.worktreePath);
             const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
-            await clearSessionId(item.worktreePath);
-
+            // Check if the terminal lives in this window
             const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
+
             if (existingTerminal) {
+                // Terminal is in this window — process directly
+                await clearSessionId(item.worktreePath);
+
                 existingTerminal.dispose();
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
+
+                await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+
+                vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
+            } else {
+                // Terminal not in this window — write a clear request file
+                // for the owning window's file watcher to pick up
+                if (!baseRepoPath) {
+                    vscode.window.showErrorMessage('Cannot clear session: no base repository path.');
+                    return;
+                }
+
+                const clearDir = path.join(baseRepoPath, '.lanes', 'clear-requests');
+                await ensureDir(clearDir);
+
+                const config = {
+                    worktreePath: item.worktreePath,
+                    requestedAt: new Date().toISOString()
+                };
+
+                const configId = `${sessionName}-${Date.now()}`;
+                const configPath = path.join(clearDir, `${configId}.json`);
+                await fsPromises.writeFile(configPath, JSON.stringify(config, null, 2));
+
+                vscode.window.showInformationMessage(`Session '${sessionName}' clear request sent. The terminal will restart in its owning window.`);
             }
-
-            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
-
-            vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
         } catch (err) {
             let userMessage = 'Failed to clear session.';
             if (err instanceof GitError) {
