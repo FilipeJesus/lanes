@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import { constants } from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 
@@ -38,7 +38,7 @@ export async function propagateLocalSettings(
 
     // Check if source file exists
     try {
-        await fsPromises.access(sourcePath, fs.constants.R_OK);
+        await fsPromises.access(sourcePath, constants.R_OK);
     } catch {
         // Source file doesn't exist - silently exit
         return;

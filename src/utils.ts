@@ -6,6 +6,14 @@
  */
 
 /**
+ * Result of branch name validation.
+ */
+export interface ValidationResult {
+    valid: boolean;
+    error?: string;
+}
+
+/**
  * Sanitize a session name to be a valid git branch name.
  * Git branch naming rules:
  * - Allowed: letters, numbers, hyphens, underscores, dots, forward slashes
@@ -83,3 +91,74 @@ export function getErrorMessage(err: unknown): string {
  * @returns The default worktrees folder name
  */
 export const DEFAULT_WORKTREES_FOLDER = '.worktrees';
+
+/**
+ * Validate a branch name against Git's branch naming rules.
+ *
+ * Git branch naming rules (from git-check-ref-format):
+ * - Cannot contain ASCII control chars (bytes < 0x20, 0x7F DEL)
+ * - Cannot contain spaces, ~, ^, :, ?, *, [, \
+ * - Cannot start or end with dot
+ * - Cannot contain .. or // sequences
+ * - Cannot contain @{ sequences
+ * - Cannot end with .lock
+ *
+ * This is VALIDATION (not sanitization) - rejects invalid input rather than transforming it.
+ * The existing sanitizeSessionName is for display names, but branch names must be
+ * validated before Git operations.
+ *
+ * @param branch The branch name to validate
+ * @returns ValidationResult with valid flag and optional error message
+ */
+export function validateBranchName(branch: string): ValidationResult {
+    if (!branch) {
+        return { valid: false, error: 'Branch name cannot be empty' };
+    }
+
+    // Check for ASCII control characters (including DEL 0x7F)
+    const INVALID_CHARS_REGEX = /[\x00-\x1F\x7F ~^:?*[\]\\]/;
+    if (INVALID_CHARS_REGEX.test(branch)) {
+        return {
+            valid: false,
+            error: `Branch '${branch}' contains invalid characters. Worktrees cannot be created from this branch.`
+        };
+    }
+
+    // Check for leading or trailing dots
+    const LEADING_TRAILING_DOT_REGEX = /^\.|\.$/;
+    if (LEADING_TRAILING_DOT_REGEX.test(branch)) {
+        return {
+            valid: false,
+            error: `Branch '${branch}' contains invalid characters. Worktrees cannot be created from this branch.`
+        };
+    }
+
+    // Check for .. or // sequences
+    const DOT_SEQUENCE_REGEX = /\.\.|\/\//;
+    if (DOT_SEQUENCE_REGEX.test(branch)) {
+        return {
+            valid: false,
+            error: `Branch '${branch}' contains invalid sequences. Worktrees cannot be created from this branch.`
+        };
+    }
+
+    // Check for @{ sequences (used for git reflog syntax)
+    const BRACE_SEQUENCE_REGEX = /@\{/;
+    if (BRACE_SEQUENCE_REGEX.test(branch)) {
+        return {
+            valid: false,
+            error: `Branch '${branch}' contains invalid characters. Worktrees cannot be created from this branch.`
+        };
+    }
+
+    // Check for .lock suffix
+    const LOCK_SUFFIX_REGEX = /\.lock$/;
+    if (LOCK_SUFFIX_REGEX.test(branch)) {
+        return {
+            valid: false,
+            error: `Branch '${branch}' contains invalid characters. Worktrees cannot be created from this branch.`
+        };
+    }
+
+    return { valid: true };
+}

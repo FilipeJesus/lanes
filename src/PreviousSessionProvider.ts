@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
 import { getWorktreesFolder, getGlobalStorageUri, getRepoIdentifier, getBaseRepoPathForStorage } from './ClaudeSessionProvider';
+import { fileExists, readDir, isDirectory, isFile } from './services/FileService';
 
 /**
  * Get the prompts directory path based on configuration.
@@ -133,36 +133,36 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
      * Get the children (previous sessions).
      * Returns sessions that have prompt files but no active worktree.
      */
-    getChildren(element?: PreviousSessionItem): Thenable<PreviousSessionItem[]> {
+    async getChildren(element?: PreviousSessionItem): Promise<PreviousSessionItem[]> {
         if (!this.sessionsRoot) {
-            return Promise.resolve([]);
+            return [];
         }
 
         // We only have a flat list, so if element exists, it has no children
         if (element) {
-            return Promise.resolve([]);
+            return [];
         }
 
         // Get the prompts directory path (respects global storage vs repo-relative config)
         const promptsDir = getPromptsDir(this.sessionsRoot);
 
         // Check if prompts directory is determinable and exists
-        if (!promptsDir || !fs.existsSync(promptsDir)) {
-            return Promise.resolve([]);
+        if (!promptsDir || !(await fileExists(promptsDir))) {
+            return [];
         }
 
         // Get active session names (directories in .worktrees/)
-        const activeSessions = this.getActiveSessionNames();
+        const activeSessions = await this.getActiveSessionNames();
 
         // Get all .txt files from the prompts folder
-        return Promise.resolve(this.getPreviousSessionItems(promptsDir, activeSessions));
+        return this.getPreviousSessionItems(promptsDir, activeSessions);
     }
 
     /**
      * Get the names of currently active sessions.
      * Active sessions are directories in the worktrees folder.
      */
-    private getActiveSessionNames(): Set<string> {
+    private async getActiveSessionNames(): Promise<Set<string>> {
         const activeSessions = new Set<string>();
 
         if (!this.sessionsRoot) {
@@ -172,15 +172,15 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
         const worktreesDir = path.join(this.sessionsRoot, getWorktreesFolder());
 
         // Check if worktrees folder exists
-        if (!fs.existsSync(worktreesDir)) {
+        if (!(await fileExists(worktreesDir))) {
             return activeSessions;
         }
 
         try {
-            const entries = fs.readdirSync(worktreesDir);
+            const entries = await readDir(worktreesDir);
             for (const entry of entries) {
                 const fullPath = path.join(worktreesDir, entry);
-                if (fs.statSync(fullPath).isDirectory()) {
+                if (await isDirectory(fullPath)) {
                     activeSessions.add(entry);
                 }
             }
@@ -194,11 +194,11 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
     /**
      * Get PreviousSessionItems for prompts that don't have active sessions.
      */
-    private getPreviousSessionItems(promptsDir: string, activeSessions: Set<string>): PreviousSessionItem[] {
+    private async getPreviousSessionItems(promptsDir: string, activeSessions: Set<string>): Promise<PreviousSessionItem[]> {
         const items: PreviousSessionItem[] = [];
 
         try {
-            const entries = fs.readdirSync(promptsDir);
+            const entries = await readDir(promptsDir);
 
             for (const entry of entries) {
                 // Only process .txt files
@@ -209,7 +209,7 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
                 const fullPath = path.join(promptsDir, entry);
 
                 // Ensure it's a file, not a directory
-                if (!fs.statSync(fullPath).isFile()) {
+                if (!(await isFile(fullPath))) {
                     continue;
                 }
 

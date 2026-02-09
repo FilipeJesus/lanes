@@ -10,9 +10,10 @@ import {
   WorkflowStatusResponse,
   WorkflowState,
 } from '../workflow';
-import * as fs from 'fs';
 import * as path from 'path';
 import { sanitizeSessionName } from '../utils';
+import { mcpAdapter } from '../services/McpAdapter';
+import { fileExists, ensureDir, writeJson } from '../services/FileService';
 
 /**
  * Result from workflowStart containing the machine and initial status.
@@ -33,40 +34,23 @@ export function getStatePath(worktreePath: string): string {
 
 /**
  * Saves the workflow state to a file atomically.
- * Uses write-to-temp-then-rename pattern to prevent corruption.
+ * Delegates to McpAdapter which uses FileService atomic write.
  * @param worktreePath - The worktree root path
  * @param state - The workflow state to save
  */
 export async function saveState(worktreePath: string, state: WorkflowState): Promise<void> {
-  const statePath = getStatePath(worktreePath);
-  const tempPath = `${statePath}.tmp.${process.pid}`;
-
-  // Write to temp file first
-  await fs.promises.writeFile(tempPath, JSON.stringify(state, null, 2));
-
-  // Atomically rename to target path
-  await fs.promises.rename(tempPath, statePath);
+  await mcpAdapter.saveState(worktreePath, state);
 }
 
 /**
  * Loads the workflow state from a file.
+ * Delegates to McpAdapter which uses FileService readJson (ENOENT-safe).
  * @param worktreePath - The worktree root path
  * @returns The loaded state, or null if not found
  * @throws If file exists but cannot be read (permissions) or parsed (invalid JSON)
  */
 export async function loadState(worktreePath: string): Promise<WorkflowState | null> {
-  const statePath = getStatePath(worktreePath);
-  try {
-    const content = await fs.promises.readFile(statePath, 'utf-8');
-    return JSON.parse(content) as WorkflowState;
-  } catch (error) {
-    // File not found is acceptable - return null
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    // Re-throw other errors (permissions, parse errors, etc.)
-    throw error;
-  }
+  return await mcpAdapter.loadState(worktreePath);
 }
 
 /**
@@ -235,7 +219,7 @@ export async function workflowRegisterArtefacts(
   paths: string[],
   worktreePath: string
 ): Promise<{ registered: string[]; duplicates: string[]; invalid: string[] }> {
-  const result = machine.registerArtefacts(paths);
+  const result = await machine.registerArtefacts(paths);
 
   // Persist state after registration
   await saveState(worktreePath, machine.getState());
@@ -325,9 +309,7 @@ export async function createSession(
 
     // 4. Ensure pending sessions directory exists
     const pendingSessionsDir = getPendingSessionsDir(repoRoot);
-    if (!fs.existsSync(pendingSessionsDir)) {
-      fs.mkdirSync(pendingSessionsDir, { recursive: true });
-    }
+    await ensureDir(pendingSessionsDir);
 
     // 5. Create config object
     const config: PendingSessionConfig = {
@@ -341,7 +323,7 @@ export async function createSession(
     // 6. Write config file with unique name
     const configId = `${sanitizedName}-${Date.now()}`;
     const configPath = path.join(pendingSessionsDir, `${configId}.json`);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    await writeJson(configPath, config);
 
     // 7. Return success
     return {
@@ -416,7 +398,7 @@ export async function clearSession(
     }
 
     // 2. Validate worktreePath exists
-    if (!fs.existsSync(worktreePath)) {
+    if (!(await fileExists(worktreePath))) {
       return {
         success: false,
         error: `Worktree path does not exist: ${worktreePath}`
@@ -426,9 +408,7 @@ export async function clearSession(
     // 3. Ensure clear requests directory exists
     const repoRoot = path.dirname(path.dirname(worktreePath)); // Go up from .worktrees/session-name
     const clearDir = path.join(repoRoot, '.lanes', 'clear-requests');
-    if (!fs.existsSync(clearDir)) {
-      fs.mkdirSync(clearDir, { recursive: true });
-    }
+    await ensureDir(clearDir);
 
     // 4. Create config object
     const sessionName = path.basename(worktreePath);
@@ -440,7 +420,7 @@ export async function clearSession(
     // 5. Write config file with unique name
     const configId = `${sessionName}-${Date.now()}`;
     const configPath = path.join(clearDir, `${configId}.json`);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    await writeJson(configPath, config);
 
     // 6. Return success
     return {

@@ -347,6 +347,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
@@ -354,7 +355,9 @@
     "esbuild": "^0.27.2",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
+    "memfs": "^4.56.10",
     "ovsx": "^0.10.2",
+    "sinon": "^21.0.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1"
   },

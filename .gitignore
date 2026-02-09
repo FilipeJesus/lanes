@@ -20,3 +20,9 @@ tests.json
 # Git worktrees directory
 .worktrees/
 socials/
+
+# Coverage reports
+coverage/
+
+# GSD planning files
+.planning/
