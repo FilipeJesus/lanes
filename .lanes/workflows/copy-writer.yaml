@@ -1,0 +1,29 @@
+name: copy-writer
+description: A workflow for generating social media copy
+
+agents:
+  social-media-copywriter:
+    description: Implements features and writes code
+
+steps:
+  
+  - id: plan
+    type: action
+    instructions: |
+      Take the feature request and explore the codebase in order to get all the context
+      needed for the request
+
+  - id: write
+    type: ralph
+    agent: social-media-copywriter
+    n: 5
+    instructions: |
+      Take the request and produce a social media post that markets to the target audience.
+      Make sure to include relevant hashtags and a call to action.
+      If the feature is technical, explain it in terms needed for the target audience.
+
+  - id: review
+    type: action
+    instructions: |
+      Review the social media posts for accuracy, clarity, and engagement.
+      Make sure they have not lied about the feature or its capabilities.

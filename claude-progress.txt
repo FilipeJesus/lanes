@@ -1,0 +1,24 @@
+## Session: 2025-12-31
+
+### Completed
+- Implemented worktree detection with `getBaseRepoPath()` function to detect if running in a worktree and resolve base repository path
+- Added Project Manager integration with `addProjectToProjectManager()` and `removeProjectFromProjectManager()` functions
+- Projects are saved using `{repo_name}-{session_name}` format with `lanes` tag
+- Added "Open in New Window" button alongside git diff button using `$(multiple-windows)` icon
+- Updated `ClaudeSessionProvider` to accept `baseRepoPath` parameter for showing sessions from base repo when in worktree
+- Updated session creation to use base repo path when in a worktree window
+- Added atomic writes for Project Manager file operations
+- Added validation for HOME/APPDATA environment variables
+- Added JSON structure validation when reading projects file
+- Added repository name sanitization for special characters
+- Implemented 24 new tests (206 total tests now pass)
+
+### Acceptance Criteria Met
+- [x] New open window button opens a new VS Code window for the worktree
+- [x] When in a worktree window, all worktrees are shown in active sessions
+- [x] When in a worktree, new sessions are created in the base repo directory
+- [x] Projects are saved in Project Manager using `{repo_name}-{session_name}` format
+
+### Next Steps
+- Consider adding optional dependency on Project Manager extension in package.json
+- Consider showing user notification when Project Manager is not installed
