@@ -1,0 +1,181 @@
+# =============================================================================
+# WORKFLOW: GSD (Get Shit Done) Development
+# =============================================================================
+#
+# A structured development workflow powered by the GSD skill framework.
+# Uses GSD skills for project initialization, phase planning, execution,
+# and milestone management, with Lanes orchestrating the overall flow.
+#
+# FLOW:
+# 1. Gather requirements from the user
+# 2. Initialize GSD project (PROJECT.md, roadmap with phases)
+# 3. Define tasks - one per phase from the GSD roadmap
+# 4. Development loop per phase:
+#    a. Discuss phase context (/gsd:discuss-phase)
+#    b. Plan phase execution (/gsd:plan-phase)
+#    c. Execute phase (/gsd:execute-phase)
+#    d. Code review (Lanes reviewer agent)
+# 5. Audit milestone (/gsd:audit-milestone)
+# 6. Complete milestone (/gsd:complete-milestone)
+#
+# PREREQUISITES:
+# - GSD skills must be installed and available
+# - The 'code-reviewer' agent should exist in .claude/agents/
+#
+# =============================================================================
+
+name: gsd
+description: Full development lifecycle powered by GSD skills - from requirements to milestone completion
+
+agents:
+  code-reviewer:
+    description: Reviews code quality, security, and correctness after each phase execution
+
+loops:
+  development:
+    - id: discuss
+      instructions: |
+        Discuss phase context for: {task.title}
+
+        Run: /gsd:discuss-phase {task.id}
+
+        This step gathers context through adaptive questioning before planning.
+        Answer questions based on the project requirements and phase goals.
+        Once the discussion is complete, summarize the key decisions made.
+      context: clear
+
+    - id: plan
+      instructions: |
+        Plan the execution of phase: {task.title}
+
+        Run: /gsd:plan-phase {task.id}
+
+        This will create a PLAN.md with task breakdown, dependency analysis,
+        and goal-backward verification. Review the plan before advancing.
+      context: clear
+
+    - id: execute
+      instructions: |
+        Execute phase: {task.title}
+
+        Run: /gsd:execute-phase {task.id}
+
+        This will execute all plans in the phase with wave-based parallelization,
+        atomic commits, and state tracking. Ensure all tasks complete successfully
+        before advancing.
+      context: clear
+
+    - id: review
+      agent: code-reviewer
+      instructions: |
+        Review the implementation of phase: {task.title}
+
+        First, get context on what was built:
+        Run: /gsd:progress
+
+        Then thoroughly review all code changes made during this phase execution.
+
+        Check for:
+        1. Code quality and adherence to project patterns
+        2. Security vulnerabilities (OWASP top 10)
+        3. Proper error handling and edge cases
+        4. Test coverage for new functionality
+        5. Consistency with existing codebase style
+        6. Any regressions or broken functionality
+
+        If critical issues are found, document them clearly.
+        Minor style issues can be noted but should not block progress.
+      context: clear
+      on_fail: retry
+
+steps:
+  - id: gather_requirements
+    type: action
+    instructions: |
+      Gather requirements from the user for the project.
+
+      Ask the user to describe:
+      1. What they want to build or accomplish
+      2. Any specific constraints or preferences
+      3. Target platform, language, or framework choices
+      4. Success criteria - how will they know it's done?
+
+      Summarize the requirements clearly before proceeding.
+      This summary will be used as input for GSD project initialization.
+
+  - id: new_project
+    type: action
+    instructions: |
+      Initialize the GSD project using the requirements gathered.
+
+      Invoke the GSD new-project skill:
+
+      Run: /gsd:new-project
+
+      Provide the requirements summary from the previous step when prompted.
+      This will:
+      - Research the domain ecosystem
+      - Create PROJECT.md with full project context
+      - Generate a roadmap with phases
+
+      Once complete, review the generated roadmap and note the phases.
+      List each phase number, name, and brief description.
+
+  - id: define_tasks
+    type: action
+    instructions: |
+      Define the development loop tasks based on the GSD roadmap phases.
+
+      1. Read the project roadmap from the .planning/ directory
+      2. For each phase in the roadmap, create a task with:
+         - id: MUST be the exact GSD phase number (e.g., "1", "2", "3")
+              This is critical - the development loop passes task.id directly
+              to GSD skills as the phase number argument.
+         - title: the phase name from the roadmap
+         - description: the phase description and goals from the roadmap
+
+      3. Call workflow_set_tasks('development', tasks) with all phases as tasks.
+
+      Example:
+      ```
+      workflow_set_tasks('development', [
+        { id: '1', title: 'Core Setup', description: 'Initialize project structure...' },
+        { id: '2', title: 'Data Layer', description: 'Implement database models...' },
+        ...
+      ])
+      ```
+
+  - id: development
+    type: loop
+
+  - id: audit_milestone
+    type: action
+    instructions: |
+      Audit the milestone to verify all phases were completed successfully.
+
+      Invoke the GSD audit-milestone skill:
+
+      Run: /gsd:audit-milestone
+
+      This will check milestone completion against the original project intent.
+      Review the audit results and note any gaps or issues that need addressing.
+
+      If gaps are found, document them for resolution before completing the milestone.
+    context: clear
+
+  - id: complete_milestone
+    type: action
+    instructions: |
+      Complete and archive the milestone.
+
+      Invoke the GSD complete-milestone skill:
+
+      Run: /gsd:complete-milestone
+
+      This will:
+      - Archive the completed milestone
+      - Prepare documentation for the next version if needed
+      - Generate a summary of all accomplishments
+
+      Provide a final summary of everything that was built during this workflow.
+    context: clear
