@@ -5,6 +5,21 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-02-09
+
+### Features                                                                                                                                                                        
+- Add file attachment support to session creation form (#114)                                                         
+- Handle session clear across multiple VS Code windows (#113)
+- Simplify session form — remove acceptance criteria, streamline permissions (#112)
+- Add GSD-powered workflow template (#109)
+
+### Fixes
+- Use effectiveWorkflow for cleared session prompt generation (#110)
+- Various concern fixes (#108)
+
+### Refactors
+- Remove MCP register_artefacts tool in favor of hook-based tracking (#111)
+
 ## [1.1.0] - 2026-01-26
 
 ### Added
