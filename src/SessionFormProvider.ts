@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { WorkflowMetadata } from './workflow';
 
 /**
@@ -39,7 +40,8 @@ export type SessionFormSubmitCallback = (
     prompt: string,
     sourceBranch: string,
     permissionMode: PermissionMode,
-    workflow: string | null
+    workflow: string | null,
+    attachments: string[]
 ) => void | Promise<void>;
 
 /**
@@ -171,6 +173,25 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
+                case 'showFilePicker':
+                    const uris = await vscode.window.showOpenDialog({
+                        canSelectMany: true,
+                        canSelectFiles: true,
+                        canSelectFolders: false,
+                        openLabel: 'Attach',
+                        title: 'Select files to attach',
+                        defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
+                    });
+                    if (uris && uris.length > 0) {
+                        this._view?.webview.postMessage({
+                            command: 'filesSelected',
+                            files: uris.map(uri => ({
+                                path: uri.fsPath,
+                                name: path.basename(uri.fsPath)
+                            }))
+                        });
+                    }
+                    break;
                 case 'createSession':
                     if (this._onSubmit) {
                         try {
@@ -180,7 +201,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                                 message.prompt,
                                 message.sourceBranch || '',
                                 message.permissionMode || 'acceptEdits',
-                                message.workflow || null
+                                message.workflow || null,
+                                message.attachments || []
                             );
                         } catch (err) {
                             // Error is already shown by createSession, but log for debugging
@@ -300,6 +322,95 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         textarea {
             min-height: 80px;
             resize: vertical;
+            padding-bottom: 36px;
+        }
+
+        .textarea-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .attach-btn {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--vscode-foreground);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            z-index: 1;
+        }
+
+        .attach-btn:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .attachment-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 4px 2px 8px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            border-radius: 3px;
+            font-size: 12px;
+            max-width: 100%;
+        }
+
+        .chip-icon {
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .chip-label {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .chip-remove {
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            border-radius: 2px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chip-remove:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .attachment-warning {
+            font-size: 11px;
+            color: var(--vscode-editorWarning-foreground, #cca700);
+            margin-top: 4px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
 
         button {
@@ -416,11 +527,15 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         <div class="form-group">
             <label for="prompt">Starting Prompt (optional)</label>
-            <textarea
-                id="prompt"
-                name="prompt"
-                placeholder="Describe the task for Claude..."
-            ></textarea>
+            <div class="textarea-wrapper">
+                <textarea
+                    id="prompt"
+                    name="prompt"
+                    placeholder="Describe the task for Claude..."
+                ></textarea>
+                <button type="button" class="attach-btn" id="attachBtn" title="Attach files" aria-label="Attach files">&#128206;</button>
+            </div>
+            <div class="attachment-chips" id="attachmentChips"></div>
             <div class="hint">Sent to Claude after the session starts</div>
         </div>
 
@@ -453,8 +568,75 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const bypassPermissionsBtn = document.getElementById('bypassPermissionsBtn');
         const workflowInput = document.getElementById('workflow');
         const refreshWorkflowBtn = document.getElementById('refreshWorkflowBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        const attachmentChipsContainer = document.getElementById('attachmentChips');
 
         let bypassPermissions = false;
+        let attachments = [];
+        const MAX_FILES = 20;
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop()?.toLowerCase() || '';
+            const codeExts = ['js','ts','jsx','tsx','py','java','cpp','c','h','go','rs','rb','php','swift','kt','cs','html','css','scss','less','vue','svelte'];
+            const dataExts = ['json','xml','yaml','yml','toml','ini','env','csv'];
+            const docExts = ['md','txt','rst','doc','docx','rtf'];
+            const mediaExts = ['png','jpg','jpeg','gif','svg','mp4','mp3','wav','webp','ico'];
+            const archiveExts = ['zip','tar','gz','rar','7z'];
+            if (codeExts.includes(ext)) return '\u{1F4C4}';
+            if (dataExts.includes(ext)) return '\u{1F4CB}';
+            if (docExts.includes(ext)) return '\u{1F4DD}';
+            if (mediaExts.includes(ext)) return '\u{1F5BC}';
+            if (archiveExts.includes(ext)) return '\u{1F4E6}';
+            return '\u{1F4C1}';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderAttachmentChips() {
+            attachmentChipsContainer.innerHTML = '';
+            attachments.forEach((file, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'chip';
+                chip.dataset.path = file.path;
+                chip.innerHTML =
+                    '<span class="chip-icon">' + getFileIcon(file.name) + '</span>' +
+                    '<span class="chip-label">' + escapeHtml(file.name) + '</span>' +
+                    '<button type="button" class="chip-remove" aria-label="Remove ' + escapeHtml(file.name) + '">\u00D7</button>';
+                chip.querySelector('.chip-remove').addEventListener('click', () => {
+                    attachments.splice(index, 1);
+                    renderAttachmentChips();
+                    saveState();
+                });
+                attachmentChipsContainer.appendChild(chip);
+            });
+        }
+
+        function showAttachmentWarning(message) {
+            const existing = attachmentChipsContainer.parentNode.querySelector('.attachment-warning');
+            if (existing) existing.remove();
+
+            const warning = document.createElement('div');
+            warning.className = 'attachment-warning';
+            warning.textContent = message;
+            attachmentChipsContainer.parentNode.insertBefore(warning, attachmentChipsContainer.nextSibling);
+
+            setTimeout(() => {
+                warning.style.opacity = '0';
+                setTimeout(() => warning.remove(), 300);
+            }, 3000);
+        }
+
+        attachBtn.addEventListener('click', () => {
+            if (attachments.length >= MAX_FILES) {
+                showAttachmentWarning('Maximum ' + MAX_FILES + ' files allowed');
+                return;
+            }
+            vscode.postMessage({ command: 'showFilePicker' });
+        });
 
         function updateBypassBtn() {
             if (bypassPermissions) {
@@ -481,6 +663,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             bypassPermissions = previousState.bypassPermissions || false;
             updateBypassBtn();
             workflowInput.value = previousState.workflow || '';
+            attachments = previousState.attachments || [];
+            renderAttachmentChips();
         }
 
         // Save state whenever form values change
@@ -490,7 +674,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
                 bypassPermissions: bypassPermissions,
-                workflow: workflowInput.value
+                workflow: workflowInput.value,
+                attachments: attachments
             });
         }
 
@@ -521,7 +706,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 sourceBranch: sourceBranch,
                 prompt: prompt,
                 permissionMode: permissionMode,
-                workflow: workflow || null
+                workflow: workflow || null,
+                attachments: attachments.map(a => a.path)
             });
         });
 
@@ -589,15 +775,43 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     bypassPermissions = false;
                     updateBypassBtn();
                     workflowInput.value = '';
+                    attachments = [];
+                    renderAttachmentChips();
                     // Clear saved state after successful submission
                     vscode.setState({
                         name: '',
                         sourceBranch: '',
                         prompt: '',
                         bypassPermissions: false,
-                        workflow: ''
+                        workflow: '',
+                        attachments: []
                     });
                     nameInput.focus();
+                    break;
+                case 'filesSelected':
+                    if (message.files && Array.isArray(message.files)) {
+                        let duplicateCount = 0;
+                        const availableSlots = MAX_FILES - attachments.length;
+                        const filesToAdd = message.files.slice(0, availableSlots);
+                        if (message.files.length > availableSlots) {
+                            showAttachmentWarning('Can only attach ' + availableSlots + ' more files (limit: ' + MAX_FILES + ')');
+                        }
+                        for (const file of filesToAdd) {
+                            const isDuplicate = attachments.some(
+                                a => a.path.toLowerCase() === file.path.toLowerCase()
+                            );
+                            if (isDuplicate) {
+                                duplicateCount++;
+                            } else {
+                                attachments.push(file);
+                            }
+                        }
+                        if (duplicateCount > 0) {
+                            showAttachmentWarning(duplicateCount === 1 ? 'File already attached' : duplicateCount + ' files already attached');
+                        }
+                        renderAttachmentChips();
+                        saveState();
+                    }
                     break;
                 case 'updateWorkflows':
                     updateWorkflowDropdown(message.workflows);
