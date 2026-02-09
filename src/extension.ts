@@ -151,10 +151,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
-    // Handle form submission - creates a new session with optional prompt and acceptance criteria
+    // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, acceptanceCriteria: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null) => {
-        await createSession(name, prompt, acceptanceCriteria, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider, codeAgent);
+    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null) => {
+        await createSession(name, prompt, permissionMode, sourceBranch, workflow, baseRepoPath, sessionProvider, codeAgent);
     });
 
     // Helper function to refresh workflows in both the tree view and the session form
@@ -265,7 +265,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             const sessionName = path.basename(workspaceRoot);
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, codeAgent, baseRepoPath);
             }, 500);
         }
     }

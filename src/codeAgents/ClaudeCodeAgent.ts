@@ -109,7 +109,7 @@ export class ClaudeCodeAgent extends CodeAgent {
         }
 
         // Add permission mode flag
-        if (options.permissionMode && options.permissionMode !== 'default') {
+        if (options.permissionMode) {
             const flag = this.getPermissionFlag(options.permissionMode);
             if (flag) {
                 parts.push(flag);
@@ -211,10 +211,8 @@ export class ClaudeCodeAgent extends CodeAgent {
 
     getPermissionModes(): PermissionMode[] {
         return [
-            { id: 'default', label: 'Default' },
             { id: 'acceptEdits', label: 'Accept Edits', flag: '--permission-mode acceptEdits' },
             { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--dangerously-skip-permissions' },
-            { id: 'dontAsk', label: "Don't Ask", flag: '--permission-mode dontAsk' },
         ];
     }
 

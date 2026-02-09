@@ -137,12 +137,12 @@ export function registerSessionCommands(
             return;
         }
 
-        await createSession(name, '', '', 'default', '', null, baseRepoPath, sessionProvider, codeAgent);
+        await createSession(name, '', 'acceptEdits', '', null, baseRepoPath, sessionProvider, codeAgent);
     });
 
     // Command: Open/resume a session
     const openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath);
+        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath);
     });
 
     // Command: Delete a session
@@ -384,7 +384,7 @@ export function registerSessionCommands(
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
             }
 
-            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+            await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
             vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
         } catch (err) {

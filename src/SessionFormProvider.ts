@@ -4,7 +4,7 @@ import { WorkflowMetadata } from './workflow';
 /**
  * Valid permission modes for Claude CLI
  */
-export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default', 'dontAsk'] as const;
+export const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions'] as const;
 export type PermissionMode = typeof PERMISSION_MODES[number];
 
 /**
@@ -37,7 +37,6 @@ export function isValidChimeSound(sound: unknown): sound is ChimeSound {
 export type SessionFormSubmitCallback = (
     name: string,
     prompt: string,
-    acceptanceCriteria: string,
     sourceBranch: string,
     permissionMode: PermissionMode,
     workflow: string | null
@@ -179,9 +178,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             await this._onSubmit(
                                 message.name,
                                 message.prompt,
-                                message.acceptanceCriteria || '',
                                 message.sourceBranch || '',
-                                message.permissionMode || 'default',
+                                message.permissionMode || 'acceptEdits',
                                 message.workflow || null
                             );
                         } catch (err) {
@@ -347,6 +345,41 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             flex-shrink: 0;
         }
 
+        .submit-row {
+            display: flex;
+            gap: 6px;
+            align-items: stretch;
+        }
+
+        .submit-row button[type="submit"] {
+            flex: 1;
+        }
+
+        .bypass-btn {
+            width: 40px;
+            min-width: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border: 1px solid transparent;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-foreground);
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .bypass-btn:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .bypass-btn.active {
+            background-color: #c6a700;
+            color: #1e1e1e;
+            border-color: #c6a700;
+        }
+
         .hint {
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
@@ -392,27 +425,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         </div>
 
         <div class="form-group">
-            <label for="acceptanceCriteria">Acceptance Criteria (optional)</label>
-            <textarea
-                id="acceptanceCriteria"
-                name="acceptanceCriteria"
-                placeholder="Define what success looks like..."
-            ></textarea>
-            <div class="hint">Criteria for Claude to meet</div>
-        </div>
-
-        <div class="form-group">
-            <label for="permissionMode">Permission Mode</label>
-            <select id="permissionMode" name="permissionMode">
-                <option value="default" selected>default</option>
-                <option value="acceptEdits">acceptEdits</option>
-                <option value="bypassPermissions">bypassPermissions</option>
-                <option value="dontAsk">dontAsk</option>
-            </select>
-            <div class="hint">Controls Claude's permission behavior</div>
-        </div>
-
-        <div class="form-group">
             <label for="workflow">Workflow Template</label>
             <div class="workflow-control">
                 <select id="workflow" name="workflow">
@@ -424,7 +436,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             <div class="hint">Optional: Select a workflow to guide Claude through structured phases</div>
         </div>
 
-        <button type="submit" id="submitBtn">Create Session</button>
+        <div class="submit-row">
+            <button type="button" id="bypassPermissionsBtn" class="bypass-btn" title="bypassPermissions" aria-label="Toggle bypass permissions" aria-pressed="false">&#9888;</button>
+            <button type="submit" id="submitBtn">Create Session</button>
+        </div>
     </form>
 
     <audio id="chime-player" src="${chimeUri}"></audio>
@@ -435,10 +450,27 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const nameInput = document.getElementById('name');
         const sourceBranchInput = document.getElementById('sourceBranch');
         const promptInput = document.getElementById('prompt');
-        const acceptanceCriteriaInput = document.getElementById('acceptanceCriteria');
-        const permissionModeInput = document.getElementById('permissionMode');
+        const bypassPermissionsBtn = document.getElementById('bypassPermissionsBtn');
         const workflowInput = document.getElementById('workflow');
         const refreshWorkflowBtn = document.getElementById('refreshWorkflowBtn');
+
+        let bypassPermissions = false;
+
+        function updateBypassBtn() {
+            if (bypassPermissions) {
+                bypassPermissionsBtn.classList.add('active');
+                bypassPermissionsBtn.setAttribute('aria-pressed', 'true');
+            } else {
+                bypassPermissionsBtn.classList.remove('active');
+                bypassPermissionsBtn.setAttribute('aria-pressed', 'false');
+            }
+        }
+
+        bypassPermissionsBtn.addEventListener('click', () => {
+            bypassPermissions = !bypassPermissions;
+            updateBypassBtn();
+            saveState();
+        });
 
         // Restore saved state when webview is recreated
         const previousState = vscode.getState();
@@ -446,8 +478,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             nameInput.value = previousState.name || '';
             sourceBranchInput.value = previousState.sourceBranch || '';
             promptInput.value = previousState.prompt || '';
-            acceptanceCriteriaInput.value = previousState.acceptanceCriteria || '';
-            permissionModeInput.value = previousState.permissionMode || 'default';
+            bypassPermissions = previousState.bypassPermissions || false;
+            updateBypassBtn();
             workflowInput.value = previousState.workflow || '';
         }
 
@@ -457,8 +489,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 name: nameInput.value,
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
-                acceptanceCriteria: acceptanceCriteriaInput.value,
-                permissionMode: permissionModeInput.value,
+                bypassPermissions: bypassPermissions,
                 workflow: workflowInput.value
             });
         }
@@ -467,8 +498,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         nameInput.addEventListener('input', saveState);
         sourceBranchInput.addEventListener('input', saveState);
         promptInput.addEventListener('input', saveState);
-        acceptanceCriteriaInput.addEventListener('input', saveState);
-        permissionModeInput.addEventListener('change', saveState);
         workflowInput.addEventListener('change', saveState);
 
         form.addEventListener('submit', (e) => {
@@ -477,8 +506,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             const name = nameInput.value.trim();
             const sourceBranch = sourceBranchInput.value.trim();
             const prompt = promptInput.value.trim();
-            const acceptanceCriteria = acceptanceCriteriaInput.value.trim();
-            const permissionMode = permissionModeInput.value;
+            const permissionMode = bypassPermissions ? 'bypassPermissions' : 'acceptEdits';
             const workflow = workflowInput.value;
 
             if (!name) {
@@ -492,7 +520,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 name: name,
                 sourceBranch: sourceBranch,
                 prompt: prompt,
-                acceptanceCriteria: acceptanceCriteria,
                 permissionMode: permissionMode,
                 workflow: workflow || null
             });
@@ -559,16 +586,15 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     nameInput.value = '';
                     sourceBranchInput.value = '';
                     promptInput.value = '';
-                    acceptanceCriteriaInput.value = '';
-                    permissionModeInput.value = 'default';
+                    bypassPermissions = false;
+                    updateBypassBtn();
                     workflowInput.value = '';
                     // Clear saved state after successful submission
                     vscode.setState({
                         name: '',
                         sourceBranch: '',
                         prompt: '',
-                        acceptanceCriteria: '',
-                        permissionMode: 'default',
+                        bypassPermissions: false,
                         workflow: ''
                     });
                     nameInput.focus();

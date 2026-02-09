@@ -90,8 +90,7 @@ export async function processPendingSession(
         await createSessionService(
             config.name,
             config.prompt || '',
-            '', // acceptanceCriteria
-            'default' as any, // permissionMode
+            'acceptEdits',
             config.sourceBranch,
             resolvedWorkflowPath, // workflow - resolved path to workflow YAML file
             workspaceRoot,
@@ -196,7 +195,7 @@ export async function processClearRequest(
         }
 
         // Open a new terminal with fresh session (skip workflow prompt for cleared sessions)
-        await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+        await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
         console.log(`Session cleared: ${sessionName}`);
 

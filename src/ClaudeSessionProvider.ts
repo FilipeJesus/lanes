@@ -140,6 +140,7 @@ export interface ClaudeSessionData {
     sessionId: string;
     timestamp?: string;
     workflow?: string;
+    permissionMode?: string;
     isChimeEnabled?: boolean;
     taskListId?: string;
 }
@@ -164,6 +165,31 @@ export async function getSessionWorkflow(worktreePath: string): Promise<string |
         if (!data) { return null; }
         if (typeof data.workflow === 'string' && (data.workflow as string).trim() !== '') {
             return data.workflow as string;
+        }
+        return null;
+    } catch { return null; }
+}
+
+export async function saveSessionPermissionMode(worktreePath: string, permissionMode: string): Promise<void> {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+    try {
+        await ensureDir(path.dirname(sessionPath));
+        let existingData: Record<string, unknown> = {};
+        const parsed = await readJson<Record<string, unknown>>(sessionPath);
+        if (parsed) { existingData = parsed; }
+        await writeJson(sessionPath, { ...existingData, permissionMode });
+    } catch (err) {
+        console.warn('Lanes: Failed to save session permission mode:', err);
+    }
+}
+
+export async function getSessionPermissionMode(worktreePath: string): Promise<string | null> {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        if (!data) { return null; }
+        if (typeof data.permissionMode === 'string' && (data.permissionMode as string).trim() !== '') {
+            return data.permissionMode as string;
         }
         return null;
     } catch { return null; }

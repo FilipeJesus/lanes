@@ -22,32 +22,14 @@ import { getErrorMessage } from '../utils';
 import {
     getSessionId,
     getSessionWorkflow,
+    getSessionPermissionMode,
+    saveSessionPermissionMode,
     getOrCreateTaskListId,
     getPromptsPath
 } from '../ClaudeSessionProvider';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
-
-/**
- * Combines prompt and acceptance criteria into a single formatted string.
- * - If both are provided: "request: [prompt]\nacceptance criteria: [criteria]"
- * - If only one is provided: use that value as-is
- * - If neither is provided: returns empty string
- */
-export function combinePromptAndCriteria(prompt?: string, acceptanceCriteria?: string): string {
-    const trimmedPrompt = prompt?.trim() || '';
-    const trimmedCriteria = acceptanceCriteria?.trim() || '';
-
-    if (trimmedPrompt && trimmedCriteria) {
-        return `request: ${trimmedPrompt}\nacceptance criteria: ${trimmedCriteria}`;
-    } else if (trimmedPrompt) {
-        return trimmedPrompt;
-    } else if (trimmedCriteria) {
-        return trimmedCriteria;
-    }
-    return '';
-}
 
 /**
  * Generates the workflow orchestrator instructions to prepend to a prompt.
@@ -162,7 +144,6 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
  * @param taskName The name of the session/task
  * @param worktreePath The path to the worktree
  * @param prompt Optional starting prompt for Claude
- * @param acceptanceCriteria Optional acceptance criteria for Claude
  * @param permissionMode Permission mode for Claude CLI
  * @param workflow Optional workflow template path
  * @param codeAgent Optional CodeAgent for custom agent behavior
@@ -173,7 +154,6 @@ export async function openClaudeTerminal(
     taskName: string,
     worktreePath: string,
     prompt?: string,
-    acceptanceCriteria?: string,
     permissionMode?: PermissionMode,
     workflow?: string | null,
     codeAgent?: CodeAgent,
@@ -221,6 +201,15 @@ export async function openClaudeTerminal(
         const savedWorkflow = await getSessionWorkflow(worktreePath);
         if (savedWorkflow) {
             effectiveWorkflow = savedWorkflow;
+        }
+    }
+
+    // Determine effective permission mode: use provided or restore from session data
+    let effectivePermissionMode = permissionMode;
+    if (!effectivePermissionMode) {
+        const savedMode = await getSessionPermissionMode(worktreePath);
+        if (savedMode && isValidPermissionMode(savedMode)) {
+            effectivePermissionMode = savedMode as PermissionMode;
         }
     }
 
@@ -293,10 +282,12 @@ export async function openClaudeTerminal(
 
     if (shouldStartFresh) {
         // Validate permissionMode to prevent command injection from untrusted webview input
-        const validatedMode = isValidPermissionMode(permissionMode) ? permissionMode : 'default';
+        const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
 
-        // Combine prompt and acceptance criteria
-        let combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
+        // Persist permission mode for future session clears/restarts
+        await saveSessionPermissionMode(worktreePath, validatedMode);
+
+        let combinedPrompt = prompt?.trim() || '';
 
         // For workflow sessions, prepend orchestrator instructions
         // Note: use effectiveWorkflow (which includes restored workflow from session data)
@@ -366,9 +357,7 @@ Proceed by calling workflow_status now.`;
             // Fallback to hardcoded command construction
             const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
             const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
-            const permissionFlag = validatedMode !== 'default'
-                ? `--permission-mode ${validatedMode} `
-                : '';
+            const permissionFlag = `--permission-mode ${validatedMode} `;
 
             if (promptFileCommand) {
                 // Pass prompt file content as argument using command substitution
