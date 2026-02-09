@@ -299,12 +299,14 @@ export async function openClaudeTerminal(
         let combinedPrompt = combinePromptAndCriteria(prompt, acceptanceCriteria);
 
         // For workflow sessions, prepend orchestrator instructions
-        if (workflow && combinedPrompt) {
+        // Note: use effectiveWorkflow (which includes restored workflow from session data)
+        // not workflow (the parameter, which may be undefined for cleared sessions)
+        if (effectiveWorkflow && combinedPrompt) {
             // User provided a prompt - prepend orchestrator instructions
-            combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + combinedPrompt;
-        } else if (workflow && skipWorkflowPrompt) {
+            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + combinedPrompt;
+        } else if (effectiveWorkflow && skipWorkflowPrompt) {
             // Cleared session with workflow - add resume prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + `This is a Lanes workflow session that has been cleared.
+            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
 
 To resume your work:
 1. Call workflow_status to check the current state of the workflow
@@ -312,9 +314,18 @@ To resume your work:
 3. Continue with the next steps in the workflow
 
 Proceed with resuming the workflow from where it left off.`;
-        } else if (workflow) {
+        } else if (effectiveWorkflow) {
             // New workflow session without user prompt - add start prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(workflow) + 'Start the workflow and follow the steps.';
+            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
+        } else if (skipWorkflowPrompt) {
+            // Cleared session without a workflow - prompt Claude to check for workflow state
+            combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
+
+To resume your work:
+1. Call workflow_status to check if there is an active workflow and its current state
+2. Continue working based on the workflow status
+
+Proceed by calling workflow_status now.`;
         }
 
         // Write prompt to file for history and to avoid terminal buffer issues
