@@ -141,7 +141,8 @@ suite('Workflow Resume Tests', () => {
 		const machine = new WorkflowStateMachine(template);
 		machine.start();
 		machine.setSummary('Test summary');
-		await machine.registerArtefacts([testFile]);
+		// Simulate artefact registration (done by hook script in production)
+		machine.getState().artefacts.push(testFile);
 		machine.advance('Step 1 output');
 
 		const originalState = machine.getState();
