@@ -227,23 +227,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: 'register_artefacts',
-      description:
-        'Register output files (artefacts) created during the current workflow step. ' +
-        'These files will be tracked in the workflow state and visible in status responses.',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          paths: {
-            type: 'array',
-            description: 'List of file paths (absolute or relative to workspace) to register as artefacts',
-            items: { type: 'string' },
-          },
-        },
-        required: ['paths'],
-      },
-    },
-    {
       name: 'session_create',
       description:
         'Request creation of a new Lanes session. Writes a config file that the ' +
@@ -496,34 +479,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const context = tools.workflowContext(machine);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(context, null, 2) }],
-        };
-      }
-
-      case 'register_artefacts': {
-        if (!machine) {
-          throw new Error('Workflow not started. Call workflow_start first.');
-        }
-
-        if (!Array.isArray(toolArgs?.paths)) {
-          throw new Error('paths must be an array');
-        }
-
-        const paths: string[] = toolArgs.paths.map((p: unknown) => {
-          if (typeof p !== 'string') {
-            throw new Error('Each path must be a string');
-          }
-          return p;
-        });
-
-        const result = await tools.workflowRegisterArtefacts(machine, paths, worktreePath);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
         };
       }
 

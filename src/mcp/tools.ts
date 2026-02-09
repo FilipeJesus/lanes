@@ -205,28 +205,6 @@ export function workflowContext(machine: WorkflowStateMachine): Record<string, s
   return machine.getContext();
 }
 
-/**
- * Registers artefact paths for the current workflow.
- * Validates paths, registers them with the state machine, and persists the updated state.
- *
- * @param machine - The workflow state machine
- * @param paths - Array of file paths to register (absolute or relative)
- * @param worktreePath - The worktree root path for state persistence
- * @returns Result with registered, duplicate, and invalid paths
- */
-export async function workflowRegisterArtefacts(
-  machine: WorkflowStateMachine,
-  paths: string[],
-  worktreePath: string
-): Promise<{ registered: string[]; duplicates: string[]; invalid: string[] }> {
-  const result = await machine.registerArtefacts(paths);
-
-  // Persist state after registration
-  await saveState(worktreePath, machine.getState());
-
-  return result;
-}
-
 // =============================================================================
 // Session Creation Tools
 // =============================================================================
