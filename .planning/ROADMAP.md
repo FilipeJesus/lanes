@@ -33,8 +33,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Implement attachment UI (button, file picker, removable list in webview)
-- [ ] 01-02: Integrate attachments into prompt assembly and session creation
+- [ ] 01-01-PLAN.md -- Attachment UI: paperclip button, file picker via message passing, chip list with remove, duplicate detection, state persistence
+- [ ] 01-02-PLAN.md -- Prompt assembly: format attachment paths into prompt, update callback chain, add tests
 
 ## Progress
 
