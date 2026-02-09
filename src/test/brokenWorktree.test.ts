@@ -192,11 +192,24 @@ suite('Broken Worktree Repair', () => {
 	let originalExecGit: typeof gitService.execGit;
 	let branchesThatExist: Set<string> = new Set();
 	let repairedWorktrees: Array<{ worktreePath: string; branch: string }> = [];
+	let savedGitDir: string | undefined;
+	let savedGitWorkTree: string | undefined;
 
 	// Create a real git repository for integration tests
 	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-repair-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
+
+		// Clear GIT_DIR and GIT_WORK_TREE from the environment.
+		// When tests run inside a git hook (e.g., pre-commit), these env vars
+		// are inherited and point to the parent repo. Without clearing them,
+		// real git commands (init, config, add, commit) would target the parent
+		// repo instead of tempDir, contaminating its config and creating commits
+		// that delete all tracked files.
+		savedGitDir = process.env.GIT_DIR;
+		savedGitWorkTree = process.env.GIT_WORK_TREE;
+		delete process.env.GIT_DIR;
+		delete process.env.GIT_WORK_TREE;
 
 		// Disable global storage for these tests
 		const config = vscode.workspace.getConfiguration('lanes');
@@ -276,6 +289,14 @@ suite('Broken Worktree Repair', () => {
 
 	// Clean up after each test
 	teardown(async () => {
+		// Restore GIT_DIR and GIT_WORK_TREE env vars
+		if (savedGitDir !== undefined) {
+			process.env.GIT_DIR = savedGitDir;
+		}
+		if (savedGitWorkTree !== undefined) {
+			process.env.GIT_WORK_TREE = savedGitWorkTree;
+		}
+
 		// Reset useGlobalStorage to default
 		const config = vscode.workspace.getConfiguration('lanes');
 		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
