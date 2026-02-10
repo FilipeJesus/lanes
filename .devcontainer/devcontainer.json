@@ -5,9 +5,6 @@
 		"context": ".."
 	},
 	"remoteEnv": {
-		"ANTHROPIC_BASE_URL": "${localEnv:ANTHROPIC_BASE_URL:-}",
-		"ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN:-}",
-		"API_TIMEOUT_MS": "60000",
 		"MS_ACCESS_TOKEN": "${localEnv:MS_ACCESS_TOKEN:-}",
 		"OVSX_PAT": "${localEnv:OVSX_PAT:-}"
 	},
