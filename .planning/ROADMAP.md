@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation Refactoring** - Eliminate hardcoded Claude assumptions
 - [x] **Phase 2: Agent Abstraction Enhancement** - Add agent factory, tracking interface, settings service
 - [x] **Phase 3: Codex CLI Integration** - Implement CodexCodeAgent with TOML config
-- [ ] **Phase 4: UI Integration** - Agent selection and terminal differentiation
+- [x] **Phase 4: UI Integration** - Agent selection and terminal differentiation
 - [ ] **Phase 5: Testing & Validation** - Multi-agent test suite and compatibility
 
 ## Phase Details
@@ -79,7 +79,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md — Agent dropdown in session form with CLI availability checks, callback wiring, and test updates
+- [x] 04-01-PLAN.md — Agent dropdown in session form with CLI availability checks, callback wiring, and test updates
 
 ### Phase 5: Testing & Validation
 **Goal**: Multi-agent system verified with comprehensive tests and backward compatibility confirmed
@@ -106,5 +106,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation Refactoring | 4/4 | ✓ Complete | 2026-02-10 |
 | 2. Agent Abstraction Enhancement | 3/3 | ✓ Complete | 2026-02-10 |
 | 3. Codex CLI Integration | 2/2 | ✓ Complete | 2026-02-10 |
-| 4. UI Integration | 0/1 | Not started | - |
+| 4. UI Integration | 1/1 | ✓ Complete | 2026-02-10 |
 | 5. Testing & Validation | 0/2 | Not started | - |
