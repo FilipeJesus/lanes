@@ -69,12 +69,25 @@ export interface ExecGitOptions {
  */
 export function execGit(args: string[], cwd: string, options?: ExecGitOptions): Promise<string> {
     return new Promise((resolve, reject) => {
-        const spawnOptions: { cwd: string; env?: NodeJS.ProcessEnv } = { cwd };
+        // Always build clean env to prevent git hook environment contamination.
+        // When the extension runs git commands during a pre-commit hook, inherited
+        // vars like GIT_INDEX_FILE and GIT_DIR would cause commands to target the
+        // wrong index/repo. Each execGit call should operate independently.
+        const cleanEnv = { ...process.env };
+        delete cleanEnv.GIT_INDEX_FILE;
+        delete cleanEnv.GIT_DIR;
+        delete cleanEnv.GIT_WORK_TREE;
+        delete cleanEnv.GIT_AUTHOR_DATE;
+        delete cleanEnv.GIT_AUTHOR_EMAIL;
+        delete cleanEnv.GIT_AUTHOR_NAME;
+        delete cleanEnv.GIT_EDITOR;
+        delete cleanEnv.GIT_PREFIX;
 
-        // Merge custom env vars with existing process env
         if (options?.env) {
-            spawnOptions.env = { ...process.env, ...options.env };
+            Object.assign(cleanEnv, options.env);
         }
+
+        const spawnOptions = { cwd, env: cleanEnv };
 
         const childProcess = spawn(gitPath, args, spawnOptions);
         let stdout = '';
