@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import { getSettingsFormat } from './SettingsFormatService';
 import {
     getSessionId,
     getPromptsPath,
@@ -208,9 +209,11 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     // Ensure the directory exists
     await fsPromises.mkdir(settingsDir, { recursive: true });
 
-    // Generate the artefact registration hook script in global storage
-    const hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
-    const hookScriptContent = `#!/bin/bash
+    // Generate the artefact registration hook script only for agents that support hooks
+    let hookScriptPath: string | undefined;
+    if (!codeAgent || codeAgent.supportsHooks()) {
+        hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
+        const hookScriptContent = `#!/bin/bash
 
 # Read hook input from stdin
 INPUT=$(cat)
@@ -240,8 +243,9 @@ fi
 exit 0
 `;
 
-    // Write the hook script with executable permissions
-    await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
+        // Write the hook script with executable permissions
+        await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
+    }
 
     // Determine status and session file paths using the helper functions
     // These functions handle both global and non-global modes automatically
@@ -253,10 +257,13 @@ exit 0
     await fsPromises.mkdir(path.dirname(sessionFilePath), { recursive: true });
 
 
-    // Build hooks configuration
+    // Build hooks configuration (only for agents that support hooks)
     let hooks: ClaudeSettings['hooks'];
 
-    if (codeAgent) {
+    if (codeAgent && !codeAgent.supportsHooks()) {
+        // Hookless agents (e.g., Codex) get settings without hooks
+        hooks = undefined;
+    } else if (codeAgent) {
         // Use CodeAgent to generate hooks
         // Pass effectiveWorkflow to enable workflow status hook
         // Pass hookScriptPath to enable PostToolUse artefact registration hook
@@ -307,10 +314,11 @@ exit 0
         };
     }
 
-    // Build the settings object
-    const settings: ClaudeSettings = {
-        hooks
-    };
+    // Build the settings object - only include hooks when defined
+    const settings: ClaudeSettings = {};
+    if (hooks) {
+        settings.hooks = hooks;
+    }
 
     // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
     // effectiveWorkflow is now the full path to the workflow YAML file
@@ -334,9 +342,16 @@ exit 0
     }
 
     // Write the settings file atomically with cleanup on failure
+    // Use format-aware writing when CodeAgent is available (JSON for Claude, TOML for Codex)
     const tempPath = path.join(settingsDir, `${settingsFileName}.${Date.now()}.tmp`);
     try {
-        await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
+        if (codeAgent) {
+            const format = getSettingsFormat(codeAgent);
+            await format.write(tempPath, settings as Record<string, unknown>);
+        } else {
+            // Fallback to JSON when no CodeAgent is provided
+            await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
+        }
         await fsPromises.rename(tempPath, settingsFilePath);
     } catch (err) {
         // Clean up temp file on failure
