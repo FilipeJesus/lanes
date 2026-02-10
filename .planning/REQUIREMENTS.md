@@ -55,13 +55,13 @@ Add OpenAI Codex CLI as a second supported agent in Lanes, enabling users to cre
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-F1 | Phase 1 | Pending |
-| REQ-F2 | Phase 1 | Pending |
-| REQ-F3 | Phase 1 | Pending |
-| REQ-A1 | Phase 2 | Pending |
-| REQ-A2 | Phase 2 | Pending |
-| REQ-A3 | Phase 2 | Pending |
-| REQ-A4 | Phase 2 | Pending |
+| REQ-F1 | Phase 1 | ✓ Complete |
+| REQ-F2 | Phase 1 | ✓ Complete |
+| REQ-F3 | Phase 1 | ✓ Complete |
+| REQ-A1 | Phase 2 | ✓ Complete |
+| REQ-A2 | Phase 2 | ✓ Complete |
+| REQ-A3 | Phase 2 | ✓ Complete |
+| REQ-A4 | Phase 2 | ✓ Complete |
 | REQ-C1 | Phase 3 | Pending |
 | REQ-C2 | Phase 3 | Pending |
 | REQ-C3 | Phase 3 | Pending |

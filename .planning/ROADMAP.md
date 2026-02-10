@@ -13,7 +13,7 @@ Adding OpenAI Codex CLI as a second supported agent in Lanes requires eliminatin
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Refactoring** - Eliminate hardcoded Claude assumptions
-- [ ] **Phase 2: Agent Abstraction Enhancement** - Add agent factory, tracking interface, settings service
+- [x] **Phase 2: Agent Abstraction Enhancement** - Add agent factory, tracking interface, settings service
 - [ ] **Phase 3: Codex CLI Integration** - Implement CodexCodeAgent with TOML config
 - [ ] **Phase 4: UI Integration** - Agent selection and terminal differentiation
 - [ ] **Phase 5: Testing & Validation** - Multi-agent test suite and compatibility
@@ -48,9 +48,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Agent factory with hardcoded map, singleton lifecycle, CLI validation, lanes.defaultAgent setting, stub CodexAgent
-- [ ] 02-02-PLAN.md — Session metadata agentName field, hookless terminal lifecycle tracking, session file writing for hookless agents
-- [ ] 02-03-PLAN.md — Format-agnostic settings service with JSON and TOML support via @iarna/toml
+- [x] 02-01-PLAN.md — Agent factory with hardcoded map, singleton lifecycle, CLI validation, lanes.defaultAgent setting, stub CodexAgent
+- [x] 02-02-PLAN.md — Session metadata agentName field, hookless terminal lifecycle tracking, session file writing for hookless agents
+- [x] 02-03-PLAN.md — Format-agnostic settings service with JSON and TOML support via @iarna/toml
 
 ### Phase 3: Codex CLI Integration
 **Goal**: CodexCodeAgent fully implements CodeAgent interface with proper CLI commands and TOML configuration
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Refactoring | 4/4 | ✓ Complete | 2026-02-10 |
-| 2. Agent Abstraction Enhancement | 0/3 | Not started | - |
+| 2. Agent Abstraction Enhancement | 3/3 | ✓ Complete | 2026-02-10 |
 | 3. Codex CLI Integration | 0/2 | Not started | - |
 | 4. UI Integration | 0/1 | Not started | - |
 | 5. Testing & Validation | 0/2 | Not started | - |
