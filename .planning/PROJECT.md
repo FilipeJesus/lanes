@@ -1,12 +1,12 @@
-# Lanes: Codex CLI Support
+# Lanes: Multi-Agent Code Sessions
 
 ## What This Is
 
-Adding OpenAI Codex CLI support to Lanes, the VS Code extension that manages isolated coding sessions using Git worktrees. Currently Lanes only supports Claude Code as its code agent. This project adds Codex as a second supported agent, allowing users to create and manage Codex-powered sessions with the same workflow they use for Claude Code.
+A VS Code extension that manages isolated coding sessions using Git worktrees. Supports multiple code agents (Claude Code and OpenAI Codex CLI) with per-session agent selection, shared worktree isolation, and full session lifecycle management.
 
 ## Core Value
 
-Users can create, open, resume, and delete Codex CLI sessions through the Lanes sidebar with the same reliability and isolation as Claude Code sessions.
+Users can create, open, resume, and delete code agent sessions through the Lanes sidebar with the same reliability and isolation regardless of which agent they choose.
 
 ## Requirements
 
@@ -19,70 +19,66 @@ Users can create, open, resume, and delete Codex CLI sessions through the Lanes 
 - Session form with workflow selection, permissions, and prompt -- existing
 - Global storage and local storage session tracking -- existing
 - Local settings propagation to worktrees -- existing
+- CodexCodeAgent implementation extending CodeAgent base class -- v1.0
+- Codex CLI command building (start, resume) with proper flags -- v1.0
+- Codex permission/sandbox mode mapping (2 modes) -- v1.0
+- Codex session resume support (codex resume <UUID>, strict validation) -- v1.0
+- VS Code setting for default agent selection (lanes.defaultAgent) -- v1.0
+- Per-session agent selection in session creation form -- v1.0
+- Codex terminal naming and icon differentiation -- v1.0
+- Session tracking adapted for Codex (filesystem polling, no hooks) -- v1.0
+- Status tracking for Codex sessions (active/idle via terminal events) -- v1.0
+- Format-agnostic settings service (JSON + TOML) -- v1.0
+- Extension activation updated to support agent factory -- v1.0
+- Tests for multi-agent system (57 new, 705 total) -- v1.0
+- Backward compatibility with legacy claudeWorktrees.* commands (15 aliases) -- v1.0
+- Security hardening (injection prevention, path traversal, cross-platform) -- v1.0
 
 ### Active
 
-- [ ] CodexCodeAgent implementation extending CodeAgent base class
-- [ ] Codex CLI command building (start, resume) with proper flags
-- [ ] Codex permission/sandbox mode mapping (read-only, workspace-write, full-access)
-- [ ] Codex session resume support (codex resume <ID> or --last)
-- [ ] VS Code setting for default agent selection (lanes.defaultAgent)
-- [ ] Per-session agent selection in session creation form
-- [ ] Codex terminal naming and icon differentiation
-- [ ] Session tracking adapted for Codex (session ID capture without hooks)
-- [ ] Status tracking for Codex sessions (alternative to Claude's hook-based approach)
-- [ ] Settings propagation adapted for Codex (.codex/config.toml vs .claude/settings.json)
-- [ ] Extension activation updated to support agent selection
-- [ ] Tests for CodexCodeAgent implementation
+(None yet — planning next milestone)
 
 ### Out of Scope
 
-- Workflow/MCP support for Codex sessions -- Codex has different MCP config mechanism (TOML-based), defer to future
+- Workflow/MCP support for Codex sessions -- different TOML-based config mechanism, defer to future
 - Codex Cloud integration -- only CLI support needed
 - IDE extension integration for Codex -- only terminal-based CLI
 - Migration tooling between Claude and Codex sessions -- unnecessary complexity
 - Codex authentication management -- Codex handles its own auth via `codex login`
+- Sidebar visual differentiation by agent -- user preference to keep UI clean
+- Real-time Codex status polling -- basic terminal tracking sufficient for now
 
 ## Context
 
-**Existing Architecture:**
-The codebase already has a well-designed `CodeAgent` abstraction layer (`src/codeAgents/CodeAgent.ts`) with an abstract base class that defines the contract for all code agents. `ClaudeCodeAgent` is the current implementation. Adding Codex means creating a `CodexCodeAgent` class.
+Shipped v1.0 with multi-agent support. 705 tests passing across TypeScript codebase. Tech stack: TypeScript, VS Code Extension API, @iarna/toml. 86 files modified, 11,572 lines added.
 
-**Key Technical Differences (Codex vs Claude Code):**
+Architecture: `CodeAgent` abstract base class with `ClaudeCodeAgent` and `CodexCodeAgent` implementations. Agent factory with singleton caching. Format-agnostic settings service. Hookless session tracking via terminal lifecycle events.
 
-| Aspect | Claude Code | Codex CLI |
-|--------|------------|-----------|
-| CLI command | `claude` | `codex` |
-| Start | `claude [prompt]` | `codex [prompt]` |
-| Resume | `claude --resume <UUID>` | `codex resume <ID>` |
-| Permission modes | `--permission-mode acceptEdits`, `--dangerously-skip-permissions` | `--sandbox read-only/workspace-write/danger-full-access`, `--ask-for-approval untrusted/on-failure/on-request/never` |
-| Settings | `.claude/settings.json` (JSON, per-project) | `.codex/config.toml` (TOML, per-project + global) |
-| MCP config | `--mcp-config <path>` (JSON file) | `[mcp_servers]` section in config.toml |
-| Hooks | Rich hook system (SessionStart, Stop, etc.) | `notify` array in config.toml (notifications only) |
-| Session IDs | UUID stored in `.claude-session` by hooks | Managed internally by Codex (rollout files + SQLite) |
-| Status tracking | `.claude-status` file updated by hooks | No equivalent -- must implement alternative |
-
-**Key Challenges:**
-1. **No hook system**: Codex has no event hooks like Claude's SessionStart/Stop. Session ID capture and status tracking need alternative approaches (e.g., file watching, process monitoring, or wrapping).
-2. **Session ID format**: Codex session IDs may not be UUIDs -- need to research actual format and adjust validation.
-3. **Settings format**: Codex uses TOML instead of JSON for configuration -- different settings propagation needed.
-
-## Constraints
-
-- **Backward compatibility**: All existing Claude Code functionality must continue working unchanged
-- **Tech stack**: TypeScript, VS Code Extension API -- must follow existing patterns
-- **Testing**: Must have test coverage for new CodexCodeAgent; pre-commit hooks enforce compile + lint + test
-- **Minimal UI changes**: Agent selection should be lightweight -- dropdown in form, VS Code setting for default
-- **No new dependencies**: Avoid adding TOML parser unless strictly necessary; prefer simple string generation for config.toml content
+18 tech debt items accumulated (3 important: duplicate utilities, status validation, regex validation). See `.planning/milestones/v1.0-MILESTONE-AUDIT.md`.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Per-session agent selection with global default | Users want flexibility but also convenience | -- Pending |
-| Basic sessions only (no workflow/MCP for Codex) | Codex MCP uses different config format; defer complexity | -- Pending |
-| No sidebar visual differentiation for agent type | User preference -- keep UI clean | -- Pending |
-| Alternative status tracking for Codex | Codex lacks hook system; may need polling or process monitoring | -- Pending |
+| Per-session agent selection with global default | Users want flexibility but also convenience | Good |
+| Basic sessions only (no workflow/MCP for Codex) | Codex MCP uses different config format; defer complexity | Good |
+| No sidebar visual differentiation for agent type | User preference -- keep UI clean | Good |
+| Hookless session tracking via terminal events | Codex lacks hook system; terminal open/close gives active/idle | Good |
+| Hardcoded factory map (not plugin registry) | Only 2 agents, registry is over-engineering | Good |
+| .claude-session filename for ALL agents | Pragmatic -- avoids migration, single source of truth | Good |
+| Two permission modes matching Claude pattern | Simpler UI, maps well to both agents | Good |
+| Strict error on session ID capture failure | No silent --last fallback, user sees explicit error | Good |
+| @iarna/toml dependency added | String generation insufficient for reliable TOML | Good |
+| Agent-prefixed generic naming | AgentSessionProvider etc. -- clear and extensible | Good |
+| execFile with args array for CLI checks | Prevents command injection vs exec with template literal | Good |
+
+## Constraints
+
+- Backward compatibility: All existing Claude Code functionality must continue working
+- Tech stack: TypeScript, VS Code Extension API
+- Testing: Pre-commit hooks enforce compile + lint + test (705 tests)
+- Minimal UI changes: Agent selection is lightweight dropdown
+- Phase directories accumulate across milestones (never deleted)
 
 ---
-*Last updated: 2026-02-10 after initialization*
+*Last updated: 2026-02-10 after v1.0 milestone*
