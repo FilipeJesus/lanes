@@ -93,8 +93,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: CodexCodeAgent and factory unit tests
-- [ ] 05-02: Integration tests and backward compatibility validation
+- [ ] 05-01-PLAN.md — Fix 4 carried-over security/correctness issues + CodexAgent and factory unit tests
+- [ ] 05-02-PLAN.md — Session form agent selection tests and backward compatibility validation
 
 ## Progress
 
