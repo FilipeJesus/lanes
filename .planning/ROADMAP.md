@@ -28,11 +28,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. All file paths use agent method calls instead of string literals (no ".claude-session" hardcoded strings)
   2. Services have agent-neutral names (SessionProvider, not ClaudeSessionProvider)
   3. All services receive CodeAgent via dependency injection with no direct instantiation outside factory
-**Plans**: 2 plans
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Replace hardcoded file paths, watch patterns, terminal names with CodeAgent method calls; generalize localSettings.ts
-- [ ] 01-02-PLAN.md — Rename ClaudeSessionProvider to AgentSessionProvider, update command/view IDs to lanes.*, add backward-compatible aliases
+- [ ] 01-01-PLAN.md — Replace hardcoded file paths, watch patterns, terminal names with CodeAgent method calls
+- [ ] 01-02-PLAN.md — Generalize localSettings.ts to be agent-aware; fix tests for signature changes
+- [ ] 01-03-PLAN.md — Rename ClaudeSessionProvider to AgentSessionProvider, update all production imports
+- [ ] 01-04-PLAN.md — Update command/view IDs to lanes.*, add backward-compatible aliases, update all test files
 
 ### Phase 2: Agent Abstraction Enhancement
 **Goal**: Infrastructure supports multiple agents with different capabilities (hooks vs polling, JSON vs TOML)
@@ -101,7 +103,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Refactoring | 0/2 | Not started | - |
+| 1. Foundation Refactoring | 0/4 | Not started | - |
 | 2. Agent Abstraction Enhancement | 0/3 | Not started | - |
 | 3. Codex CLI Integration | 0/2 | Not started | - |
 | 4. UI Integration | 0/1 | Not started | - |
