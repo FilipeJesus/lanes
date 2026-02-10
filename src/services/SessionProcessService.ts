@@ -13,11 +13,12 @@ import * as fsPromises from 'fs/promises';
 import { fileExists } from './FileService';
 import type { PendingSessionConfig } from '../types/extension';
 import type { ClearSessionConfig } from '../types/extension';
-import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, getSessionTerminalMode } from '../ClaudeSessionProvider';
 import { CodeAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
 import { createSession as createSessionService } from './SessionService';
 import { openClaudeTerminal as openClaudeTerminalService } from './TerminalService';
+import * as TmuxService from './TmuxService';
 
 // validateWorkflow still comes from extension.ts (WorkflowService extraction was in 07-02)
 let validateWorkflow: any = null;
@@ -198,6 +199,13 @@ async function executeClearRequest(
     const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
     if (existingTerminal) {
         existingTerminal.dispose();
+
+        // Kill tmux session if this session used tmux
+        if ((await getSessionTerminalMode(config.worktreePath)) === 'tmux') {
+            const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
+            await TmuxService.killSession(tmuxSessionName);
+        }
+
         // Brief delay to ensure terminal is closed
         await new Promise(resolve => setTimeout(resolve, 200));
     }

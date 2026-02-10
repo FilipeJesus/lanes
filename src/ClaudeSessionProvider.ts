@@ -143,6 +143,7 @@ export interface ClaudeSessionData {
     permissionMode?: string;
     isChimeEnabled?: boolean;
     taskListId?: string;
+    terminal?: 'code' | 'tmux';
 }
 
 export async function saveSessionWorkflow(worktreePath: string, workflow: string): Promise<void> {
@@ -191,6 +192,30 @@ export async function getSessionPermissionMode(worktreePath: string): Promise<st
         if (typeof data.permissionMode === 'string' && (data.permissionMode as string).trim() !== '') {
             return data.permissionMode as string;
         }
+        return null;
+    } catch { return null; }
+}
+
+export async function saveSessionTerminalMode(worktreePath: string, terminal: 'code' | 'tmux'): Promise<void> {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+    try {
+        await ensureDir(path.dirname(sessionPath));
+        let existingData: Record<string, unknown> = {};
+        const parsed = await readJson<Record<string, unknown>>(sessionPath);
+        if (parsed) { existingData = parsed; }
+        await writeJson(sessionPath, { ...existingData, terminal });
+    } catch (err) {
+        console.warn('Lanes: Failed to save session terminal mode:', err);
+    }
+}
+
+export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
+    const sessionPath = getClaudeSessionPath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        if (!data) { return null; }
+        if (data.terminal === 'tmux') { return 'tmux'; }
+        if (data.terminal === 'code') { return 'code'; }
         return null;
     } catch { return null; }
 }
