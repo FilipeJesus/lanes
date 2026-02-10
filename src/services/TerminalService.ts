@@ -27,7 +27,6 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     getSessionTerminalMode,
-    getClaudeSessionPath,
     getOrCreateTaskListId,
     getPromptsPath
 } from '../AgentSessionProvider';
@@ -528,7 +527,7 @@ export async function openAgentTerminal(
     if (savedTerminalMode !== null) {
         useTmux = savedTerminalMode === 'tmux';
     } else {
-        const sessionPath = getClaudeSessionPath(worktreePath);
+        const sessionPath = getSessionFilePath(worktreePath);
         const sessionExists = await fileExists(sessionPath);
         useTmux = !sessionExists && TmuxService.isTmuxMode();
     }

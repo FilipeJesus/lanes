@@ -207,7 +207,7 @@ export async function getSessionPermissionMode(worktreePath: string): Promise<st
 }
 
 export async function saveSessionTerminalMode(worktreePath: string, terminal: 'code' | 'tmux'): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let existingData: Record<string, unknown> = {};
@@ -220,7 +220,7 @@ export async function saveSessionTerminalMode(worktreePath: string, terminal: 'c
 }
 
 export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
