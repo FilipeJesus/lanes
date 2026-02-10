@@ -51,6 +51,33 @@ Add OpenAI Codex CLI as a second supported agent in Lanes, enabling users to cre
 | REQ-T3 | Session form agent selection tests | High | Agent dropdown renders. Selection persists. Permission options update per agent. |
 | REQ-T4 | Backward compatibility tests | Critical | All existing Claude Code tests pass unchanged. No regression in Claude session lifecycle. |
 
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-F1 | Phase 1 | Pending |
+| REQ-F2 | Phase 1 | Pending |
+| REQ-F3 | Phase 1 | Pending |
+| REQ-A1 | Phase 2 | Pending |
+| REQ-A2 | Phase 2 | Pending |
+| REQ-A3 | Phase 2 | Pending |
+| REQ-A4 | Phase 2 | Pending |
+| REQ-C1 | Phase 3 | Pending |
+| REQ-C2 | Phase 3 | Pending |
+| REQ-C3 | Phase 3 | Pending |
+| REQ-C4 | Phase 3 | Pending |
+| REQ-C5 | Phase 3 | Pending |
+| REQ-C6 | Phase 3 | Pending |
+| REQ-U1 | Phase 4 | Pending |
+| REQ-U2 | Phase 4 | Pending |
+| REQ-U3 | Phase 4 | Pending |
+| REQ-T1 | Phase 5 | Pending |
+| REQ-T2 | Phase 5 | Pending |
+| REQ-T3 | Phase 5 | Pending |
+| REQ-T4 | Phase 5 | Pending |
+
+**Coverage:** 20/20 requirements mapped (100%)
+
 ## Out of Scope
 
 | Item | Rationale |
@@ -81,3 +108,4 @@ Add OpenAI Codex CLI as a second supported agent in Lanes, enabling users to cre
 
 ---
 *Created: 2026-02-10 from research synthesis*
+*Traceability updated: 2026-02-10 after roadmap creation*
