@@ -121,6 +121,9 @@ export interface StartCommandOptions {
     /** Path to MCP config file */
     mcpConfigPath?: string;
 
+    /** MCP config overrides as -c key=value entries (Codex CLI) */
+    mcpConfigOverrides?: string[];
+
     /** Initial prompt for the agent */
     prompt?: string;
 }
@@ -134,6 +137,9 @@ export interface ResumeCommandOptions {
 
     /** Path to MCP config file */
     mcpConfigPath?: string;
+
+    /** MCP config overrides as -c key=value entries (Codex CLI) */
+    mcpConfigOverrides?: string[];
 }
 
 /**

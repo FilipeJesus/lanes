@@ -5,12 +5,12 @@
  *
  * Key differences from Claude Code:
  * - No hook system (getHookEvents returns empty array)
- * - No MCP support
+ * - MCP support via config overrides (-c mcp_servers...)
  * - Uses TOML settings format (config.toml)
  * - Blue terminal icon (vs Claude's green)
  * - Simpler status states (active/idle only - no hooks for granular tracking)
  * - Permission modes map to --sandbox and --ask-for-approval flags
- * - No config file generation (settingsPath/mcpConfigPath ignored)
+ * - Config file read from default locations; override values via -c
  */
 
 import {
@@ -20,7 +20,8 @@ import {
     PermissionMode,
     HookConfig,
     StartCommandOptions,
-    ResumeCommandOptions
+    ResumeCommandOptions,
+    McpConfig
 } from './CodeAgent';
 import * as os from 'os';
 import * as path from 'path';
@@ -118,12 +119,17 @@ export class CodexAgent extends CodeAgent {
     /**
      * Build Codex CLI start command with permission mode and optional prompt
      *
-     * Format: codex [--sandbox <mode> --ask-for-approval <mode>] ['<prompt>']
-     *
-     * Note: Does NOT add --settings or --mcp-config flags (Codex doesn't support them)
+     * Format: codex [-c <key=value> ...] [--sandbox <mode> --ask-for-approval <mode>] ['<prompt>']
      */
     buildStartCommand(options: StartCommandOptions): string {
         const parts: string[] = [this.config.cliCommand];
+
+        if (options.mcpConfigOverrides && options.mcpConfigOverrides.length > 0) {
+            for (const override of options.mcpConfigOverrides) {
+                const escapedOverride = this.escapeForSingleQuotes(override);
+                parts.push(`-c '${escapedOverride}'`);
+            }
+        }
 
         // Add permission flags if provided (combined dual-flag string)
         if (options.permissionMode) {
@@ -145,7 +151,7 @@ export class CodexAgent extends CodeAgent {
     /**
      * Build Codex CLI resume command
      *
-     * Format: codex resume <UUID>
+     * Format: codex [-c <key=value> ...] resume <UUID>
      *
      * @throws Error if session ID is not a valid UUID
      */
@@ -153,10 +159,16 @@ export class CodexAgent extends CodeAgent {
         // Validate UUID format (throws on invalid - strict, no fallback)
         this.validateSessionId(sessionId);
 
-        const parts: string[] = [this.config.cliCommand, 'resume', sessionId];
+        const parts: string[] = [this.config.cliCommand];
 
-        // Note: options parameter accepted for interface compatibility,
-        // but Codex doesn't use settingsPath/mcpConfigPath
+        if (_options.mcpConfigOverrides && _options.mcpConfigOverrides.length > 0) {
+            for (const override of _options.mcpConfigOverrides) {
+                const escapedOverride = this.escapeForSingleQuotes(override);
+                parts.push(`-c '${escapedOverride}'`);
+            }
+        }
+
+        parts.push('resume', sessionId);
 
         return parts.join(' ');
     }
@@ -262,7 +274,20 @@ export class CodexAgent extends CodeAgent {
     // --- MCP Support ---
 
     supportsMcp(): boolean {
-        return false;
+        return true;
+    }
+
+    getMcpConfig(worktreePath: string, workflowPath: string, repoRoot: string): McpConfig | null {
+        const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+
+        return {
+            mcpServers: {
+                'lanes-workflow': {
+                    command: 'node',
+                    args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
+                }
+            }
+        };
     }
 
     // --- Session ID Capture (Hookless Agent Support) ---

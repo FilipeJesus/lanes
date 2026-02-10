@@ -38,6 +38,20 @@ const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed befor
 // Maps terminal instances to their worktree paths for status file management
 const hooklessTerminals = new Map<vscode.Terminal, string>();
 
+function isCodexAgent(codeAgent?: CodeAgent): boolean {
+    return codeAgent?.name === 'codex';
+}
+
+function buildCodexMcpOverrides(mcpConfig: { mcpServers: Record<string, { command: string; args: string[] }> }): string[] {
+    const overrides: string[] = [];
+    for (const [name, server] of Object.entries(mcpConfig.mcpServers)) {
+        const safeName = /^[A-Za-z0-9_]+$/.test(name) ? name : `"${name.replace(/"/g, '\\"')}"`;
+        overrides.push(`mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`);
+        overrides.push(`mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`);
+    }
+    return overrides;
+}
+
 /**
  * Register terminal lifecycle tracking for hookless agents.
  * Listens to terminal close events to update status files when a hookless
@@ -287,6 +301,7 @@ async function openClaudeTerminalTmux(
         // Get or create the extension settings file with hooks
         let settingsPath: string | undefined;
         let mcpConfigPath: string | undefined;
+        let mcpConfigOverrides: string[] | undefined;
 
         // Determine effective workflow: use provided workflow or restore from session data
         let effectiveWorkflow = workflow;
@@ -318,9 +333,13 @@ async function openClaudeTerminalTmux(
                 if (codeAgent && codeAgent.supportsMcp()) {
                     const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
                     if (mcpConfig) {
-                        // Write MCP config to a file
-                        mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                        await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                        if (isCodexAgent(codeAgent)) {
+                            mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
+                        } else {
+                            // Write MCP config to a file
+                            mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                            await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                        }
                     }
                 } else {
                     // Fallback to hardcoded Claude-specific MCP config
@@ -353,7 +372,8 @@ async function openClaudeTerminalTmux(
                     // Use CodeAgent to build resume command
                     const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
                         settingsPath,
-                        mcpConfigPath
+                        mcpConfigPath,
+                        mcpConfigOverrides
                     });
                     await TmuxService.sendCommand(tmuxSessionName, resumeCommand);
                     shouldStartFresh = false;
@@ -426,7 +446,8 @@ Proceed by calling workflow_status now.`;
                 const startCommand = codeAgent.buildStartCommand({
                     permissionMode: validatedMode,
                     settingsPath,
-                    mcpConfigPath
+                    mcpConfigPath,
+                    mcpConfigOverrides
                 });
 
                 if (promptFileCommand) {
@@ -571,6 +592,7 @@ export async function openAgentTerminal(
     // C. Get or create the extension settings file with hooks
     let settingsPath: string | undefined;
     let mcpConfigPath: string | undefined;
+    let mcpConfigOverrides: string[] | undefined;
 
     // Determine effective workflow: use provided workflow or restore from session data
     let effectiveWorkflow = workflow;
@@ -604,9 +626,13 @@ export async function openAgentTerminal(
             if (codeAgent && codeAgent.supportsMcp()) {
                 const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
                 if (mcpConfig) {
-                    // Write MCP config to a file (inline JSON escaping is problematic)
-                    mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                    if (isCodexAgent(codeAgent)) {
+                        mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
+                    } else {
+                        // Write MCP config to a file (inline JSON escaping is problematic)
+                        mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                        await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                    }
                 }
             } else {
                 // Fallback to hardcoded Claude-specific MCP config
@@ -640,7 +666,8 @@ export async function openAgentTerminal(
                 // Use CodeAgent to build resume command
                 const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
                     settingsPath,
-                    mcpConfigPath
+                    mcpConfigPath,
+                    mcpConfigOverrides
                 });
                 terminal.sendText(resumeCommand);
                 shouldStartFresh = false;
@@ -721,7 +748,8 @@ Proceed by calling workflow_status now.`;
             const startCommand = codeAgent.buildStartCommand({
                 permissionMode: validatedMode,
                 settingsPath,
-                mcpConfigPath
+                mcpConfigPath,
+                mcpConfigOverrides
                 // Don't pass prompt here - we handle it via file
             });
 

@@ -8,7 +8,7 @@ echo "🔨 Building extension..."
 npm run compile
 
 echo "📦 Packaging extension..."
-npx vsce package
+NODE_OPTIONS="--require \"$(pwd)/scripts/force-os-cpus.cjs\" ${NODE_OPTIONS:-}" npx vsce package
 
 # Get the version from package.json to find the correct .vsix file
 VERSION=$(node -p "require('./package.json').version")

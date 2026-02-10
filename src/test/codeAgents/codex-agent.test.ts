@@ -45,6 +45,17 @@ suite('CodexAgent Command Building', () => {
         assert.ok(command.includes("'Implement feature X'"), 'Should include escaped prompt');
     });
 
+    test('buildStartCommand includes mcp config overrides when provided', () => {
+        const command = agent.buildStartCommand({
+            mcpConfigOverrides: [
+                'mcp_servers.\"lanes-workflow\".command=\"node\"',
+                'mcp_servers.\"lanes-workflow\".args=[\"/path/to/server.js\"]'
+            ]
+        });
+        assert.ok(command.includes("-c 'mcp_servers.\"lanes-workflow\".command=\"node\"'"), 'Should include MCP command override');
+        assert.ok(command.includes("-c 'mcp_servers.\"lanes-workflow\".args=[\"/path/to/server.js\"]'"), 'Should include MCP args override');
+    });
+
     test('buildResumeCommand with valid UUID', () => {
         const uuid = 'a1b2c3d4-e5f6-7890-1234-567890abcdef';
         const command = agent.buildResumeCommand(uuid, {});
@@ -55,6 +66,21 @@ suite('CodexAgent Command Building', () => {
         const uuid = 'A1B2C3D4-E5F6-7890-1234-567890ABCDEF';
         const command = agent.buildResumeCommand(uuid, {});
         assert.strictEqual(command, `codex resume ${uuid}`, 'Should accept uppercase UUIDs');
+    });
+
+    test('buildResumeCommand includes mcp config overrides when provided', () => {
+        const uuid = 'a1b2c3d4-e5f6-7890-1234-567890abcdef';
+        const command = agent.buildResumeCommand(uuid, {
+            mcpConfigOverrides: [
+                'mcp_servers.\"lanes-workflow\".command=\"node\"',
+                'mcp_servers.\"lanes-workflow\".args=[\"/path/to/server.js\"]'
+            ]
+        });
+        assert.strictEqual(
+            command,
+            `codex -c 'mcp_servers.\"lanes-workflow\".command=\"node\"' -c 'mcp_servers.\"lanes-workflow\".args=[\"/path/to/server.js\"]' resume ${uuid}`,
+            'Should include MCP overrides before resume'
+        );
     });
 
     test('buildResumeCommand with invalid UUID throws error', () => {
@@ -172,8 +198,8 @@ suite('CodexAgent Configuration', () => {
         assert.strictEqual(events.length, 0, 'Should have no hook events');
     });
 
-    test('supportsMcp returns false', () => {
-        assert.strictEqual(agent.supportsMcp(), false, 'Codex should not support MCP');
+    test('supportsMcp returns true', () => {
+        assert.strictEqual(agent.supportsMcp(), true, 'Codex should support MCP');
     });
 
     test('generateHooksConfig returns empty array', () => {
