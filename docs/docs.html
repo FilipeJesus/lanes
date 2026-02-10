@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentation - Lanes</title>
-    <meta name="description" content="Complete documentation for Lanes - Learn how to manage multiple Claude Code sessions in VS Code using Git worktrees.">
+    <meta name="description" content="Complete documentation for Lanes - Learn how to manage multiple AI coding sessions (Claude Code, Codex CLI) in VS Code using Git worktrees.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -198,6 +198,29 @@
                             </button>
                         </nav>
 
+                        <!-- Features Section Group -->
+                        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-white/10">
+                            <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Features</h3>
+                            <nav class="space-y-1">
+                                <button data-section="multi-agent" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    <span>Multi-Agent Support</span>
+                                </button>
+                                <button data-section="file-attachments" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    <span>File Attachments</span>
+                                </button>
+                                <button data-section="tmux-terminal" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>Tmux Terminal</span>
+                                </button>
+                                <button data-section="local-settings" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Local Settings</span>
+                                </button>
+                            </nav>
+                        </div>
+
                         <!-- Workflow Section Group -->
                         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-white/10">
                             <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Workflows</h3>
@@ -260,6 +283,28 @@
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                 <span>Reviewing Changes</span>
                             </button>
+                        </div>
+                        <!-- Features -->
+                        <div class="border-t border-gray-200 dark:border-white/10 pt-3">
+                            <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-3">Features</p>
+                            <div class="space-y-1 mb-4">
+                                <button data-section="multi-agent" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    <span>Multi-Agent Support</span>
+                                </button>
+                                <button data-section="file-attachments" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    <span>File Attachments</span>
+                                </button>
+                                <button data-section="tmux-terminal" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>Tmux Terminal</span>
+                                </button>
+                                <button data-section="local-settings" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Local Settings</span>
+                                </button>
+                            </div>
                         </div>
                         <!-- Workflows -->
                         <div class="border-t border-gray-200 dark:border-white/10 pt-3">
@@ -334,6 +379,7 @@
                                             <li>Claude Code installed globally (<code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">npm install -g @anthropic-ai/claude-code</code>)</li>
                                             <li>Logged into Claude (<code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">claude login</code>)</li>
                                             <li><code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">jq</code> installed for status tracking (<code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">brew install jq</code> on macOS or <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">apt install jq</code> on Linux)</li>
+                                            <li><em>Optional:</em> Codex CLI installed (<code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">npm install -g @openai/codex</code>) for OpenAI agent support</li>
                                         </ul>
                                         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mt-3">
                                             <p class="text-xs text-yellow-800 dark:text-yellow-300">
@@ -369,10 +415,36 @@
                                         </p>
 
                                         <div class="space-y-6">
-                                            <!-- Session Name -->
+                                            <!-- Agent Selection -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                                                     <span class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                                                    Agent Selection
+                                                </h4>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                                    Choose which AI coding agent to use for this session. Click the agent logo to switch between available agents.
+                                                </p>
+                                                <div class="space-y-2 text-sm">
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">Claude Code</code>
+                                                        <span class="text-gray-600 dark:text-gray-400">Anthropic's coding agent — uses hooks for status tracking</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">Codex CLI</code>
+                                                        <span class="text-gray-600 dark:text-gray-400">OpenAI's coding agent — uses polling for session ID capture</span>
+                                                    </div>
+                                                </div>
+                                                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 mt-3">
+                                                    <p class="text-xs text-blue-800 dark:text-blue-300">
+                                                        <strong>Tip:</strong> Set a default agent with the <code class="bg-blue-100 dark:bg-blue-800 px-1 rounded">lanes.defaultAgent</code> setting to skip this step.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Session Name -->
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
                                                     Session Name <span class="text-red-500 ml-1">*</span>
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -390,7 +462,7 @@
                                             <!-- Source Branch -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
                                                     Source Branch (optional)
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -409,7 +481,7 @@
                                             <!-- Starting Prompt -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
                                                     Starting Prompt (optional)
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -423,27 +495,27 @@
                                                 </p>
                                             </div>
 
-                                            <!-- Acceptance Criteria -->
+                                            <!-- File Attachments -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                                                    Acceptance Criteria (optional)
+                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                                                    File Attachments (optional)
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    Define what success looks like. Claude will use this to know when the task is complete.
+                                                    Drag-and-drop or click to attach files to your session. File contents are included with the starting prompt, giving the agent additional context.
                                                 </p>
-                                                <div class="bg-gray-100 dark:bg-black/40 rounded p-3 font-mono text-xs text-gray-700 dark:text-gray-300">
-                                                    Example:<br>
-                                                    - Users stay logged in for at least 30 minutes<br>
-                                                    - Token refresh happens automatically before expiration<br>
-                                                    - All existing tests still pass
+                                                <div class="bg-gray-100 dark:bg-black/40 rounded p-3 text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                                    <strong>Use cases:</strong> Design specs, API schemas, screenshots, reference implementations, or any file the agent should read before starting.
                                                 </div>
+                                                <p class="text-xs text-gray-500 dark:text-gray-500 italic">
+                                                    A progress indicator shows upload status for each file.
+                                                </p>
                                             </div>
 
                                             <!-- Permission Mode -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                                                    <span class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                                                    <span class="w-6 h-6 bg-vscode-accent text-white rounded-full flex items-center justify-center text-xs font-bold">6</span>
                                                     Permission Mode
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
@@ -477,7 +549,7 @@
                                             <!-- Workflow Template -->
                                             <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
                                                 <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">6</span>
+                                                    <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">7</span>
                                                     Workflow Template (optional)
                                                 </h4>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -537,8 +609,8 @@
                                             <div class="flex gap-3 items-start">
                                                 <div class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</div>
                                                 <div>
-                                                    <p class="text-gray-900 dark:text-white font-medium">Launch Claude Code</p>
-                                                    <p class="text-sm text-gray-600 dark:text-gray-400">With your starting prompt (if provided) and selected permission mode</p>
+                                                    <p class="text-gray-900 dark:text-white font-medium">Launch the selected agent</p>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400">With your starting prompt, file attachments (if any), and selected permission mode</p>
                                                 </div>
                                             </div>
                                             <div class="flex gap-3 items-start">
@@ -627,6 +699,10 @@
                                             <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                                                 <p class="text-sm font-bold text-red-900 dark:text-red-300 mb-1">Error: "Claude Code not found"</p>
                                                 <p class="text-sm text-red-700 dark:text-red-400">Install Claude Code globally: <code class="bg-red-100 dark:bg-red-800 px-1 rounded">npm install -g @anthropic-ai/claude-code</code></p>
+                                            </div>
+                                            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                                                <p class="text-sm font-bold text-red-900 dark:text-red-300 mb-1">Error: "Codex CLI not found"</p>
+                                                <p class="text-sm text-red-700 dark:text-red-400">Install Codex CLI globally: <code class="bg-red-100 dark:bg-red-800 px-1 rounded">npm install -g @openai/codex</code>. Make sure you have an OpenAI API key configured.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1031,6 +1107,314 @@
                                         </div>
                                     </div>
 
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: Multi-Agent Support -->
+                        <section id="multi-agent" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Multi-Agent Support</h2>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Lanes supports multiple AI coding agents. Choose the best agent for each task, or mix agents across sessions.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Supported Agents -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Supported Agents</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Claude Code</h4>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Anthropic's coding agent with deep code understanding and multi-file editing capabilities.</p>
+                                                <ul class="text-xs text-gray-500 dark:text-gray-500 space-y-1">
+                                                    <li>&#x2022; Status tracking via hooks</li>
+                                                    <li>&#x2022; Permission modes (default, acceptEdits, bypassPermissions)</li>
+                                                    <li>&#x2022; MCP workflow support built-in</li>
+                                                    <li>&#x2022; Session resume with <code class="bg-gray-200 dark:bg-black/40 px-1 rounded">--resume</code></li>
+                                                </ul>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-2">Codex CLI</h4>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">OpenAI's command-line coding agent for code generation and editing tasks.</p>
+                                                <ul class="text-xs text-gray-500 dark:text-gray-500 space-y-1">
+                                                    <li>&#x2022; Status tracking via polling</li>
+                                                    <li>&#x2022; TOML-based configuration</li>
+                                                    <li>&#x2022; MCP workflow support via config overrides</li>
+                                                    <li>&#x2022; Hookless session ID capture</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- How to Select -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Selecting an Agent</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            In the session creation form, click the agent logo at the top to cycle between available agents. The selected agent's logo is displayed inline, and the form adjusts available options accordingly.
+                                        </p>
+                                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                                <strong>Default agent:</strong> Set <code class="bg-blue-100 dark:bg-blue-800 px-1 rounded">lanes.defaultAgent</code> in VS Code settings to <code class="bg-blue-100 dark:bg-blue-800 px-1 rounded">"claude-code"</code> or <code class="bg-blue-100 dark:bg-blue-800 px-1 rounded">"codex"</code> to pre-select your preferred agent.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Differences Between Agents -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Differences Between Agents</h3>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-sm">
+                                                <thead>
+                                                    <tr class="border-b border-gray-200 dark:border-white/10">
+                                                        <th class="text-left py-2 px-3 font-bold text-gray-900 dark:text-white">Feature</th>
+                                                        <th class="text-left py-2 px-3 font-bold text-gray-900 dark:text-white">Claude Code</th>
+                                                        <th class="text-left py-2 px-3 font-bold text-gray-900 dark:text-white">Codex CLI</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="text-gray-600 dark:text-gray-400">
+                                                    <tr class="border-b border-gray-100 dark:border-white/5">
+                                                        <td class="py-2 px-3">Status tracking</td>
+                                                        <td class="py-2 px-3">Hook-based (real-time)</td>
+                                                        <td class="py-2 px-3">Polling-based</td>
+                                                    </tr>
+                                                    <tr class="border-b border-gray-100 dark:border-white/5">
+                                                        <td class="py-2 px-3">Session ID capture</td>
+                                                        <td class="py-2 px-3">Via hooks</td>
+                                                        <td class="py-2 px-3">Via polling</td>
+                                                    </tr>
+                                                    <tr class="border-b border-gray-100 dark:border-white/5">
+                                                        <td class="py-2 px-3">Configuration format</td>
+                                                        <td class="py-2 px-3">JSON</td>
+                                                        <td class="py-2 px-3">TOML</td>
+                                                    </tr>
+                                                    <tr class="border-b border-gray-100 dark:border-white/5">
+                                                        <td class="py-2 px-3">MCP workflows</td>
+                                                        <td class="py-2 px-3">Native support</td>
+                                                        <td class="py-2 px-3">Via config overrides</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="py-2 px-3">Permission modes</td>
+                                                        <td class="py-2 px-3">Full support</td>
+                                                        <td class="py-2 px-3">Agent-specific modes</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: File Attachments -->
+                        <section id="file-attachments" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">File Attachments</h2>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Attach files to your session to give the agent additional context before it starts working. Files are read and their contents are included with the starting prompt.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- How to Attach -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">How to Attach Files</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            In the session creation form, you can attach files in two ways:
+                                        </p>
+                                        <ul class="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-2 ml-4">
+                                            <li><strong class="text-gray-900 dark:text-white">Click to browse:</strong> Click the attachment area to open a file picker</li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Upload Progress -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Upload Progress</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            Each attached file shows an upload progress indicator. Once uploaded, file contents are processed and ready to be included with your prompt.
+                                        </p>
+                                    </div>
+
+                                    <!-- How Contents Are Included -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">How Contents Are Included</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            When you create the session, file contents are appended to the starting prompt. The agent receives the full text of each file along with the filename, giving it immediate access to the context it needs.
+                                        </p>
+                                    </div>
+
+                                    <!-- Use Cases -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Common Use Cases</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Design Specifications</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Attach design docs or mockup descriptions so the agent understands the target UI/UX.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">API Schemas</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Include OpenAPI specs or GraphQL schemas for API integration tasks.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Reference Code</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Attach example implementations or patterns you want the agent to follow.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Bug Reports</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Include error logs, stack traces, or issue descriptions for debugging sessions.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: Tmux Terminal -->
+                        <section id="tmux-terminal" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Tmux Terminal</h2>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Lanes can use tmux as an alternative terminal backend instead of VS Code's built-in terminals. Tmux sessions persist independently of VS Code, making them more resilient to window reloads and crashes.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Benefits -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Benefits</h3>
+                                        <ul class="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-2 ml-4">
+                                            <li><strong class="text-gray-900 dark:text-white">Persistence:</strong> Sessions survive VS Code restarts and window reloads</li>
+                                            <li><strong class="text-gray-900 dark:text-white">Resilience:</strong> Agent continues running even if VS Code crashes</li>
+                                            <li><strong class="text-gray-900 dark:text-white">Scrollback:</strong> Full terminal history preserved in tmux</li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Configuration -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Configuration</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            Set the terminal mode in VS Code settings:
+                                        </p>
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4 font-mono text-sm text-gray-800 dark:text-gray-300 mb-3">
+                                            <span class="text-blue-600 dark:text-blue-400">"lanes.terminalMode"</span>: <span class="text-green-600 dark:text-green-400">"tmux"</span>
+                                        </div>
+                                        <div class="space-y-2 text-sm">
+                                            <div class="flex gap-2">
+                                                <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">vscode</code>
+                                                <span class="text-gray-600 dark:text-gray-400">Default — uses VS Code's built-in terminal</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">tmux</code>
+                                                <span class="text-gray-600 dark:text-gray-400">Uses tmux for persistent terminal sessions</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Prerequisites -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Prerequisites</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            Tmux must be installed on your system:
+                                        </p>
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4 font-mono text-sm text-gray-800 dark:text-gray-300">
+                                            <span class="text-green-600 dark:text-green-400">$</span> brew install tmux <span class="text-gray-500"># macOS</span><br>
+                                            <span class="text-green-600 dark:text-green-400">$</span> sudo apt-get install tmux <span class="text-gray-500"># Ubuntu/Debian</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Per-Session Mode -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Per-Session Persistence</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            The terminal mode is stored per session, so each session remembers whether it was created with VS Code or tmux terminals. Changing the global setting only affects new sessions.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: Local Settings -->
+                        <section id="local-settings" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-white dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-vscode-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Local Settings Propagation</h2>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Lanes can automatically propagate your <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">.claude/settings.local.json</code> file from your base repository to each worktree. This ensures your local Claude Code configuration is available in all sessions.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Configuration -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Configuration</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            Add to your VS Code settings:
+                                        </p>
+                                        <div class="bg-gray-100 dark:bg-black/30 rounded-lg p-4 font-mono text-sm text-gray-800 dark:text-gray-300 mb-4">
+                                            <span class="text-blue-600 dark:text-blue-400">"lanes.localSettingsPropagation"</span>: <span class="text-green-600 dark:text-green-400">"copy"</span>
+                                        </div>
+                                        <div class="space-y-2 text-sm">
+                                            <div class="flex gap-2">
+                                                <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">copy</code>
+                                                <span class="text-gray-600 dark:text-gray-400">Default — copies the settings file to each worktree. Works on all platforms.</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">symlink</code>
+                                                <span class="text-gray-600 dark:text-gray-400">Creates a symbolic link. More efficient but may require developer mode on Windows.</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-gray-200 dark:bg-black/40 px-2 py-0.5 rounded text-xs flex-shrink-0">disabled</code>
+                                                <span class="text-gray-600 dark:text-gray-400">Does not propagate settings to worktrees.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- How It Works -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">How It Works</h3>
+                                        <p class="text-gray-600 dark:text-gray-400 mb-3">
+                                            When you create a new session (worktree), Lanes checks if <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">.claude/settings.local.json</code> exists in your base repository. If it does and propagation is enabled, the file is copied or symlinked to <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">&lt;worktree&gt;/.claude/settings.local.json</code>.
+                                        </p>
+                                    </div>
+
+                                    <!-- Use Cases -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Common Use Cases</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Environment Variables</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Set custom <code class="bg-gray-200 dark:bg-black/40 px-1 rounded">ANTHROPIC_DEFAULT_HAIKU_MODEL</code> for all sessions.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Model Settings</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Configure default models or permission modes across all worktrees.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">Custom Hooks</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Define hooks that apply to all sessions automatically.</p>
+                                            </div>
+                                            <div class="bg-gray-50 dark:bg-black/30 rounded-lg p-4">
+                                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 text-sm">API Keys</h4>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">Propagate API key configurations so agents in every worktree can access required services.</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -3077,6 +3461,10 @@
             'worktrees': 'Understanding Worktrees',
             'permission-modes': 'Permission Modes',
             'git-review': 'Reviewing Changes',
+            'multi-agent': 'Multi-Agent Support',
+            'file-attachments': 'File Attachments',
+            'tmux-terminal': 'Tmux Terminal',
+            'local-settings': 'Local Settings',
             'workflows-intro': 'Introduction to Workflows',
             'workflow-structure': 'Workflow Structure',
             'creating-workflow': 'Creating a Workflow',
