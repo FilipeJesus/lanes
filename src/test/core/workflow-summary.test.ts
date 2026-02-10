@@ -7,7 +7,7 @@ import {
 	SessionItem,
 	getWorkflowStatus,
 	WorkflowStatus
-} from '../../ClaudeSessionProvider';
+} from '../../AgentSessionProvider';
 import { WorkflowState, WorkflowTemplate } from '../../workflow/types';
 import { WorkflowStateMachine } from '../../workflow/state';
 import { workflowStart } from '../../mcp/tools';

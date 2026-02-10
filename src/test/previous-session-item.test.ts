@@ -39,7 +39,7 @@ suite('PreviousSessionItem', () => {
 		const item = new PreviousSessionItem(sessionName, promptFilePath);
 
 		assert.ok(item.command);
-		assert.strictEqual(item.command.command, 'claudeWorktrees.openPreviousSessionPrompt');
+		assert.strictEqual(item.command.command, 'lanes.openPreviousSessionPrompt');
 	});
 
 	test('should have command arguments containing the item itself', () => {

@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
-} from '../../ClaudeSessionProvider';
+} from '../../AgentSessionProvider';
 import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
 
 suite('Extension Settings Workflow Configuration', () => {
@@ -108,7 +108,7 @@ suite('Extension Settings Workflow Configuration', () => {
 			assert.ok(!settings.mcpServers, 'Settings should NOT have mcpServers (now passed via --mcp-config)');
 
 			// Assert: Workflow path should be saved to session data for restoration
-			const { getSessionWorkflow } = await import('../../ClaudeSessionProvider.js');
+			const { getSessionWorkflow } = await import('../../AgentSessionProvider.js');
 			const savedWorkflow = await getSessionWorkflow(worktreePath);
 			assert.strictEqual(savedWorkflow, workflowPath, 'Workflow path should be saved to session data');
 		});

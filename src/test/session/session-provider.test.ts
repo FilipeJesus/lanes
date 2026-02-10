@@ -3,9 +3,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, initializeGlobalStorageContext } from '../../ClaudeSessionProvider';
+import { AgentSessionProvider, SessionItem, initializeGlobalStorageContext } from '../../AgentSessionProvider';
 
-suite('ClaudeSessionProvider', () => {
+suite('AgentSessionProvider', () => {
 
 	let tempDir: string;
 	let worktreesDir: string;
@@ -27,14 +27,14 @@ suite('ClaudeSessionProvider', () => {
 	});
 
 	test('should return empty array when workspace is undefined', async () => {
-		const provider = new ClaudeSessionProvider(undefined);
+		const provider = new AgentSessionProvider(undefined);
 		const children = await provider.getChildren();
 
 		assert.deepStrictEqual(children, []);
 	});
 
 	test('should return empty array when .worktrees folder does not exist', async () => {
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const children = await provider.getChildren();
 
 		assert.deepStrictEqual(children, []);
@@ -43,7 +43,7 @@ suite('ClaudeSessionProvider', () => {
 	test('should return empty array when .worktrees folder is empty', async () => {
 		fs.mkdirSync(worktreesDir);
 
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const children = await provider.getChildren();
 
 		assert.deepStrictEqual(children, []);
@@ -54,7 +54,7 @@ suite('ClaudeSessionProvider', () => {
 		fs.mkdirSync(path.join(worktreesDir, 'session-one'));
 		fs.mkdirSync(path.join(worktreesDir, 'session-two'));
 
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const children = await provider.getChildren();
 
 		assert.strictEqual(children.length, 2);
@@ -68,7 +68,7 @@ suite('ClaudeSessionProvider', () => {
 		fs.mkdirSync(path.join(worktreesDir, 'valid-session'));
 		fs.writeFileSync(path.join(worktreesDir, 'not-a-session.txt'), 'test');
 
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const children = await provider.getChildren();
 
 		assert.strictEqual(children.length, 1);
@@ -79,7 +79,7 @@ suite('ClaudeSessionProvider', () => {
 		fs.mkdirSync(worktreesDir);
 		fs.mkdirSync(path.join(worktreesDir, 'my-session'));
 
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const children = await provider.getChildren();
 
 		assert.strictEqual(children[0].worktreePath, path.join(worktreesDir, 'my-session'));
@@ -89,7 +89,7 @@ suite('ClaudeSessionProvider', () => {
 		fs.mkdirSync(worktreesDir);
 		fs.mkdirSync(path.join(worktreesDir, 'session'));
 
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const sessions = await provider.getChildren();
 
 		// Asking for children of a session should return empty
@@ -98,14 +98,14 @@ suite('ClaudeSessionProvider', () => {
 	});
 
 	test('getTreeItem should return the same item', () => {
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 		const item = new SessionItem('test', '/path', vscode.TreeItemCollapsibleState.None);
 
 		assert.strictEqual(provider.getTreeItem(item), item);
 	});
 
 	test('refresh should fire onDidChangeTreeData event', (done) => {
-		const provider = new ClaudeSessionProvider(tempDir);
+		const provider = new AgentSessionProvider(tempDir);
 
 		provider.onDidChangeTreeData(() => {
 			done();

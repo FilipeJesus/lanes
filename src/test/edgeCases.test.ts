@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ClaudeSessionProvider, SessionItem, getClaudeStatus, getSessionId, ClaudeStatus, getClaudeSessionPath, getClaudeStatusPath, initializeGlobalStorageContext } from '../ClaudeSessionProvider';
+import { AgentSessionProvider, SessionItem, getAgentStatus, getSessionId, AgentSessionStatus, getSessionFilePath, getStatusFilePath, initializeGlobalStorageContext } from '../AgentSessionProvider';
 import { SessionFormProvider } from '../SessionFormProvider';
 
 suite('Edge Cases Test Suite', () => {
@@ -45,33 +45,33 @@ suite('Edge Cases Test Suite', () => {
 			// Trigger extension activation by executing one of its commands
 			// Using openSession with no args - it will fail gracefully but activates the extension
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+				await vscode.commands.executeCommand('lanes.openSession');
 			} catch {
 				// Expected to fail without proper args, but extension is now activated
 			}
 
 			const commands = await vscode.commands.getCommands(true);
 
-			assert.ok(commands.includes('claudeWorktrees.createSession'), 'createSession command should exist');
-			assert.ok(commands.includes('claudeWorktrees.openSession'), 'openSession command should exist');
-			assert.ok(commands.includes('claudeWorktrees.deleteSession'), 'deleteSession command should exist');
-			assert.ok(commands.includes('claudeWorktrees.setupStatusHooks'), 'setupStatusHooks command should exist');
+			assert.ok(commands.includes('lanes.createSession'), 'createSession command should exist');
+			assert.ok(commands.includes('lanes.openSession'), 'openSession command should exist');
+			assert.ok(commands.includes('lanes.deleteSession'), 'deleteSession command should exist');
+			assert.ok(commands.includes('lanes.setupStatusHooks'), 'setupStatusHooks command should exist');
 		});
 
 		test('SessionFormProvider webview should be registered', async () => {
 			// Trigger extension activation
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+				await vscode.commands.executeCommand('lanes.openSession');
 			} catch {
 				// Expected to fail without proper args, but extension is now activated
 			}
 
-			// The webview view is registered with the viewType 'claudeSessionFormView'
+			// The webview view is registered with the viewType 'lanesSessionFormView'
 			// We can verify this by checking that the SessionFormProvider's viewType matches
 			// what is expected in package.json
 			assert.strictEqual(
 				SessionFormProvider.viewType,
-				'claudeSessionFormView',
+				'lanesSessionFormView',
 				'SessionFormProvider should use the correct view type'
 			);
 
@@ -266,7 +266,7 @@ suite('Edge Cases Test Suite', () => {
 					JSON.stringify(statusWithExtras)
 				);
 
-				const result = await getClaudeStatus(sessionDir);
+				const result = await getAgentStatus(sessionDir);
 				assert.strictEqual(result?.status, 'working');
 				assert.strictEqual(result?.timestamp, '2025-01-01T00:00:00Z');
 				assert.strictEqual(result?.message, 'Test message');
@@ -292,7 +292,7 @@ suite('Edge Cases Test Suite', () => {
 					JSON.stringify(statusWithNulls)
 				);
 
-				const result = await getClaudeStatus(sessionDir);
+				const result = await getAgentStatus(sessionDir);
 				assert.strictEqual(result?.status, 'idle');
 			});
 
@@ -316,7 +316,7 @@ suite('Edge Cases Test Suite', () => {
 						JSON.stringify(invalidStatus)
 					);
 
-					const result = await getClaudeStatus(sessionDir);
+					const result = await getAgentStatus(sessionDir);
 					assert.strictEqual(result, null, `Invalid status ${JSON.stringify(invalidStatus)} should return null`);
 				}
 			});
@@ -324,10 +324,10 @@ suite('Edge Cases Test Suite', () => {
 
 		suite('Concurrent Operations', () => {
 
-			test('should handle multiple simultaneous getClaudeStatus calls', async () => {
+			test('should handle multiple simultaneous getAgentStatus calls', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 
-				const statuses: ClaudeStatus['status'][] = ['working', 'waiting_for_user', 'idle', 'error'];
+				const statuses: AgentSessionStatus['status'][] = ['working', 'waiting_for_user', 'idle', 'error'];
 				const sessionDirs: string[] = [];
 
 				for (let i = 0; i < statuses.length; i++) {
@@ -343,9 +343,9 @@ suite('Edge Cases Test Suite', () => {
 					sessionDirs.push(sessionDir);
 				}
 
-				// Call getClaudeStatus concurrently
+				// Call getAgentStatus concurrently
 				const results = await Promise.all(
-					sessionDirs.map(dir => getClaudeStatus(dir))
+					sessionDirs.map(dir => getAgentStatus(dir))
 				);
 
 				// Verify each result
@@ -354,14 +354,14 @@ suite('Edge Cases Test Suite', () => {
 				}
 			});
 
-			test('should handle ClaudeSessionProvider refresh during concurrent file changes', async () => {
+			test('should handle AgentSessionProvider refresh during concurrent file changes', async () => {
 				fs.mkdirSync(worktreesDir, { recursive: true });
 
 				// Create a session
 				const sessionDir = path.join(worktreesDir, 'refresh-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
-				const provider = new ClaudeSessionProvider(tempDir);
+				const provider = new AgentSessionProvider(tempDir);
 
 				// Simulate rapid file changes and refreshes
 				const refreshPromises: Promise<void>[] = [];
@@ -389,7 +389,7 @@ suite('Edge Cases Test Suite', () => {
 		test('should have openInNewWindow command registered after activation', async () => {
 			// Trigger extension activation
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+				await vscode.commands.executeCommand('lanes.openSession');
 			} catch {
 				// Expected to fail without proper args, but extension is now activated
 			}
@@ -399,7 +399,7 @@ suite('Edge Cases Test Suite', () => {
 
 			// Assert
 			assert.ok(
-				commands.includes('claudeWorktrees.openInNewWindow'),
+				commands.includes('lanes.openInNewWindow'),
 				'openInNewWindow command should be registered after extension activation'
 			);
 		});
@@ -407,7 +407,7 @@ suite('Edge Cases Test Suite', () => {
 		test('should show error when called without session item', async () => {
 			// Trigger extension activation first
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+				await vscode.commands.executeCommand('lanes.openSession');
 			} catch {
 				// Expected
 			}
@@ -415,7 +415,7 @@ suite('Edge Cases Test Suite', () => {
 			// Act: Execute the command without a session item
 			// The command should show an error message and return without throwing
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openInNewWindow');
+				await vscode.commands.executeCommand('lanes.openInNewWindow');
 				// Command executed, it should have shown an error message
 				assert.ok(true, 'Command should handle missing item gracefully');
 			} catch {
@@ -434,12 +434,12 @@ suite('Edge Cases Test Suite', () => {
 			assert.ok(commands, 'package.json should have contributes.commands');
 
 			const openWindowCmd = commands.find(
-				(cmd: { command: string }) => cmd.command === 'claudeWorktrees.openInNewWindow'
+				(cmd: { command: string }) => cmd.command === 'lanes.openInNewWindow'
 			);
 
 			assert.ok(
 				openWindowCmd,
-				'package.json should have claudeWorktrees.openInNewWindow command'
+				'package.json should have lanes.openInNewWindow command'
 			);
 			assert.strictEqual(
 				openWindowCmd.title,
@@ -458,7 +458,7 @@ suite('Edge Cases Test Suite', () => {
 			assert.ok(menuItems, 'package.json should have view/item/context menu items');
 
 			const openWindowMenuItem = menuItems.find(
-				(item: { command: string }) => item.command === 'claudeWorktrees.openInNewWindow'
+				(item: { command: string }) => item.command === 'lanes.openInNewWindow'
 			);
 
 			assert.ok(

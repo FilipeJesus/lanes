@@ -53,7 +53,7 @@ class MockWebview implements vscode.Webview {
  */
 class MockWebviewView implements Partial<vscode.WebviewView> {
 	public webview: MockWebview;
-	public viewType = 'claudeSessionFormView';
+	public viewType = 'lanesSessionFormView';
 	public visible = true;
 
 	constructor() {

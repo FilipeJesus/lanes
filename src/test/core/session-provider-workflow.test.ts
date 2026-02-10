@@ -7,7 +7,7 @@ import {
 	SessionItem,
 	getWorkflowStatus,
 	WorkflowStatus
-} from '../../ClaudeSessionProvider';
+} from '../../AgentSessionProvider';
 
 suite('Session Provider', () => {
 

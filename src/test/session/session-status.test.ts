@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getClaudeStatus, initializeGlobalStorageContext, getRepoIdentifier } from '../../ClaudeSessionProvider';
+import { getAgentStatus, initializeGlobalStorageContext, getRepoIdentifier } from '../../AgentSessionProvider';
 
 suite('Session Status', () => {
 
@@ -30,7 +30,7 @@ suite('Session Status', () => {
 		fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 	}
 
-	suite('getClaudeStatus', () => {
+	suite('getAgentStatus', () => {
 
 		test('should return correct status for valid waiting_for_user .claude-status file', async () => {
 			// Arrange: Create a .claude-status file with waiting_for_user status
@@ -38,7 +38,7 @@ suite('Session Status', () => {
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');
@@ -51,7 +51,7 @@ suite('Session Status', () => {
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');
@@ -62,7 +62,7 @@ suite('Session Status', () => {
 			// Arrange: tempDir exists but has no .claude-status file
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
@@ -76,7 +76,7 @@ suite('Session Status', () => {
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), 'not valid json {{{');
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
@@ -91,7 +91,7 @@ suite('Session Status', () => {
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.strictEqual(result, null);
@@ -107,7 +107,7 @@ suite('Session Status', () => {
 			createStatusFile(tempDir, statusData);
 
 			// Act
-			const result = await getClaudeStatus(tempDir);
+			const result = await getAgentStatus(tempDir);
 
 			// Assert
 			assert.ok(result, 'Result should not be null');

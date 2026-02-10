@@ -9,9 +9,9 @@ import {
 	getGlobalStoragePath,
 	isGlobalStorageEnabled,
 	initializeGlobalStorageContext,
-	getClaudeStatusPath,
-	getClaudeSessionPath,
-} from '../../ClaudeSessionProvider';
+	getStatusFilePath,
+	getSessionFilePath,
+} from '../../AgentSessionProvider';
 
 /**
  * Helper function to get a configuration property from the package.json configuration array.
@@ -68,17 +68,17 @@ suite('Global Storage Configuration Test Suite', () => {
 			}
 		});
 
-		test('should return .lanes/session_management path for getClaudeStatusPath when useGlobalStorage is false', async () => {
+		test('should return .lanes/session_management path for getStatusFilePath when useGlobalStorage is false', async () => {
 			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
-			const result = getClaudeStatusPath(worktreePath);
+			const result = getStatusFilePath(worktreePath);
 
 			const expectedPath = path.join(testTempDir, '.lanes', 'session_management', 'test-session', '.claude-status');
 			assert.strictEqual(result, expectedPath);
 		});
 
-		test('should return .lanes/session_management path for getClaudeSessionPath when useGlobalStorage is false', async () => {
+		test('should return .lanes/session_management path for getSessionFilePath when useGlobalStorage is false', async () => {
 			const worktreePath = path.join(testTempDir, '.worktrees', 'my-feature');
-			const result = getClaudeSessionPath(worktreePath);
+			const result = getSessionFilePath(worktreePath);
 
 			const expectedPath = path.join(testTempDir, '.lanes', 'session_management', 'my-feature', '.claude-session');
 			assert.strictEqual(result, expectedPath);
@@ -88,8 +88,8 @@ suite('Global Storage Configuration Test Suite', () => {
 			const session1Path = path.join(testTempDir, '.worktrees', 'session-a');
 			const session2Path = path.join(testTempDir, '.worktrees', 'session-b');
 
-			const status1 = getClaudeStatusPath(session1Path);
-			const status2 = getClaudeStatusPath(session2Path);
+			const status1 = getStatusFilePath(session1Path);
+			const status2 = getStatusFilePath(session2Path);
 
 			assert.ok(status1.includes('session-a'));
 			assert.ok(status2.includes('session-b'));
@@ -102,7 +102,7 @@ suite('Global Storage Configuration Test Suite', () => {
 			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
 
 			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
-			const result = getClaudeStatusPath(worktreePath);
+			const result = getStatusFilePath(worktreePath);
 
 			assert.ok(result.startsWith(mockGlobalStorageDir));
 		});
@@ -254,7 +254,7 @@ suite('Global Storage Configuration Test Suite', () => {
 
 	suite('Path functions respect useGlobalStorage setting', () => {
 
-		test('should return global storage path for getClaudeStatusPath when useGlobalStorage is true', async () => {
+		test('should return global storage path for getStatusFilePath when useGlobalStorage is true', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
 
@@ -263,13 +263,13 @@ suite('Global Storage Configuration Test Suite', () => {
 
 			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
-			const result = getClaudeStatusPath(worktreePath);
+			const result = getStatusFilePath(worktreePath);
 
 			assert.ok(result.startsWith(globalStorageDir));
 			assert.ok(result.endsWith('.claude-status'));
 		});
 
-		test('should return global storage path for getClaudeSessionPath when useGlobalStorage is true', async () => {
+		test('should return global storage path for getSessionFilePath when useGlobalStorage is true', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
 
@@ -278,7 +278,7 @@ suite('Global Storage Configuration Test Suite', () => {
 
 			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
-			const result = getClaudeSessionPath(worktreePath);
+			const result = getSessionFilePath(worktreePath);
 
 			assert.ok(result.startsWith(globalStorageDir));
 			assert.ok(result.endsWith('.claude-session'));

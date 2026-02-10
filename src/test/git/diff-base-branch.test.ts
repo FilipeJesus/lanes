@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
-import { ClaudeSessionProvider } from '../../ClaudeSessionProvider';
+import { AgentSessionProvider } from '../../AgentSessionProvider';
 import { getBaseBranch } from '../../services/DiffService';
 import * as SettingsService from '../../services/SettingsService';
 
@@ -292,7 +292,7 @@ suite('Git Base Branch Test Suite', () => {
 			}
 		});
 
-		test('should verify ClaudeSessionProvider uses baseRepoPath for session discovery', async () => {
+		test('should verify AgentSessionProvider uses baseRepoPath for session discovery', async () => {
 			// Arrange: Create a temp directory structure simulating a worktree scenario
 			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-base-test-'));
 			const worktreesDir = path.join(tempDir, '.worktrees');
@@ -302,7 +302,7 @@ suite('Git Base Branch Test Suite', () => {
 
 			try {
 				// Act: Create provider with baseRepoPath parameter
-				const provider = new ClaudeSessionProvider(tempDir, tempDir);
+				const provider = new AgentSessionProvider(tempDir, tempDir);
 				const children = await provider.getChildren();
 
 				// Assert: Should discover sessions from the baseRepoPath's .worktrees
