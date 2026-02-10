@@ -75,7 +75,7 @@ suite('Git Base Branch Test Suite', () => {
 		// The function checks for origin/main, origin/master, local main, local master in that order.
 
 		// Get the path to the git repository root
-		const repoRoot = path.resolve(__dirname, '..', '..');
+		const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 		test('should return a branch name for a valid git repository', async () => {
 			// Act: Call getBaseBranch on our real repository
@@ -134,7 +134,7 @@ suite('Git Base Branch Test Suite', () => {
 		// configuration setting, and falls back to auto-detection when not set.
 
 		// Get the path to the git repository root for fallback tests
-		const repoRoot = path.resolve(__dirname, '..', '..');
+		const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 		teardown(async () => {
 			// Reset the baseBranch configuration to default after each test
@@ -198,7 +198,7 @@ suite('Git Base Branch Test Suite', () => {
 		// and resolving to the base repository path
 
 		// Get the path to the git repository root
-		const repoRoot = path.resolve(__dirname, '..', '..');
+		const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 		test('should return same path for regular git repository', async () => {
 			// Arrange: Use the actual repo root - this is a regular repo from the main
@@ -356,7 +356,7 @@ index 1234567..abcdefg 100644
 
 			test('branchExists integration for branch validation', async function() {
 				const { branchExists } = await import('../../services/BrokenWorktreeService.js');
-				const repoRoot = path.resolve(__dirname, '..', '..');
+				const repoRoot = path.resolve(__dirname, '..', '..', '..');
 				const mainExists = await branchExists(repoRoot, 'main');
 				if (!mainExists) {
 					this.skip();
