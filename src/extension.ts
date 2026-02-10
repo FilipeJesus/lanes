@@ -39,7 +39,7 @@ import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
 import { getErrorMessage } from './utils';
 
-import { CodeAgent, getDefaultAgent, getAgent, validateAndGetAgent } from './codeAgents';
+import { CodeAgent, getDefaultAgent, getAgent, validateAndGetAgent, getAvailableAgents, isCliAvailable } from './codeAgents';
 import type { ServiceContainer } from './types/serviceContainer';
 
 import { registerAllCommands } from './commands';
@@ -120,6 +120,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     console.log(`Code agent initialized: ${codeAgent.displayName} (${codeAgent.name})`);
 
+    // Check CLI availability for all registered agents (for form dropdown)
+    const agentAvailability = new Map<string, boolean>();
+    for (const agentName of getAvailableAgents()) {
+        const agent = getAgent(agentName);
+        if (agent) {
+            const available = await isCliAvailable(agent.cliCommand);
+            agentAvailability.set(agentName, available);
+        } else {
+            agentAvailability.set(agentName, false);
+        }
+    }
+
+    // Determine effective default agent for the form
+    let effectiveDefaultAgent = defaultAgentName;
+    if (!agentAvailability.get(defaultAgentName)) {
+        // Only show warning if defaultAgent is not claude (avoid duplicate warnings)
+        if (defaultAgentName !== 'claude') {
+            vscode.window.showWarningMessage(
+                `Default agent '${defaultAgentName}' is not installed. Falling back to Claude Code.`
+            );
+        }
+        effectiveDefaultAgent = 'claude';
+    }
+
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
     initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath, codeAgent, context);
@@ -169,10 +193,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
+    // Set agent availability for form dropdown
+    sessionFormProvider.setAgentAvailability(agentAvailability, effectiveDefaultAgent);
+
     // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
-        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, codeAgent);
+    sessionFormProvider.setOnSubmit(async (name: string, agent: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
+        // Resolve agent name to CodeAgent instance
+        const selectedAgent = getAgent(agent) || codeAgent;
+        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, selectedAgent);
     });
 
     // Helper function to refresh workflows in both the tree view and the session form
