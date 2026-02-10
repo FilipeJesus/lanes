@@ -48,9 +48,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Agent factory with VS Code setting
-- [ ] 02-02: Agent-specific session tracking abstraction
-- [ ] 02-03: Format-agnostic settings service (JSON + TOML)
+- [ ] 02-01-PLAN.md — Agent factory with hardcoded map, singleton lifecycle, CLI validation, lanes.defaultAgent setting, stub CodexAgent
+- [ ] 02-02-PLAN.md — Session metadata agentName field, hookless terminal lifecycle tracking, session file writing for hookless agents
+- [ ] 02-03-PLAN.md — Format-agnostic settings service with JSON and TOML support via @iarna/toml
 
 ### Phase 3: Codex CLI Integration
 **Goal**: CodexCodeAgent fully implements CodeAgent interface with proper CLI commands and TOML configuration
