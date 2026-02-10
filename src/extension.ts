@@ -4,7 +4,7 @@
  * This is the main entry point for the VS Code extension.
  * It initializes all services, providers, commands, and watchers.
  *
- * The extension manages isolated Claude Code sessions using Git worktrees.
+ * The extension manages isolated AI agent sessions using Git worktrees.
  * Each session gets its own worktree and dedicated terminal.
  */
 
@@ -14,7 +14,7 @@ import * as path from 'path';
 import { fileExists, readDir, isDirectory } from './services/FileService';
 
 import {
-    ClaudeSessionProvider,
+    AgentSessionProvider,
     SessionItem,
     getSessionId,
     getSessionChimeEnabled,
@@ -25,7 +25,7 @@ import {
     getRepoIdentifier,
     getWorktreesFolder,
     getWorkflowStatus
-} from './ClaudeSessionProvider';
+} from './AgentSessionProvider';
 
 import { SessionFormProvider, PermissionMode } from './SessionFormProvider';
 import { initializeGitPath } from './gitService';
@@ -39,14 +39,14 @@ import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
 import { getErrorMessage } from './utils';
 
-import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
+import { CodeAgent, getDefaultAgent, getAgent, validateAndGetAgent, getAvailableAgents, isCliAvailable } from './codeAgents';
 import type { ServiceContainer } from './types/serviceContainer';
 
 import { registerAllCommands } from './commands';
 import { registerWatchers } from './watchers';
 import { validateWorkflow as validateWorkflowService } from './services/WorkflowService';
 import { createSession } from './services/SessionService';
-import { openClaudeTerminal } from './services/TerminalService';
+import { openAgentTerminal } from './services/TerminalService';
 
 /**
  * Activate the extension.
@@ -59,9 +59,12 @@ import { openClaudeTerminal } from './services/TerminalService';
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log('Congratulations, "Lanes" is now active!');
 
-    // Inject openClaudeTerminal into SessionService
+    // Inject openAgentTerminal into SessionService
     // This must be done early, before any session creation calls
-    SessionService.setOpenClaudeTerminal(TerminalService.openClaudeTerminal);
+    SessionService.setOpenAgentTerminal(TerminalService.openAgentTerminal);
+
+    // Register hookless terminal tracking (terminal close -> idle status)
+    TerminalService.registerHooklessTerminalTracking(context);
 
     // Initialize git path from VS Code Git Extension (with fallback to 'git')
     await initializeGitPath();
@@ -97,10 +100,49 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         });
     }
 
-    // Create the global code agent instance
-    // This provides agent-specific behavior for terminal commands, file naming, etc.
-    const codeAgent = new ClaudeCodeAgent();
-    console.log(`Code agent initialized: ${codeAgent.displayName}`);
+    // Create the global code agent instance using the factory
+    // Reads lanes.defaultAgent setting and creates the appropriate agent
+    const defaultAgentName = getDefaultAgent();
+    let codeAgent: CodeAgent;
+
+    // Validate CLI availability for the selected agent
+    const validatedAgent = await validateAndGetAgent(defaultAgentName);
+    if (validatedAgent) {
+        codeAgent = validatedAgent;
+    } else {
+        // CLI not available - fall back to Claude (always available as default)
+        const fallbackAgent = getAgent('claude');
+        if (!fallbackAgent) {
+            // This should never happen - Claude is always in the factory map
+            throw new Error('Failed to create default Claude agent');
+        }
+        codeAgent = fallbackAgent;
+    }
+    console.log(`Code agent initialized: ${codeAgent.displayName} (${codeAgent.name})`);
+
+    // Check CLI availability for all registered agents (for form dropdown)
+    const agentAvailability = new Map<string, boolean>();
+    for (const agentName of getAvailableAgents()) {
+        const agent = getAgent(agentName);
+        if (agent) {
+            const available = await isCliAvailable(agent.cliCommand);
+            agentAvailability.set(agentName, available);
+        } else {
+            agentAvailability.set(agentName, false);
+        }
+    }
+
+    // Determine effective default agent for the form
+    let effectiveDefaultAgent = defaultAgentName;
+    if (!agentAvailability.get(defaultAgentName)) {
+        // Only show warning if defaultAgent is not claude (avoid duplicate warnings)
+        if (defaultAgentName !== 'claude') {
+            vscode.window.showWarningMessage(
+                `Default agent '${defaultAgentName}' is not installed. Falling back to Claude Code.`
+            );
+        }
+        effectiveDefaultAgent = 'claude';
+    }
 
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
@@ -109,8 +151,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
-    const sessionProvider = new ClaudeSessionProvider(workspaceRoot, baseRepoPath);
-    const sessionTreeView = vscode.window.createTreeView('claudeSessionsView', {
+    const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath);
+    const sessionTreeView = vscode.window.createTreeView('lanesSessionsView', {
         treeDataProvider: sessionProvider,
         showCollapseAll: false
     });
@@ -151,10 +193,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
+    // Set agent availability for form dropdown
+    sessionFormProvider.setAgentAvailability(agentAvailability, effectiveDefaultAgent);
+
     // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
-    sessionFormProvider.setOnSubmit(async (name: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
-        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, codeAgent);
+    sessionFormProvider.setOnSubmit(async (name: string, agent: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
+        // Resolve agent name to CodeAgent instance
+        const selectedAgent = getAgent(agent) || codeAgent;
+        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, selectedAgent);
     });
 
     // Helper function to refresh workflows in both the tree view and the session form
@@ -258,14 +305,41 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);
 
-    // Auto-resume Claude session when opened in a worktree with an existing session
+    // Backward-compatible aliases (remove in next release)
+    const aliasMap: Record<string, string> = {
+        'claudeWorktrees.createSession': 'lanes.createSession',
+        'claudeWorktrees.deleteSession': 'lanes.deleteSession',
+        'claudeWorktrees.openSession': 'lanes.openSession',
+        'claudeWorktrees.setupStatusHooks': 'lanes.setupStatusHooks',
+        'claudeWorktrees.showGitChanges': 'lanes.showGitChanges',
+        'claudeWorktrees.openInNewWindow': 'lanes.openInNewWindow',
+        'claudeWorktrees.openPreviousSessionPrompt': 'lanes.openPreviousSessionPrompt',
+        'claudeWorktrees.enableChime': 'lanes.enableChime',
+        'claudeWorktrees.disableChime': 'lanes.disableChime',
+        'claudeWorktrees.testChime': 'lanes.testChime',
+        'claudeWorktrees.clearSession': 'lanes.clearSession',
+        'claudeWorktrees.createTerminal': 'lanes.createTerminal',
+        'claudeWorktrees.searchInWorktree': 'lanes.searchInWorktree',
+        'claudeWorktrees.openWorkflowState': 'lanes.openWorkflowState',
+        'claudeWorktrees.playChime': 'lanes.playChime',
+    };
+    for (const [oldId, newId] of Object.entries(aliasMap)) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand(oldId, (...args: unknown[]) =>
+                vscode.commands.executeCommand(newId, ...args)
+            )
+        );
+    }
+
+    // Auto-resume session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = await getSessionId(workspaceRoot);
         if (sessionData?.sessionId) {
             const sessionName = path.basename(workspaceRoot);
+            const resumeAgent = (sessionData.agentName ? getAgent(sessionData.agentName) : null) || codeAgent;
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, codeAgent, baseRepoPath);
+                openAgentTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, resumeAgent, baseRepoPath);
             }, 500);
         }
     }

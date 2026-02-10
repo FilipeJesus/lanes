@@ -13,8 +13,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { fileExists } from './FileService';
-import { SessionItem } from '../ClaudeSessionProvider';
+import { fileExists, ensureDir, writeJson, readJson } from './FileService';
+import { SessionItem, getStatusFilePath, getSessionFilePath } from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
 import * as SettingsService from './SettingsService';
@@ -27,13 +27,73 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     getSessionTerminalMode,
-    getClaudeSessionPath,
     getOrCreateTaskListId,
     getPromptsPath
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
+
+// Track hookless agent terminals for lifecycle-based status updates
+// Maps terminal instances to their worktree paths for status file management
+const hooklessTerminals = new Map<vscode.Terminal, string>();
+
+/**
+ * Register terminal lifecycle tracking for hookless agents.
+ * Listens to terminal close events to update status files when a hookless
+ * agent's terminal is closed (sets status to 'idle').
+ *
+ * Must be called once during extension activation.
+ * @param context The extension context to register the disposable
+ */
+export function registerHooklessTerminalTracking(context: vscode.ExtensionContext): void {
+    const disposable = vscode.window.onDidCloseTerminal(async (terminal) => {
+        const worktreePath = hooklessTerminals.get(terminal);
+        if (!worktreePath) { return; }
+
+        // Terminal closed - write idle status
+        try {
+            const statusPath = getStatusFilePath(worktreePath);
+            await ensureDir(path.dirname(statusPath));
+            await writeJson(statusPath, {
+                status: 'idle',
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            console.warn('Lanes: Failed to write idle status for hookless terminal:', getErrorMessage(err));
+        }
+
+        // Clean up the tracking entry
+        hooklessTerminals.delete(terminal);
+    });
+
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Track a hookless agent terminal for lifecycle-based status updates.
+ * Writes 'active' status on tracking start. The registered close listener
+ * will write 'idle' status when the terminal is closed.
+ *
+ * @param terminal The VS Code terminal to track
+ * @param worktreePath The worktree path associated with this terminal
+ */
+export async function trackHooklessTerminal(terminal: vscode.Terminal, worktreePath: string): Promise<void> {
+    // Register the terminal for close tracking
+    hooklessTerminals.set(terminal, worktreePath);
+
+    // Write active status immediately
+    try {
+        const statusPath = getStatusFilePath(worktreePath);
+        await ensureDir(path.dirname(statusPath));
+        await writeJson(statusPath, {
+            status: 'active',
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.warn('Lanes: Failed to write active status for hookless terminal:', getErrorMessage(err));
+    }
+}
 
 /**
  * Generates the workflow orchestrator instructions to prepend to a prompt.
@@ -436,7 +496,7 @@ Proceed by calling workflow_status now.`;
  * @param repoRoot Optional repository root path
  * @param skipWorkflowPrompt If true, don't add workflow prompt (for cleared sessions)
  */
-export async function openClaudeTerminal(
+export async function openAgentTerminal(
     taskName: string,
     worktreePath: string,
     prompt?: string,
@@ -467,7 +527,7 @@ export async function openClaudeTerminal(
     if (savedTerminalMode !== null) {
         useTmux = savedTerminalMode === 'tmux';
     } else {
-        const sessionPath = getClaudeSessionPath(worktreePath);
+        const sessionPath = getSessionFilePath(worktreePath);
         const sessionExists = await fileExists(sessionPath);
         useTmux = !sessionExists && TmuxService.isTmuxMode();
     }
@@ -502,6 +562,11 @@ export async function openClaudeTerminal(
     });
 
     terminal.show();
+
+    // B2. Track hookless agent terminals for lifecycle-based status updates
+    if (codeAgent && !codeAgent.supportsHooks()) {
+        await trackHooklessTerminal(terminal, worktreePath);
+    }
 
     // C. Get or create the extension settings file with hooks
     let settingsPath: string | undefined;
@@ -593,6 +658,9 @@ export async function openClaudeTerminal(
     }
 
     if (shouldStartFresh) {
+        // Capture timestamp before sending start command (for hookless session ID capture)
+        const beforeStartTimestamp = new Date();
+
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
 
@@ -685,6 +753,63 @@ Proceed by calling workflow_status now.`;
                 terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
             }
         }
+
+        // For hookless agents, capture session ID asynchronously after start
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp);
+        }
+    }
+}
+
+/**
+ * Asynchronously capture session ID for a hookless agent and write it to the session file.
+ * This is designed to be called fire-and-forget -- errors are logged but don't block terminal creation.
+ *
+ * LOCKED DECISION: If capture fails, show error to user suggesting to start a new session.
+ * Do NOT silently fall back to --last.
+ */
+async function captureHooklessSessionId(
+    codeAgent: CodeAgent,
+    worktreePath: string,
+    beforeTimestamp: Date
+): Promise<void> {
+    try {
+        // Currently only CodexAgent supports session capture via filesystem
+        // Other hookless agents would need their own capture mechanism
+        const { CodexAgent } = await import('../codeAgents/CodexAgent.js');
+        if (!(codeAgent instanceof CodexAgent)) {
+            return; // No capture mechanism for this hookless agent
+        }
+
+        const sessionId = await CodexAgent.captureSessionId(beforeTimestamp);
+
+        if (!sessionId) {
+            // LOCKED DECISION: strict error, no silent fallback
+            vscode.window.showWarningMessage(
+                'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
+                'If you need to resume, try starting a new session.'
+            );
+            return;
+        }
+
+        // Write captured session ID back to the session file (merge with existing data)
+        const sessionFilePath = getSessionFilePath(worktreePath);
+        let existingData: Record<string, unknown> = {};
+        const parsed = await readJson<Record<string, unknown>>(sessionFilePath);
+        if (parsed) { existingData = parsed; }
+        await writeJson(sessionFilePath, {
+            ...existingData,
+            sessionId,
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`Lanes: Captured Codex session ID: ${sessionId}`);
+    } catch (err) {
+        console.error('Lanes: Failed to capture hookless session ID:', getErrorMessage(err));
+        vscode.window.showWarningMessage(
+            'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
+            'If you need to resume, try starting a new session.'
+        );
     }
 }
 

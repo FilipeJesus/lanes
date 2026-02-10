@@ -80,15 +80,15 @@ suite('Git Diff Command Test Suite', () => {
 				'package.json should have contributes.commands section'
 			);
 
-			// Assert: claudeWorktrees.showGitChanges command exists
+			// Assert: lanes.showGitChanges command exists
 			const commands = packageJson.contributes.commands;
 			const showGitChangesCmd = commands.find(
-				(cmd: { command: string }) => cmd.command === 'claudeWorktrees.showGitChanges'
+				(cmd: { command: string }) => cmd.command === 'lanes.showGitChanges'
 			);
 
 			assert.ok(
 				showGitChangesCmd,
-				'package.json should have claudeWorktrees.showGitChanges command'
+				'package.json should have lanes.showGitChanges command'
 			);
 			assert.strictEqual(
 				showGitChangesCmd.title,
@@ -116,7 +116,7 @@ suite('Git Diff Command Test Suite', () => {
 
 			// Assert: showGitChanges menu item exists with correct when clause
 			const showGitChangesMenuItem = menuItems.find(
-				(item: { command: string }) => item.command === 'claudeWorktrees.showGitChanges'
+				(item: { command: string }) => item.command === 'lanes.showGitChanges'
 			);
 
 			assert.ok(
@@ -140,7 +140,7 @@ suite('Git Diff Command Test Suite', () => {
 		test('should have showGitChanges command registered after activation', async () => {
 			// Trigger extension activation by executing one of its commands
 			try {
-				await vscode.commands.executeCommand('claudeWorktrees.openSession');
+				await vscode.commands.executeCommand('lanes.openSession');
 			} catch {
 				// Expected to fail without proper args, but extension is now activated
 			}
@@ -148,7 +148,7 @@ suite('Git Diff Command Test Suite', () => {
 			const commands = await vscode.commands.getCommands(true);
 
 			assert.ok(
-				commands.includes('claudeWorktrees.showGitChanges'),
+				commands.includes('lanes.showGitChanges'),
 				'showGitChanges command should be registered after extension activation'
 			);
 		});

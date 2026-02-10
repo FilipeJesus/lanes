@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getPromptsPath, getRepoIdentifier, initializeGlobalStorageContext } from '../../ClaudeSessionProvider';
+import { getPromptsPath, getRepoIdentifier, initializeGlobalStorageContext } from '../../AgentSessionProvider';
 
 /**
  * Helper function to get a configuration property from the package.json configuration array.

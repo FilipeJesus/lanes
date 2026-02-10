@@ -15,10 +15,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { fileExists } from './FileService';
+import { fileExists, ensureDir, writeJson } from './FileService';
 import { execGit } from '../gitService';
 import {
-    ClaudeSessionProvider,
+    AgentSessionProvider,
     getSessionId,
     getSessionChimeEnabled,
     setSessionChimeEnabled,
@@ -27,11 +27,11 @@ import {
     getWorktreesFolder,
     getPromptsPath,
     saveSessionWorkflow,
-    getClaudeStatusPath,
-    getClaudeSessionPath,
+    getStatusFilePath,
+    getSessionFilePath,
     getWorkflowStatus,
     getOrCreateTaskListId
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import * as SettingsService from './SettingsService';
 import * as DiffService from './DiffService';
@@ -42,6 +42,7 @@ import { validateSessionName } from '../validation';
 import { AsyncQueue } from '../AsyncQueue';
 import { LanesError, GitError, ValidationError } from '../errors';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import * as TmuxService from './TmuxService';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from '../localSettings';
 import { addProject } from '../ProjectManagerService';
 
@@ -109,19 +110,19 @@ async function ensureWorktreeDirExists(root: string): Promise<void> {
 
 // Forward declarations for functions that will be imported from TerminalService
 // These are needed for createSession but will be injected or imported later
-interface OpenClaudeTerminalFn {
+interface OpenAgentTerminalFn {
     (taskName: string, worktreePath: string, prompt?: string, permissionMode?: PermissionMode, workflow?: string | null, codeAgent?: CodeAgent, repoRoot?: string, skipWorkflowPrompt?: boolean): Promise<void>;
 }
 
-let openClaudeTerminalImpl: OpenClaudeTerminalFn | null = null;
+let openAgentTerminalImpl: OpenAgentTerminalFn | null = null;
 
 /**
- * Set the openClaudeTerminal implementation.
+ * Set the openAgentTerminal implementation.
  * This is used to inject the terminal function after all services are loaded.
- * @param impl The openClaudeTerminal function implementation
+ * @param impl The openAgentTerminal function implementation
  */
-export function setOpenClaudeTerminal(impl: OpenClaudeTerminalFn): void {
-    openClaudeTerminalImpl = impl;
+export function setOpenAgentTerminal(impl: OpenAgentTerminalFn): void {
+    openAgentTerminalImpl = impl;
 }
 
 /**
@@ -213,7 +214,7 @@ async function createSession(
     workflow: string | null,
     attachments: string[],
     workspaceRoot: string | undefined,
-    sessionProvider: ClaudeSessionProvider,
+    sessionProvider: AgentSessionProvider,
     codeAgent?: CodeAgent
 ): Promise<void> {
     console.log("Create Session triggered!");
@@ -440,23 +441,38 @@ async function createSession(
                 try {
                     const config = vscode.workspace.getConfiguration('lanes');
                     const propagationMode = config.get<LocalSettingsPropagationMode>('localSettingsPropagation', 'copy');
-                    await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode);
+                    await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode, codeAgent);
                 } catch (err) {
                     // Log but don't fail session creation
                     console.warn('Lanes: Failed to propagate local settings:', err);
                 }
 
+                // 5.6. Write initial session file for hookless agents
+                // Agents without hooks (e.g., Codex) don't write session files via CLI hooks,
+                // so Lanes must create the session file directly with the agentName field.
+                // Include terminal mode so openAgentTerminal can read it (otherwise the
+                // existence of the session file causes it to default to 'code' mode).
+                if (codeAgent && !codeAgent.supportsHooks()) {
+                    const sessionFilePath = getSessionFilePath(worktreePath);
+                    await ensureDir(path.dirname(sessionFilePath));
+                    await writeJson(sessionFilePath, {
+                        agentName: codeAgent.name,
+                        terminal: TmuxService.isTmuxMode() ? 'tmux' : 'code',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
                 // 6. Success
                 sessionProvider.refresh();
 
-                // Use the injected openClaudeTerminal or fall back to a local implementation
+                // Use the injected openAgentTerminal or fall back to a local implementation
                 // This will be set by extension.ts after all services are loaded
-                if (openClaudeTerminalImpl) {
+                if (openAgentTerminalImpl) {
                     const assembledPrompt = assembleStartingPrompt(prompt, attachments);
-                    await openClaudeTerminalImpl(trimmedName, worktreePath, assembledPrompt, permissionMode, workflow, codeAgent, workspaceRoot);
+                    await openAgentTerminalImpl(trimmedName, worktreePath, assembledPrompt, permissionMode, workflow, codeAgent, workspaceRoot);
                 } else {
                     // This should not happen in normal operation, but provides a fallback
-                    console.warn('SessionService: openClaudeTerminal not injected, session may not open properly');
+                    console.warn('SessionService: openAgentTerminal not injected, session may not open properly');
                 }
 
                 vscode.window.showInformationMessage(`Session '${trimmedName}' Ready!`);
@@ -487,9 +503,9 @@ async function createSession(
 // Export the public API
 export {
     createSession,
-    openClaudeTerminalImpl,
+    openAgentTerminalImpl,
     warnedMergeBaseBranches,
 };
 
 // Re-export types for convenience
-export type { OpenClaudeTerminalFn };
+export type { OpenAgentTerminalFn };

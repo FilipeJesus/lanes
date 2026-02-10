@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import type { ServiceContainer } from '../types/serviceContainer';
-import type { SessionItem } from '../ClaudeSessionProvider';
+import type { SessionItem } from '../AgentSessionProvider';
 import type { PreviousSessionItem } from '../PreviousSessionProvider';
 import { createSession } from '../services/SessionService';
-import { openClaudeTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
+import { openAgentTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
 import * as SettingsService from '../services/SettingsService';
 import * as DiffService from '../services/DiffService';
 import * as TmuxService from '../services/TmuxService';
@@ -22,8 +22,10 @@ import {
     isGlobalStorageEnabled,
     getGlobalStoragePath,
     getWorktreesFolder,
-    getSessionTerminalMode
-} from '../ClaudeSessionProvider';
+    getSessionTerminalMode,
+    getSessionAgentName
+} from '../AgentSessionProvider';
+import { getAgent } from '../codeAgents';
 
 /**
  * Register all session-related commands.
@@ -126,7 +128,7 @@ export function registerSessionCommands(
     });
 
     // Command: Create a new session
-    const createDisposable = vscode.commands.registerCommand('claudeWorktrees.createSession', async () => {
+    const createDisposable = vscode.commands.registerCommand('lanes.createSession', async () => {
         console.log("Create Session Command Triggered!");
 
         const name = await vscode.window.showInputBox({
@@ -143,12 +145,14 @@ export function registerSessionCommands(
     });
 
     // Command: Open/resume a session
-    const openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath);
+    const openDisposable = vscode.commands.registerCommand('lanes.openSession', async (item: SessionItem) => {
+        const agentName = await getSessionAgentName(item.worktreePath);
+        const sessionAgent = getAgent(agentName) || codeAgent;
+        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
     });
 
     // Command: Delete a session
-    const deleteDisposable = vscode.commands.registerCommand('claudeWorktrees.deleteSession', async (item: SessionItem) => {
+    const deleteDisposable = vscode.commands.registerCommand('lanes.deleteSession', async (item: SessionItem) => {
         const answer = await vscode.window.showWarningMessage(
             `Delete session '${item.label}'?`,
             { modal: true },
@@ -159,8 +163,10 @@ export function registerSessionCommands(
         }
 
         try {
-            // Kill terminal
-            const termName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
+            // Kill terminal — resolve agent from session to find correct terminal name
+            const deleteAgentName = await getSessionAgentName(item.worktreePath);
+            const deleteAgent = getAgent(deleteAgentName) || codeAgent;
+            const termName = deleteAgent ? deleteAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
             const terminal = vscode.window.terminals.find(t => t.name === termName);
             if (terminal) {
                 terminal.dispose();
@@ -182,7 +188,8 @@ export function registerSessionCommands(
 
             // Clean up global storage files if enabled
             if (isGlobalStorageEnabled()) {
-                const globalStoragePath = getGlobalStoragePath(item.worktreePath, '.claude-status');
+                const statusFileName = codeAgent ? codeAgent.getStatusFileName() : '.claude-status';
+                const globalStoragePath = getGlobalStoragePath(item.worktreePath, statusFileName);
                 if (globalStoragePath) {
                     const sessionStorageDir = path.dirname(globalStoragePath);
                     await fsPromises.rm(sessionStorageDir, { recursive: true, force: true }).catch(() => {
@@ -210,7 +217,7 @@ export function registerSessionCommands(
     });
 
     // Command: Setup status hooks for a session
-    const setupHooksDisposable = vscode.commands.registerCommand('claudeWorktrees.setupStatusHooks', async (item?: SessionItem) => {
+    const setupHooksDisposable = vscode.commands.registerCommand('lanes.setupStatusHooks', async (item?: SessionItem) => {
         if (!item) {
             vscode.window.showErrorMessage('Please right-click on a session to setup status hooks.');
             return;
@@ -224,7 +231,7 @@ export function registerSessionCommands(
     });
 
     // Command: Show git changes for a session
-    const showGitChangesDisposable = vscode.commands.registerCommand('claudeWorktrees.showGitChanges', async (item: SessionItem) => {
+    const showGitChangesDisposable = vscode.commands.registerCommand('lanes.showGitChanges', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please right-click on a session to view git changes.');
             return;
@@ -267,7 +274,7 @@ export function registerSessionCommands(
     });
 
     // Command: Open session in new window
-    const openWindowDisposable = vscode.commands.registerCommand('claudeWorktrees.openInNewWindow', async (item: SessionItem) => {
+    const openWindowDisposable = vscode.commands.registerCommand('lanes.openInNewWindow', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please click on a session to open in new window.');
             return;
@@ -278,7 +285,7 @@ export function registerSessionCommands(
             return;
         }
 
-        const terminalName = `Claude: ${item.label}`;
+        const terminalName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
         const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
 
         if (existingTerminal) {
@@ -325,7 +332,7 @@ export function registerSessionCommands(
     });
 
     // Command: Open previous session prompt
-    const openPreviousPromptDisposable = vscode.commands.registerCommand('claudeWorktrees.openPreviousSessionPrompt', async (item: PreviousSessionItem) => {
+    const openPreviousPromptDisposable = vscode.commands.registerCommand('lanes.openPreviousSessionPrompt', async (item: PreviousSessionItem) => {
         if (!item || !item.promptFilePath) {
             vscode.window.showErrorMessage('Please click on a previous session to view its prompt.');
             return;
@@ -340,7 +347,7 @@ export function registerSessionCommands(
     });
 
     // Command: Enable chime for a session
-    const enableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.enableChime', async (item: SessionItem) => {
+    const enableChimeDisposable = vscode.commands.registerCommand('lanes.enableChime', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please right-click on a session to enable chime.');
             return;
@@ -357,7 +364,7 @@ export function registerSessionCommands(
     });
 
     // Command: Disable chime for a session
-    const disableChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.disableChime', async (item: SessionItem) => {
+    const disableChimeDisposable = vscode.commands.registerCommand('lanes.disableChime', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please right-click on a session to disable chime.');
             return;
@@ -374,7 +381,7 @@ export function registerSessionCommands(
     });
 
     // Command: Clear session (start fresh)
-    const clearSessionDisposable = vscode.commands.registerCommand('claudeWorktrees.clearSession', async (item: SessionItem) => {
+    const clearSessionDisposable = vscode.commands.registerCommand('lanes.clearSession', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please select a session to clear it.');
             return;
@@ -401,7 +408,9 @@ export function registerSessionCommands(
 
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
-                await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+                const clearAgentName = await getSessionAgentName(item.worktreePath);
+                const clearAgent = getAgent(clearAgentName) || codeAgent;
+                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, clearAgent, baseRepoPath, true);
 
                 vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
             } else {
@@ -442,7 +451,7 @@ export function registerSessionCommands(
     });
 
     // Command: Create terminal for a session
-    const createTerminalDisposable = vscode.commands.registerCommand('claudeWorktrees.createTerminal', async (item: SessionItem) => {
+    const createTerminalDisposable = vscode.commands.registerCommand('lanes.createTerminal', async (item: SessionItem) => {
         if (!item) {
             return;
         }
@@ -451,7 +460,7 @@ export function registerSessionCommands(
     });
 
     // Command: Search within a worktree
-    const searchInWorktreeDisposable = vscode.commands.registerCommand('claudeWorktrees.searchInWorktree', async (item: SessionItem) => {
+    const searchInWorktreeDisposable = vscode.commands.registerCommand('lanes.searchInWorktree', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             return;
         }
@@ -476,7 +485,7 @@ export function registerSessionCommands(
     });
 
     // Command: Open workflow state for a session
-    const openWorkflowStateDisposable = vscode.commands.registerCommand('claudeWorktrees.openWorkflowState', async (item: SessionItem) => {
+    const openWorkflowStateDisposable = vscode.commands.registerCommand('lanes.openWorkflowState', async (item: SessionItem) => {
         if (!item || !item.worktreePath) {
             vscode.window.showErrorMessage('Please select a session to open workflow state.');
             return;
@@ -510,12 +519,12 @@ export function registerSessionCommands(
     });
 
     // Command: Play chime sound (internal)
-    const playChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.playChime', () => {
+    const playChimeDisposable = vscode.commands.registerCommand('lanes.playChime', () => {
         services.sessionFormProvider.playChime();
     });
 
     // Command: Test chime sound (for debugging)
-    const testChimeDisposable = vscode.commands.registerCommand('claudeWorktrees.testChime', async () => {
+    const testChimeDisposable = vscode.commands.registerCommand('lanes.testChime', async () => {
         try {
             services.sessionFormProvider.playChime();
         } catch (err) {

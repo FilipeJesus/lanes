@@ -6,7 +6,7 @@ import * as fsPromises from 'fs/promises';
 import * as os from 'os';
 import {
     initializeGlobalStorageContext,
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 import { getOrCreateExtensionSettingsFile } from '../services/SettingsService';
 import { ClaudeCodeAgent } from '../codeAgents/ClaudeCodeAgent';
 

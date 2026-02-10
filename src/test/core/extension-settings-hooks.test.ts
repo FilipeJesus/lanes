@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
-} from '../../ClaudeSessionProvider';
+} from '../../AgentSessionProvider';
 import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
 
 suite('Extension Settings File Hooks', () => {

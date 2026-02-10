@@ -5,18 +5,27 @@ import { CodeAgent } from './codeAgents';
 import { validateWorktreesFolder } from './validation';
 import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from './services/FileService';
 
-// Valid Claude status states
-export type ClaudeStatusState = 'working' | 'waiting_for_user' | 'idle' | 'error';
+// Valid agent status states
+export type AgentStatusState = 'working' | 'waiting_for_user' | 'active' | 'idle' | 'error';
 
-// Status from .claude-status file
-export interface ClaudeStatus {
-    status: ClaudeStatusState;
+// Agent status (file name determined by CodeAgent)
+export interface AgentSessionStatus {
+    status: AgentStatusState;
     timestamp?: string;
     message?: string;
 }
 
 // Valid status values for validation
-const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
+const VALID_STATUS_VALUES: AgentStatusState[] = ['working', 'waiting_for_user', 'active', 'idle', 'error'];
+
+/**
+ * Default file names used when no CodeAgent is configured.
+ * These are Claude-specific defaults for backward compatibility.
+ */
+export const DEFAULTS = {
+    sessionFileName: '.claude-session',
+    statusFileName: '.claude-status',
+};
 
 /**
  * Fixed path for non-global session storage (relative to repo root)
@@ -114,8 +123,8 @@ export function getWorktreesFolder(): string {
     return trimmedFolder;
 }
 
-export function getClaudeSessionPath(worktreePath: string): string {
-    const sessionFileName = globalCodeAgent?.getSessionFileName() || '.claude-session';
+export function getSessionFilePath(worktreePath: string): string {
+    const sessionFileName = globalCodeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
     if (isGlobalStorageEnabled()) {
         const globalPath = getGlobalStoragePath(worktreePath, sessionFileName);
         if (globalPath) { return globalPath; }
@@ -125,8 +134,8 @@ export function getClaudeSessionPath(worktreePath: string): string {
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, sessionFileName);
 }
 
-export function getClaudeStatusPath(worktreePath: string): string {
-    const statusFileName = globalCodeAgent?.getStatusFileName() || '.claude-status';
+export function getStatusFilePath(worktreePath: string): string {
+    const statusFileName = globalCodeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
     if (isGlobalStorageEnabled()) {
         const globalPath = getGlobalStoragePath(worktreePath, statusFileName);
         if (globalPath) { return globalPath; }
@@ -136,18 +145,19 @@ export function getClaudeStatusPath(worktreePath: string): string {
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, statusFileName);
 }
 
-export interface ClaudeSessionData {
+export interface AgentSessionData {
     sessionId: string;
     timestamp?: string;
     workflow?: string;
     permissionMode?: string;
+    agentName?: string;
     isChimeEnabled?: boolean;
     taskListId?: string;
     terminal?: 'code' | 'tmux';
 }
 
 export async function saveSessionWorkflow(worktreePath: string, workflow: string): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let existingData: Record<string, unknown> = {};
@@ -160,7 +170,7 @@ export async function saveSessionWorkflow(worktreePath: string, workflow: string
 }
 
 export async function getSessionWorkflow(worktreePath: string): Promise<string | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -172,7 +182,7 @@ export async function getSessionWorkflow(worktreePath: string): Promise<string |
 }
 
 export async function saveSessionPermissionMode(worktreePath: string, permissionMode: string): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let existingData: Record<string, unknown> = {};
@@ -185,7 +195,7 @@ export async function saveSessionPermissionMode(worktreePath: string, permission
 }
 
 export async function getSessionPermissionMode(worktreePath: string): Promise<string | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -197,7 +207,7 @@ export async function getSessionPermissionMode(worktreePath: string): Promise<st
 }
 
 export async function saveSessionTerminalMode(worktreePath: string, terminal: 'code' | 'tmux'): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let existingData: Record<string, unknown> = {};
@@ -210,7 +220,7 @@ export async function saveSessionTerminalMode(worktreePath: string, terminal: 'c
 }
 
 export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -221,7 +231,7 @@ export async function getSessionTerminalMode(worktreePath: string): Promise<'cod
 }
 
 export async function getSessionChimeEnabled(worktreePath: string): Promise<boolean> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return false; }
@@ -231,7 +241,7 @@ export async function getSessionChimeEnabled(worktreePath: string): Promise<bool
 }
 
 export async function setSessionChimeEnabled(worktreePath: string, enabled: boolean): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let existingData: Record<string, unknown> = {};
@@ -243,8 +253,8 @@ export async function setSessionChimeEnabled(worktreePath: string, enabled: bool
     }
 }
 
-export async function getClaudeStatus(worktreePath: string): Promise<ClaudeStatus | null> {
-    const statusPath = getClaudeStatusPath(worktreePath);
+export async function getAgentStatus(worktreePath: string): Promise<AgentSessionStatus | null> {
+    const statusPath = getStatusFilePath(worktreePath);
     try {
         const exists = await fileExists(statusPath);
         if (!exists) { return null; }
@@ -254,16 +264,18 @@ export async function getClaudeStatus(worktreePath: string): Promise<ClaudeStatu
             if (!agentStatus) { return null; }
             const validStates = globalCodeAgent.getValidStatusStates();
             if (!validStates.includes(agentStatus.status)) { return null; }
-            return { status: agentStatus.status as ClaudeStatusState, timestamp: agentStatus.timestamp, message: agentStatus.message };
+            return { status: agentStatus.status as AgentStatusState, timestamp: agentStatus.timestamp, message: agentStatus.message };
         }
+        // Legacy fallback: parse status directly when no CodeAgent is configured.
+        // Uses hardcoded VALID_STATUS_VALUES for backward compatibility with Claude-specific status format.
         const data = JSON.parse(content);
         if (!data.status || !VALID_STATUS_VALUES.includes(data.status)) { return null; }
-        return { status: data.status as ClaudeStatusState, timestamp: data.timestamp, message: data.message };
+        return { status: data.status as AgentStatusState, timestamp: data.timestamp, message: data.message };
     } catch { return null; }
 }
 
-export async function getSessionId(worktreePath: string): Promise<ClaudeSessionData | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+export async function getSessionId(worktreePath: string): Promise<AgentSessionData | null> {
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const exists = await fileExists(sessionPath);
         if (!exists) { return null; }
@@ -271,18 +283,30 @@ export async function getSessionId(worktreePath: string): Promise<ClaudeSessionD
         if (globalCodeAgent) {
             const sessionData = globalCodeAgent.parseSessionData(content);
             if (!sessionData) { return null; }
-            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, isChimeEnabled: sessionData.isChimeEnabled };
+            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, agentName: sessionData.agentName, isChimeEnabled: sessionData.isChimeEnabled };
         }
         const data = JSON.parse(content);
         if (!data.sessionId || typeof data.sessionId !== 'string' || data.sessionId.trim() === '') { return null; }
         const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
         if (!SESSION_ID_PATTERN.test(data.sessionId)) { return null; }
-        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, isChimeEnabled: data.isChimeEnabled };
+        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || 'claude', isChimeEnabled: data.isChimeEnabled };
     } catch { return null; }
 }
 
+export async function getSessionAgentName(worktreePath: string): Promise<string> {
+    const sessionPath = getSessionFilePath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        if (!data) { return 'claude'; }
+        if (typeof data.agentName === 'string' && data.agentName.trim() !== '') {
+            return data.agentName;
+        }
+        return 'claude';
+    } catch { return 'claude'; }
+}
+
 export async function clearSessionId(worktreePath: string): Promise<void> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return; }
@@ -300,7 +324,7 @@ export function generateTaskListId(sessionName: string): string {
 }
 
 export async function getTaskListId(worktreePath: string): Promise<string | null> {
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -315,7 +339,7 @@ export async function getOrCreateTaskListId(worktreePath: string, sessionName: s
     const existingId = await getTaskListId(worktreePath);
     if (existingId) { return existingId; }
     const newId = generateTaskListId(sessionName);
-    const sessionPath = getClaudeSessionPath(worktreePath);
+    const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
         let data: Record<string, unknown> = {};
@@ -372,7 +396,7 @@ export class SessionItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly worktreePath: string,
         collapsibleState: vscode.TreeItemCollapsibleState,
-        claudeStatus?: ClaudeStatus | null,
+        agentStatus?: AgentSessionStatus | null,
         workflowStatus?: WorkflowStatus | null,
         chimeEnabled?: boolean
     ) {
@@ -384,17 +408,17 @@ export class SessionItem extends vscode.TreeItem {
         super(label, effectiveCollapsibleState);
         this.workflowStatus = storedWorkflowStatus;
         this.tooltip = `Path: ${this.worktreePath}`;
-        this.description = this.getDescriptionForStatus(claudeStatus, workflowStatus);
-        this.iconPath = this.getIconForStatus(claudeStatus, chimeEnabled);
-        this.command = { command: 'claudeWorktrees.openSession', title: 'Open Session', arguments: [this] };
+        this.description = this.getDescriptionForStatus(agentStatus, workflowStatus);
+        this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
+        this.command = { command: 'lanes.openSession', title: 'Open Session', arguments: [this] };
         this.contextValue = 'sessionItem';
     }
 
-    private getIconForStatus(claudeStatus?: ClaudeStatus | null, chimeEnabled?: boolean): vscode.ThemeIcon {
+    private getIconForStatus(agentStatus?: AgentSessionStatus | null, chimeEnabled?: boolean): vscode.ThemeIcon {
         let iconId: string;
-        if (!claudeStatus) { iconId = 'git-branch'; }
+        if (!agentStatus) { iconId = 'git-branch'; }
         else {
-            switch (claudeStatus.status) {
+            switch (agentStatus.status) {
                 case 'waiting_for_user': iconId = 'bell'; break;
                 case 'working': iconId = 'sync~spin'; break;
                 case 'error': iconId = 'error'; break;
@@ -403,7 +427,7 @@ export class SessionItem extends vscode.TreeItem {
         }
         const previousIcon = previousIconState.get(this.worktreePath);
         if (iconId === 'bell' && previousIcon !== 'bell') {
-            if (chimeEnabled) { void vscode.commands.executeCommand('claudeWorktrees.playChime'); }
+            if (chimeEnabled) { void vscode.commands.executeCommand('lanes.playChime'); }
         }
         previousIconState.set(this.worktreePath, iconId);
         if (iconId === 'bell') { return new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.yellow')); }
@@ -411,17 +435,17 @@ export class SessionItem extends vscode.TreeItem {
         else { return new vscode.ThemeIcon(iconId); }
     }
 
-    private getDescriptionForStatus(claudeStatus?: ClaudeStatus | null, workflowStatus?: WorkflowStatus | null): string {
+    private getDescriptionForStatus(agentStatus?: AgentSessionStatus | null, workflowStatus?: WorkflowStatus | null): string {
         const summary = workflowStatus?.summary;
         const withSummary = (base: string): string => summary ? `${base} - ${summary}` : base;
-        if (claudeStatus?.status === 'waiting_for_user') { return withSummary('Waiting'); }
-        if (claudeStatus?.status === 'working') { return withSummary('Working'); }
+        if (agentStatus?.status === 'waiting_for_user') { return withSummary('Waiting'); }
+        if (agentStatus?.status === 'working') { return withSummary('Working'); }
         if (summary) { return summary; }
         return "Active";
     }
 }
 
-export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionItem | SessionDetailItem>, vscode.Disposable {
+export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem | SessionDetailItem>, vscode.Disposable {
     private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private readonly sessionsRoot: string | undefined;
@@ -455,10 +479,10 @@ export class ClaudeSessionProvider implements vscode.TreeDataProvider<SessionIte
             const fullPath = path.join(dirPath, folderName);
             const isDir = await isDirectory(fullPath);
             if (isDir) {
-                const claudeStatus = await getClaudeStatus(fullPath);
+                const agentStatus = await getAgentStatus(fullPath);
                 const workflowStatus = await getWorkflowStatus(fullPath);
                 const chimeEnabled = await getSessionChimeEnabled(fullPath);
-                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, claudeStatus, workflowStatus, chimeEnabled));
+                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled));
             }
         }
         return items;

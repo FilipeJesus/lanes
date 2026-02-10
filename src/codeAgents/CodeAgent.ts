@@ -346,6 +346,16 @@ export abstract class CodeAgent {
     abstract getHookEvents(): string[];
 
     /**
+     * Check if this agent supports a hook system for session tracking.
+     * When true, the agent's CLI handles session file writes via hooks.
+     * When false, Lanes manages session files directly.
+     * Default: true (assumes hook support; hookless agents override to return false)
+     */
+    supportsHooks(): boolean {
+        return this.getHookEvents().length > 0;
+    }
+
+    /**
      * Generate hook configurations for a worktree
      * @param worktreePath Path to the worktree
      * @param sessionFilePath Path to the session file
@@ -361,6 +371,15 @@ export abstract class CodeAgent {
         workflowPath?: string,
         hookScriptPath?: string
     ): HookConfig[];
+
+    // --- Local Settings ---
+
+    /**
+     * Get the list of local settings files that should be propagated to worktrees.
+     * Each entry specifies a directory and file within that directory, relative to the repo root.
+     * @returns Array of { dir, file } objects describing settings files to propagate
+     */
+    abstract getLocalSettingsFiles(): Array<{ dir: string; file: string }>;
 
     // --- MCP Support (Optional) ---
 

@@ -6,7 +6,7 @@ import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
 	getRepoIdentifier,
-} from '../../ClaudeSessionProvider';
+} from '../../AgentSessionProvider';
 import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
 
 suite('Extension Settings File Location', () => {

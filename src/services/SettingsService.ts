@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import { getSettingsFormat } from './SettingsFormatService';
 import {
     getSessionId,
     getPromptsPath,
@@ -18,12 +19,14 @@ import {
     getRepoIdentifier,
     getSessionWorkflow,
     saveSessionWorkflow,
-    getClaudeStatusPath,
-    getClaudeSessionPath,
+    getStatusFilePath,
+    getSessionFilePath,
     isGlobalStorageEnabled,
     getGlobalStorageUri,
-    getWorktreesFolder
-} from '../ClaudeSessionProvider';
+    getWorktreesFolder,
+    getGlobalCodeAgent,
+    DEFAULTS
+} from '../AgentSessionProvider';
 
 /**
  * Check if the given path is a git worktree and return the base repo path.
@@ -89,35 +92,39 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
 }
 
 /**
- * Get the glob pattern for watching .claude-status based on configuration.
+ * Get the glob pattern for watching status files based on configuration.
  * When global storage is enabled, returns pattern for global storage.
  * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
- * @returns Glob pattern for watching .claude-status
+ * Uses CodeAgent method to determine the status file name, falling back to DEFAULTS.
+ * @returns Glob pattern for watching status files
  */
 export function getStatusWatchPattern(): string {
+    const statusFileName = getGlobalCodeAgent()?.getStatusFileName() || DEFAULTS.statusFileName;
     if (isGlobalStorageEnabled()) {
         // For global storage, files are watched by the global storage file watcher
         // Return minimal pattern since global storage handles watching differently
-        return '**/.claude-status';
+        return '**/' + statusFileName;
     }
-    // Non-global mode: watch .lanes/session_management/**/*/.claude-status
-    return '.lanes/session_management/**/*/.claude-status';
+    // Non-global mode: watch .lanes/session_management/**/*/<statusFileName>
+    return '.lanes/session_management/**/*/' + statusFileName;
 }
 
 /**
- * Get the glob pattern for watching .claude-session based on configuration.
+ * Get the glob pattern for watching session files based on configuration.
  * When global storage is enabled, returns pattern for global storage.
  * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
- * @returns Glob pattern for watching .claude-session
+ * Uses CodeAgent method to determine the session file name, falling back to DEFAULTS.
+ * @returns Glob pattern for watching session files
  */
 export function getSessionWatchPattern(): string {
+    const sessionFileName = getGlobalCodeAgent()?.getSessionFileName() || DEFAULTS.sessionFileName;
     if (isGlobalStorageEnabled()) {
         // For global storage, files are watched by the global storage file watcher
         // Return minimal pattern since global storage handles watching differently
-        return '**/.claude-session';
+        return '**/' + sessionFileName;
     }
-    // Non-global mode: watch .lanes/session_management/**/*/.claude-session
-    return '.lanes/session_management/**/*/.claude-session';
+    // Non-global mode: watch .lanes/session_management/**/*/<sessionFileName>
+    return '.lanes/session_management/**/*/' + sessionFileName;
 }
 
 /**
@@ -202,9 +209,11 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     // Ensure the directory exists
     await fsPromises.mkdir(settingsDir, { recursive: true });
 
-    // Generate the artefact registration hook script in global storage
-    const hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
-    const hookScriptContent = `#!/bin/bash
+    // Generate the artefact registration hook script only for agents that support hooks
+    let hookScriptPath: string | undefined;
+    if (!codeAgent || codeAgent.supportsHooks()) {
+        hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
+        const hookScriptContent = `#!/bin/bash
 
 # Read hook input from stdin
 INPUT=$(cat)
@@ -234,23 +243,27 @@ fi
 exit 0
 `;
 
-    // Write the hook script with executable permissions
-    await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
+        // Write the hook script with executable permissions
+        await fsPromises.writeFile(hookScriptPath, hookScriptContent, { mode: 0o755 });
+    }
 
     // Determine status and session file paths using the helper functions
     // These functions handle both global and non-global modes automatically
-    const statusFilePath = getClaudeStatusPath(worktreePath);
-    const sessionFilePath = getClaudeSessionPath(worktreePath);
+    const statusFilePath = getStatusFilePath(worktreePath);
+    const sessionFilePath = getSessionFilePath(worktreePath);
 
     // Ensure the directories exist for both files
     await fsPromises.mkdir(path.dirname(statusFilePath), { recursive: true });
     await fsPromises.mkdir(path.dirname(sessionFilePath), { recursive: true });
 
 
-    // Build hooks configuration
+    // Build hooks configuration (only for agents that support hooks)
     let hooks: ClaudeSettings['hooks'];
 
-    if (codeAgent) {
+    if (codeAgent && !codeAgent.supportsHooks()) {
+        // Hookless agents (e.g., Codex) get settings without hooks
+        hooks = undefined;
+    } else if (codeAgent) {
         // Use CodeAgent to generate hooks
         // Pass effectiveWorkflow to enable workflow status hook
         // Pass hookScriptPath to enable PostToolUse artefact registration hook
@@ -301,10 +314,11 @@ exit 0
         };
     }
 
-    // Build the settings object
-    const settings: ClaudeSettings = {
-        hooks
-    };
+    // Build the settings object - only include hooks when defined
+    const settings: ClaudeSettings = {};
+    if (hooks) {
+        settings.hooks = hooks;
+    }
 
     // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
     // effectiveWorkflow is now the full path to the workflow YAML file
@@ -323,14 +337,21 @@ exit 0
         if (workflow) {
             await saveSessionWorkflow(worktreePath, effectiveWorkflow);
         }
-        // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
+        // Note: MCP server config is now passed via --mcp-config flag in openAgentTerminal()
         // instead of being included in the settings file
     }
 
     // Write the settings file atomically with cleanup on failure
+    // Use format-aware writing when CodeAgent is available (JSON for Claude, TOML for Codex)
     const tempPath = path.join(settingsDir, `${settingsFileName}.${Date.now()}.tmp`);
     try {
-        await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
+        if (codeAgent) {
+            const format = getSettingsFormat(codeAgent);
+            await format.write(tempPath, settings as Record<string, unknown>);
+        } else {
+            // Fallback to JSON when no CodeAgent is provided
+            await fsPromises.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8');
+        }
         await fsPromises.rename(tempPath, settingsFilePath);
     } catch (err) {
         // Clean up temp file on failure

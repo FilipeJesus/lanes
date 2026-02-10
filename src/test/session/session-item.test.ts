@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { SessionItem, ClaudeStatus, initializeGlobalStorageContext } from '../../ClaudeSessionProvider';
+import { SessionItem, AgentSessionStatus, initializeGlobalStorageContext } from '../../AgentSessionProvider';
 
 suite('SessionItem', () => {
 
@@ -57,7 +57,7 @@ suite('SessionItem', () => {
 		);
 
 		assert.ok(item.command);
-		assert.strictEqual(item.command.command, 'claudeWorktrees.openSession');
+		assert.strictEqual(item.command.command, 'lanes.openSession');
 		assert.deepStrictEqual(item.command.arguments, [item]);
 	});
 
@@ -90,7 +90,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display bell icon with yellow color for waiting_for_user status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'waiting_for_user' };
+		const claudeStatus: AgentSessionStatus = { status: 'waiting_for_user' };
 
 		// Act
 		const item = new SessionItem(
@@ -109,7 +109,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display sync~spin icon for working status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'working' };
+		const claudeStatus: AgentSessionStatus = { status: 'working' };
 
 		// Act
 		const item = new SessionItem(
@@ -127,7 +127,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display error icon with red color for error status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'error' };
+		const claudeStatus: AgentSessionStatus = { status: 'error' };
 
 		// Act
 		const item = new SessionItem(
@@ -146,7 +146,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display git-branch icon for idle status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'idle' };
+		const claudeStatus: AgentSessionStatus = { status: 'idle' };
 
 		// Act
 		const item = new SessionItem(
@@ -179,7 +179,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display "Waiting" description for waiting_for_user status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'waiting_for_user' };
+		const claudeStatus: AgentSessionStatus = { status: 'waiting_for_user' };
 
 		// Act
 		const item = new SessionItem(
@@ -195,7 +195,7 @@ suite('SessionItem Visual Indicators', () => {
 
 	test('should display "Working" description for working status', () => {
 		// Arrange
-		const claudeStatus: ClaudeStatus = { status: 'working' };
+		const claudeStatus: AgentSessionStatus = { status: 'working' };
 
 		// Act
 		const item = new SessionItem(
