@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Users can create, open, resume, and delete Codex CLI sessions through the Lanes sidebar with the same reliability and isolation as Claude Code sessions.
-**Current focus:** Phase 2 - Agent Abstraction Enhancement (Complete)
+**Current focus:** Phase 3 - Codex CLI Integration (In Progress)
 
 ## Current Position
 
-Phase: 2 of 5 (Agent Abstraction Enhancement)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-10 — Completed 02-03-PLAN.md
+Phase: 3 of 5 (Codex CLI Integration)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-10 — Completed 03-01-PLAN.md
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 4.4min
-- Total execution time: 31min
+- Total plans completed: 8
+- Average duration: 3.9min
+- Total execution time: 33min
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [███████░░░] 70%
 |-------|-------|-------|----------|
 | 01-foundation-refactoring | 4/4 | 18min | 4.5min |
 | 02-agent-abstraction-enhancement | 3/3 | 13min | 4.3min |
+| 03-codex-cli-integration | 1/2 | 2min | 2.0min |
 
 **Recent Trend:**
-- Last 5 plans: 7min, 3min, 5min, 5min
-- Trend: Stable
+- Last 5 plans: 3min, 5min, 5min, 3min, 2min
+- Trend: Improving
 
 *Updated after each plan completion*
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - TOML lazily imported via dynamic import() to avoid loading when only JSON sessions are in use (02-03)
 - Format determined by file extension from agent's getSettingsFileName() not agent name (02-03)
 - Hookless agents get empty settings without hooks key rather than empty hooks object (02-03)
+- Permission modes use dual-flag system (--sandbox + --ask-for-approval) (03-01)
+- Codex ignores settingsPath/mcpConfigPath (no config file generation) (03-01)
+- Resume command validates UUID format strictly (throws on invalid) (03-01)
+- No local settings propagation for Codex in Phase 3 (future phase decision) (03-01)
 
 ### Pending Todos
 
@@ -77,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-10 (Plan 02-03 execution)
-Stopped at: Completed 02-03-PLAN.md (Phase 2 complete)
-Resume file: .planning/phases/02-agent-abstraction-enhancement/02-03-SUMMARY.md
+Last session: 2026-02-10 (Plan 03-01 execution)
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-codex-cli-integration/03-01-SUMMARY.md
