@@ -13,8 +13,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { fileExists, ensureDir, writeJson } from './FileService';
-import { SessionItem, getStatusFilePath } from '../AgentSessionProvider';
+import { fileExists, ensureDir, writeJson, readJson } from './FileService';
+import { SessionItem, getStatusFilePath, getSessionFilePath } from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
 import * as SettingsService from './SettingsService';
@@ -751,6 +751,58 @@ Proceed by calling workflow_status now.`;
                 terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
             }
         }
+    }
+}
+
+/**
+ * Asynchronously capture session ID for a hookless agent and write it to the session file.
+ * This is designed to be called fire-and-forget -- errors are logged but don't block terminal creation.
+ *
+ * LOCKED DECISION: If capture fails, show error to user suggesting to start a new session.
+ * Do NOT silently fall back to --last.
+ */
+async function captureHooklessSessionId(
+    codeAgent: CodeAgent,
+    worktreePath: string,
+    beforeTimestamp: Date
+): Promise<void> {
+    try {
+        // Currently only CodexAgent supports session capture via filesystem
+        // Other hookless agents would need their own capture mechanism
+        const { CodexAgent } = await import('../codeAgents/CodexAgent.js');
+        if (!(codeAgent instanceof CodexAgent)) {
+            return; // No capture mechanism for this hookless agent
+        }
+
+        const sessionId = await CodexAgent.captureSessionId(beforeTimestamp);
+
+        if (!sessionId) {
+            // LOCKED DECISION: strict error, no silent fallback
+            vscode.window.showWarningMessage(
+                'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
+                'If you need to resume, try starting a new session.'
+            );
+            return;
+        }
+
+        // Write captured session ID back to the session file (merge with existing data)
+        const sessionFilePath = getSessionFilePath(worktreePath);
+        let existingData: Record<string, unknown> = {};
+        const parsed = await readJson<Record<string, unknown>>(sessionFilePath);
+        if (parsed) { existingData = parsed; }
+        await writeJson(sessionFilePath, {
+            ...existingData,
+            sessionId,
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`Lanes: Captured Codex session ID: ${sessionId}`);
+    } catch (err) {
+        console.error('Lanes: Failed to capture hookless session ID:', getErrorMessage(err));
+        vscode.window.showWarningMessage(
+            'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
+            'If you need to resume, try starting a new session.'
+        );
     }
 }
 
