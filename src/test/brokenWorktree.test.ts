@@ -194,6 +194,7 @@ suite('Broken Worktree Repair', () => {
 	let repairedWorktrees: Array<{ worktreePath: string; branch: string }> = [];
 	let savedGitDir: string | undefined;
 	let savedGitWorkTree: string | undefined;
+	let savedGitIndexFile: string | undefined;
 
 	// Create a real git repository for integration tests
 	setup(async () => {
@@ -208,8 +209,10 @@ suite('Broken Worktree Repair', () => {
 		// that delete all tracked files.
 		savedGitDir = process.env.GIT_DIR;
 		savedGitWorkTree = process.env.GIT_WORK_TREE;
+		savedGitIndexFile = process.env.GIT_INDEX_FILE;
 		delete process.env.GIT_DIR;
 		delete process.env.GIT_WORK_TREE;
+		delete process.env.GIT_INDEX_FILE;
 
 		// Disable global storage for these tests
 		const config = vscode.workspace.getConfiguration('lanes');
@@ -289,12 +292,15 @@ suite('Broken Worktree Repair', () => {
 
 	// Clean up after each test
 	teardown(async () => {
-		// Restore GIT_DIR and GIT_WORK_TREE env vars
+		// Restore GIT_DIR, GIT_WORK_TREE, and GIT_INDEX_FILE env vars
 		if (savedGitDir !== undefined) {
 			process.env.GIT_DIR = savedGitDir;
 		}
 		if (savedGitWorkTree !== undefined) {
 			process.env.GIT_WORK_TREE = savedGitWorkTree;
+		}
+		if (savedGitIndexFile !== undefined) {
+			process.env.GIT_INDEX_FILE = savedGitIndexFile;
 		}
 
 		// Reset useGlobalStorage to default
