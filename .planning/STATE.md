@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Users can create, open, resume, and delete Codex CLI sessions through the Lanes sidebar with the same reliability and isolation as Claude Code sessions.
-**Current focus:** Phase 3 - Codex CLI Integration (In Progress)
+**Current focus:** Phase 4 - UI Integration (In Progress)
 
 ## Current Position
 
-Phase: 3 of 5 (Codex CLI Integration)
-Plan: 2 of 2 in current phase
+Phase: 4 of 5 (UI Integration)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-02-10 — Completed 03-02-PLAN.md
+Last activity: 2026-02-10 — Completed 04-01-PLAN.md
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 3.8min
-- Total execution time: 40min
+- Total plans completed: 10
+- Average duration: 4.0min
+- Total execution time: 45min
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [█████████░] 90%
 | 01-foundation-refactoring | 4/4 | 18min | 4.5min |
 | 02-agent-abstraction-enhancement | 3/3 | 13min | 4.3min |
 | 03-codex-cli-integration | 2/2 | 9min | 4.5min |
+| 04-ui-integration | 1/1 | 5min | 5.0min |
 
 **Recent Trend:**
-- Last 5 plans: 5min, 5min, 3min, 2min, 7min
+- Last 5 plans: 5min, 3min, 2min, 7min, 5min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -76,6 +77,11 @@ Recent decisions affecting current work:
 - Multi-field session ID extraction (session_id, id, sessionId) for format flexibility (03-02)
 - Strict error handling with user warning, no silent --last fallback (03-02)
 - Fire-and-forget pattern for non-blocking terminal creation (03-02)
+- Agent dropdown hidden when only one agent available (04-01)
+- Agent dropdown positioned as second field after session name (04-01)
+- Permission toggle state preserved when switching agents (04-01)
+- Agent selection resets to default on form clear after successful submission (04-01)
+- Warning shown only when default agent is not Claude to avoid duplicate warnings (04-01)
 
 ### Pending Todos
 
@@ -87,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-10 (Plan 03-02 execution)
-Stopped at: Completed 03-02-PLAN.md
-Resume file: .planning/phases/03-codex-cli-integration/03-02-SUMMARY.md
+Last session: 2026-02-10 (Plan 04-01 execution)
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-ui-integration/04-01-SUMMARY.md
