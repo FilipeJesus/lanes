@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Refactor hardcoded file paths and agent assumptions
-- [ ] 01-02: Rename services and establish clean abstraction boundary
+- [ ] 01-01-PLAN.md — Replace hardcoded file paths, watch patterns, terminal names with CodeAgent method calls; generalize localSettings.ts
+- [ ] 01-02-PLAN.md — Rename ClaudeSessionProvider to AgentSessionProvider, update command/view IDs to lanes.*, add backward-compatible aliases
 
 ### Phase 2: Agent Abstraction Enhancement
 **Goal**: Infrastructure supports multiple agents with different capabilities (hooks vs polling, JSON vs TOML)
