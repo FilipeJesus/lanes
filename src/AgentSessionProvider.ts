@@ -150,6 +150,7 @@ export interface AgentSessionData {
     timestamp?: string;
     workflow?: string;
     permissionMode?: string;
+    agentName?: string;
     isChimeEnabled?: boolean;
     taskListId?: string;
     terminal?: 'code' | 'tmux';
@@ -282,14 +283,26 @@ export async function getSessionId(worktreePath: string): Promise<AgentSessionDa
         if (globalCodeAgent) {
             const sessionData = globalCodeAgent.parseSessionData(content);
             if (!sessionData) { return null; }
-            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, isChimeEnabled: sessionData.isChimeEnabled };
+            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, agentName: sessionData.agentName, isChimeEnabled: sessionData.isChimeEnabled };
         }
         const data = JSON.parse(content);
         if (!data.sessionId || typeof data.sessionId !== 'string' || data.sessionId.trim() === '') { return null; }
         const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
         if (!SESSION_ID_PATTERN.test(data.sessionId)) { return null; }
-        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, isChimeEnabled: data.isChimeEnabled };
+        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || 'claude', isChimeEnabled: data.isChimeEnabled };
     } catch { return null; }
+}
+
+export async function getSessionAgentName(worktreePath: string): Promise<string> {
+    const sessionPath = getSessionFilePath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        if (!data) { return 'claude'; }
+        if (typeof data.agentName === 'string' && data.agentName.trim() !== '') {
+            return data.agentName;
+        }
+        return 'claude';
+    } catch { return 'claude'; }
 }
 
 export async function clearSessionId(worktreePath: string): Promise<void> {

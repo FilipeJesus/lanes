@@ -15,7 +15,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { fileExists } from './FileService';
+import { fileExists, ensureDir, writeJson } from './FileService';
 import { execGit } from '../gitService';
 import {
     AgentSessionProvider,
@@ -444,6 +444,18 @@ async function createSession(
                 } catch (err) {
                     // Log but don't fail session creation
                     console.warn('Lanes: Failed to propagate local settings:', err);
+                }
+
+                // 5.6. Write initial session file for hookless agents
+                // Agents without hooks (e.g., Codex) don't write session files via CLI hooks,
+                // so Lanes must create the session file directly with the agentName field.
+                if (codeAgent && !codeAgent.supportsHooks()) {
+                    const sessionFilePath = getSessionFilePath(worktreePath);
+                    await ensureDir(path.dirname(sessionFilePath));
+                    await writeJson(sessionFilePath, {
+                        agentName: codeAgent.name,
+                        timestamp: new Date().toISOString()
+                    });
                 }
 
                 // 6. Success
