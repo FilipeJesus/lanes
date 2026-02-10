@@ -13,8 +13,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { fileExists } from './FileService';
-import { SessionItem } from '../AgentSessionProvider';
+import { fileExists, ensureDir, writeJson } from './FileService';
+import { SessionItem, getStatusFilePath } from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
 import * as SettingsService from './SettingsService';
@@ -34,6 +34,67 @@ import {
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
+
+// Track hookless agent terminals for lifecycle-based status updates
+// Maps terminal instances to their worktree paths for status file management
+const hooklessTerminals = new Map<vscode.Terminal, string>();
+
+/**
+ * Register terminal lifecycle tracking for hookless agents.
+ * Listens to terminal close events to update status files when a hookless
+ * agent's terminal is closed (sets status to 'idle').
+ *
+ * Must be called once during extension activation.
+ * @param context The extension context to register the disposable
+ */
+export function registerHooklessTerminalTracking(context: vscode.ExtensionContext): void {
+    const disposable = vscode.window.onDidCloseTerminal(async (terminal) => {
+        const worktreePath = hooklessTerminals.get(terminal);
+        if (!worktreePath) { return; }
+
+        // Terminal closed - write idle status
+        try {
+            const statusPath = getStatusFilePath(worktreePath);
+            await ensureDir(path.dirname(statusPath));
+            await writeJson(statusPath, {
+                status: 'idle',
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            console.warn('Lanes: Failed to write idle status for hookless terminal:', getErrorMessage(err));
+        }
+
+        // Clean up the tracking entry
+        hooklessTerminals.delete(terminal);
+    });
+
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Track a hookless agent terminal for lifecycle-based status updates.
+ * Writes 'active' status on tracking start. The registered close listener
+ * will write 'idle' status when the terminal is closed.
+ *
+ * @param terminal The VS Code terminal to track
+ * @param worktreePath The worktree path associated with this terminal
+ */
+export async function trackHooklessTerminal(terminal: vscode.Terminal, worktreePath: string): Promise<void> {
+    // Register the terminal for close tracking
+    hooklessTerminals.set(terminal, worktreePath);
+
+    // Write active status immediately
+    try {
+        const statusPath = getStatusFilePath(worktreePath);
+        await ensureDir(path.dirname(statusPath));
+        await writeJson(statusPath, {
+            status: 'active',
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.warn('Lanes: Failed to write active status for hookless terminal:', getErrorMessage(err));
+    }
+}
 
 /**
  * Generates the workflow orchestrator instructions to prepend to a prompt.
@@ -502,6 +563,11 @@ export async function openAgentTerminal(
     });
 
     terminal.show();
+
+    // B2. Track hookless agent terminals for lifecycle-based status updates
+    if (codeAgent && !codeAgent.supportsHooks()) {
+        await trackHooklessTerminal(terminal, worktreePath);
+    }
 
     // C. Get or create the extension settings file with hooks
     let settingsPath: string | undefined;

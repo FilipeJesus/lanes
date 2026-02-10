@@ -63,6 +63,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // This must be done early, before any session creation calls
     SessionService.setOpenAgentTerminal(TerminalService.openAgentTerminal);
 
+    // Register hookless terminal tracking (terminal close -> idle status)
+    TerminalService.registerHooklessTerminalTracking(context);
+
     // Initialize git path from VS Code Git Extension (with fallback to 'git')
     await initializeGitPath();
 
