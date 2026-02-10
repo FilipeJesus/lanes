@@ -659,6 +659,9 @@ export async function openAgentTerminal(
     }
 
     if (shouldStartFresh) {
+        // Capture timestamp before sending start command (for hookless session ID capture)
+        const beforeStartTimestamp = new Date();
+
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
 
@@ -750,6 +753,11 @@ Proceed by calling workflow_status now.`;
                 // Start new session without prompt
                 terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
             }
+        }
+
+        // For hookless agents, capture session ID asynchronously after start
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp);
         }
     }
 }
