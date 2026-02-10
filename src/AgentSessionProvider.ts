@@ -6,7 +6,7 @@ import { validateWorktreesFolder } from './validation';
 import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from './services/FileService';
 
 // Valid agent status states
-export type AgentStatusState = 'working' | 'waiting_for_user' | 'idle' | 'error';
+export type AgentStatusState = 'working' | 'waiting_for_user' | 'active' | 'idle' | 'error';
 
 // Agent status (file name determined by CodeAgent)
 export interface AgentSessionStatus {
@@ -16,7 +16,7 @@ export interface AgentSessionStatus {
 }
 
 // Valid status values for validation
-const VALID_STATUS_VALUES: AgentStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
+const VALID_STATUS_VALUES: AgentStatusState[] = ['working', 'waiting_for_user', 'active', 'idle', 'error'];
 
 /**
  * Default file names used when no CodeAgent is configured.

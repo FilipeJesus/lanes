@@ -291,16 +291,23 @@ export class CodexAgent extends CodeAgent {
                     const files = await fs.readdir(sessionsDir);
 
                     // Find files modified after beforeTimestamp
-                    const candidates: Array<{ file: string; mtime: number }> = [];
+                    const candidates: Array<{ file: string; mtime: number; filePath: string }> = [];
 
                     for (const file of files) {
                         try {
                             const filePath = path.join(sessionsDir, file);
+
+                            // Path traversal protection: ensure resolved path stays within sessionsDir
+                            const resolvedPath = path.resolve(filePath);
+                            if (!resolvedPath.startsWith(sessionsDir + path.sep) && resolvedPath !== sessionsDir) {
+                                continue; // Skip files that resolve outside sessions directory
+                            }
+
                             const stats = await fs.stat(filePath);
 
                             // Only consider files modified after the timestamp
                             if (stats.mtime > beforeTimestamp) {
-                                candidates.push({ file, mtime: stats.mtime.getTime() });
+                                candidates.push({ file, mtime: stats.mtime.getTime(), filePath });
                             }
                         } catch {
                             // Skip files that can't be stat'd
@@ -313,8 +320,8 @@ export class CodexAgent extends CodeAgent {
 
                     // Try to extract session ID from the newest file
                     if (candidates.length > 0) {
-                        const newestFile = candidates[0].file;
-                        const filePath = path.join(sessionsDir, newestFile);
+                        // Use the filePath from candidates (already validated for path traversal)
+                        const filePath = candidates[0].filePath;
 
                         try {
                             const content = await fs.readFile(filePath, 'utf-8');

@@ -12,7 +12,7 @@
  */
 
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { CodeAgent } from './CodeAgent';
 import { ClaudeCodeAgent } from './ClaudeCodeAgent';
 import { CodexAgent } from './CodexAgent';
@@ -104,7 +104,7 @@ export function getDefaultAgent(): string {
  */
 export async function isCliAvailable(cliCommand: string): Promise<boolean> {
     return new Promise((resolve) => {
-        exec(`command -v ${cliCommand}`, { shell: '/bin/sh', timeout: 5000 }, (error) => {
+        execFile('command', ['-v', cliCommand], { shell: true, timeout: 5000 }, (error) => {
             resolve(!error);
         });
     });
