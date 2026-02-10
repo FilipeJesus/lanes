@@ -362,6 +362,15 @@ export abstract class CodeAgent {
         hookScriptPath?: string
     ): HookConfig[];
 
+    // --- Local Settings ---
+
+    /**
+     * Get the list of local settings files that should be propagated to worktrees.
+     * Each entry specifies a directory and file within that directory, relative to the repo root.
+     * @returns Array of { dir, file } objects describing settings files to propagate
+     */
+    abstract getLocalSettingsFiles(): Array<{ dir: string; file: string }>;
+
     // --- MCP Support (Optional) ---
 
     /**

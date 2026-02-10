@@ -2,7 +2,7 @@
  * File system watchers for Lanes extension
  *
  * This module sets up all file system watchers that monitor changes to:
- * - Session status files (.claude-status, .claude-session)
+ * - Session status and session files (agent-specific file names via CodeAgent)
  * - Prompts directory
  * - Workflows folder
  * - Worktree folders
@@ -16,7 +16,7 @@ import { ensureDir } from './services/FileService';
 import type { ServiceContainer } from './types/serviceContainer';
 import { getStatusWatchPattern, getSessionWatchPattern } from './services/SettingsService';
 import { checkPendingSessions, checkClearRequests, getPendingSessionsDir } from './services/SessionProcessService';
-import { getRepoIdentifier, getWorktreesFolder, isGlobalStorageEnabled } from './ClaudeSessionProvider';
+import { getRepoIdentifier, getWorktreesFolder, isGlobalStorageEnabled, DEFAULTS } from './ClaudeSessionProvider';
 import { getPromptsDir } from './PreviousSessionProvider';
 
 /**
@@ -39,7 +39,7 @@ export function registerWatchers(
     const watchPath = baseRepoPath || workspaceRoot;
 
     // ============================================
-    // 1. Watch for .claude-status file changes
+    // 1. Watch for status file changes
     // ============================================
     if (watchPath) {
         const statusWatcher = vscode.workspace.createFileSystemWatcher(
@@ -54,7 +54,7 @@ export function registerWatchers(
         context.subscriptions.push(statusWatcher);
 
         // ============================================
-        // 2. Watch for .claude-session file changes
+        // 2. Watch for session file changes
         // ============================================
         const sessionWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(watchPath, getSessionWatchPattern())
@@ -79,8 +79,11 @@ export function registerWatchers(
             console.warn('Lanes: Failed to create global storage directory:', err);
         });
 
+        const statusFileName = codeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
+        const sessionFileName = codeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
+
         const globalStorageWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/.claude-status')
+            new vscode.RelativePattern(globalStoragePath, '**/' + statusFileName)
         );
 
         // Refresh on any status file change
@@ -90,9 +93,9 @@ export function registerWatchers(
 
         context.subscriptions.push(globalStorageWatcher);
 
-        // Also watch for .claude-session in global storage
+        // Also watch for session file in global storage
         const globalSessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/.claude-session')
+            new vscode.RelativePattern(globalStoragePath, '**/' + sessionFileName)
         );
 
         globalSessionWatcher.onDidChange(() => sessionProvider.refresh());

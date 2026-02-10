@@ -182,7 +182,8 @@ export function registerSessionCommands(
 
             // Clean up global storage files if enabled
             if (isGlobalStorageEnabled()) {
-                const globalStoragePath = getGlobalStoragePath(item.worktreePath, '.claude-status');
+                const statusFileName = codeAgent ? codeAgent.getStatusFileName() : '.claude-status';
+                const globalStoragePath = getGlobalStoragePath(item.worktreePath, statusFileName);
                 if (globalStoragePath) {
                     const sessionStorageDir = path.dirname(globalStoragePath);
                     await fsPromises.rm(sessionStorageDir, { recursive: true, force: true }).catch(() => {
@@ -278,7 +279,7 @@ export function registerSessionCommands(
             return;
         }
 
-        const terminalName = `Claude: ${item.label}`;
+        const terminalName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
         const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
 
         if (existingTerminal) {

@@ -61,6 +61,12 @@ export class ClaudeCodeAgent extends CodeAgent {
         return this.config.defaultDataDir;
     }
 
+    // --- Local Settings ---
+
+    getLocalSettingsFiles(): Array<{ dir: string; file: string }> {
+        return [{ dir: '.claude', file: 'settings.local.json' }];
+    }
+
     // --- Terminal Configuration ---
 
     getTerminalName(sessionName: string): string {

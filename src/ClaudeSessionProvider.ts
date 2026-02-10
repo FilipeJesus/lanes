@@ -8,7 +8,7 @@ import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirect
 // Valid Claude status states
 export type ClaudeStatusState = 'working' | 'waiting_for_user' | 'idle' | 'error';
 
-// Status from .claude-status file
+// Agent status (file name determined by CodeAgent)
 export interface ClaudeStatus {
     status: ClaudeStatusState;
     timestamp?: string;
@@ -17,6 +17,15 @@ export interface ClaudeStatus {
 
 // Valid status values for validation
 const VALID_STATUS_VALUES: ClaudeStatusState[] = ['working', 'waiting_for_user', 'idle', 'error'];
+
+/**
+ * Default file names used when no CodeAgent is configured.
+ * These are Claude-specific defaults for backward compatibility.
+ */
+export const DEFAULTS = {
+    sessionFileName: '.claude-session',
+    statusFileName: '.claude-status',
+};
 
 /**
  * Fixed path for non-global session storage (relative to repo root)
@@ -115,7 +124,7 @@ export function getWorktreesFolder(): string {
 }
 
 export function getClaudeSessionPath(worktreePath: string): string {
-    const sessionFileName = globalCodeAgent?.getSessionFileName() || '.claude-session';
+    const sessionFileName = globalCodeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
     if (isGlobalStorageEnabled()) {
         const globalPath = getGlobalStoragePath(worktreePath, sessionFileName);
         if (globalPath) { return globalPath; }
@@ -126,7 +135,7 @@ export function getClaudeSessionPath(worktreePath: string): string {
 }
 
 export function getClaudeStatusPath(worktreePath: string): string {
-    const statusFileName = globalCodeAgent?.getStatusFileName() || '.claude-status';
+    const statusFileName = globalCodeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
     if (isGlobalStorageEnabled()) {
         const globalPath = getGlobalStoragePath(worktreePath, statusFileName);
         if (globalPath) { return globalPath; }
@@ -256,6 +265,8 @@ export async function getClaudeStatus(worktreePath: string): Promise<ClaudeStatu
             if (!validStates.includes(agentStatus.status)) { return null; }
             return { status: agentStatus.status as ClaudeStatusState, timestamp: agentStatus.timestamp, message: agentStatus.message };
         }
+        // Legacy fallback: parse status directly when no CodeAgent is configured.
+        // Uses hardcoded VALID_STATUS_VALUES for backward compatibility with Claude-specific status format.
         const data = JSON.parse(content);
         if (!data.status || !VALID_STATUS_VALUES.includes(data.status)) { return null; }
         return { status: data.status as ClaudeStatusState, timestamp: data.timestamp, message: data.message };
