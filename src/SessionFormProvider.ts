@@ -49,7 +49,7 @@ export type SessionFormSubmitCallback = (
  * Displays above the session list in the sidebar.
  */
 export class SessionFormProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'claudeSessionFormView';
+    public static readonly viewType = 'lanesSessionFormView';
 
     private _view?: vscode.WebviewView;
     private _onSubmit?: SessionFormSubmitCallback;

@@ -73,7 +73,7 @@ export class PreviousSessionItem extends vscode.TreeItem {
 
         // Command to run when clicking the item
         this.command = {
-            command: 'claudeWorktrees.openPreviousSessionPrompt',
+            command: 'lanes.openPreviousSessionPrompt',
             title: 'Open Previous Session Prompt',
             arguments: [this]
         };

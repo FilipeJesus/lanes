@@ -4,7 +4,7 @@
  * This is the main entry point for the VS Code extension.
  * It initializes all services, providers, commands, and watchers.
  *
- * The extension manages isolated Claude Code sessions using Git worktrees.
+ * The extension manages isolated AI agent sessions using Git worktrees.
  * Each session gets its own worktree and dedicated terminal.
  */
 
@@ -110,7 +110,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
     const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath);
-    const sessionTreeView = vscode.window.createTreeView('claudeSessionsView', {
+    const sessionTreeView = vscode.window.createTreeView('lanesSessionsView', {
         treeDataProvider: sessionProvider,
         showCollapseAll: false
     });
@@ -258,7 +258,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);
 
-    // Auto-resume Claude session when opened in a worktree with an existing session
+    // Backward-compatible aliases (remove in next release)
+    const aliasMap: Record<string, string> = {
+        'claudeWorktrees.createSession': 'lanes.createSession',
+        'claudeWorktrees.deleteSession': 'lanes.deleteSession',
+        'claudeWorktrees.openSession': 'lanes.openSession',
+        'claudeWorktrees.setupStatusHooks': 'lanes.setupStatusHooks',
+        'claudeWorktrees.showGitChanges': 'lanes.showGitChanges',
+        'claudeWorktrees.openInNewWindow': 'lanes.openInNewWindow',
+        'claudeWorktrees.openPreviousSessionPrompt': 'lanes.openPreviousSessionPrompt',
+        'claudeWorktrees.enableChime': 'lanes.enableChime',
+        'claudeWorktrees.disableChime': 'lanes.disableChime',
+        'claudeWorktrees.testChime': 'lanes.testChime',
+        'claudeWorktrees.clearSession': 'lanes.clearSession',
+        'claudeWorktrees.createTerminal': 'lanes.createTerminal',
+        'claudeWorktrees.searchInWorktree': 'lanes.searchInWorktree',
+        'claudeWorktrees.openWorkflowState': 'lanes.openWorkflowState',
+        'claudeWorktrees.playChime': 'lanes.playChime',
+    };
+    for (const [oldId, newId] of Object.entries(aliasMap)) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand(oldId, (...args: unknown[]) =>
+                vscode.commands.executeCommand(newId, ...args)
+            )
+        );
+    }
+
+    // Auto-resume session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = await getSessionId(workspaceRoot);
         if (sessionData?.sessionId) {

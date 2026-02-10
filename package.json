@@ -51,12 +51,12 @@
       "lanes-sidebar": [
         {
           "type": "webview",
-          "id": "claudeSessionFormView",
+          "id": "lanesSessionFormView",
           "name": "New Session",
           "icon": "$(add)"
         },
         {
-          "id": "claudeSessionsView",
+          "id": "lanesSessionsView",
           "name": "Active Sessions",
           "icon": "$(list-tree)"
         },
@@ -74,36 +74,36 @@
     },
     "commands": [
       {
-        "command": "claudeWorktrees.createSession",
+        "command": "lanes.createSession",
         "title": "New Session",
         "icon": "$(plus)"
       },
       {
-        "command": "claudeWorktrees.deleteSession",
+        "command": "lanes.deleteSession",
         "title": "Delete Session",
         "icon": "$(trash)"
       },
       {
-        "command": "claudeWorktrees.openSession",
+        "command": "lanes.openSession",
         "title": "Open Session"
       },
       {
-        "command": "claudeWorktrees.setupStatusHooks",
+        "command": "lanes.setupStatusHooks",
         "title": "Setup Status Hooks",
         "icon": "$(gear)"
       },
       {
-        "command": "claudeWorktrees.showGitChanges",
+        "command": "lanes.showGitChanges",
         "title": "Show Git Changes",
         "icon": "$(git-compare)"
       },
       {
-        "command": "claudeWorktrees.openInNewWindow",
+        "command": "lanes.openInNewWindow",
         "title": "Open in New Window",
         "icon": "$(multiple-windows)"
       },
       {
-        "command": "claudeWorktrees.openPreviousSessionPrompt",
+        "command": "lanes.openPreviousSessionPrompt",
         "title": "Open Session Prompt",
         "icon": "$(file)"
       },
@@ -123,36 +123,36 @@
         "icon": "$(wrench)"
       },
       {
-        "command": "claudeWorktrees.enableChime",
+        "command": "lanes.enableChime",
         "title": "Enable Chime",
         "icon": "$(bell)"
       },
       {
-        "command": "claudeWorktrees.disableChime",
+        "command": "lanes.disableChime",
         "title": "Disable Chime",
         "icon": "$(bell-slash)"
       },
       {
-        "command": "claudeWorktrees.testChime",
+        "command": "lanes.testChime",
         "title": "Lanes: Test Chime"
       },
       {
-        "command": "claudeWorktrees.clearSession",
+        "command": "lanes.clearSession",
         "title": "Clear Session",
         "icon": "$(refresh)"
       },
       {
-        "command": "claudeWorktrees.createTerminal",
+        "command": "lanes.createTerminal",
         "title": "Create Terminal",
         "icon": "$(terminal)"
       },
       {
-        "command": "claudeWorktrees.searchInWorktree",
+        "command": "lanes.searchInWorktree",
         "title": "Search in Worktree",
         "icon": "$(search)"
       },
       {
-        "command": "claudeWorktrees.openWorkflowState",
+        "command": "lanes.openWorkflowState",
         "title": "Open Workflow State",
         "icon": "$(eye)"
       }
@@ -167,59 +167,59 @@
       ],
       "view/item/context": [
         {
-          "command": "claudeWorktrees.openInNewWindow",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "command": "lanes.openInNewWindow",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "inline@0"
         },
         {
-          "command": "claudeWorktrees.showGitChanges",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "command": "lanes.showGitChanges",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "inline@1"
         },
         {
-          "command": "claudeWorktrees.openWorkflowState",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "command": "lanes.openWorkflowState",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "inline@2"
         },
         {
-          "command": "claudeWorktrees.setupStatusHooks",
-          "when": "view == claudeSessionsView",
+          "command": "lanes.setupStatusHooks",
+          "when": "view == lanesSessionsView",
           "group": "navigation"
         },
         {
-          "command": "claudeWorktrees.deleteSession",
-          "when": "view == claudeSessionsView",
+          "command": "lanes.deleteSession",
+          "when": "view == lanesSessionsView",
           "group": "inline"
         },
         {
-          "command": "claudeWorktrees.enableChime",
-          "when": "view == claudeSessionsView && viewItem == sessionItem && !lanes.chimeEnabled",
+          "command": "lanes.enableChime",
+          "when": "view == lanesSessionsView && viewItem == sessionItem && !lanes.chimeEnabled",
           "group": "navigation"
         },
         {
-          "command": "claudeWorktrees.disableChime",
-          "when": "view == claudeSessionsView && viewItem == sessionItem && lanes.chimeEnabled",
+          "command": "lanes.disableChime",
+          "when": "view == lanesSessionsView && viewItem == sessionItem && lanes.chimeEnabled",
           "group": "navigation"
         },
         {
-          "command": "claudeWorktrees.clearSession",
-          "when": "view == claudeSessionsView && viewItem == sessionItem"
+          "command": "lanes.clearSession",
+          "when": "view == lanesSessionsView && viewItem == sessionItem"
         },
         {
-          "command": "claudeWorktrees.createTerminal",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "command": "lanes.createTerminal",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "navigation"
         },
         {
-          "command": "claudeWorktrees.searchInWorktree",
-          "when": "view == claudeSessionsView && viewItem == sessionItem",
+          "command": "lanes.searchInWorktree",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "inline@3"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "claudeWorktrees.createSession",
+        "command": "lanes.createSession",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
         "when": "editorTextFocus"

@@ -397,7 +397,7 @@ export class SessionItem extends vscode.TreeItem {
         this.tooltip = `Path: ${this.worktreePath}`;
         this.description = this.getDescriptionForStatus(agentStatus, workflowStatus);
         this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
-        this.command = { command: 'claudeWorktrees.openSession', title: 'Open Session', arguments: [this] };
+        this.command = { command: 'lanes.openSession', title: 'Open Session', arguments: [this] };
         this.contextValue = 'sessionItem';
     }
 
@@ -414,7 +414,7 @@ export class SessionItem extends vscode.TreeItem {
         }
         const previousIcon = previousIconState.get(this.worktreePath);
         if (iconId === 'bell' && previousIcon !== 'bell') {
-            if (chimeEnabled) { void vscode.commands.executeCommand('claudeWorktrees.playChime'); }
+            if (chimeEnabled) { void vscode.commands.executeCommand('lanes.playChime'); }
         }
         previousIconState.set(this.worktreePath, iconId);
         if (iconId === 'bell') { return new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.yellow')); }
