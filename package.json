@@ -240,6 +240,17 @@
             "default": "",
             "description": "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
             "order": 2
+          },
+          "lanes.defaultAgent": {
+            "type": "string",
+            "enum": ["claude", "codex"],
+            "enumDescriptions": [
+              "Claude Code - AI coding assistant by Anthropic",
+              "Codex CLI - AI coding assistant by OpenAI (requires codex CLI)"
+            ],
+            "default": "claude",
+            "description": "Default code agent for new sessions",
+            "order": 3
           }
         }
       },

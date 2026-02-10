@@ -39,7 +39,7 @@ import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
 import { getErrorMessage } from './utils';
 
-import { ClaudeCodeAgent, CodeAgent } from './codeAgents';
+import { CodeAgent, getDefaultAgent, getAgent, validateAndGetAgent } from './codeAgents';
 import type { ServiceContainer } from './types/serviceContainer';
 
 import { registerAllCommands } from './commands';
@@ -97,10 +97,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         });
     }
 
-    // Create the global code agent instance
-    // This provides agent-specific behavior for terminal commands, file naming, etc.
-    const codeAgent = new ClaudeCodeAgent();
-    console.log(`Code agent initialized: ${codeAgent.displayName}`);
+    // Create the global code agent instance using the factory
+    // Reads lanes.defaultAgent setting and creates the appropriate agent
+    const defaultAgentName = getDefaultAgent();
+    let codeAgent: CodeAgent;
+
+    // Validate CLI availability for the selected agent
+    const validatedAgent = await validateAndGetAgent(defaultAgentName);
+    if (validatedAgent) {
+        codeAgent = validatedAgent;
+    } else {
+        // CLI not available - fall back to Claude (always available as default)
+        const fallbackAgent = getAgent('claude');
+        if (!fallbackAgent) {
+            // This should never happen - Claude is always in the factory map
+            throw new Error('Failed to create default Claude agent');
+        }
+        codeAgent = fallbackAgent;
+    }
+    console.log(`Code agent initialized: ${codeAgent.displayName} (${codeAgent.name})`);
 
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
