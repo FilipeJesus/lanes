@@ -42,6 +42,7 @@ import { validateSessionName } from '../validation';
 import { AsyncQueue } from '../AsyncQueue';
 import { LanesError, GitError, ValidationError } from '../errors';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import * as TmuxService from './TmuxService';
 import { propagateLocalSettings, LocalSettingsPropagationMode } from '../localSettings';
 import { addProject } from '../ProjectManagerService';
 
@@ -449,11 +450,14 @@ async function createSession(
                 // 5.6. Write initial session file for hookless agents
                 // Agents without hooks (e.g., Codex) don't write session files via CLI hooks,
                 // so Lanes must create the session file directly with the agentName field.
+                // Include terminal mode so openAgentTerminal can read it (otherwise the
+                // existence of the session file causes it to default to 'code' mode).
                 if (codeAgent && !codeAgent.supportsHooks()) {
                     const sessionFilePath = getSessionFilePath(worktreePath);
                     await ensureDir(path.dirname(sessionFilePath));
                     await writeJson(sessionFilePath, {
                         agentName: codeAgent.name,
+                        terminal: TmuxService.isTmuxMode() ? 'tmux' : 'code',
                         timestamp: new Date().toISOString()
                     });
                 }
