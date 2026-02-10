@@ -199,6 +199,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				name: string,
+				agent: string,
 				prompt: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
@@ -223,6 +224,7 @@ suite('Session Form', () => {
 			mockView.webview.simulateMessage({
 				command: 'createSession',
 				name: 'test-session',
+				agent: 'claude',
 				prompt: 'Test prompt',
 				sourceBranch: 'main',
 				permissionMode: 'acceptEdits',
@@ -244,6 +246,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
+				_agent: string,
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
@@ -267,6 +270,7 @@ suite('Session Form', () => {
 			mockView.webview.simulateMessage({
 				command: 'createSession',
 				name: 'test-session',
+				agent: 'claude',
 				prompt: '',
 				sourceBranch: '',
 				permissionMode: 'acceptEdits',
@@ -286,6 +290,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
+				_agent: string,
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
@@ -308,6 +313,7 @@ suite('Session Form', () => {
 			mockView.webview.simulateMessage({
 				command: 'createSession',
 				name: 'test-session',
+				agent: 'claude',
 				prompt: '',
 				sourceBranch: '',
 				permissionMode: 'acceptEdits',
@@ -327,6 +333,7 @@ suite('Session Form', () => {
 			// Arrange
 			const callback: SessionFormSubmitCallback = (
 				name: string,
+				agent: string,
 				prompt: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
@@ -335,6 +342,7 @@ suite('Session Form', () => {
 			) => {
 				// Use all parameters to verify they're in the signature
 				assert.ok(name);
+				assert.ok(typeof agent === 'string');
 				assert.ok(typeof prompt === 'string');
 				assert.ok(typeof sourceBranch === 'string');
 				assert.ok(PERMISSION_MODES.includes(permissionMode));
@@ -352,6 +360,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
+				_agent: string,
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
@@ -376,6 +385,7 @@ suite('Session Form', () => {
 				mockView.webview.simulateMessage({
 					command: 'createSession',
 					name: `test-${workflow || 'none'}`,
+					agent: 'claude',
 					prompt: '',
 					sourceBranch: '',
 					permissionMode: 'acceptEdits',
@@ -609,6 +619,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
+				_agent: string,
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
@@ -633,6 +644,7 @@ suite('Session Form', () => {
 			mockView.webview.simulateMessage({
 				command: 'createSession',
 				name: 'test-session',
+				agent: 'claude',
 				prompt: 'Test prompt',
 				sourceBranch: 'main',
 				permissionMode: 'acceptEdits',
@@ -653,6 +665,7 @@ suite('Session Form', () => {
 
 			const callback: SessionFormSubmitCallback = (
 				_name: string,
+				_agent: string,
 				_prompt: string,
 				_sourceBranch: string,
 				_permissionMode: PermissionMode,
@@ -675,6 +688,7 @@ suite('Session Form', () => {
 			mockView.webview.simulateMessage({
 				command: 'createSession',
 				name: 'test-session',
+				agent: 'claude',
 				prompt: 'Test prompt',
 				sourceBranch: 'main',
 				permissionMode: 'acceptEdits',
@@ -695,6 +709,7 @@ suite('Session Form', () => {
 			// Arrange
 			const callback: SessionFormSubmitCallback = (
 				name: string,
+				agent: string,
 				prompt: string,
 				sourceBranch: string,
 				permissionMode: PermissionMode,
@@ -703,6 +718,7 @@ suite('Session Form', () => {
 			) => {
 				// Use all parameters to verify they're in the signature
 				assert.ok(name);
+				assert.ok(typeof agent === 'string');
 				assert.ok(typeof prompt === 'string');
 				assert.ok(typeof sourceBranch === 'string');
 				assert.ok(PERMISSION_MODES.includes(permissionMode));
@@ -748,6 +764,153 @@ suite('Session Form', () => {
 				html.includes('attachments: attachments.map'),
 				'Form submission should include mapped attachments array'
 			);
+		});
+	});
+
+	suite('Agent Dropdown', () => {
+		test('Form includes agent dropdown when multiple agents available', () => {
+			// Arrange
+			const availability = new Map([['claude', true], ['codex', true]]);
+			provider.setAgentAvailability(availability, 'claude');
+
+			// Act
+			const html = getFormHtml(provider);
+
+			// Assert: Agent dropdown exists
+			assert.ok(
+				html.includes('id="agent"'),
+				'Form should have agent dropdown with id="agent"'
+			);
+			assert.ok(
+				html.includes('Claude Code'),
+				'Form should have Claude Code option'
+			);
+			assert.ok(
+				html.includes('Codex CLI'),
+				'Form should have Codex CLI option'
+			);
+		});
+
+		test('Form hides agent dropdown when only one agent available', () => {
+			// Arrange
+			const availability = new Map([['claude', true], ['codex', false]]);
+			provider.setAgentAvailability(availability, 'claude');
+
+			// Act
+			const html = getFormHtml(provider);
+
+			// Assert: Agent dropdown does not exist
+			assert.ok(
+				!html.includes('id="agent"'),
+				'Form should NOT have agent dropdown when only one agent available'
+			);
+		});
+
+		test('Agent dropdown shows disabled option for unavailable agent', () => {
+			// Arrange
+			const availability = new Map([['claude', true], ['codex', true]]);
+			provider.setAgentAvailability(availability, 'claude');
+
+			// Act
+			const html = getFormHtml(provider);
+
+			// Assert: Both options should be enabled (no disabled attribute)
+			const claudeMatch = html.match(/<option value="claude"[^>]*>/);
+			const codexMatch = html.match(/<option value="codex"[^>]*>/);
+			assert.ok(claudeMatch, 'Claude option should exist');
+			assert.ok(codexMatch, 'Codex option should exist');
+			assert.ok(!claudeMatch[0].includes('disabled'), 'Claude should not be disabled');
+			assert.ok(!codexMatch[0].includes('disabled'), 'Codex should not be disabled');
+		});
+	});
+
+	suite('Agent Callback', () => {
+		test('Session form passes agent to callback', async () => {
+			// Arrange
+			let receivedAgent: string = '';
+			let callbackInvoked = false;
+
+			const callback: SessionFormSubmitCallback = (
+				_name: string,
+				agent: string,
+				_prompt: string,
+				_sourceBranch: string,
+				_permissionMode: PermissionMode,
+				_workflow: string | null,
+				_attachments: string[]
+			) => {
+				callbackInvoked = true;
+				receivedAgent = agent;
+			};
+
+			provider.setOnSubmit(callback);
+
+			const mockView = new MockWebviewView();
+			provider.resolveWebviewView(
+				mockView as unknown as vscode.WebviewView,
+				{} as vscode.WebviewViewResolveContext,
+				{ isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) } as vscode.CancellationToken
+			);
+
+			// Act: Simulate form submission with agent
+			mockView.webview.simulateMessage({
+				command: 'createSession',
+				name: 'test-session',
+				agent: 'codex',
+				prompt: '',
+				sourceBranch: '',
+				permissionMode: 'acceptEdits',
+				workflow: null,
+				attachments: []
+			});
+
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			// Assert
+			assert.ok(callbackInvoked, 'Callback should have been invoked');
+			assert.strictEqual(receivedAgent, 'codex', 'Callback should receive codex as agent');
+		});
+
+		test('Session form defaults agent to claude when not provided', async () => {
+			// Arrange
+			let receivedAgent: string = '';
+
+			const callback: SessionFormSubmitCallback = (
+				_name: string,
+				agent: string,
+				_prompt: string,
+				_sourceBranch: string,
+				_permissionMode: PermissionMode,
+				_workflow: string | null,
+				_attachments: string[]
+			) => {
+				receivedAgent = agent;
+			};
+
+			provider.setOnSubmit(callback);
+
+			const mockView = new MockWebviewView();
+			provider.resolveWebviewView(
+				mockView as unknown as vscode.WebviewView,
+				{} as vscode.WebviewViewResolveContext,
+				{ isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) } as vscode.CancellationToken
+			);
+
+			// Act: Simulate form submission without agent field
+			mockView.webview.simulateMessage({
+				command: 'createSession',
+				name: 'test-session',
+				prompt: '',
+				sourceBranch: '',
+				permissionMode: 'acceptEdits',
+				workflow: null,
+				attachments: []
+			});
+
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			// Assert
+			assert.strictEqual(receivedAgent, 'claude', 'Callback should receive claude as default agent');
 		});
 	});
 });

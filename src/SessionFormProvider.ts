@@ -37,6 +37,7 @@ export function isValidChimeSound(sound: unknown): sound is ChimeSound {
 
 export type SessionFormSubmitCallback = (
     name: string,
+    agent: string,
     prompt: string,
     sourceBranch: string,
     permissionMode: PermissionMode,
@@ -55,6 +56,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _onSubmit?: SessionFormSubmitCallback;
     private _onRefreshWorkflows?: () => void | Promise<void>;
     private _workflows: WorkflowMetadata[] = [];
+    private _agentAvailability: Map<string, boolean> = new Map();
+    private _defaultAgent: string = 'claude';
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -92,6 +95,23 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Set agent availability and default agent for the form dropdown
+     */
+    public setAgentAvailability(availability: Map<string, boolean>, defaultAgent: string): void {
+        this._agentAvailability = availability;
+        this._defaultAgent = defaultAgent;
+
+        // If webview is already visible, send update
+        if (this._view) {
+            this._view.webview.postMessage({
+                command: 'updateAgentAvailability',
+                availability: Array.from(availability.entries()),
+                defaultAgent: defaultAgent
+            });
+        }
+    }
+
+    /**
      * Generate HTML options for workflow dropdown
      * Only shows custom workflows (built-in workflows are filtered out)
      * Uses the full path as the value so MCP server can find the workflow file
@@ -122,6 +142,49 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Generate HTML for agent dropdown (only shown when multiple agents available)
+     */
+    private _getAgentDropdownHtml(): string {
+        // Count available agents
+        let availableCount = 0;
+        for (const available of this._agentAvailability.values()) {
+            if (available) {
+                availableCount++;
+            }
+        }
+
+        // Hide dropdown if only one agent available
+        if (availableCount <= 1) {
+            return '';
+        }
+
+        // Agent definitions
+        const agents = [
+            { name: 'claude', label: 'Claude Code' },
+            { name: 'codex', label: 'Codex CLI' }
+        ];
+
+        let optionsHtml = '';
+        for (const agent of agents) {
+            const available = this._agentAvailability.get(agent.name) ?? false;
+            const label = available ? agent.label : `${agent.label} (not installed)`;
+            const disabled = available ? '' : ' disabled';
+            const selected = agent.name === this._defaultAgent ? ' selected' : '';
+
+            optionsHtml += `<option value="${this._escapeHtml(agent.name)}"${disabled}${selected}>${this._escapeHtml(label)}</option>`;
+        }
+
+        return `
+        <div class="form-group" id="agentFormGroup">
+            <label for="agent">Code Agent</label>
+            <select id="agent" name="agent">
+                ${optionsHtml}
+            </select>
+            <div class="hint">Select which AI assistant to use for this session</div>
+        </div>`;
     }
 
     /**
@@ -198,6 +261,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             // Await the callback to ensure session creation completes before clearing form
                             await this._onSubmit(
                                 message.name,
+                                message.agent || 'claude',
                                 message.prompt,
                                 message.sourceBranch || '',
                                 message.permissionMode || 'acceptEdits',
@@ -496,6 +560,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
             margin-top: 2px;
         }
+
+        select option:disabled {
+            opacity: 0.5;
+            color: var(--vscode-disabledForeground);
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -512,6 +582,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             />
             <div class="hint">Used as the Git branch name</div>
         </div>
+
+        ${this._getAgentDropdownHtml()}
 
         <div class="form-group">
             <label for="sourceBranch">Source Branch (optional)</label>
@@ -563,6 +635,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const vscode = acquireVsCodeApi();
         const form = document.getElementById('sessionForm');
         const nameInput = document.getElementById('name');
+        const agentInput = document.getElementById('agent');
         const sourceBranchInput = document.getElementById('sourceBranch');
         const promptInput = document.getElementById('prompt');
         const bypassPermissionsBtn = document.getElementById('bypassPermissionsBtn');
@@ -658,6 +731,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const previousState = vscode.getState();
         if (previousState) {
             nameInput.value = previousState.name || '';
+            if (agentInput && previousState.agent) {
+                agentInput.value = previousState.agent;
+            }
             sourceBranchInput.value = previousState.sourceBranch || '';
             promptInput.value = previousState.prompt || '';
             bypassPermissions = previousState.bypassPermissions || false;
@@ -671,6 +747,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         function saveState() {
             vscode.setState({
                 name: nameInput.value,
+                agent: agentInput ? agentInput.value : '${this._escapeHtml(this._defaultAgent)}',
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
                 bypassPermissions: bypassPermissions,
@@ -681,6 +758,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         // Attach change listeners to all form inputs
         nameInput.addEventListener('input', saveState);
+        if (agentInput) {
+            agentInput.addEventListener('change', saveState);
+        }
         sourceBranchInput.addEventListener('input', saveState);
         promptInput.addEventListener('input', saveState);
         workflowInput.addEventListener('change', saveState);
@@ -689,6 +769,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             e.preventDefault();
 
             const name = nameInput.value.trim();
+            const agent = agentInput ? agentInput.value : '${this._escapeHtml(this._defaultAgent)}';
             const sourceBranch = sourceBranchInput.value.trim();
             const prompt = promptInput.value.trim();
             const permissionMode = bypassPermissions ? 'bypassPermissions' : 'acceptEdits';
@@ -703,6 +784,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({
                 command: 'createSession',
                 name: name,
+                agent: agent,
                 sourceBranch: sourceBranch,
                 prompt: prompt,
                 permissionMode: permissionMode,
@@ -770,6 +852,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             switch (message.command) {
                 case 'clearForm':
                     nameInput.value = '';
+                    if (agentInput) {
+                        agentInput.value = '${this._escapeHtml(this._defaultAgent)}';
+                    }
                     sourceBranchInput.value = '';
                     promptInput.value = '';
                     bypassPermissions = false;
@@ -780,6 +865,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     // Clear saved state after successful submission
                     vscode.setState({
                         name: '',
+                        agent: '${this._escapeHtml(this._defaultAgent)}',
                         sourceBranch: '',
                         prompt: '',
                         bypassPermissions: false,
@@ -817,6 +903,50 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     updateWorkflowDropdown(message.workflows);
                     refreshWorkflowBtn.disabled = false;
                     refreshWorkflowBtn.textContent = '↻';
+                    break;
+                case 'updateAgentAvailability':
+                    // Update agent availability dynamically
+                    if (message.availability && agentInput) {
+                        const availabilityMap = new Map(message.availability);
+                        let availableCount = 0;
+                        for (const available of availabilityMap.values()) {
+                            if (available) {
+                                availableCount++;
+                            }
+                        }
+
+                        const agentFormGroup = document.getElementById('agentFormGroup');
+                        if (availableCount <= 1) {
+                            // Hide dropdown if only one agent available
+                            if (agentFormGroup) {
+                                agentFormGroup.style.display = 'none';
+                            }
+                        } else {
+                            // Show dropdown and update disabled states
+                            if (agentFormGroup) {
+                                agentFormGroup.style.display = 'block';
+                            }
+
+                            // Update option states
+                            for (let i = 0; i < agentInput.options.length; i++) {
+                                const option = agentInput.options[i];
+                                const agentName = option.value;
+                                const available = availabilityMap.get(agentName) ?? false;
+                                option.disabled = !available;
+
+                                // Update label to show/hide "(not installed)"
+                                const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
+                                const baseLabel = baseLabels[agentName] || agentName;
+                                option.textContent = available ? baseLabel : baseLabel + ' (not installed)';
+                            }
+
+                            // Update default selection if provided
+                            if (message.defaultAgent) {
+                                agentInput.value = message.defaultAgent;
+                                saveState();
+                            }
+                        }
+                    }
                     break;
             }
         });
