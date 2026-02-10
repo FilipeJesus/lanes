@@ -336,9 +336,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const sessionData = await getSessionId(workspaceRoot);
         if (sessionData?.sessionId) {
             const sessionName = path.basename(workspaceRoot);
+            const resumeAgent = (sessionData.agentName ? getAgent(sessionData.agentName) : null) || codeAgent;
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openAgentTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, codeAgent, baseRepoPath);
+                openAgentTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, resumeAgent, baseRepoPath);
             }, 500);
         }
     }

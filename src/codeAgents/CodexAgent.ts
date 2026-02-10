@@ -276,41 +276,58 @@ export class CodexAgent extends CodeAgent {
      * @param pollIntervalMs Poll interval (default: 500ms)
      * @returns Session ID string (UUID format) or null if capture fails
      */
+    /**
+     * Recursively find all .jsonl files in a directory.
+     * Codex stores sessions in YYYY/MM/DD/ subdirectories.
+     */
+    private static async findJsonlFiles(dir: string): Promise<string[]> {
+        const results: string[] = [];
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                results.push(...await CodexAgent.findJsonlFiles(fullPath));
+            } else if (entry.name.endsWith('.jsonl')) {
+                results.push(fullPath);
+            }
+        }
+        return results;
+    }
+
     static async captureSessionId(
         beforeTimestamp: Date,
         timeoutMs: number = 10000,
         pollIntervalMs: number = 500
     ): Promise<string | null> {
         const sessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+        const beforeTime = beforeTimestamp.getTime();
         const startTime = Date.now();
 
         try {
             while (Date.now() - startTime < timeoutMs) {
                 try {
-                    // Check if sessions directory exists
-                    const files = await fs.readdir(sessionsDir);
+                    // Recursively find all .jsonl session files
+                    // Codex uses YYYY/MM/DD/ subdirectory structure
+                    const filePaths = await CodexAgent.findJsonlFiles(sessionsDir);
 
                     // Find files modified after beforeTimestamp
-                    const candidates: Array<{ file: string; mtime: number; filePath: string }> = [];
+                    const candidates: Array<{ mtime: number; filePath: string }> = [];
 
-                    for (const file of files) {
+                    for (const filePath of filePaths) {
                         try {
-                            const filePath = path.join(sessionsDir, file);
-
                             // Path traversal protection: ensure resolved path stays within sessionsDir
                             const resolvedPath = path.resolve(filePath);
-                            if (!resolvedPath.startsWith(sessionsDir + path.sep) && resolvedPath !== sessionsDir) {
-                                continue; // Skip files that resolve outside sessions directory
+                            if (!resolvedPath.startsWith(sessionsDir + path.sep)) {
+                                continue;
                             }
 
                             const stats = await fs.stat(filePath);
 
                             // Only consider files modified after the timestamp
-                            if (stats.mtime > beforeTimestamp) {
-                                candidates.push({ file, mtime: stats.mtime.getTime(), filePath });
+                            if (stats.mtime.getTime() > beforeTime) {
+                                candidates.push({ mtime: stats.mtime.getTime(), filePath });
                             }
                         } catch {
-                            // Skip files that can't be stat'd
                             continue;
                         }
                     }
@@ -320,7 +337,6 @@ export class CodexAgent extends CodeAgent {
 
                     // Try to extract session ID from the newest file
                     if (candidates.length > 0) {
-                        // Use the filePath from candidates (already validated for path traversal)
                         const filePath = candidates[0].filePath;
 
                         try {
@@ -328,29 +344,33 @@ export class CodexAgent extends CodeAgent {
                             // JSONL format - parse first line only
                             const firstLine = content.split('\n')[0];
                             if (!firstLine) {
-                                // Empty file, wait and retry
                                 await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
                                 continue;
                             }
 
                             const data = JSON.parse(firstLine);
 
-                            // Try multiple field names for session ID
-                            const possibleSessionId = data.session_id || data.id || data.sessionId;
+                            // Try multiple field paths for session ID
+                            // Codex wraps session data in payload: {type:"session_meta", payload:{id:...}}
+                            const possibleSessionId =
+                                data.payload?.id ||
+                                data.payload?.session_id ||
+                                data.payload?.sessionId ||
+                                data.session_id ||
+                                data.id ||
+                                data.sessionId;
 
                             if (possibleSessionId && typeof possibleSessionId === 'string') {
-                                // Validate UUID format
                                 if (CodexAgent.SESSION_ID_PATTERN.test(possibleSessionId)) {
                                     return possibleSessionId;
                                 }
                             }
                         } catch {
-                            // Failed to parse file, wait and retry
                             await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
                             continue;
                         }
                     }
-                } catch (err) {
+                } catch {
                     // Sessions directory might not exist yet, wait and retry
                     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
                     continue;

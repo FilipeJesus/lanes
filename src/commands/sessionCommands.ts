@@ -22,8 +22,10 @@ import {
     isGlobalStorageEnabled,
     getGlobalStoragePath,
     getWorktreesFolder,
-    getSessionTerminalMode
+    getSessionTerminalMode,
+    getSessionAgentName
 } from '../AgentSessionProvider';
+import { getAgent } from '../codeAgents';
 
 /**
  * Register all session-related commands.
@@ -144,7 +146,9 @@ export function registerSessionCommands(
 
     // Command: Open/resume a session
     const openDisposable = vscode.commands.registerCommand('lanes.openSession', async (item: SessionItem) => {
-        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath);
+        const agentName = await getSessionAgentName(item.worktreePath);
+        const sessionAgent = getAgent(agentName) || codeAgent;
+        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
     });
 
     // Command: Delete a session
@@ -159,8 +163,10 @@ export function registerSessionCommands(
         }
 
         try {
-            // Kill terminal
-            const termName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
+            // Kill terminal — resolve agent from session to find correct terminal name
+            const deleteAgentName = await getSessionAgentName(item.worktreePath);
+            const deleteAgent = getAgent(deleteAgentName) || codeAgent;
+            const termName = deleteAgent ? deleteAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
             const terminal = vscode.window.terminals.find(t => t.name === termName);
             if (terminal) {
                 terminal.dispose();
@@ -402,7 +408,9 @@ export function registerSessionCommands(
 
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
-                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+                const clearAgentName = await getSessionAgentName(item.worktreePath);
+                const clearAgent = getAgent(clearAgentName) || codeAgent;
+                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, clearAgent, baseRepoPath, true);
 
                 vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
             } else {
