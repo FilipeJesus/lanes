@@ -53,20 +53,20 @@ Plans:
 - [x] 02-03-PLAN.md — Format-agnostic settings service with JSON and TOML support via @iarna/toml
 
 ### Phase 3: Codex CLI Integration
-**Goal**: CodexCodeAgent fully implements CodeAgent interface with proper CLI commands and TOML configuration
+**Goal**: CodexCodeAgent fully implements CodeAgent interface with proper CLI commands, permission mapping, and session ID capture
 **Depends on**: Phase 2
 **Requirements**: REQ-C1, REQ-C2, REQ-C3, REQ-C4, REQ-C5, REQ-C6
 **Success Criteria** (what must be TRUE):
   1. CodexCodeAgent generates correct `codex` CLI commands with proper shell escaping
   2. Codex sessions can start with permission modes mapped to --sandbox and --ask-for-approval flags
-  3. Codex sessions can resume using session ID or --last fallback
+  3. Codex sessions can resume using session ID (strict error on capture failure, no --last fallback)
   4. Codex session IDs are captured without hooks to enable resume functionality
   5. Codex terminals display distinct names and icons from Claude terminals
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: CodexCodeAgent implementation (commands, permissions, config)
-- [ ] 03-02: Codex session tracking and terminal identification
+- [ ] 03-01-PLAN.md — Implement command building, permission mode mapping, shell escaping, and UUID validation in CodexAgent
+- [ ] 03-02-PLAN.md — Session ID capture via filesystem polling and integration into TerminalService post-start flow
 
 ### Phase 4: UI Integration
 **Goal**: Users can select agent during session creation and distinguish agent types visually in terminals
