@@ -12,7 +12,7 @@ Adding OpenAI Codex CLI as a second supported agent in Lanes requires eliminatin
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Refactoring** - Eliminate hardcoded Claude assumptions
+- [x] **Phase 1: Foundation Refactoring** - Eliminate hardcoded Claude assumptions
 - [ ] **Phase 2: Agent Abstraction Enhancement** - Add agent factory, tracking interface, settings service
 - [ ] **Phase 3: Codex CLI Integration** - Implement CodexCodeAgent with TOML config
 - [ ] **Phase 4: UI Integration** - Agent selection and terminal differentiation
@@ -31,10 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Replace hardcoded file paths, watch patterns, terminal names with CodeAgent method calls
-- [ ] 01-02-PLAN.md — Generalize localSettings.ts to be agent-aware; fix tests for signature changes
-- [ ] 01-03-PLAN.md — Rename ClaudeSessionProvider to AgentSessionProvider, update all production imports
-- [ ] 01-04-PLAN.md — Update command/view IDs to lanes.*, add backward-compatible aliases, update all test files
+- [x] 01-01-PLAN.md — Replace hardcoded file paths, watch patterns, terminal names with CodeAgent method calls
+- [x] 01-02-PLAN.md — Generalize localSettings.ts to be agent-aware; fix tests for signature changes
+- [x] 01-03-PLAN.md — Rename ClaudeSessionProvider to AgentSessionProvider, update all production imports
+- [x] 01-04-PLAN.md — Update command/view IDs to lanes.*, add backward-compatible aliases, update all test files
 
 ### Phase 2: Agent Abstraction Enhancement
 **Goal**: Infrastructure supports multiple agents with different capabilities (hooks vs polling, JSON vs TOML)
@@ -103,7 +103,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Refactoring | 0/4 | Not started | - |
+| 1. Foundation Refactoring | 4/4 | ✓ Complete | 2026-02-10 |
 | 2. Agent Abstraction Enhancement | 0/3 | Not started | - |
 | 3. Codex CLI Integration | 0/2 | Not started | - |
 | 4. UI Integration | 0/1 | Not started | - |
