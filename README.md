@@ -6,9 +6,9 @@
 
 # Lanes: AI Project Management
 
-**Manage multiple, isolated Claude Code sessions directly inside VS Code.**
+**Manage multiple, isolated AI coding sessions directly inside VS Code.**
 
-Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. No more context contamination. No more half-finished files clashing with each other.
+Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code and Codex CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
 
 ![Lanes in action](media/screenshot.png)
 
@@ -21,7 +21,11 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **Real-Time Status** - See which agents are working, waiting, or have errors
 - **Built-in Diff Viewer** - Review all changes before merging back
 - **One-Click Cleanup** - Delete the worktree when done, keep the branch for merging
-- **Workflow System** - Optional MCP-based workflows guide Claude through structured phases (plan → implement → test → review)
+- **Workflow System** - Optional MCP-based workflows guide agents through structured phases (plan → implement → test → review)
+- **Multi-Agent Support** - Claude Code and Codex CLI with inline logo selector for easy switching
+- **File Attachments** - Drag-and-drop files into the session form to include with your prompt
+- **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
+- **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` to worktrees
 
 Visit [our website](https://lanes.pro) for more information.
 
@@ -45,6 +49,9 @@ claude login
 # Install jq (required for status tracking)
 brew install jq          # macOS
 sudo apt-get install jq  # Ubuntu/Debian
+
+# Optional: Install Codex CLI for OpenAI agent support
+npm install -g @openai/codex
 ```
 
 ### Install
@@ -88,6 +95,11 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 | `Lanes: Create Session` | Create a new isolated session |
 | `Lanes: Open Session` | Open/focus an existing session's terminal |
 | `Lanes: Delete Session` | Remove a session's worktree and terminal |
+| `Lanes: Clear Session` | Reset session state while preserving the worktree |
+| `Lanes: Show Git Changes` | Open the diff viewer for a session |
+| `Lanes: Create Terminal` | Create an additional terminal for a session |
+| `Lanes: Search in Worktree` | Open VS Code search scoped to a session's worktree |
+| `Lanes: Repair Broken Worktrees` | Fix broken worktrees after container rebuilds |
 | `Lanes: Setup Status Hooks` | Configure Claude hooks for status indicators |
 
 ---
@@ -104,6 +116,11 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 - [x] Session status indicators (idle, working, waiting)
 - [x] Session resume functionality
 - [x] Session templates for common workflows
+- [x] Multi-agent support (Claude Code + Codex CLI)
+- [x] File attachments in session form
+- [x] Tmux terminal backend
+- [x] Local settings propagation to worktrees
+- [ ] Additional agent integrations
 - [ ] Windows support
 - [ ] Merge assistant (review and merge session branches)
 - [ ] Multi-repo support
@@ -150,12 +167,17 @@ Please ensure your PR:
 | File | Purpose |
 |------|---------|
 | `src/extension.ts` | Main entry point, commands, terminal management |
-| `src/ClaudeSessionProvider.ts` | Active sessions tree view |
+| `src/AgentSessionProvider.ts` | Active sessions tree view |
 | `src/PreviousSessionProvider.ts` | Previous sessions tree view |
 | `src/SessionFormProvider.ts` | New session form webview |
 | `src/GitChangesPanel.ts` | Git diff viewer panel |
 | `src/gitService.ts` | Git operations (worktrees, branches) |
 | `src/ProjectManagerService.ts` | Project Manager integration |
+| `src/codeAgents/` | Agent abstraction (CodeAgent, ClaudeCodeAgent, CodexAgent, factory) |
+| `src/services/TmuxService.ts` | Tmux terminal backend |
+| `src/services/TerminalService.ts` | Terminal management abstraction |
+| `src/services/SettingsFormatService.ts` | TOML/JSON settings format handling |
+| `src/localSettings.ts` | Local settings propagation helper |
 | `src/test/*.test.ts` | Test suite |
 | `package.json` | Extension manifest |
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lanes - Parallel AI Coding in VS Code</title>
-    <meta name="description" content="Manage multiple, isolated Claude Code sessions directly inside VS Code. Free forever - uses your own Claude Code subscription.">
+    <meta name="description" content="Manage multiple, isolated AI coding sessions — Claude Code and Codex CLI — directly inside VS Code. Free forever - uses your own subscriptions.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -87,11 +87,12 @@
                     </span>
                 </h1>
                 <p class="text-lg text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-                    Manage multiple, isolated Claude Code sessions directly inside VS Code.
+                    Manage multiple, isolated AI coding sessions directly inside VS Code.
+                    Supports Claude Code and Codex CLI out of the box.
                     No context contamination. No broken git states. Just pure flow.
                 </p>
                 <p class="text-sm text-gray-500 mb-8">
-                    <span class="text-green-600 dark:text-green-400 font-medium">100% Free</span> &mdash; Uses your own Claude Code subscription. No hidden costs.<br>
+                    <span class="text-green-600 dark:text-green-400 font-medium">100% Free</span> &mdash; Uses your own Claude Code or Codex subscription. No hidden costs.<br>
                     <span class="text-blue-600 dark:text-blue-400 font-medium">All Local</span> &mdash; No remote services. Everything runs and is saved on your machine.
                 </p>
                 <div class="flex flex-col sm:flex-row justify-center gap-4">
@@ -129,7 +130,7 @@
     <section id="features" class="py-24 bg-gray-100 dark:bg-vscode-sidebar border-y border-gray-200 dark:border-white/5">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-4">Everything You Need for Parallel AI Coding</h2>
-            <p class="text-gray-600 dark:text-gray-400 text-center mb-16 max-w-2xl mx-auto">Built for developers who want to run multiple Claude agents without the chaos of conflicting file changes.</p>
+            <p class="text-gray-600 dark:text-gray-400 text-center mb-16 max-w-2xl mx-auto">Built for developers who want to run multiple AI coding agents without the chaos of conflicting file changes.</p>
 
             <div class="grid md:grid-cols-3 gap-12">
                 <!-- Feature 1: Isolation -->
@@ -183,7 +184,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Easy Session Setup</h3>
                     <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                        Create sessions with a form: name, starting prompt, acceptance criteria, source branch, and permission mode. Previous sessions are saved for easy restart.
+                        Create sessions with a form: choose your agent, set a name, starting prompt, attach files, select source branch and permission mode. Previous sessions are saved for easy restart.
                     </p>
                 </div>
 
@@ -219,6 +220,22 @@
                         <svg class="w-5 h-5 text-vscode-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                         <span class="text-gray-600 dark:text-gray-400 text-sm">Container-ready with automatic worktree repair</span>
                     </div>
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-vscode-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span class="text-gray-600 dark:text-gray-400 text-sm">Multi-agent support (Claude Code + Codex CLI)</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-vscode-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span class="text-gray-600 dark:text-gray-400 text-sm">File attachments via drag-and-drop</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-vscode-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span class="text-gray-600 dark:text-gray-400 text-sm">Tmux terminal backend for persistent sessions</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-vscode-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span class="text-gray-600 dark:text-gray-400 text-sm">Local settings propagation to worktrees</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -234,7 +251,7 @@
                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-vscode-accent flex items-center justify-center font-bold text-white">1</div>
                     <div>
                         <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Create a Session</h4>
-                        <p class="text-gray-600 dark:text-gray-400">Open the Lanes sidebar, fill in the form with a session name (e.g., <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">fix-login-bug</code>), your starting prompt, and acceptance criteria.</p>
+                        <p class="text-gray-600 dark:text-gray-400">Open the Lanes sidebar, choose your agent (Claude Code or Codex CLI), fill in a session name (e.g., <code class="text-sm bg-gray-200 dark:bg-black/30 px-1 rounded">fix-login-bug</code>), your starting prompt, and optionally attach files.</p>
                     </div>
                 </div>
                 <div class="flex gap-6">
@@ -337,24 +354,45 @@
     <section class="py-24">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-4">Prerequisites</h2>
-            <p class="text-gray-600 dark:text-gray-400 text-center mb-12">You'll need Claude Code installed and authenticated.</p>
+            <p class="text-gray-600 dark:text-gray-400 text-center mb-12">You'll need at least one coding agent installed.</p>
 
-            <div class="bg-gray-100 dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-6">
-                <div class="flex items-start gap-4">
-                    <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Install Claude Code</h4>
-                        <div class="bg-gray-200 dark:bg-black/30 rounded-lg p-3 font-mono text-sm mb-3 text-gray-800 dark:text-gray-300">
-                            <span class="text-green-600 dark:text-green-400">$</span> npm install -g @anthropic-ai/claude-code<br>
-                            <span class="text-green-600 dark:text-green-400">$</span> claude login
+            <div class="space-y-4">
+                <div class="bg-gray-100 dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            Lanes is free. You use your own
-                            <a href="https://claude.com/claude-code" class="text-vscode-accent hover:underline">Claude Code subscription</a>
-                            (Pro, Team, or Enterprise).
-                        </p>
+                        <div>
+                            <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Install Claude Code</h4>
+                            <div class="bg-gray-200 dark:bg-black/30 rounded-lg p-3 font-mono text-sm mb-3 text-gray-800 dark:text-gray-300">
+                                <span class="text-green-600 dark:text-green-400">$</span> npm install -g @anthropic-ai/claude-code<br>
+                                <span class="text-green-600 dark:text-green-400">$</span> claude login
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                Lanes is free. You use your own
+                                <a href="https://claude.com/claude-code" class="text-vscode-accent hover:underline">Claude Code subscription</a>
+                                (Pro, Team, or Enterprise).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-100 dark:bg-vscode-sidebar rounded-xl border border-gray-200 dark:border-white/10 p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Install Codex CLI <span class="text-xs bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full font-normal">Optional</span></h4>
+                            <div class="bg-gray-200 dark:bg-black/30 rounded-lg p-3 font-mono text-sm mb-3 text-gray-800 dark:text-gray-300">
+                                <span class="text-green-600 dark:text-green-400">$</span> npm install -g @openai/codex
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                Use your own
+                                <a href="https://github.com/openai/codex" class="text-vscode-accent hover:underline">OpenAI API key</a>
+                                to run Codex CLI sessions alongside Claude Code.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

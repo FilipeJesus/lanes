@@ -5,6 +5,26 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Codex CLI support as a second agent alongside Claude Code (#118)
+- Agent selection UI — inline logo selector in session creation form (#121)
+- `lanes.defaultAgent` setting for configuring default agent
+- Codex MCP workflow support via config overrides (#120)
+- TOML settings format support for Codex configuration
+- Tmux terminal backend — `lanes.terminalMode` setting (#117)
+- File attachments — drag-and-drop upload in session form (#119)
+
+### Changed
+- `ClaudeSessionProvider` renamed to `AgentSessionProvider`
+- Command IDs migrated from `claude-orchestra.*` to `lanes.*`
+- Hookless agent support with polling-based session ID capture
+
+### Fixed
+- Include hyphens in TOML bare key regex for Codex MCP server names (#122)
+- Prevent test failures during pre-commit hook execution (#116)
+
 ## [1.1.1] - 2026-02-09
 
 ### Features                                                                                                                                                                        
