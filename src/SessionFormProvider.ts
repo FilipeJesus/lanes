@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import { promises as fs } from 'fs';
+import * as crypto from 'crypto';
 import { WorkflowMetadata } from './workflow';
 
 /**
@@ -58,8 +61,27 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _workflows: WorkflowMetadata[] = [];
     private _agentAvailability: Map<string, boolean> = new Map();
     private _defaultAgent: string = 'claude';
+    private _attachmentsTempDir?: string;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
+
+    private async _getAttachmentsTempDir(): Promise<string> {
+        if (!this._attachmentsTempDir) {
+            const baseDir = path.join(os.tmpdir(), 'lanes-attachments');
+            await fs.mkdir(baseDir, { recursive: true });
+            const uniqueDir = crypto.randomUUID();
+            this._attachmentsTempDir = path.join(baseDir, uniqueDir);
+            await fs.mkdir(this._attachmentsTempDir, { recursive: true });
+        }
+
+        return this._attachmentsTempDir;
+    }
+
+    private _sanitizeFilename(name: string): string {
+        const baseName = path.basename(name);
+        const sanitized = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        return sanitized || 'attachment';
+    }
 
     /**
      * Update the available workflows and refresh the webview
@@ -236,25 +258,43 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
-                case 'showFilePicker':
-                    const uris = await vscode.window.showOpenDialog({
-                        canSelectMany: true,
-                        canSelectFiles: true,
-                        canSelectFolders: false,
-                        openLabel: 'Attach',
-                        title: 'Select files to attach',
-                        defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
-                    });
-                    if (uris && uris.length > 0) {
-                        this._view?.webview.postMessage({
-                            command: 'filesSelected',
-                            files: uris.map(uri => ({
-                                path: uri.fsPath,
-                                name: path.basename(uri.fsPath)
-                            }))
-                        });
+                case 'uploadAttachments': {
+                    const incomingFiles = Array.isArray(message.files) ? message.files : [];
+                    if (incomingFiles.length === 0) {
+                        break;
                     }
+
+                    const attachmentsDir = await this._getAttachmentsTempDir();
+                    const uploadedFiles: Array<{ path: string; name: string; sourceKey: string }> = [];
+                    for (const file of incomingFiles) {
+                        try {
+                            const originalName = typeof file.name === 'string' ? file.name : 'attachment';
+                            const safeName = this._sanitizeFilename(originalName);
+                            const uniquePrefix = crypto.randomUUID();
+                            const destination = path.join(attachmentsDir, `${uniquePrefix}-${safeName}`);
+                            const data = typeof file.data === 'string' ? file.data : '';
+                            const buffer = Buffer.from(data, 'base64');
+                            await fs.writeFile(destination, buffer);
+                            const size = typeof file.size === 'number' ? file.size : buffer.length;
+                            const lastModified = typeof file.lastModified === 'number' ? file.lastModified : 0;
+                            const sourceKey = `${originalName}:${size}:${lastModified}`;
+                            uploadedFiles.push({ path: destination, name: originalName, sourceKey });
+                        } catch (err) {
+                            console.warn('Lanes: Failed to write attachment', err);
+                        }
+                    }
+
+                    if (uploadedFiles.length === 0) {
+                        vscode.window.showWarningMessage('Lanes: No attachments could be added.');
+                        break;
+                    }
+
+                    this._view?.webview.postMessage({
+                        command: 'filesSelected',
+                        files: uploadedFiles
+                    });
                     break;
+                }
                 case 'createSession':
                     if (this._onSubmit) {
                         try {
@@ -477,6 +517,28 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             transition: opacity 0.3s ease;
         }
 
+        .attachment-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .attachment-progress-bar {
+            height: 6px;
+            flex: 1;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            border-radius: 6px;
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+
+        .attachment-progress-text {
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+        }
+
         button {
             width: 100%;
             padding: 8px 12px;
@@ -606,8 +668,13 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     placeholder="Describe the task for Claude..."
                 ></textarea>
                 <button type="button" class="attach-btn" id="attachBtn" title="Attach files" aria-label="Attach files">&#128206;</button>
+                <input type="file" id="fileInput" multiple style="display:none" />
             </div>
             <div class="attachment-chips" id="attachmentChips"></div>
+            <div class="attachment-progress" id="attachmentProgress" aria-live="polite" style="display:none;">
+                <div class="attachment-progress-bar" id="attachmentProgressBar"></div>
+                <span class="attachment-progress-text" id="attachmentProgressText">Uploading...</span>
+            </div>
             <div class="hint">Sent to Claude after the session starts</div>
         </div>
 
@@ -642,7 +709,11 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const workflowInput = document.getElementById('workflow');
         const refreshWorkflowBtn = document.getElementById('refreshWorkflowBtn');
         const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
         const attachmentChipsContainer = document.getElementById('attachmentChips');
+        const attachmentProgress = document.getElementById('attachmentProgress');
+        const attachmentProgressBar = document.getElementById('attachmentProgressBar');
+        const attachmentProgressText = document.getElementById('attachmentProgressText');
 
         let bypassPermissions = false;
         let attachments = [];
@@ -703,13 +774,117 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             }, 3000);
         }
 
+        function getSourceKey(file) {
+            return file.name + ':' + file.size + ':' + file.lastModified;
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(reader.error);
+                reader.onload = () => {
+                    const bytes = new Uint8Array(reader.result);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    resolve(btoa(binary));
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function setUploadProgress(current, total) {
+            if (!attachmentProgress || !attachmentProgressBar || !attachmentProgressText) {
+                return;
+            }
+            const percent = total === 0 ? 0 : Math.round((current / total) * 100);
+            attachmentProgress.style.display = 'flex';
+            attachmentProgressBar.style.width = percent + '%';
+            attachmentProgressText.textContent = 'Uploading... ' + percent + '%';
+            if (current >= total) {
+                setTimeout(() => {
+                    attachmentProgress.style.display = 'none';
+                    attachmentProgressBar.style.width = '0%';
+                    attachmentProgressText.textContent = 'Uploading...';
+                }, 600);
+            }
+        }
+
         attachBtn.addEventListener('click', () => {
             if (attachments.length >= MAX_FILES) {
                 showAttachmentWarning('Maximum ' + MAX_FILES + ' files allowed');
                 return;
             }
-            vscode.postMessage({ command: 'showFilePicker' });
+            if (fileInput) {
+                fileInput.click();
+            }
         });
+
+        if (fileInput) {
+            fileInput.addEventListener('change', async () => {
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    return;
+                }
+
+                const availableSlots = MAX_FILES - attachments.length;
+                const selected = Array.from(fileInput.files).slice(0, availableSlots);
+                if (fileInput.files.length > availableSlots) {
+                    showAttachmentWarning('Can only attach ' + availableSlots + ' more files (limit: ' + MAX_FILES + ')');
+                }
+
+                let duplicateCount = 0;
+                const uploadCandidates = [];
+                for (const file of selected) {
+                    const sourceKey = getSourceKey(file);
+                    const isDuplicate = attachments.some(a => (a.sourceKey || a.path).toLowerCase() === sourceKey.toLowerCase());
+                    if (isDuplicate) {
+                        duplicateCount++;
+                    } else {
+                        uploadCandidates.push(file);
+                    }
+                }
+                if (duplicateCount > 0) {
+                    showAttachmentWarning(duplicateCount === 1 ? 'File already attached' : duplicateCount + ' files already attached');
+                }
+
+                if (uploadCandidates.length === 0) {
+                    fileInput.value = '';
+                    return;
+                }
+
+                setUploadProgress(0, uploadCandidates.length);
+                const filesPayload = [];
+                let processed = 0;
+                for (const file of uploadCandidates) {
+                    try {
+                        const data = await readFileAsBase64(file);
+                        filesPayload.push({
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            lastModified: file.lastModified,
+                            data: data
+                        });
+                        processed += 1;
+                        setUploadProgress(processed, uploadCandidates.length);
+                    } catch (err) {
+                        console.error('Failed to read attachment', err);
+                        processed += 1;
+                        setUploadProgress(processed, uploadCandidates.length);
+                    }
+                }
+
+                if (filesPayload.length > 0) {
+                    vscode.postMessage({
+                        command: 'uploadAttachments',
+                        files: filesPayload
+                    });
+                }
+
+                fileInput.value = '';
+            });
+        }
 
         function updateBypassBtn() {
             if (bypassPermissions) {
@@ -883,8 +1058,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             showAttachmentWarning('Can only attach ' + availableSlots + ' more files (limit: ' + MAX_FILES + ')');
                         }
                         for (const file of filesToAdd) {
+                            const fileKey = (file.sourceKey || file.path).toLowerCase();
                             const isDuplicate = attachments.some(
-                                a => a.path.toLowerCase() === file.path.toLowerCase()
+                                a => (a.sourceKey || a.path).toLowerCase() === fileKey
                             );
                             if (isDuplicate) {
                                 duplicateCount++;

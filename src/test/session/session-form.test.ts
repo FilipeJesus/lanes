@@ -562,14 +562,37 @@ suite('Session Form', () => {
 			);
 		});
 
-		test('Form JavaScript handles showFilePicker message', () => {
+		test('Form has attachment upload progress UI', () => {
 			// Arrange & Act
 			const html = getFormHtml(provider);
 
-			// Assert: showFilePicker command is in JavaScript
+			// Assert: Progress UI exists
 			assert.ok(
-				html.includes("command: 'showFilePicker'"),
-				'JavaScript should send showFilePicker message to extension'
+				html.includes('id="attachmentProgress"'),
+				'Form should have attachment progress container'
+			);
+			assert.ok(
+				html.includes('id="attachmentProgressBar"'),
+				'Form should have attachment progress bar'
+			);
+			assert.ok(
+				html.includes('id="attachmentProgressText"'),
+				'Form should have attachment progress text'
+			);
+		});
+
+		test('Form has hidden file input for attachments', () => {
+			// Arrange & Act
+			const html = getFormHtml(provider);
+
+			// Assert: file input exists
+			assert.ok(
+				html.includes('id="fileInput"'),
+				'Form should include hidden file input'
+			);
+			assert.ok(
+				html.includes('type="file"'),
+				'File input should be of type file'
 			);
 		});
 
@@ -590,8 +613,8 @@ suite('Session Form', () => {
 
 			// Assert: Duplicate detection logic exists
 			assert.ok(
-				html.includes('.toLowerCase()'),
-				'JavaScript should have case-insensitive duplicate detection'
+				html.includes('sourceKey'),
+				'JavaScript should use sourceKey for duplicate detection'
 			);
 		});
 
