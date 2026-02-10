@@ -79,7 +79,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Agent selector form and terminal differentiation UI
+- [ ] 04-01-PLAN.md — Agent dropdown in session form with CLI availability checks, callback wiring, and test updates
 
 ### Phase 5: Testing & Validation
 **Goal**: Multi-agent system verified with comprehensive tests and backward compatibility confirmed
