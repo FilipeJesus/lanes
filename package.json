@@ -326,6 +326,25 @@
             "order": 1
           }
         }
+      },
+      {
+        "title": "Lanes: Terminal",
+        "properties": {
+          "lanes.terminalMode": {
+            "type": "string",
+            "enum": [
+              "vscode",
+              "tmux"
+            ],
+            "enumDescriptions": [
+              "Use VS Code integrated terminals (default)",
+              "Use tmux sessions (requires tmux to be installed)"
+            ],
+            "default": "vscode",
+            "description": "Terminal backend for Claude sessions. Use 'vscode' for integrated terminals or 'tmux' for persistent tmux sessions.",
+            "order": 1
+          }
+        }
       }
     ]
   },

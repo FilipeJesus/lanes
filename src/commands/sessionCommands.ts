@@ -8,6 +8,7 @@ import { createSession } from '../services/SessionService';
 import { openClaudeTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
 import * as SettingsService from '../services/SettingsService';
 import * as DiffService from '../services/DiffService';
+import * as TmuxService from '../services/TmuxService';
 import { addProject, removeProject } from '../ProjectManagerService';
 import { execGit } from '../gitService';
 import { GitChangesPanel } from '../GitChangesPanel';
@@ -158,10 +159,16 @@ export function registerSessionCommands(
 
         try {
             // Kill terminal
-            const termName = `Claude: ${item.label}`;
+            const termName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
             const terminal = vscode.window.terminals.find(t => t.name === termName);
             if (terminal) {
                 terminal.dispose();
+            }
+
+            // Kill tmux session if in tmux mode
+            if (TmuxService.isTmuxMode()) {
+                const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(item.label);
+                await TmuxService.killSession(tmuxSessionName);
             }
 
             // Remove from Project Manager
@@ -384,6 +391,13 @@ export function registerSessionCommands(
                 await clearSessionId(item.worktreePath);
 
                 existingTerminal.dispose();
+
+                // Kill tmux session if in tmux mode (will be recreated by openClaudeTerminal)
+                if (TmuxService.isTmuxMode()) {
+                    const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(path.basename(item.worktreePath));
+                    await TmuxService.killSession(tmuxSessionName);
+                }
+
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
                 await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);

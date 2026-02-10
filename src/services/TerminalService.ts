@@ -18,6 +18,7 @@ import { SessionItem } from '../ClaudeSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
 import * as SettingsService from './SettingsService';
+import * as TmuxService from './TmuxService';
 import { getErrorMessage } from '../utils';
 import {
     getSessionId,
@@ -119,15 +120,294 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
 
         // Create terminal with incremented name
         const terminalName = `${sessionName} [${nextNumber}]`;
+
+        if (TmuxService.isTmuxMode()) {
+            // Check if tmux is installed
+            if (!await TmuxService.isTmuxInstalled()) {
+                vscode.window.showErrorMessage(
+                    "Tmux is not installed. Please install tmux or change 'Lanes: Terminal Mode' setting to 'vscode'."
+                );
+                return;
+            }
+
+            // Sanitize session name for tmux
+            const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(`${sessionName}-${nextNumber}`);
+
+            // Create tmux session
+            await TmuxService.createSession(tmuxSessionName, worktreePath);
+
+            // Create VS Code terminal attached to tmux session
+            const terminal = vscode.window.createTerminal({
+                name: terminalName,
+                shellPath: 'tmux',
+                shellArgs: ['attach-session', '-t', tmuxSessionName],
+                cwd: worktreePath,
+                iconPath: new vscode.ThemeIcon('terminal')
+            });
+
+            terminal.show();
+        } else {
+            // Standard vscode mode
+            const terminal = vscode.window.createTerminal({
+                name: terminalName,
+                cwd: worktreePath,
+                iconPath: new vscode.ThemeIcon('terminal')
+            });
+
+            terminal.show();
+        }
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to create terminal: ${getErrorMessage(err)}`);
+    }
+}
+
+/**
+ * Open a Claude Code terminal using tmux backend.
+ * This is the tmux-specific implementation of openClaudeTerminal.
+ */
+async function openClaudeTerminalTmux(
+    taskName: string,
+    worktreePath: string,
+    prompt?: string,
+    permissionMode?: PermissionMode,
+    workflow?: string | null,
+    codeAgent?: CodeAgent,
+    repoRoot?: string,
+    skipWorkflowPrompt?: boolean
+): Promise<void> {
+    // Check if tmux is installed
+    if (!await TmuxService.isTmuxInstalled()) {
+        vscode.window.showErrorMessage(
+            "Tmux is not installed. Please install tmux or change 'Lanes: Terminal Mode' setting to 'vscode'."
+        );
+        return;
+    }
+
+    // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
+    const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
+
+    // Sanitize session name for tmux
+    const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(taskName);
+
+    // Get or create a unique task list ID for this session
+    const taskListId = await getOrCreateTaskListId(worktreePath, taskName);
+
+    // Check if tmux session already exists
+    const tmuxSessionExists = await TmuxService.sessionExists(tmuxSessionName);
+
+    // Use CodeAgent for terminal icon configuration if available
+    const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
+
+    if (tmuxSessionExists) {
+        // Tmux session exists - just attach to it
         const terminal = vscode.window.createTerminal({
             name: terminalName,
+            shellPath: 'tmux',
+            shellArgs: ['attach-session', '-t', tmuxSessionName],
             cwd: worktreePath,
-            iconPath: new vscode.ThemeIcon('terminal')
+            iconPath: new vscode.ThemeIcon(iconConfig.id),
+            color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
+        });
+        terminal.show();
+        return;
+    }
+
+    // Create new tmux session
+    await TmuxService.createSession(tmuxSessionName, worktreePath);
+
+    // Export env vars in the initial shell (set-environment only affects new windows/panes)
+    await TmuxService.sendCommand(tmuxSessionName, `export CLAUDE_CODE_TASK_LIST_ID='${taskListId}'`);
+
+    try {
+        // Get or create the extension settings file with hooks
+        let settingsPath: string | undefined;
+        let mcpConfigPath: string | undefined;
+
+        // Determine effective workflow: use provided workflow or restore from session data
+        let effectiveWorkflow = workflow;
+        if (!effectiveWorkflow) {
+            const savedWorkflow = await getSessionWorkflow(worktreePath);
+            if (savedWorkflow) {
+                effectiveWorkflow = savedWorkflow;
+            }
+        }
+
+        // Determine effective permission mode: use provided or restore from session data
+        let effectivePermissionMode = permissionMode;
+        if (!effectivePermissionMode) {
+            const savedMode = await getSessionPermissionMode(worktreePath);
+            if (savedMode && isValidPermissionMode(savedMode)) {
+                effectivePermissionMode = savedMode as PermissionMode;
+            }
+        }
+
+        try {
+            settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
+
+            // If workflow is active (provided or restored), add MCP config flag separately
+            if (effectiveWorkflow) {
+                // Determine the repo root for MCP server (needed for pending sessions directory)
+                const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
+
+                // Use CodeAgent to get MCP config if available and supported
+                if (codeAgent && codeAgent.supportsMcp()) {
+                    const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                    if (mcpConfig) {
+                        // Write MCP config to a file
+                        mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                        await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                    }
+                } else {
+                    // Fallback to hardcoded Claude-specific MCP config
+                    const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+                    const mcpConfig = {
+                        mcpServers: {
+                            'lanes-workflow': {
+                                command: 'node',
+                                args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
+                            }
+                        }
+                    };
+                    mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
+                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                }
+            }
+        } catch (err) {
+            console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
+            // Continue without the settings - hooks/MCP won't work but Claude will still run
+        }
+
+        // Auto-start Claude - resume if session ID exists, otherwise start fresh
+        const sessionData = await getSessionId(worktreePath);
+        let shouldStartFresh = true;
+
+        if (sessionData?.sessionId) {
+            // Try to resume existing session
+            if (codeAgent) {
+                try {
+                    // Use CodeAgent to build resume command
+                    const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
+                        settingsPath,
+                        mcpConfigPath
+                    });
+                    await TmuxService.sendCommand(tmuxSessionName, resumeCommand);
+                    shouldStartFresh = false;
+                } catch (err) {
+                    // Invalid session ID format - log and start fresh session
+                    console.error('Failed to build resume command, starting fresh session:', getErrorMessage(err));
+                }
+            } else {
+                // Fallback to hardcoded command construction
+                const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
+                const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+                await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
+                shouldStartFresh = false;
+            }
+        }
+
+        if (shouldStartFresh) {
+            // Validate permissionMode to prevent command injection from untrusted webview input
+            const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
+
+            // Persist permission mode for future session clears/restarts
+            await saveSessionPermissionMode(worktreePath, validatedMode);
+
+            let combinedPrompt = prompt?.trim() || '';
+
+            // For workflow sessions, prepend orchestrator instructions
+            if (effectiveWorkflow && combinedPrompt) {
+                // User provided a prompt - prepend orchestrator instructions
+                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + combinedPrompt;
+            } else if (effectiveWorkflow && skipWorkflowPrompt) {
+                // Cleared session with workflow - add resume prompt
+                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
+
+To resume your work:
+1. Call workflow_status to check the current state of the workflow
+2. Review any artifacts from the previous session to understand what was completed
+3. Continue with the next steps in the workflow
+
+Proceed with resuming the workflow from where it left off.`;
+            } else if (effectiveWorkflow) {
+                // New workflow session without user prompt - add start prompt
+                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
+            } else if (skipWorkflowPrompt) {
+                // Cleared session without a workflow - prompt Claude to check for workflow state
+                combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
+
+To resume your work:
+1. Call workflow_status to check if there is an active workflow and its current state
+2. Continue working based on the workflow status
+
+Proceed by calling workflow_status now.`;
+            }
+
+            // Write prompt to file for history and to avoid terminal buffer issues
+            let promptFileCommand: string | undefined;
+            if (combinedPrompt) {
+                const repoRootForPrompt = path.dirname(path.dirname(worktreePath));
+                const promptPathInfo = getPromptsPath(taskName, repoRootForPrompt);
+                if (promptPathInfo) {
+                    await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
+                    await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
+                    // Use command substitution to read prompt from file
+                    promptFileCommand = `"$(cat "${promptPathInfo.path}")"`;
+                }
+            }
+
+            if (codeAgent) {
+                // Use CodeAgent to build start command
+                const startCommand = codeAgent.buildStartCommand({
+                    permissionMode: validatedMode,
+                    settingsPath,
+                    mcpConfigPath
+                });
+
+                if (promptFileCommand) {
+                    await TmuxService.sendCommand(tmuxSessionName, `${startCommand} ${promptFileCommand}`);
+                } else if (combinedPrompt) {
+                    // Fallback: prompt exists but file creation failed - pass escaped prompt
+                    const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                    await TmuxService.sendCommand(tmuxSessionName, `${startCommand} '${escapedPrompt}'`);
+                } else {
+                    await TmuxService.sendCommand(tmuxSessionName, startCommand);
+                }
+            } else {
+                // Fallback to hardcoded command construction
+                const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
+                const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+                const permissionFlag = `--permission-mode ${validatedMode} `;
+
+                if (promptFileCommand) {
+                    // Pass prompt file content as argument using command substitution
+                    await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}${promptFileCommand}`);
+                } else if (combinedPrompt) {
+                    // Fallback: pass prompt directly if path resolution failed
+                    // Escape single quotes in the prompt for shell safety
+                    const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                    await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}'${escapedPrompt}'`);
+                } else {
+                    // Start new session without prompt
+                    await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}${permissionFlag}`.trim());
+                }
+            }
+        }
+
+        // Create VS Code terminal attached to tmux session
+        const terminal = vscode.window.createTerminal({
+            name: terminalName,
+            shellPath: 'tmux',
+            shellArgs: ['attach-session', '-t', tmuxSessionName],
+            cwd: worktreePath,
+            iconPath: new vscode.ThemeIcon(iconConfig.id),
+            color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
 
         terminal.show();
     } catch (err) {
-        vscode.window.showErrorMessage(`Failed to create terminal: ${getErrorMessage(err)}`);
+        // Clean up orphaned tmux session on failure
+        await TmuxService.killSession(tmuxSessionName).catch(() => {});
+        vscode.window.showErrorMessage(`Failed to open tmux terminal: ${getErrorMessage(err)}`);
     }
 }
 
@@ -171,6 +451,21 @@ export async function openClaudeTerminal(
         existingTerminal.show();
         // If we have a prompt and we're reopening an existing terminal,
         // we don't want to send the prompt again as it would interrupt
+        return;
+    }
+
+    // Check if tmux mode is enabled
+    if (TmuxService.isTmuxMode()) {
+        await openClaudeTerminalTmux(
+            taskName,
+            worktreePath,
+            prompt,
+            permissionMode,
+            workflow,
+            codeAgent,
+            repoRoot,
+            skipWorkflowPrompt
+        );
         return;
     }
 

@@ -34,9 +34,9 @@ suite('Package.json Configuration Test Suite', () => {
 
 	suite('Configuration Structure', () => {
 
-		test('should verify configuration is an array with 5 sections', () => {
+		test('should verify configuration is an array with 6 sections', () => {
 			assert.ok(Array.isArray(config));
-			assert.strictEqual(config.length, 5);
+			assert.strictEqual(config.length, 6);
 		});
 
 		test('should verify each configuration section has the correct title', () => {
@@ -45,7 +45,8 @@ suite('Package.json Configuration Test Suite', () => {
 				'Lanes: Git',
 				'Lanes: Advanced',
 				'Lanes: Workflows',
-				'Lanes: Audio'
+				'Lanes: Audio',
+				'Lanes: Terminal'
 			];
 
 			const actualTitles = config.map((section: any) => section.title);
@@ -156,6 +157,27 @@ suite('Package.json Configuration Test Suite', () => {
 
 			assert.ok(audioSection.properties['lanes.chimeSound'].enumDescriptions);
 			assert.strictEqual(audioSection.properties['lanes.chimeSound'].enumDescriptions.length, 4);
+		});
+	});
+
+	suite('Terminal Section', () => {
+
+		test('should verify Terminal section contains correct settings', () => {
+			const terminalSection = getConfigSection(config, 'Lanes: Terminal');
+
+			assert.ok(terminalSection);
+			assert.ok(terminalSection.properties?.['lanes.terminalMode']);
+
+			assert.strictEqual(terminalSection.properties['lanes.terminalMode'].order, 1);
+
+			assert.strictEqual(terminalSection.properties['lanes.terminalMode'].type, 'string');
+			assert.deepStrictEqual(
+				terminalSection.properties['lanes.terminalMode'].enum,
+				['vscode', 'tmux']
+			);
+			assert.strictEqual(terminalSection.properties['lanes.terminalMode'].default, 'vscode');
+			assert.ok(terminalSection.properties['lanes.terminalMode'].description);
+			assert.ok(terminalSection.properties['lanes.terminalMode'].description.length > 20);
 		});
 	});
 
