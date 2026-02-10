@@ -23,7 +23,7 @@ const INVALID_WINDOWS_CHARS = /[<>:"|?*\x00-\x1F]/;
 /**
  * Validates the lanes.worktreesFolder configuration value.
  *
- * Requirements (from package.json and ClaudeSessionProvider.ts):
+ * Requirements (from package.json and AgentSessionProvider.ts):
  * - Must be a string
  * - Cannot be empty
  * - Cannot have leading/trailing whitespace
@@ -82,7 +82,7 @@ export function validateWorktreesFolder(value: unknown): ValidationResult {
 /**
  * Validates the lanes.promptsFolder configuration value.
  *
- * Requirements (from package.json and ClaudeSessionProvider.ts):
+ * Requirements (from package.json and AgentSessionProvider.ts):
  * - Must be a string
  * - Empty string is VALID (means use global storage)
  * - Cannot contain path traversal (..)

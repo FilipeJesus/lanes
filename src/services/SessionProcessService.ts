@@ -13,11 +13,11 @@ import * as fsPromises from 'fs/promises';
 import { fileExists } from './FileService';
 import type { PendingSessionConfig } from '../types/extension';
 import type { ClearSessionConfig } from '../types/extension';
-import { ClaudeSessionProvider, getSessionTerminalMode } from '../ClaudeSessionProvider';
+import { AgentSessionProvider, getSessionTerminalMode } from '../AgentSessionProvider';
 import { CodeAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
 import { createSession as createSessionService } from './SessionService';
-import { openClaudeTerminal as openClaudeTerminalService } from './TerminalService';
+import { openAgentTerminal as openAgentTerminalService } from './TerminalService';
 import * as TmuxService from './TmuxService';
 
 // validateWorkflow still comes from extension.ts (WorkflowService extraction was in 07-02)
@@ -41,7 +41,7 @@ export async function processPendingSession(
     configPath: string,
     workspaceRoot: string | undefined,
     extensionPath: string,
-    sessionProvider: ClaudeSessionProvider,
+    sessionProvider: AgentSessionProvider,
     codeAgent?: CodeAgent,
     // Internal functions from extension (temporary - validateWorkflow still from extension)
     validateWorkflowFn?: any
@@ -119,7 +119,7 @@ export async function processPendingSession(
 export async function checkPendingSessions(
     workspaceRoot: string | undefined,
     extensionPath: string,
-    sessionProvider: ClaudeSessionProvider,
+    sessionProvider: AgentSessionProvider,
     codeAgent?: CodeAgent,
     // Internal functions from extension (temporary - validateWorkflow still from extension)
     validateWorkflowFn?: any
@@ -210,7 +210,7 @@ async function executeClearRequest(
         await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    await openClaudeTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+    await openAgentTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
     console.log(`Session cleared: ${sessionName}`);
 }
 
@@ -226,13 +226,13 @@ export async function processClearRequest(
     configPath: string,
     codeAgent: CodeAgent,
     baseRepoPath: string | undefined,
-    sessionProvider: ClaudeSessionProvider,
+    sessionProvider: AgentSessionProvider,
     // Internal functions from extension (temporary)
     clearSessionIdFn?: any,
     workspaceRoot?: string
 ): Promise<void> {
     const clearSessionIdImpl = clearSessionIdFn || (async (worktreePath: string) => {
-        const { clearSessionId: _clearSessionId } = require('../ClaudeSessionProvider');
+        const { clearSessionId: _clearSessionId } = require('../AgentSessionProvider');
         await _clearSessionId(worktreePath);
     });
 

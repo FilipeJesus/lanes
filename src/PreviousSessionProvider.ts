@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorktreesFolder, getGlobalStorageUri, getRepoIdentifier, getBaseRepoPathForStorage } from './ClaudeSessionProvider';
+import { getWorktreesFolder, getGlobalStorageUri, getRepoIdentifier, getBaseRepoPathForStorage } from './AgentSessionProvider';
 import { fileExists, readDir, isDirectory, isFile } from './services/FileService';
 
 /**
  * Get the prompts directory path based on configuration.
- * Matches the logic in getPromptsPath from ClaudeSessionProvider.
+ * Matches the logic in getPromptsPath from AgentSessionProvider.
  *
  * @param repoRoot The repository root path
  * @returns The absolute path to the prompts directory, or null if not determinable

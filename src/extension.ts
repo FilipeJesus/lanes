@@ -14,7 +14,7 @@ import * as path from 'path';
 import { fileExists, readDir, isDirectory } from './services/FileService';
 
 import {
-    ClaudeSessionProvider,
+    AgentSessionProvider,
     SessionItem,
     getSessionId,
     getSessionChimeEnabled,
@@ -25,7 +25,7 @@ import {
     getRepoIdentifier,
     getWorktreesFolder,
     getWorkflowStatus
-} from './ClaudeSessionProvider';
+} from './AgentSessionProvider';
 
 import { SessionFormProvider, PermissionMode } from './SessionFormProvider';
 import { initializeGitPath } from './gitService';
@@ -46,7 +46,7 @@ import { registerAllCommands } from './commands';
 import { registerWatchers } from './watchers';
 import { validateWorkflow as validateWorkflowService } from './services/WorkflowService';
 import { createSession } from './services/SessionService';
-import { openClaudeTerminal } from './services/TerminalService';
+import { openAgentTerminal } from './services/TerminalService';
 
 /**
  * Activate the extension.
@@ -59,9 +59,9 @@ import { openClaudeTerminal } from './services/TerminalService';
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log('Congratulations, "Lanes" is now active!');
 
-    // Inject openClaudeTerminal into SessionService
+    // Inject openAgentTerminal into SessionService
     // This must be done early, before any session creation calls
-    SessionService.setOpenClaudeTerminal(TerminalService.openClaudeTerminal);
+    SessionService.setOpenAgentTerminal(TerminalService.openAgentTerminal);
 
     // Initialize git path from VS Code Git Extension (with fallback to 'git')
     await initializeGitPath();
@@ -109,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
-    const sessionProvider = new ClaudeSessionProvider(workspaceRoot, baseRepoPath);
+    const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath);
     const sessionTreeView = vscode.window.createTreeView('claudeSessionsView', {
         treeDataProvider: sessionProvider,
         showCollapseAll: false
@@ -265,7 +265,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             const sessionName = path.basename(workspaceRoot);
             // Brief delay to ensure VS Code is fully ready
             setTimeout(() => {
-                openClaudeTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, codeAgent, baseRepoPath);
+                openAgentTerminal(sessionName, workspaceRoot, undefined, undefined, undefined, codeAgent, baseRepoPath);
             }, 500);
         }
     }

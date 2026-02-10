@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
 import { fileExists } from './FileService';
-import { SessionItem } from '../ClaudeSessionProvider';
+import { SessionItem } from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
 import * as SettingsService from './SettingsService';
@@ -30,7 +30,7 @@ import {
     getClaudeSessionPath,
     getOrCreateTaskListId,
     getPromptsPath
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
@@ -436,7 +436,7 @@ Proceed by calling workflow_status now.`;
  * @param repoRoot Optional repository root path
  * @param skipWorkflowPrompt If true, don't add workflow prompt (for cleared sessions)
  */
-export async function openClaudeTerminal(
+export async function openAgentTerminal(
     taskName: string,
     worktreePath: string,
     prompt?: string,

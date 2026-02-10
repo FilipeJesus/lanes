@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import type { ServiceContainer } from '../types/serviceContainer';
-import type { SessionItem } from '../ClaudeSessionProvider';
+import type { SessionItem } from '../AgentSessionProvider';
 import type { PreviousSessionItem } from '../PreviousSessionProvider';
 import { createSession } from '../services/SessionService';
-import { openClaudeTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
+import { openAgentTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
 import * as SettingsService from '../services/SettingsService';
 import * as DiffService from '../services/DiffService';
 import * as TmuxService from '../services/TmuxService';
@@ -23,7 +23,7 @@ import {
     getGlobalStoragePath,
     getWorktreesFolder,
     getSessionTerminalMode
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 
 /**
  * Register all session-related commands.
@@ -144,7 +144,7 @@ export function registerSessionCommands(
 
     // Command: Open/resume a session
     const openDisposable = vscode.commands.registerCommand('claudeWorktrees.openSession', async (item: SessionItem) => {
-        await openClaudeTerminal(item.label, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath);
+        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath);
     });
 
     // Command: Delete a session
@@ -402,7 +402,7 @@ export function registerSessionCommands(
 
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
-                await openClaudeTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
 
                 vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
             } else {

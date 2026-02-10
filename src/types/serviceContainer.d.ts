@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ClaudeSessionProvider } from '../ClaudeSessionProvider';
+import type { AgentSessionProvider } from '../AgentSessionProvider';
 import type { SessionFormProvider } from '../SessionFormProvider';
 import type { PreviousSessionProvider } from '../PreviousSessionProvider';
 import type { WorkflowsProvider } from '../WorkflowsProvider';
@@ -14,7 +14,7 @@ export interface ServiceContainer {
     extensionContext: vscode.ExtensionContext;
 
     // Providers
-    sessionProvider: ClaudeSessionProvider;
+    sessionProvider: AgentSessionProvider;
     sessionFormProvider: SessionFormProvider;
     previousSessionProvider: PreviousSessionProvider;
     workflowsProvider: WorkflowsProvider;

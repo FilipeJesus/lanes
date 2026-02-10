@@ -18,14 +18,14 @@ import {
     getRepoIdentifier,
     getSessionWorkflow,
     saveSessionWorkflow,
-    getClaudeStatusPath,
-    getClaudeSessionPath,
+    getStatusFilePath,
+    getSessionFilePath,
     isGlobalStorageEnabled,
     getGlobalStorageUri,
     getWorktreesFolder,
     getGlobalCodeAgent,
     DEFAULTS
-} from '../ClaudeSessionProvider';
+} from '../AgentSessionProvider';
 
 /**
  * Check if the given path is a git worktree and return the base repo path.
@@ -245,8 +245,8 @@ exit 0
 
     // Determine status and session file paths using the helper functions
     // These functions handle both global and non-global modes automatically
-    const statusFilePath = getClaudeStatusPath(worktreePath);
-    const sessionFilePath = getClaudeSessionPath(worktreePath);
+    const statusFilePath = getStatusFilePath(worktreePath);
+    const sessionFilePath = getSessionFilePath(worktreePath);
 
     // Ensure the directories exist for both files
     await fsPromises.mkdir(path.dirname(statusFilePath), { recursive: true });
@@ -329,7 +329,7 @@ exit 0
         if (workflow) {
             await saveSessionWorkflow(worktreePath, effectiveWorkflow);
         }
-        // Note: MCP server config is now passed via --mcp-config flag in openClaudeTerminal()
+        // Note: MCP server config is now passed via --mcp-config flag in openAgentTerminal()
         // instead of being included in the settings file
     }
 

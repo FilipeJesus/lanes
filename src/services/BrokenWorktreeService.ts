@@ -13,7 +13,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { getErrorMessage } from '../utils';
-import { getWorktreesFolder } from '../ClaudeSessionProvider';
+import { getWorktreesFolder } from '../AgentSessionProvider';
 
 /**
  * Represents a broken worktree that needs repair.

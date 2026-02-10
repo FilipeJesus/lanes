@@ -16,7 +16,7 @@ import { ensureDir } from './services/FileService';
 import type { ServiceContainer } from './types/serviceContainer';
 import { getStatusWatchPattern, getSessionWatchPattern } from './services/SettingsService';
 import { checkPendingSessions, checkClearRequests, getPendingSessionsDir } from './services/SessionProcessService';
-import { getRepoIdentifier, getWorktreesFolder, isGlobalStorageEnabled, DEFAULTS } from './ClaudeSessionProvider';
+import { getRepoIdentifier, getWorktreesFolder, isGlobalStorageEnabled, DEFAULTS } from './AgentSessionProvider';
 import { getPromptsDir } from './PreviousSessionProvider';
 
 /**
