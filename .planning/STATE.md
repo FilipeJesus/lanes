@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Users can create, open, resume, and delete Codex CLI sessions through the Lanes sidebar with the same reliability and isolation as Claude Code sessions.
-**Current focus:** Phase 2 - Agent Abstraction Enhancement (In progress)
+**Current focus:** Phase 2 - Agent Abstraction Enhancement (Complete)
 
 ## Current Position
 
 Phase: 2 of 5 (Agent Abstraction Enhancement)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-10 — Completed 02-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-10 — Completed 02-03-PLAN.md
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 4.3min
-- Total execution time: 26min
+- Total plans completed: 7
+- Average duration: 4.4min
+- Total execution time: 31min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-refactoring | 4/4 | 18min | 4.5min |
-| 02-agent-abstraction-enhancement | 2/3 | 8min | 4min |
+| 02-agent-abstraction-enhancement | 3/3 | 13min | 4.3min |
 
 **Recent Trend:**
-- Last 5 plans: 6min, 7min, 3min, 5min
+- Last 5 plans: 7min, 3min, 5min, 5min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - agentName field is optional in AgentSessionData for backward compatibility (02-02)
 - Missing agentName in legacy session files defaults to 'claude' - no migration needed (02-02)
 - Hookless terminal status uses active/idle only, not working/waiting_for_user (02-02)
+- TOML lazily imported via dynamic import() to avoid loading when only JSON sessions are in use (02-03)
+- Format determined by file extension from agent's getSettingsFileName() not agent name (02-03)
+- Hookless agents get empty settings without hooks key rather than empty hooks object (02-03)
 
 ### Pending Todos
 
@@ -74,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-10 (Plan 02-02 execution)
-Stopped at: Completed 02-02-PLAN.md
-Resume file: .planning/phases/02-agent-abstraction-enhancement/02-02-SUMMARY.md
+Last session: 2026-02-10 (Plan 02-03 execution)
+Stopped at: Completed 02-03-PLAN.md (Phase 2 complete)
+Resume file: .planning/phases/02-agent-abstraction-enhancement/02-03-SUMMARY.md
