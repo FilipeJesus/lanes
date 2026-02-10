@@ -776,18 +776,18 @@ suite('Session Form', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Agent dropdown exists
+			// Assert: Agent dropdown exists with trigger and menu items
 			assert.ok(
-				html.includes('id="agent"'),
-				'Form should have agent dropdown with id="agent"'
+				html.includes('id="agentDropdown"'),
+				'Form should have agent dropdown with id="agentDropdown"'
 			);
 			assert.ok(
-				html.includes('Claude Code'),
-				'Form should have Claude Code option'
+				html.includes('data-agent="claude"'),
+				'Form should have Claude agent menu item'
 			);
 			assert.ok(
-				html.includes('Codex CLI'),
-				'Form should have Codex CLI option'
+				html.includes('data-agent="codex"'),
+				'Form should have Codex agent menu item'
 			);
 		});
 
@@ -799,14 +799,14 @@ suite('Session Form', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Agent dropdown does not exist
+			// Assert: Agent dropdown is hidden
 			assert.ok(
-				!html.includes('id="agent"'),
-				'Form should NOT have agent dropdown when only one agent available'
+				html.includes('style="display:none"'),
+				'Agent dropdown should be hidden when only one agent available'
 			);
 		});
 
-		test('Agent dropdown shows disabled option for unavailable agent', () => {
+		test('Agent dropdown items are enabled for available agents', () => {
 			// Arrange
 			const availability = new Map([['claude', true], ['codex', true]]);
 			provider.setAgentAvailability(availability, 'claude');
@@ -814,11 +814,11 @@ suite('Session Form', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Both options should be enabled (no disabled attribute)
-			const claudeMatch = html.match(/<option value="claude"[^>]*>/);
-			const codexMatch = html.match(/<option value="codex"[^>]*>/);
-			assert.ok(claudeMatch, 'Claude option should exist');
-			assert.ok(codexMatch, 'Codex option should exist');
+			// Assert: Both items should not have disabled attribute
+			const claudeMatch = html.match(/<button[^>]*data-agent="claude"[^>]*>/);
+			const codexMatch = html.match(/<button[^>]*data-agent="codex"[^>]*>/);
+			assert.ok(claudeMatch, 'Claude item should exist');
+			assert.ok(codexMatch, 'Codex item should exist');
 			assert.ok(!claudeMatch[0].includes('disabled'), 'Claude should not be disabled');
 			assert.ok(!codexMatch[0].includes('disabled'), 'Codex should not be disabled');
 		});

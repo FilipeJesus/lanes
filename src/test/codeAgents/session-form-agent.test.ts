@@ -81,7 +81,7 @@ suite('Session Form Agent Selection', () => {
 	});
 
 	suite('Agent Dropdown Rendering', () => {
-		test('Default agent is pre-selected with codex', () => {
+		test('Default agent codex is pre-selected', () => {
 			// Arrange
 			const availability = new Map([['claude', true], ['codex', true]]);
 			provider.setAgentAvailability(availability, 'codex');
@@ -89,10 +89,12 @@ suite('Session Form Agent Selection', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Codex option has selected attribute
-			const codexOptionMatch = html.match(/<option value="codex"[^>]*>/);
-			assert.ok(codexOptionMatch, 'Codex option should exist');
-			assert.ok(codexOptionMatch[0].includes('selected'), 'Codex option should have selected attribute when set as default');
+			// Assert: Codex menu item has active class, trigger shows codex SVG
+			const codexItemMatch = html.match(/<button[^>]*class="[^"]*"[^>]*data-agent="codex"/);
+			assert.ok(codexItemMatch, 'Codex menu item should exist');
+			assert.ok(codexItemMatch[0].includes('active'), 'Codex item should have active class when set as default');
+			// Trigger should show Codex title
+			assert.ok(html.includes('title="Codex CLI"'), 'Trigger should have Codex CLI tooltip when codex is default');
 		});
 
 		test('Default agent claude is pre-selected', () => {
@@ -103,13 +105,15 @@ suite('Session Form Agent Selection', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Claude option has selected attribute
-			const claudeOptionMatch = html.match(/<option value="claude"[^>]*>/);
-			assert.ok(claudeOptionMatch, 'Claude option should exist');
-			assert.ok(claudeOptionMatch[0].includes('selected'), 'Claude option should have selected attribute when set as default');
+			// Assert: Claude menu item has active class
+			const claudeItemMatch = html.match(/<button[^>]*class="[^"]*"[^>]*data-agent="claude"/);
+			assert.ok(claudeItemMatch, 'Claude menu item should exist');
+			assert.ok(claudeItemMatch[0].includes('active'), 'Claude item should have active class when set as default');
+			// Trigger should show Claude title
+			assert.ok(html.includes('title="Claude Code"'), 'Trigger should have Claude Code tooltip when claude is default');
 		});
 
-		test('Form includes Code Agent label when multiple agents available', () => {
+		test('Form includes agent dropdown with SVG logos when multiple agents available', () => {
 			// Arrange
 			const availability = new Map([['claude', true], ['codex', true]]);
 			provider.setAgentAvailability(availability, 'claude');
@@ -117,14 +121,18 @@ suite('Session Form Agent Selection', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Form includes "Code Agent" label
+			// Assert: Form includes agent dropdown with SVG icons
 			assert.ok(
-				html.includes('Code Agent'),
-				'Form should have "Code Agent" label when multiple agents available'
+				html.includes('id="agentDropdown"'),
+				'Form should have agent dropdown when multiple agents available'
+			);
+			assert.ok(
+				html.includes('<svg'),
+				'Agent dropdown should contain SVG logos'
 			);
 		});
 
-		test('Form includes agent selection hint text', () => {
+		test('Dropdown trigger has tooltip title', () => {
 			// Arrange
 			const availability = new Map([['claude', true], ['codex', true]]);
 			provider.setAgentAvailability(availability, 'claude');
@@ -132,10 +140,14 @@ suite('Session Form Agent Selection', () => {
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Form includes hint text
+			// Assert: Trigger button has title attribute
 			assert.ok(
-				html.includes('Select which AI assistant to use for this session'),
-				'Form should have hint text explaining agent selection'
+				html.includes('id="agentTrigger"'),
+				'Form should have dropdown trigger button'
+			);
+			assert.ok(
+				html.includes('title="Claude Code"'),
+				'Trigger should have tooltip showing current agent name'
 			);
 		});
 	});
@@ -303,12 +315,11 @@ suite('Session Form Agent Selection', () => {
 				'Form should handle clearForm message'
 			);
 
-			// The clearForm handler should reset agent to the default agent value
-			// Check that it includes the escaped default agent in the clearForm case
+			// The clearForm handler should reset agent selection via selectAgent function
 			const clearFormSection = html.substring(html.indexOf("case 'clearForm':"));
 			assert.ok(
-				clearFormSection.includes('agentInput.value ='),
-				'clearForm should reset agent input value'
+				clearFormSection.includes('selectAgent('),
+				'clearForm should reset agent selection via selectAgent'
 			);
 		});
 	});

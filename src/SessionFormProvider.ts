@@ -145,46 +145,56 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Generate HTML for agent dropdown (only shown when multiple agents available)
+     * Agent definitions with inline SVG logos
      */
-    private _getAgentDropdownHtml(): string {
-        // Count available agents
+    private static readonly AGENTS = [
+        {
+            name: 'claude',
+            label: 'Claude Code',
+            // Claude sunburst logo — rounded rays radiating from center
+            svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(0 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.4" transform="rotate(33 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(62 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(98 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(130 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(163 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(195 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(228 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(260 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(292 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.2" transform="rotate(325 12 12)"/></svg>'
+        },
+        {
+            name: 'codex',
+            label: 'Codex CLI',
+            // OpenAI logo
+            svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>'
+        }
+    ];
+
+    /**
+     * Generate HTML for the custom agent dropdown (shown next to session name)
+     * Shows the selected agent's logo as trigger; dropdown menu shows logo + label per agent.
+     * Default agent is determined by the lanes.defaultAgent global setting.
+     */
+    private _getAgentSelectorHtml(): string {
+        // Count available agents to decide visibility
         let availableCount = 0;
         for (const available of this._agentAvailability.values()) {
-            if (available) {
-                availableCount++;
-            }
+            if (available) { availableCount++; }
         }
 
-        // Hide dropdown if only one agent available
-        if (availableCount <= 1) {
-            return '';
-        }
+        const hidden = availableCount <= 1 ? ' style="display:none"' : '';
 
-        // Agent definitions
-        const agents = [
-            { name: 'claude', label: 'Claude Code' },
-            { name: 'codex', label: 'Codex CLI' }
-        ];
+        // Find the default agent's SVG for the trigger button
+        const defaultDef = SessionFormProvider.AGENTS.find(a => a.name === this._defaultAgent)
+            ?? SessionFormProvider.AGENTS[0];
 
-        let optionsHtml = '';
-        for (const agent of agents) {
+        // Build dropdown menu items
+        let itemsHtml = '';
+        for (const agent of SessionFormProvider.AGENTS) {
             const available = this._agentAvailability.get(agent.name) ?? false;
-            const label = available ? agent.label : `${agent.label} (not installed)`;
+            const active = agent.name === this._defaultAgent ? ' active' : '';
             const disabled = available ? '' : ' disabled';
-            const selected = agent.name === this._defaultAgent ? ' selected' : '';
+            const label = available ? agent.label : `${agent.label} (not installed)`;
 
-            optionsHtml += `<option value="${this._escapeHtml(agent.name)}"${disabled}${selected}>${this._escapeHtml(label)}</option>`;
+            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}"${disabled}>${agent.svg}<span>${this._escapeHtml(label)}</span></button>`;
         }
 
-        return `
-        <div class="form-group" id="agentFormGroup">
-            <label for="agent">Code Agent</label>
-            <select id="agent" name="agent">
-                ${optionsHtml}
-            </select>
-            <div class="hint">Select which AI assistant to use for this session</div>
-        </div>`;
+        return `<div class="agent-dropdown" id="agentDropdown"${hidden}>` +
+            `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultDef.label)}" aria-haspopup="true" aria-expanded="false">${defaultDef.svg}</button>` +
+            `<div class="agent-dropdown-menu" id="agentMenu">${itemsHtml}</div>` +
+            `</div>`;
     }
 
     /**
@@ -561,6 +571,108 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             margin-top: 2px;
         }
 
+        .name-row {
+            display: flex;
+            gap: 4px;
+            align-items: stretch;
+        }
+
+        .name-row input[type="text"] {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-dropdown {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .agent-dropdown-trigger {
+            width: 32px;
+            min-width: 32px;
+            height: 100%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-foreground);
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .agent-dropdown-trigger:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .agent-dropdown-trigger:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .agent-dropdown-trigger svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .agent-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 2px);
+            right: 0;
+            z-index: 100;
+            min-width: 160px;
+            background-color: var(--vscode-dropdown-background, var(--vscode-input-background));
+            border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border));
+            border-radius: 3px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            padding: 4px 0;
+        }
+
+        .agent-dropdown-menu.open {
+            display: block;
+        }
+
+        .agent-dropdown-item {
+            width: 100%;
+            padding: 6px 10px;
+            border: none;
+            background: transparent;
+            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .agent-dropdown-item:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .agent-dropdown-item.active {
+            background-color: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+
+        .agent-dropdown-item:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .agent-dropdown-item:disabled:hover {
+            background: transparent;
+        }
+
+        .agent-dropdown-item svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
         select option:disabled {
             opacity: 0.5;
             color: var(--vscode-disabledForeground);
@@ -572,18 +684,19 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     <form id="sessionForm">
         <div class="form-group">
             <label for="name">Session Name</label>
-            <input
-                type="text"
-                id="name"
-                name="name"
-                placeholder="fix-login-bug"
-                required
-                autocomplete="off"
-            />
+            <div class="name-row">
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="fix-login-bug"
+                    required
+                    autocomplete="off"
+                />
+                ${this._getAgentSelectorHtml()}
+            </div>
             <div class="hint">Used as the Git branch name</div>
         </div>
-
-        ${this._getAgentDropdownHtml()}
 
         <div class="form-group">
             <label for="sourceBranch">Source Branch (optional)</label>
@@ -635,7 +748,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const vscode = acquireVsCodeApi();
         const form = document.getElementById('sessionForm');
         const nameInput = document.getElementById('name');
-        const agentInput = document.getElementById('agent');
+        const agentDropdown = document.getElementById('agentDropdown');
+        const agentTrigger = document.getElementById('agentTrigger');
+        const agentMenu = document.getElementById('agentMenu');
+        const agentItems = document.querySelectorAll('.agent-dropdown-item');
         const sourceBranchInput = document.getElementById('sourceBranch');
         const promptInput = document.getElementById('prompt');
         const bypassPermissionsBtn = document.getElementById('bypassPermissionsBtn');
@@ -645,8 +761,71 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const attachmentChipsContainer = document.getElementById('attachmentChips');
 
         let bypassPermissions = false;
+        let selectedAgent = '${this._escapeHtml(this._defaultAgent)}';
         let attachments = [];
         const MAX_FILES = 20;
+
+        // Agent SVG map for updating the trigger icon
+        const agentSvgs = {};
+        agentItems.forEach(function(item) {
+            var svg = item.querySelector('svg');
+            if (svg) agentSvgs[item.dataset.agent] = svg.outerHTML;
+        });
+
+        function selectAgent(agentName, save) {
+            selectedAgent = agentName;
+            // Update trigger icon
+            if (agentTrigger && agentSvgs[agentName]) {
+                agentTrigger.innerHTML = agentSvgs[agentName];
+            }
+            // Update trigger tooltip
+            var labels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
+            if (agentTrigger) agentTrigger.title = labels[agentName] || agentName;
+            // Update active state in menu
+            agentItems.forEach(function(item) {
+                item.classList.toggle('active', item.dataset.agent === agentName);
+            });
+            if (save !== false) saveState();
+        }
+
+        function toggleAgentMenu() {
+            if (!agentMenu) return;
+            var isOpen = agentMenu.classList.contains('open');
+            if (isOpen) {
+                agentMenu.classList.remove('open');
+                if (agentTrigger) agentTrigger.setAttribute('aria-expanded', 'false');
+            } else {
+                agentMenu.classList.add('open');
+                if (agentTrigger) agentTrigger.setAttribute('aria-expanded', 'true');
+            }
+        }
+
+        function closeAgentMenu() {
+            if (agentMenu) agentMenu.classList.remove('open');
+            if (agentTrigger) agentTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        if (agentTrigger) {
+            agentTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleAgentMenu();
+            });
+        }
+
+        agentItems.forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (!item.disabled) {
+                    selectAgent(item.dataset.agent);
+                    closeAgentMenu();
+                }
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function() {
+            closeAgentMenu();
+        });
 
         function getFileIcon(filename) {
             const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -731,8 +910,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const previousState = vscode.getState();
         if (previousState) {
             nameInput.value = previousState.name || '';
-            if (agentInput && previousState.agent) {
-                agentInput.value = previousState.agent;
+            if (previousState.agent) {
+                selectAgent(previousState.agent, false);
             }
             sourceBranchInput.value = previousState.sourceBranch || '';
             promptInput.value = previousState.prompt || '';
@@ -747,7 +926,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         function saveState() {
             vscode.setState({
                 name: nameInput.value,
-                agent: agentInput ? agentInput.value : '${this._escapeHtml(this._defaultAgent)}',
+                agent: selectedAgent,
                 sourceBranch: sourceBranchInput.value,
                 prompt: promptInput.value,
                 bypassPermissions: bypassPermissions,
@@ -758,9 +937,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         // Attach change listeners to all form inputs
         nameInput.addEventListener('input', saveState);
-        if (agentInput) {
-            agentInput.addEventListener('change', saveState);
-        }
         sourceBranchInput.addEventListener('input', saveState);
         promptInput.addEventListener('input', saveState);
         workflowInput.addEventListener('change', saveState);
@@ -769,7 +945,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             e.preventDefault();
 
             const name = nameInput.value.trim();
-            const agent = agentInput ? agentInput.value : '${this._escapeHtml(this._defaultAgent)}';
+            const agent = selectedAgent;
             const sourceBranch = sourceBranchInput.value.trim();
             const prompt = promptInput.value.trim();
             const permissionMode = bypassPermissions ? 'bypassPermissions' : 'acceptEdits';
@@ -852,9 +1028,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             switch (message.command) {
                 case 'clearForm':
                     nameInput.value = '';
-                    if (agentInput) {
-                        agentInput.value = '${this._escapeHtml(this._defaultAgent)}';
-                    }
+                    selectAgent('${this._escapeHtml(this._defaultAgent)}', false);
                     sourceBranchInput.value = '';
                     promptInput.value = '';
                     bypassPermissions = false;
@@ -906,7 +1080,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'updateAgentAvailability':
                     // Update agent availability dynamically
-                    if (message.availability && agentInput) {
+                    if (message.availability) {
                         const availabilityMap = new Map(message.availability);
                         let availableCount = 0;
                         for (const available of availabilityMap.values()) {
@@ -915,36 +1089,24 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             }
                         }
 
-                        const agentFormGroup = document.getElementById('agentFormGroup');
-                        if (availableCount <= 1) {
-                            // Hide dropdown if only one agent available
-                            if (agentFormGroup) {
-                                agentFormGroup.style.display = 'none';
-                            }
-                        } else {
-                            // Show dropdown and update disabled states
-                            if (agentFormGroup) {
-                                agentFormGroup.style.display = 'block';
-                            }
+                        if (agentDropdown) {
+                            agentDropdown.style.display = availableCount <= 1 ? 'none' : '';
+                        }
 
-                            // Update option states
-                            for (let i = 0; i < agentInput.options.length; i++) {
-                                const option = agentInput.options[i];
-                                const agentName = option.value;
-                                const available = availabilityMap.get(agentName) ?? false;
-                                option.disabled = !available;
+                        // Update menu item disabled states and labels
+                        agentItems.forEach(function(item) {
+                            const agentName = item.dataset.agent;
+                            const available = availabilityMap.get(agentName) ?? false;
+                            item.disabled = !available;
+                            const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
+                            const baseLabel = baseLabels[agentName] || agentName;
+                            const span = item.querySelector('span');
+                            if (span) span.textContent = available ? baseLabel : baseLabel + ' (not installed)';
+                        });
 
-                                // Update label to show/hide "(not installed)"
-                                const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
-                                const baseLabel = baseLabels[agentName] || agentName;
-                                option.textContent = available ? baseLabel : baseLabel + ' (not installed)';
-                            }
-
-                            // Update default selection if provided
-                            if (message.defaultAgent) {
-                                agentInput.value = message.defaultAgent;
-                                saveState();
-                            }
+                        // Update default selection if provided
+                        if (message.defaultAgent) {
+                            selectAgent(message.defaultAgent);
                         }
                     }
                     break;
