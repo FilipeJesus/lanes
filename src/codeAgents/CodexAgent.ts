@@ -1,11 +1,16 @@
 /**
- * CodexAgent - Stub implementation of CodeAgent for Codex CLI
+ * CodexAgent - Full implementation of CodeAgent for Codex CLI
  *
- * This is a Phase 2 infrastructure stub. Full implementation with command
- * building, session ID capture, and terminal tracking comes in Phase 3.
+ * Provides command building, session management, and terminal tracking for Codex CLI.
  *
- * All abstract methods are implemented with minimal valid returns to satisfy
- * the CodeAgent contract and enable factory instantiation.
+ * Key differences from Claude Code:
+ * - No hook system (getHookEvents returns empty array)
+ * - No MCP support
+ * - Uses TOML settings format (config.toml)
+ * - Blue terminal icon (vs Claude's green)
+ * - Simpler status states (active/idle only - no hooks for granular tracking)
+ * - Permission modes map to --sandbox and --ask-for-approval flags
+ * - No config file generation (settingsPath/mcpConfigPath ignored)
  */
 
 import {
@@ -19,17 +24,17 @@ import {
 } from './CodeAgent';
 
 /**
- * Codex CLI implementation of the CodeAgent interface (stub)
+ * Codex CLI implementation of the CodeAgent interface
  *
- * Provides minimal implementations for all abstract methods.
- * Key differences from Claude:
- * - No hook system (getHookEvents returns empty array)
- * - No MCP support
- * - Uses TOML settings format (config.toml)
- * - Blue terminal icon (vs Claude's green)
- * - Simpler status states (active/idle only - no hooks for granular tracking)
+ * Implements full command building with dual-flag permission system:
+ * - acceptEdits: --sandbox workspace-write --ask-for-approval on-failure
+ * - bypassPermissions: --sandbox danger-full-access --ask-for-approval never
  */
 export class CodexAgent extends CodeAgent {
+    /**
+     * UUID validation pattern for session IDs
+     */
+    private static readonly SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     /**
      * Create a new CodexAgent instance with Codex-specific configuration.
      *
@@ -66,10 +71,30 @@ export class CodexAgent extends CodeAgent {
         return this.config.defaultDataDir;
     }
 
+    // --- Private Helper Methods ---
+
+    /**
+     * Escape string for safe use inside single quotes in shell command
+     */
+    private escapeForSingleQuotes(str: string): string {
+        return str.replace(/'/g, "'\\''");
+    }
+
+    /**
+     * Validate that session ID is a valid UUID format
+     * @throws Error if session ID is not a valid UUID
+     */
+    private validateSessionId(sessionId: string): void {
+        if (!CodexAgent.SESSION_ID_PATTERN.test(sessionId)) {
+            throw new Error(`Invalid session ID format: ${sessionId}. Expected UUID format.`);
+        }
+    }
+
     // --- Local Settings ---
 
     getLocalSettingsFiles(): Array<{ dir: string; file: string }> {
-        return [{ dir: '.codex', file: 'config.toml' }];
+        // No local settings propagation for Codex in this phase (user decision)
+        return [];
     }
 
     // --- Terminal Configuration ---
@@ -85,14 +110,52 @@ export class CodexAgent extends CodeAgent {
         };
     }
 
-    // --- Command Building (stubs - Phase 3 implements full command building) ---
+    // --- Command Building ---
 
-    buildStartCommand(_options: StartCommandOptions): string {
-        return 'codex';
+    /**
+     * Build Codex CLI start command with permission mode and optional prompt
+     *
+     * Format: codex [--sandbox <mode> --ask-for-approval <mode>] ['<prompt>']
+     *
+     * Note: Does NOT add --settings or --mcp-config flags (Codex doesn't support them)
+     */
+    buildStartCommand(options: StartCommandOptions): string {
+        const parts: string[] = [this.config.cliCommand];
+
+        // Add permission flags if provided (combined dual-flag string)
+        if (options.permissionMode) {
+            const flag = this.getPermissionFlag(options.permissionMode);
+            if (flag) {
+                parts.push(flag);
+            }
+        }
+
+        // Add escaped prompt in single quotes if provided
+        if (options.prompt) {
+            const escapedPrompt = this.escapeForSingleQuotes(options.prompt);
+            parts.push(`'${escapedPrompt}'`);
+        }
+
+        return parts.join(' ');
     }
 
-    buildResumeCommand(_sessionId: string, _options: ResumeCommandOptions): string {
-        return 'codex resume --last';
+    /**
+     * Build Codex CLI resume command
+     *
+     * Format: codex resume <UUID>
+     *
+     * @throws Error if session ID is not a valid UUID
+     */
+    buildResumeCommand(sessionId: string, _options: ResumeCommandOptions): string {
+        // Validate UUID format (throws on invalid - strict, no fallback)
+        this.validateSessionId(sessionId);
+
+        const parts: string[] = [this.config.cliCommand, 'resume', sessionId];
+
+        // Note: options parameter accepted for interface compatibility,
+        // but Codex doesn't use settingsPath/mcpConfigPath
+
+        return parts.join(' ');
     }
 
     // --- Session/Status Parsing ---
@@ -106,7 +169,11 @@ export class CodexAgent extends CodeAgent {
                 return null;
             }
 
-            // No UUID validation - Codex IDs may not be UUIDs
+            // Validate UUID format - Codex uses UUID session IDs
+            if (!CodexAgent.SESSION_ID_PATTERN.test(data.sessionId)) {
+                return null;
+            }
+
             return {
                 sessionId: data.sessionId,
                 timestamp: data.timestamp,
@@ -143,13 +210,19 @@ export class CodexAgent extends CodeAgent {
         return ['active', 'idle'];
     }
 
-    // --- Permission Modes (stubs - Phase 3 maps to --sandbox and --ask-for-approval) ---
+    // --- Permission Modes ---
 
+    /**
+     * Get available permission modes for Codex CLI
+     *
+     * Returns exactly 2 modes using dual-flag system:
+     * - acceptEdits: Workspace write with approval on failure
+     * - bypassPermissions: Full access with no approval prompts
+     */
     getPermissionModes(): PermissionMode[] {
         return [
-            { id: 'read-only', label: 'Read Only' },
-            { id: 'workspace-write', label: 'Workspace Write' },
-            { id: 'full-access', label: 'Full Access' }
+            { id: 'acceptEdits', label: 'Accept Edits', flag: '--sandbox workspace-write --ask-for-approval on-failure' },
+            { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--sandbox danger-full-access --ask-for-approval never' }
         ];
     }
 
@@ -157,9 +230,13 @@ export class CodexAgent extends CodeAgent {
         return this.getPermissionModes().some(m => m.id === mode);
     }
 
-    getPermissionFlag(_mode: string): string {
-        // Stub - Phase 3 maps to --sandbox and --ask-for-approval flags
-        return '';
+    /**
+     * Get the combined permission flag string for a given mode
+     * @returns Combined --sandbox and --ask-for-approval flags, or empty string if mode not found
+     */
+    getPermissionFlag(mode: string): string {
+        const permissionMode = this.getPermissionModes().find(m => m.id === mode);
+        return permissionMode?.flag || '';
     }
 
     // --- Hooks (Codex has no hook system) ---
