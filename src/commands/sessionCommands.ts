@@ -21,7 +21,8 @@ import {
     clearSessionId,
     isGlobalStorageEnabled,
     getGlobalStoragePath,
-    getWorktreesFolder
+    getWorktreesFolder,
+    getSessionTerminalMode
 } from '../ClaudeSessionProvider';
 
 /**
@@ -165,8 +166,8 @@ export function registerSessionCommands(
                 terminal.dispose();
             }
 
-            // Kill tmux session if in tmux mode
-            if (TmuxService.isTmuxMode()) {
+            // Kill tmux session if this session used tmux
+            if ((await getSessionTerminalMode(item.worktreePath)) === 'tmux') {
                 const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(item.label);
                 await TmuxService.killSession(tmuxSessionName);
             }
@@ -392,8 +393,8 @@ export function registerSessionCommands(
 
                 existingTerminal.dispose();
 
-                // Kill tmux session if in tmux mode (will be recreated by openClaudeTerminal)
-                if (TmuxService.isTmuxMode()) {
+                // Kill tmux session if this session used tmux (will be recreated by openClaudeTerminal)
+                if ((await getSessionTerminalMode(item.worktreePath)) === 'tmux') {
                     const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(path.basename(item.worktreePath));
                     await TmuxService.killSession(tmuxSessionName);
                 }

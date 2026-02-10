@@ -25,6 +25,9 @@ import {
     getSessionWorkflow,
     getSessionPermissionMode,
     saveSessionPermissionMode,
+    saveSessionTerminalMode,
+    getSessionTerminalMode,
+    getClaudeSessionPath,
     getOrCreateTaskListId,
     getPromptsPath
 } from '../ClaudeSessionProvider';
@@ -121,7 +124,9 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
         // Create terminal with incremented name
         const terminalName = `${sessionName} [${nextNumber}]`;
 
-        if (TmuxService.isTmuxMode()) {
+        const useTmux = (await getSessionTerminalMode(item.worktreePath)) === 'tmux';
+
+        if (useTmux) {
             // Check if tmux is installed
             if (!await TmuxService.isTmuxInstalled()) {
                 vscode.window.showErrorMessage(
@@ -309,8 +314,9 @@ async function openClaudeTerminalTmux(
             // Validate permissionMode to prevent command injection from untrusted webview input
             const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
 
-            // Persist permission mode for future session clears/restarts
+            // Persist permission mode and terminal mode for future session clears/restarts
             await saveSessionPermissionMode(worktreePath, validatedMode);
+            await saveSessionTerminalMode(worktreePath, 'tmux');
 
             let combinedPrompt = prompt?.trim() || '';
 
@@ -454,8 +460,19 @@ export async function openClaudeTerminal(
         return;
     }
 
-    // Check if tmux mode is enabled
-    if (TmuxService.isTmuxMode()) {
+    // Determine terminal mode: persisted value wins, legacy sessions default to vscode,
+    // brand new sessions (no session file yet) use the global setting.
+    const savedTerminalMode = await getSessionTerminalMode(worktreePath);
+    let useTmux: boolean;
+    if (savedTerminalMode !== null) {
+        useTmux = savedTerminalMode === 'tmux';
+    } else {
+        const sessionPath = getClaudeSessionPath(worktreePath);
+        const sessionExists = await fileExists(sessionPath);
+        useTmux = !sessionExists && TmuxService.isTmuxMode();
+    }
+
+    if (useTmux) {
         await openClaudeTerminalTmux(
             taskName,
             worktreePath,
@@ -579,8 +596,9 @@ export async function openClaudeTerminal(
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
 
-        // Persist permission mode for future session clears/restarts
+        // Persist permission mode and terminal mode for future session clears/restarts
         await saveSessionPermissionMode(worktreePath, validatedMode);
+        await saveSessionTerminalMode(worktreePath, 'code');
 
         let combinedPrompt = prompt?.trim() || '';
 

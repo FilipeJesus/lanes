@@ -13,7 +13,7 @@ import * as fsPromises from 'fs/promises';
 import { fileExists } from './FileService';
 import type { PendingSessionConfig } from '../types/extension';
 import type { ClearSessionConfig } from '../types/extension';
-import { ClaudeSessionProvider } from '../ClaudeSessionProvider';
+import { ClaudeSessionProvider, getSessionTerminalMode } from '../ClaudeSessionProvider';
 import { CodeAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
 import { createSession as createSessionService } from './SessionService';
@@ -200,8 +200,8 @@ async function executeClearRequest(
     if (existingTerminal) {
         existingTerminal.dispose();
 
-        // Kill tmux session if in tmux mode
-        if (TmuxService.isTmuxMode()) {
+        // Kill tmux session if this session used tmux
+        if ((await getSessionTerminalMode(config.worktreePath)) === 'tmux') {
             const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
             await TmuxService.killSession(tmuxSessionName);
         }
