@@ -440,7 +440,7 @@ async function createSession(
                 try {
                     const config = vscode.workspace.getConfiguration('lanes');
                     const propagationMode = config.get<LocalSettingsPropagationMode>('localSettingsPropagation', 'copy');
-                    await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode);
+                    await propagateLocalSettings(workspaceRoot, worktreePath, propagationMode, codeAgent);
                 } catch (err) {
                     // Log but don't fail session creation
                     console.warn('Lanes: Failed to propagate local settings:', err);
