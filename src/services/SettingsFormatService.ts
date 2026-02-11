@@ -7,6 +7,7 @@
  *
  * - Claude uses JSON (claude-settings.json)
  * - Codex uses TOML (config.toml)
+ * - Gemini uses JSON (settings.json)
  *
  * TOML support is lazily imported to avoid loading the @iarna/toml library
  * when only JSON (Claude) sessions are in use.

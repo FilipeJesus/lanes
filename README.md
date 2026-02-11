@@ -8,7 +8,7 @@
 
 **Manage multiple, isolated AI coding sessions directly inside VS Code.**
 
-Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code and Codex CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
+Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, and Gemini CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
 
 ![Lanes in action](media/screenshot.png)
 
@@ -22,10 +22,10 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **Built-in Diff Viewer** - Review all changes before merging back
 - **One-Click Cleanup** - Delete the worktree when done, keep the branch for merging
 - **Workflow System** - Optional MCP-based workflows guide agents through structured phases (plan → implement → test → review)
-- **Multi-Agent Support** - Claude Code and Codex CLI with inline logo selector for easy switching
+- **Multi-Agent Support** - Claude Code, Codex CLI, Gemini CLI, and Cortex Code with inline logo selector for easy switching
 - **File Attachments** - Drag-and-drop files into the session form to include with your prompt
 - **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
-- **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` to worktrees
+- **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
 
 Visit [our website](https://lanes.pro) for more information.
 
@@ -52,6 +52,10 @@ sudo apt-get install jq  # Ubuntu/Debian
 
 # Optional: Install Codex CLI for OpenAI agent support
 npm install -g @openai/codex
+
+# Optional: Install Gemini CLI for Google agent support
+npm install -g @google/gemini-cli
+gemini
 ```
 
 ### Install
@@ -85,6 +89,15 @@ This compiles, packages, and installs the extension in one command.
 4. A terminal opens with Claude running in an isolated worktree
 
 Click any session to resume it. Click the trash icon to delete (branch is preserved for merging).
+
+---
+
+## Gemini CLI Notes
+
+- **Authentication**: Configure your Gemini API key (e.g., `GEMINI_API_KEY`) before launching Gemini CLI sessions.
+- **MCP workflows**: Lanes writes MCP server config into `.gemini/settings.json` when workflows are enabled.
+- **Resume behavior**: Lanes resumes Gemini sessions using `gemini --resume` without an explicit session ID, which picks the most recent session for that project. If you run multiple Gemini sessions in the same worktree, the latest one is resumed.
+- **Status tracking**: Gemini CLI hooks update `working`/`waiting_for_user`/`idle` status via `.gemini/settings.json`.
 
 ---
 

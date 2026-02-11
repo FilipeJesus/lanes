@@ -21,7 +21,8 @@ import {
     HookConfig,
     StartCommandOptions,
     ResumeCommandOptions,
-    McpConfig
+    McpConfig,
+    McpConfigDelivery
 } from './CodeAgent';
 import * as os from 'os';
 import * as path from 'path';
@@ -285,6 +286,10 @@ ${prompt}`;
 
     supportsMcp(): boolean {
         return true;
+    }
+
+    getMcpConfigDelivery(): McpConfigDelivery {
+        return 'cli-overrides';
     }
 
     getMcpConfig(worktreePath: string, workflowPath: string, repoRoot: string): McpConfig | null {

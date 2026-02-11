@@ -162,6 +162,15 @@ export interface McpConfig {
 }
 
 /**
+ * MCP configuration delivery mechanism for an agent.
+ *
+ * - "cli": pass a JSON config file via CLI flags (default)
+ * - "cli-overrides": pass MCP settings as CLI overrides (e.g., -c key=value)
+ * - "settings": write MCP config into the agent's settings file
+ */
+export type McpConfigDelivery = 'cli' | 'cli-overrides' | 'settings';
+
+/**
  * Abstract base class for code agents
  *
  * This class defines the contract that all code agent implementations must fulfill.
@@ -425,6 +434,14 @@ export abstract class CodeAgent {
      */
     supportsMcp(): boolean {
         return false;
+    }
+
+    /**
+     * Determine how MCP configuration should be delivered to the agent.
+     * Defaults to CLI config file delivery.
+     */
+    getMcpConfigDelivery(): McpConfigDelivery {
+        return 'cli';
     }
 
     /**

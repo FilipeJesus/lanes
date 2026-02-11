@@ -3,6 +3,7 @@ import { getAgent, getAvailableAgents } from '../../codeAgents/factory';
 import { ClaudeCodeAgent } from '../../codeAgents/ClaudeCodeAgent';
 import { CodexAgent } from '../../codeAgents/CodexAgent';
 import { CortexCodeAgent } from '../../codeAgents/CortexCodeAgent';
+import { GeminiAgent } from '../../codeAgents/GeminiAgent';
 
 suite('Agent Factory', () => {
     test('getAgent("claude") returns ClaudeCodeAgent instance', () => {
@@ -26,6 +27,13 @@ suite('Agent Factory', () => {
         assert.ok(agent instanceof CortexCodeAgent, 'Should be CortexCodeAgent instance');
     });
 
+    test('getAgent("gemini") returns GeminiAgent instance', () => {
+        const agent = getAgent('gemini');
+        assert.ok(agent, 'Agent should not be null');
+        assert.strictEqual(agent!.name, 'gemini', 'Agent name should be gemini');
+        assert.ok(agent instanceof GeminiAgent, 'Should be GeminiAgent instance');
+    });
+
     test('getAgent("unknown") returns null', () => {
         const agent = getAgent('unknown');
         assert.strictEqual(agent, null, 'Unknown agent should return null');
@@ -36,13 +44,14 @@ suite('Agent Factory', () => {
         assert.strictEqual(agent, null, 'Empty string should return null');
     });
 
-    test('getAvailableAgents() returns array containing claude, codex, and cortex', () => {
+    test('getAvailableAgents() returns array containing claude, codex, cortex, and gemini', () => {
         const agents = getAvailableAgents();
         assert.ok(Array.isArray(agents), 'Should return an array');
         assert.ok(agents.includes('claude'), 'Should include claude');
         assert.ok(agents.includes('codex'), 'Should include codex');
         assert.ok(agents.includes('cortex'), 'Should include cortex');
-        assert.strictEqual(agents.length, 3, 'Should have exactly 3 agents');
+        assert.ok(agents.includes('gemini'), 'Should include gemini');
+        assert.strictEqual(agents.length, 4, 'Should have exactly 4 agents');
     });
 
     test('getAgent returns same instance on repeated calls (singleton)', () => {
@@ -57,25 +66,34 @@ suite('Agent Factory', () => {
         const cortexAgent1 = getAgent('cortex');
         const cortexAgent2 = getAgent('cortex');
         assert.strictEqual(cortexAgent1, cortexAgent2, 'Cortex should also be singleton');
+
+        const geminiAgent1 = getAgent('gemini');
+        const geminiAgent2 = getAgent('gemini');
+        assert.strictEqual(geminiAgent1, geminiAgent2, 'Gemini should also be singleton');
     });
 
     test('getAgent returns consistent instances across different agent names', () => {
         const claudeAgent = getAgent('claude');
         const codexAgent = getAgent('codex');
         const cortexAgent = getAgent('cortex');
+        const geminiAgent = getAgent('gemini');
 
         assert.notStrictEqual(claudeAgent, codexAgent, 'Different agents should be different instances');
         assert.notStrictEqual(claudeAgent, cortexAgent, 'Claude and Cortex should be different instances');
         assert.notStrictEqual(codexAgent, cortexAgent, 'Codex and Cortex should be different instances');
+        assert.notStrictEqual(codexAgent, geminiAgent, 'Codex and Gemini should be different instances');
+        assert.notStrictEqual(cortexAgent, geminiAgent, 'Cortex and Gemini should be different instances');
         assert.ok(claudeAgent, 'Claude agent should exist');
         assert.ok(codexAgent, 'Codex agent should exist');
         assert.ok(cortexAgent, 'Cortex agent should exist');
+        assert.ok(geminiAgent, 'Gemini agent should exist');
     });
 
     test('getAgent returns correct agent types', () => {
         const claude = getAgent('claude');
         const codex = getAgent('codex');
         const cortex = getAgent('cortex');
+        const gemini = getAgent('gemini');
 
         assert.strictEqual(claude!.name, 'claude', 'Claude agent should have name "claude"');
         assert.strictEqual(claude!.displayName, 'Claude', 'Claude should have correct display name');
@@ -88,6 +106,10 @@ suite('Agent Factory', () => {
         assert.strictEqual(cortex!.name, 'cortex', 'Cortex agent should have name "cortex"');
         assert.strictEqual(cortex!.displayName, 'Cortex Code', 'Cortex should have correct display name');
         assert.strictEqual(cortex!.cliCommand, 'cortex', 'Cortex should have correct CLI command');
+
+        assert.strictEqual(gemini!.name, 'gemini', 'Gemini agent should have name "gemini"');
+        assert.strictEqual(gemini!.displayName, 'Gemini CLI', 'Gemini should have correct display name');
+        assert.strictEqual(gemini!.cliCommand, 'gemini', 'Gemini should have correct CLI command');
     });
 });
 
