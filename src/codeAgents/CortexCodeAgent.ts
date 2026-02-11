@@ -104,11 +104,9 @@ export class CortexCodeAgent extends CodeAgent {
     buildStartCommand(options: StartCommandOptions): string {
         const parts: string[] = [this.config.cliCommand];
 
-        // Note: Cortex Code does NOT support --mcp-config flag (no MCP support)
-
-        // Add settings file
+        // Add config file (Cortex uses --config, not --settings)
         if (options.settingsPath) {
-            parts.push(`--settings "${options.settingsPath}"`);
+            parts.push(`--config "${options.settingsPath}"`);
         }
 
         // Add permission mode flag
@@ -135,11 +133,9 @@ export class CortexCodeAgent extends CodeAgent {
 
         const parts: string[] = [this.config.cliCommand];
 
-        // Note: Cortex Code does NOT support --mcp-config flag (no MCP support)
-
-        // Add settings file
+        // Add config file (Cortex uses --config, not --settings)
         if (options.settingsPath) {
-            parts.push(`--settings "${options.settingsPath}"`);
+            parts.push(`--config "${options.settingsPath}"`);
         }
 
         // Add resume flag with session ID (already validated)
@@ -211,8 +207,8 @@ export class CortexCodeAgent extends CodeAgent {
 
     getPermissionModes(): PermissionMode[] {
         return [
-            { id: 'acceptEdits', label: 'Accept Edits', flag: '--bypass' },
-            { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--dangerously-allow-all-tool-calls' },
+            { id: 'acceptEdits', label: 'Accept Edits' },
+            { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--bypass' },
         ];
     }
 
