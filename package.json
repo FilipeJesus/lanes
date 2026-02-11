@@ -245,11 +245,13 @@
             "type": "string",
             "enum": [
               "claude",
-              "codex"
+              "codex",
+              "cortex"
             ],
             "enumDescriptions": [
               "Claude Code - AI coding assistant by Anthropic",
-              "Codex CLI - AI coding assistant by OpenAI (requires codex CLI)"
+              "Codex CLI - AI coding assistant by OpenAI (requires codex CLI)",
+              "Cortex Code - AI coding assistant by Snowflake (requires cortex CLI)"
             ],
             "default": "claude",
             "description": "Default code agent for new sessions",

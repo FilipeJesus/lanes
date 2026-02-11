@@ -25,6 +25,7 @@ export { CodeAgent } from './CodeAgent';
 // Export concrete implementations
 export { ClaudeCodeAgent } from './ClaudeCodeAgent';
 export { CodexAgent } from './CodexAgent';
+export { CortexCodeAgent } from './CortexCodeAgent';
 
 // Export factory functions
 export { getAgent, getAvailableAgents, getDefaultAgent, isCliAvailable, validateAndGetAgent } from './factory';

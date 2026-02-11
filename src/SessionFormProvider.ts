@@ -181,6 +181,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             label: 'Codex CLI',
             // OpenAI logo
             svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>'
+        },
+        {
+            name: 'cortex',
+            label: 'Cortex Code',
+            // Snowflake logo for Cortex Code
+            svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/><line x1="12" y1="2" x2="9" y2="5"/><line x1="12" y1="2" x2="15" y2="5"/><line x1="12" y1="22" x2="9" y2="19"/><line x1="12" y1="22" x2="15" y2="19"/><line x1="2" y1="12" x2="5" y2="9"/><line x1="2" y1="12" x2="5" y2="15"/><line x1="22" y1="12" x2="19" y2="9"/><line x1="22" y1="12" x2="19" y2="15"/><line x1="4.93" y1="4.93" x2="6.7" y2="8.1"/><line x1="4.93" y1="4.93" x2="8.1" y2="6.7"/><line x1="19.07" y1="19.07" x2="17.3" y2="15.9"/><line x1="19.07" y1="19.07" x2="15.9" y2="17.3"/><line x1="19.07" y1="4.93" x2="15.9" y2="6.7"/><line x1="19.07" y1="4.93" x2="17.3" y2="8.1"/><line x1="4.93" y1="19.07" x2="8.1" y2="17.3"/><line x1="4.93" y1="19.07" x2="6.7" y2="15.9"/></svg>'
         }
     ];
 
@@ -850,7 +856,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 agentTrigger.innerHTML = agentSvgs[agentName];
             }
             // Update trigger tooltip
-            var labels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
+            var labels = { 'claude': 'Claude Code', 'codex': 'Codex CLI', 'cortex': 'Cortex Code' };
             if (agentTrigger) agentTrigger.title = labels[agentName] || agentName;
             // Update active state in menu
             agentItems.forEach(function(item) {
@@ -1274,7 +1280,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             const agentName = item.dataset.agent;
                             const available = availabilityMap.get(agentName) ?? false;
                             item.disabled = !available;
-                            const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI' };
+                            const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI', 'cortex': 'Cortex Code' };
                             const baseLabel = baseLabels[agentName] || agentName;
                             const span = item.querySelector('span');
                             if (span) span.textContent = available ? baseLabel : baseLabel + ' (not installed)';

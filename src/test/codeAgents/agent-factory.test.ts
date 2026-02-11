@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { getAgent, getAvailableAgents } from '../../codeAgents/factory';
 import { ClaudeCodeAgent } from '../../codeAgents/ClaudeCodeAgent';
 import { CodexAgent } from '../../codeAgents/CodexAgent';
+import { CortexCodeAgent } from '../../codeAgents/CortexCodeAgent';
 
 suite('Agent Factory', () => {
     test('getAgent("claude") returns ClaudeCodeAgent instance', () => {
@@ -18,6 +19,13 @@ suite('Agent Factory', () => {
         assert.ok(agent instanceof CodexAgent, 'Should be CodexAgent instance');
     });
 
+    test('getAgent("cortex") returns CortexCodeAgent instance', () => {
+        const agent = getAgent('cortex');
+        assert.ok(agent, 'Agent should not be null');
+        assert.strictEqual(agent!.name, 'cortex', 'Agent name should be cortex');
+        assert.ok(agent instanceof CortexCodeAgent, 'Should be CortexCodeAgent instance');
+    });
+
     test('getAgent("unknown") returns null', () => {
         const agent = getAgent('unknown');
         assert.strictEqual(agent, null, 'Unknown agent should return null');
@@ -28,12 +36,13 @@ suite('Agent Factory', () => {
         assert.strictEqual(agent, null, 'Empty string should return null');
     });
 
-    test('getAvailableAgents() returns array containing claude and codex', () => {
+    test('getAvailableAgents() returns array containing claude, codex, and cortex', () => {
         const agents = getAvailableAgents();
         assert.ok(Array.isArray(agents), 'Should return an array');
         assert.ok(agents.includes('claude'), 'Should include claude');
         assert.ok(agents.includes('codex'), 'Should include codex');
-        assert.strictEqual(agents.length, 2, 'Should have exactly 2 agents');
+        assert.ok(agents.includes('cortex'), 'Should include cortex');
+        assert.strictEqual(agents.length, 3, 'Should have exactly 3 agents');
     });
 
     test('getAgent returns same instance on repeated calls (singleton)', () => {
@@ -44,20 +53,29 @@ suite('Agent Factory', () => {
         const codexAgent1 = getAgent('codex');
         const codexAgent2 = getAgent('codex');
         assert.strictEqual(codexAgent1, codexAgent2, 'Codex should also be singleton');
+
+        const cortexAgent1 = getAgent('cortex');
+        const cortexAgent2 = getAgent('cortex');
+        assert.strictEqual(cortexAgent1, cortexAgent2, 'Cortex should also be singleton');
     });
 
     test('getAgent returns consistent instances across different agent names', () => {
         const claudeAgent = getAgent('claude');
         const codexAgent = getAgent('codex');
+        const cortexAgent = getAgent('cortex');
 
         assert.notStrictEqual(claudeAgent, codexAgent, 'Different agents should be different instances');
+        assert.notStrictEqual(claudeAgent, cortexAgent, 'Claude and Cortex should be different instances');
+        assert.notStrictEqual(codexAgent, cortexAgent, 'Codex and Cortex should be different instances');
         assert.ok(claudeAgent, 'Claude agent should exist');
         assert.ok(codexAgent, 'Codex agent should exist');
+        assert.ok(cortexAgent, 'Cortex agent should exist');
     });
 
     test('getAgent returns correct agent types', () => {
         const claude = getAgent('claude');
         const codex = getAgent('codex');
+        const cortex = getAgent('cortex');
 
         assert.strictEqual(claude!.name, 'claude', 'Claude agent should have name "claude"');
         assert.strictEqual(claude!.displayName, 'Claude', 'Claude should have correct display name');
@@ -66,6 +84,10 @@ suite('Agent Factory', () => {
         assert.strictEqual(codex!.name, 'codex', 'Codex agent should have name "codex"');
         assert.strictEqual(codex!.displayName, 'Codex', 'Codex should have correct display name');
         assert.strictEqual(codex!.cliCommand, 'codex', 'Codex should have correct CLI command');
+
+        assert.strictEqual(cortex!.name, 'cortex', 'Cortex agent should have name "cortex"');
+        assert.strictEqual(cortex!.displayName, 'Cortex Code', 'Cortex should have correct display name');
+        assert.strictEqual(cortex!.cliCommand, 'cortex', 'Cortex should have correct CLI command');
     });
 });
 
