@@ -155,6 +155,11 @@
         "command": "lanes.openWorkflowState",
         "title": "Open Workflow State",
         "icon": "$(eye)"
+      },
+      {
+        "command": "lanes.generateInsights",
+        "title": "Generate Insights",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
@@ -214,6 +219,11 @@
           "command": "lanes.searchInWorktree",
           "when": "view == lanesSessionsView && viewItem == sessionItem",
           "group": "inline@3"
+        },
+        {
+          "command": "lanes.generateInsights",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "group": "insights"
         }
       ]
     },

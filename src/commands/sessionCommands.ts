@@ -15,6 +15,7 @@ import { GitChangesPanel } from '../GitChangesPanel';
 import { validateBranchName, getErrorMessage } from '../utils';
 import { LanesError, GitError, ValidationError } from '../errors';
 import { fileExists, ensureDir } from '../services/FileService';
+import { generateInsights, formatInsightsReport } from '../services/InsightsService';
 import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
@@ -532,6 +533,38 @@ export function registerSessionCommands(
         }
     });
 
+    // Command: Generate insights for a session
+    const generateInsightsDisposable = vscode.commands.registerCommand('lanes.generateInsights', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please right-click on a session to generate insights.');
+            return;
+        }
+
+        const agentName = await getSessionAgentName(item.worktreePath);
+        if (agentName !== 'claude') {
+            vscode.window.showInformationMessage('Insights are only available for Claude sessions.');
+            return;
+        }
+
+        try {
+            const insights = await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
+                () => generateInsights(item.worktreePath)
+            );
+
+            if (insights.sessionCount === 0) {
+                vscode.window.showInformationMessage(`No conversation data found for session '${item.label}'.`);
+                return;
+            }
+
+            const report = formatInsightsReport(item.label, insights);
+            const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
+            await vscode.window.showTextDocument(document, { preview: false });
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to generate insights: ${getErrorMessage(err)}`);
+        }
+    });
+
     // Register all disposables
     const disposables = [
         createDisposable,
@@ -548,7 +581,8 @@ export function registerSessionCommands(
         searchInWorktreeDisposable,
         openWorkflowStateDisposable,
         playChimeDisposable,
-        testChimeDisposable
+        testChimeDisposable,
+        generateInsightsDisposable
     ];
 
     disposables.forEach(d => context.subscriptions.push(d));
