@@ -447,19 +447,22 @@ async function createSession(
                     console.warn('Lanes: Failed to propagate local settings:', err);
                 }
 
-                // 5.6. Write initial session file for hookless agents
-                // Agents without hooks (e.g., Codex) don't write session files via CLI hooks,
-                // so Lanes must create the session file directly with the agentName field.
-                // Include terminal mode so openAgentTerminal can read it (otherwise the
-                // existence of the session file causes it to default to 'code' mode).
-                if (codeAgent && !codeAgent.supportsHooks()) {
+                // 5.6. Seed the session file with agentName for all agents
+                // This ensures the agent type is persisted so sessions reopen with the
+                // correct agent. Hook-based agents (Claude, Cortex) merge on top of this
+                // via their SessionStart hook ($old + {sessionId, timestamp}).
+                // Hookless agents (Codex) also need terminal mode written here.
+                if (codeAgent) {
                     const sessionFilePath = getSessionFilePath(worktreePath);
                     await ensureDir(path.dirname(sessionFilePath));
-                    await writeJson(sessionFilePath, {
+                    const sessionSeed: Record<string, string> = {
                         agentName: codeAgent.name,
-                        terminal: TmuxService.isTmuxMode() ? 'tmux' : 'code',
                         timestamp: new Date().toISOString()
-                    });
+                    };
+                    if (!codeAgent.supportsHooks()) {
+                        sessionSeed.terminal = TmuxService.isTmuxMode() ? 'tmux' : 'code';
+                    }
+                    await writeJson(sessionFilePath, sessionSeed);
                 }
 
                 // 6. Success

@@ -387,6 +387,36 @@ export abstract class CodeAgent {
      */
     abstract getLocalSettingsFiles(): Array<{ dir: string; file: string }>;
 
+    // --- Prompt Passing ---
+
+    /**
+     * Whether the agent accepts an initial prompt as a positional CLI argument.
+     * When false, the prompt is sent as terminal stdin after the agent starts.
+     * Default: true (most CLI agents accept `cli 'prompt'` syntax)
+     */
+    supportsPositionalPrompt(): boolean {
+        return true;
+    }
+
+    // --- Settings Delivery ---
+
+    /**
+     * Get the project-relative settings path for agents that load settings
+     * from well-known filesystem paths rather than via CLI flags.
+     *
+     * Agents like Claude use a CLI flag (--settings) to load an arbitrary settings file.
+     * Others (like Cortex Code) auto-load settings from known paths relative to the
+     * working directory (e.g., .cortex/settings.local.json).
+     *
+     * Return null to use the default behavior (global storage + CLI flag).
+     *
+     * @param worktreePath Absolute path to the worktree
+     * @returns Absolute path where settings should be written, or null for CLI flag mode
+     */
+    getProjectSettingsPath(_worktreePath: string): string | null {
+        return null;
+    }
+
     // --- MCP Support (Optional) ---
 
     /**

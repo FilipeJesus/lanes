@@ -361,6 +361,12 @@ async function openClaudeTerminalTmux(
             // Continue without the settings - hooks/MCP won't work but Claude will still run
         }
 
+        // For agents that load settings from well-known project paths (e.g., Cortex Code),
+        // don't pass the settings path via CLI flag - the agent loads it automatically.
+        if (codeAgent?.getProjectSettingsPath(worktreePath)) {
+            settingsPath = undefined;
+        }
+
         // Auto-start Claude - resume if session ID exists, otherwise start fresh
         const sessionData = await getSessionId(worktreePath);
         let shouldStartFresh = true;
@@ -450,14 +456,22 @@ Proceed by calling workflow_status now.`;
                     mcpConfigOverrides
                 });
 
-                if (promptFileCommand) {
-                    await TmuxService.sendCommand(tmuxSessionName, `${startCommand} ${promptFileCommand}`);
-                } else if (combinedPrompt) {
-                    // Fallback: prompt exists but file creation failed - pass escaped prompt
-                    const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-                    await TmuxService.sendCommand(tmuxSessionName, `${startCommand} '${escapedPrompt}'`);
+                if (codeAgent.supportsPositionalPrompt()) {
+                    if (promptFileCommand) {
+                        await TmuxService.sendCommand(tmuxSessionName, `${startCommand} ${promptFileCommand}`);
+                    } else if (combinedPrompt) {
+                        const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                        await TmuxService.sendCommand(tmuxSessionName, `${startCommand} '${escapedPrompt}'`);
+                    } else {
+                        await TmuxService.sendCommand(tmuxSessionName, startCommand);
+                    }
                 } else {
+                    // Agent doesn't support positional prompts (e.g., Cortex Code)
+                    // Start the agent first, then send the prompt as stdin
                     await TmuxService.sendCommand(tmuxSessionName, startCommand);
+                    if (combinedPrompt) {
+                        await TmuxService.sendCommand(tmuxSessionName, combinedPrompt);
+                    }
                 }
             } else {
                 // Fallback to hardcoded command construction
@@ -655,6 +669,12 @@ export async function openAgentTerminal(
         // Continue without the settings - hooks/MCP won't work but Claude will still run
     }
 
+    // For agents that load settings from well-known project paths (e.g., Cortex Code),
+    // don't pass the settings path via CLI flag - the agent loads it automatically.
+    if (codeAgent?.getProjectSettingsPath(worktreePath)) {
+        settingsPath = undefined;
+    }
+
     // D. Auto-start Claude - resume if session ID exists, otherwise start fresh
     const sessionData = await getSessionId(worktreePath);
     let shouldStartFresh = true;
@@ -753,14 +773,22 @@ Proceed by calling workflow_status now.`;
                 // Don't pass prompt here - we handle it via file
             });
 
-            if (promptFileCommand) {
-                terminal.sendText(`${startCommand} ${promptFileCommand}`);
-            } else if (combinedPrompt) {
-                // Fallback: prompt exists but file creation failed - pass escaped prompt
-                const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-                terminal.sendText(`${startCommand} '${escapedPrompt}'`);
+            if (codeAgent.supportsPositionalPrompt()) {
+                if (promptFileCommand) {
+                    terminal.sendText(`${startCommand} ${promptFileCommand}`);
+                } else if (combinedPrompt) {
+                    const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
+                    terminal.sendText(`${startCommand} '${escapedPrompt}'`);
+                } else {
+                    terminal.sendText(startCommand);
+                }
             } else {
+                // Agent doesn't support positional prompts (e.g., Cortex Code)
+                // Start the agent first, then send the prompt as stdin
                 terminal.sendText(startCommand);
+                if (combinedPrompt) {
+                    terminal.sendText(combinedPrompt);
+                }
             }
         } else {
             // Fallback to hardcoded command construction
