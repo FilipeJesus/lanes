@@ -438,4 +438,20 @@ export abstract class CodeAgent {
     getMcpConfig(_worktreePath: string, _workflowPath: string, _repoRoot: string): McpConfig | null {
         return null;
     }
+
+    // --- Prompt Improvement (Non-interactive) ---
+
+    /**
+     * Build a command to improve/structure a prompt using the agent in non-interactive mode.
+     * The command should output the improved prompt to stdout.
+     *
+     * Returns null by default. Subclasses should override this if their CLI
+     * supports a non-interactive print mode (e.g. `--print`).
+     *
+     * @param _prompt The original prompt text to improve
+     * @returns Object with command and args array for execFile, or null if unsupported
+     */
+    buildPromptImproveCommand(_prompt: string): { command: string; args: string[] } | null {
+        return null;
+    }
 }
