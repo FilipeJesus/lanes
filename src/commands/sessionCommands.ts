@@ -390,7 +390,9 @@ export function registerSessionCommands(
 
         try {
             const sessionName = path.basename(item.worktreePath);
-            const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
+            const clearAgentName = await getSessionAgentName(item.worktreePath);
+            const clearAgent = getAgent(clearAgentName) || codeAgent;
+            const termName = clearAgent ? clearAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
             // Check if the terminal lives in this window
             const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
@@ -409,8 +411,6 @@ export function registerSessionCommands(
 
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
-                const clearAgentName = await getSessionAgentName(item.worktreePath);
-                const clearAgent = getAgent(clearAgentName) || codeAgent;
                 await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, clearAgent, baseRepoPath, true);
 
                 vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);

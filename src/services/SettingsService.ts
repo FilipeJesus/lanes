@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
-import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import { CodeAgent, McpConfig } from '../codeAgents';
 import { getSettingsFormat } from './SettingsFormatService';
 import {
     getSessionId,
@@ -173,7 +173,12 @@ interface HookEntry {
  * @param codeAgent Optional CodeAgent instance for agent-specific configuration
  * @returns The absolute path to the settings file
  */
-export async function getOrCreateExtensionSettingsFile(worktreePath: string, workflow?: string | null, codeAgent?: CodeAgent): Promise<string> {
+export async function getOrCreateExtensionSettingsFile(
+    worktreePath: string,
+    workflow?: string | null,
+    codeAgent?: CodeAgent,
+    mcpConfig?: McpConfig | null
+): Promise<string> {
     // Get the session name from the worktree path
     const sessionName = getSessionNameFromWorktree(worktreePath);
 
@@ -331,10 +336,13 @@ exit 0
         };
     }
 
-    // Build the settings object - only include hooks when defined
+    // Build the settings object - include hooks/mcp only when defined
     const settings: ClaudeSettings = {};
-    if (hooks) {
+    if (hooks !== undefined) {
         settings.hooks = hooks;
+    }
+    if (mcpConfig?.mcpServers) {
+        settings.mcpServers = mcpConfig.mcpServers;
     }
 
     // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
@@ -364,11 +372,26 @@ exit 0
         try {
             const existingContent = await fsPromises.readFile(settingsFilePath, 'utf-8');
             const existingSettings = JSON.parse(existingContent) as Record<string, unknown>;
-            // Preserve all existing keys, only replace hooks
+            // Start from existing settings, then overlay hooks/mcp as needed
             for (const key of Object.keys(existingSettings)) {
-                if (key !== 'hooks') {
-                    (settings as Record<string, unknown>)[key] = existingSettings[key];
-                }
+                (settings as Record<string, unknown>)[key] = existingSettings[key];
+            }
+
+            // If hooks were explicitly computed, override existing hooks
+            if (hooks !== undefined) {
+                (settings as Record<string, unknown>).hooks = hooks;
+            }
+
+            // Merge MCP servers (preserve existing, add/override ours)
+            if (mcpConfig?.mcpServers) {
+                const existingMcp = (existingSettings as Record<string, unknown>).mcpServers;
+                const existingMcpServers = (existingMcp && typeof existingMcp === 'object')
+                    ? existingMcp as Record<string, unknown>
+                    : {};
+                (settings as Record<string, unknown>).mcpServers = {
+                    ...existingMcpServers,
+                    ...mcpConfig.mcpServers
+                };
             }
         } catch {
             // File doesn't exist or isn't valid JSON - write fresh

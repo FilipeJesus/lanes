@@ -16,7 +16,7 @@ import * as fsPromises from 'fs/promises';
 import { fileExists, ensureDir, writeJson, readJson } from './FileService';
 import { SessionItem, getStatusFilePath, getSessionFilePath } from '../AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
-import { ClaudeCodeAgent, CodeAgent } from '../codeAgents';
+import { CodeAgent, McpConfig, McpConfigDelivery } from '../codeAgents';
 import * as SettingsService from './SettingsService';
 import * as TmuxService from './TmuxService';
 import { getErrorMessage } from '../utils';
@@ -38,8 +38,8 @@ const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed befor
 // Maps terminal instances to their worktree paths for status file management
 const hooklessTerminals = new Map<vscode.Terminal, string>();
 
-function isCodexAgent(codeAgent?: CodeAgent): boolean {
-    return codeAgent?.name === 'codex';
+function getMcpConfigDelivery(codeAgent?: CodeAgent): McpConfigDelivery {
+    return codeAgent?.getMcpConfigDelivery() ?? 'cli';
 }
 
 function buildCodexMcpOverrides(mcpConfig: { mcpServers: Record<string, { command: string; args: string[] }> }): string[] {
@@ -322,7 +322,23 @@ async function openClaudeTerminalTmux(
         }
 
         try {
-            settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
+            let mcpConfigForSettings = undefined;
+            let mcpConfigDelivery: McpConfigDelivery | undefined;
+            let mcpConfig: McpConfig | null = null;
+
+            // If workflow is active (provided or restored), compute MCP config early
+            if (effectiveWorkflow) {
+                const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
+                if (codeAgent && codeAgent.supportsMcp()) {
+                    mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                    mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
+                    if (mcpConfig && mcpConfigDelivery === 'settings') {
+                        mcpConfigForSettings = mcpConfig;
+                    }
+                }
+            }
+
+            settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent, mcpConfigForSettings);
 
             // If workflow is active (provided or restored), add MCP config flag separately
             if (effectiveWorkflow) {
@@ -331,11 +347,13 @@ async function openClaudeTerminalTmux(
 
                 // Use CodeAgent to get MCP config if available and supported
                 if (codeAgent && codeAgent.supportsMcp()) {
-                    const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                    if (!mcpConfig) {
+                        mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                    }
                     if (mcpConfig) {
-                        if (isCodexAgent(codeAgent)) {
+                        if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
                             mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
-                        } else {
+                        } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
                             // Write MCP config to a file
                             mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
                             await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
@@ -344,7 +362,7 @@ async function openClaudeTerminalTmux(
                 } else {
                     // Fallback to hardcoded Claude-specific MCP config
                     const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-                    const mcpConfig = {
+                    const mcpConfigFallback = {
                         mcpServers: {
                             'lanes-workflow': {
                                 command: 'node',
@@ -353,7 +371,7 @@ async function openClaudeTerminalTmux(
                         }
                     };
                     mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfigFallback, null, 2), 'utf-8');
                 }
             }
         } catch (err) {
@@ -367,7 +385,7 @@ async function openClaudeTerminalTmux(
             settingsPath = undefined;
         }
 
-        // Auto-start Claude - resume if session ID exists, otherwise start fresh
+        // Auto-start agent - resume if session ID exists, otherwise start fresh
         const sessionData = await getSessionId(worktreePath);
         let shouldStartFresh = true;
 
@@ -627,7 +645,22 @@ export async function openAgentTerminal(
     }
 
     try {
-        settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent);
+        let mcpConfigForSettings = undefined;
+        let mcpConfigDelivery: McpConfigDelivery | undefined;
+        let mcpConfig: McpConfig | null = null;
+
+        if (effectiveWorkflow) {
+            const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
+            if (codeAgent && codeAgent.supportsMcp()) {
+                mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
+                if (mcpConfig && mcpConfigDelivery === 'settings') {
+                    mcpConfigForSettings = mcpConfig;
+                }
+            }
+        }
+
+        settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent, mcpConfigForSettings);
 
         // If workflow is active (provided or restored), add MCP config flag separately
         // (--settings only loads hooks, not mcpServers)
@@ -638,11 +671,13 @@ export async function openAgentTerminal(
 
             // Use CodeAgent to get MCP config if available and supported
             if (codeAgent && codeAgent.supportsMcp()) {
-                const mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                if (!mcpConfig) {
+                    mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                }
                 if (mcpConfig) {
-                    if (isCodexAgent(codeAgent)) {
+                    if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
                         mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
-                    } else {
+                    } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
                         // Write MCP config to a file (inline JSON escaping is problematic)
                         mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
                         await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
@@ -652,7 +687,7 @@ export async function openAgentTerminal(
                 // Fallback to hardcoded Claude-specific MCP config
                 const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
                 // MCP config file must have mcpServers as root key (same format as .mcp.json)
-                const mcpConfig = {
+                const mcpConfigFallback = {
                     mcpServers: {
                         'lanes-workflow': {
                             command: 'node',
@@ -661,7 +696,7 @@ export async function openAgentTerminal(
                     }
                 };
                 mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfigFallback, null, 2), 'utf-8');
             }
         }
     } catch (err) {
@@ -675,7 +710,7 @@ export async function openAgentTerminal(
         settingsPath = undefined;
     }
 
-    // D. Auto-start Claude - resume if session ID exists, otherwise start fresh
+    // D. Auto-start agent - resume if session ID exists, otherwise start fresh
     const sessionData = await getSessionId(worktreePath);
     let shouldStartFresh = true;
 
@@ -830,8 +865,7 @@ async function captureHooklessSessionId(
     beforeTimestamp: Date
 ): Promise<void> {
     try {
-        // Currently only CodexAgent supports session capture via filesystem
-        // Other hookless agents would need their own capture mechanism
+        // Codex: capture session ID via filesystem polling
         const { CodexAgent } = await import('../codeAgents/CodexAgent.js');
         if (!(codeAgent instanceof CodexAgent)) {
             return; // No capture mechanism for this hookless agent

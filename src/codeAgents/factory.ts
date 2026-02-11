@@ -17,6 +17,7 @@ import { CodeAgent } from './CodeAgent';
 import { ClaudeCodeAgent } from './ClaudeCodeAgent';
 import { CodexAgent } from './CodexAgent';
 import { CortexCodeAgent } from './CortexCodeAgent';
+import { GeminiAgent } from './GeminiAgent';
 
 /**
  * Singleton instance cache - one CodeAgent instance per agent type.
@@ -31,7 +32,8 @@ const instances = new Map<string, CodeAgent>();
 const agentConstructors: Record<string, () => CodeAgent> = {
     'claude': () => new ClaudeCodeAgent(),
     'codex': () => new CodexAgent(),
-    'cortex': () => new CortexCodeAgent()
+    'cortex': () => new CortexCodeAgent(),
+    'gemini': () => new GeminiAgent()
 };
 
 /**
@@ -40,7 +42,7 @@ const agentConstructors: Record<string, () => CodeAgent> = {
  * Returns the same instance for repeated calls with the same name.
  * Returns null if the agent name is not in the factory map.
  *
- * @param agentName Agent identifier ('claude', 'codex', or 'cortex')
+ * @param agentName Agent identifier ('claude', 'codex', 'cortex', or 'gemini')
  * @returns CodeAgent instance, or null if agent name is not recognized
  */
 export function getAgent(agentName: string): CodeAgent | null {
@@ -64,7 +66,7 @@ export function getAgent(agentName: string): CodeAgent | null {
 /**
  * Get list of all available agent names.
  *
- * @returns Array of agent name strings (e.g., ['claude', 'codex', 'cortex'])
+ * @returns Array of agent name strings (e.g., ['claude', 'codex', 'cortex', 'gemini'])
  */
 export function getAvailableAgents(): string[] {
     return Object.keys(agentConstructors);

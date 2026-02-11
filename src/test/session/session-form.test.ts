@@ -162,7 +162,7 @@ suite('Session Form', () => {
 
 			// Assert: Hint text exists
 			assert.ok(
-				html.includes('Select a workflow to guide Claude through structured phases'),
+				html.includes('Select a workflow to guide the agent through structured phases'),
 				'Form should have hint text explaining workflow purpose'
 			);
 		});
