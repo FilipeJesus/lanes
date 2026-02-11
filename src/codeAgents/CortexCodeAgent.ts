@@ -6,6 +6,7 @@
  * and slight configuration differences.
  */
 
+import * as path from 'path';
 import {
     CodeAgent,
     SessionData,
@@ -25,7 +26,7 @@ import {
  * - Permission mode handling (acceptEdits, bypassPermissions)
  * - Hook configuration for session tracking and status updates
  * - Same hook events and structure as Claude (since Cortex is a fork)
- * - No MCP support (per user requirements)
+ * - No MCP support (Cortex Code does not support non-global MCP servers)
  */
 export class CortexCodeAgent extends CodeAgent {
     /**
@@ -84,14 +85,6 @@ export class CortexCodeAgent extends CodeAgent {
     // --- Command Building ---
 
     /**
-     * Escape a string for safe use in shell single quotes
-     * Replaces single quotes with the shell escape sequence '\''
-     */
-    private escapeForSingleQuotes(str: string): string {
-        return str.replace(/'/g, "'\\''");
-    }
-
-    /**
      * Validate that a session ID is in valid UUID format
      * @throws Error if session ID is not a valid UUID
      */
@@ -104,10 +97,8 @@ export class CortexCodeAgent extends CodeAgent {
     buildStartCommand(options: StartCommandOptions): string {
         const parts: string[] = [this.config.cliCommand];
 
-        // Add config file (Cortex uses --config, not --settings)
-        if (options.settingsPath) {
-            parts.push(`--config "${options.settingsPath}"`);
-        }
+        // Cortex loads settings from well-known project paths (.cortex/settings.local.json),
+        // not via a CLI flag. Settings path is not passed on the command line.
 
         // Add permission mode flag
         if (options.permissionMode) {
@@ -117,26 +108,20 @@ export class CortexCodeAgent extends CodeAgent {
             }
         }
 
-        // Add prompt last (if provided)
-        // Use single quotes with proper escaping to prevent shell injection
-        if (options.prompt) {
-            const escapedPrompt = this.escapeForSingleQuotes(options.prompt);
-            parts.push(`'${escapedPrompt}'`);
-        }
+        // Cortex CLI does not support positional prompt arguments.
+        // Prompts are delivered via terminal stdin (see supportsPositionalPrompt).
 
         return parts.join(' ');
     }
 
-    buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
+    buildResumeCommand(sessionId: string, _options: ResumeCommandOptions): string {
         // Validate session ID to prevent command injection
         this.validateSessionId(sessionId);
 
         const parts: string[] = [this.config.cliCommand];
 
-        // Add config file (Cortex uses --config, not --settings)
-        if (options.settingsPath) {
-            parts.push(`--config "${options.settingsPath}"`);
-        }
+        // Cortex loads settings from well-known project paths (.cortex/settings.local.json),
+        // not via a CLI flag.
 
         // Add resume flag with session ID (already validated)
         parts.push(`--resume ${sessionId}`);
@@ -268,7 +253,7 @@ export class CortexCodeAgent extends CodeAgent {
         const hooks: HookConfig[] = [
             {
                 event: 'SessionStart',
-                matcher: 'startup|resume|clear|compact',
+                // Cortex Code does not support matchers on non-tool hook events
                 commands: sessionStartCommands
             },
             {
@@ -281,7 +266,7 @@ export class CortexCodeAgent extends CodeAgent {
             },
             {
                 event: 'Notification',
-                matcher: 'permission_prompt',
+                // Cortex Code does not support matchers on non-tool hook events
                 commands: [statusWriteWaiting]
             },
             {
@@ -304,6 +289,20 @@ export class CortexCodeAgent extends CodeAgent {
         }
 
         return hooks;
+    }
+
+    // --- Prompt Passing ---
+
+    supportsPositionalPrompt(): boolean {
+        return false;
+    }
+
+    // --- Settings Delivery ---
+
+    getProjectSettingsPath(worktreePath: string): string {
+        // Cortex Code auto-loads settings from well-known project paths.
+        // .cortex/settings.local.json has highest project-level priority.
+        return path.join(worktreePath, '.cortex', 'settings.local.json');
     }
 
     // --- MCP Support ---

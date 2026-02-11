@@ -201,18 +201,35 @@ export async function getOrCreateExtensionSettingsFile(worktreePath: string, wor
     }
 
     const repoIdentifier = getRepoIdentifier(baseRepoPath);
-    const settingsDir = path.join(globalStorageUriObj.fsPath, repoIdentifier, sessionName);
-    // Use CodeAgent for settings file naming if available, otherwise fallback to hardcoded
-    const settingsFileName = codeAgent ? codeAgent.getSettingsFileName() : 'claude-settings.json';
-    const settingsFilePath = path.join(settingsDir, settingsFileName);
+    const globalSettingsDir = path.join(globalStorageUriObj.fsPath, repoIdentifier, sessionName);
 
-    // Ensure the directory exists
+    // Determine settings file location:
+    // Agents that load settings from well-known project paths (e.g., Cortex Code)
+    // need the file written to their project settings directory.
+    // Others use global storage and pass the path via CLI flag.
+    const projectSettingsPath = codeAgent?.getProjectSettingsPath(worktreePath);
+    let settingsDir: string;
+    let settingsFilePath: string;
+    if (projectSettingsPath) {
+        settingsFilePath = projectSettingsPath;
+        settingsDir = path.dirname(settingsFilePath);
+    } else {
+        settingsDir = globalSettingsDir;
+        const settingsFileName = codeAgent ? codeAgent.getSettingsFileName() : 'claude-settings.json';
+        settingsFilePath = path.join(settingsDir, settingsFileName);
+    }
+
+    // Ensure directories exist
     await fsPromises.mkdir(settingsDir, { recursive: true });
+    if (settingsDir !== globalSettingsDir) {
+        await fsPromises.mkdir(globalSettingsDir, { recursive: true });
+    }
 
     // Generate the artefact registration hook script only for agents that support hooks
+    // Hook script always goes to global storage (referenced by absolute path in hooks)
     let hookScriptPath: string | undefined;
     if (!codeAgent || codeAgent.supportsHooks()) {
-        hookScriptPath = path.join(settingsDir, 'register-artefact.sh');
+        hookScriptPath = path.join(globalSettingsDir, 'register-artefact.sh');
         const hookScriptContent = `#!/bin/bash
 
 # Read hook input from stdin
@@ -341,9 +358,26 @@ exit 0
         // instead of being included in the settings file
     }
 
+    // For project settings paths, merge our hooks into any existing user settings
+    // to avoid overwriting user configuration (model preferences, env vars, etc.)
+    if (projectSettingsPath) {
+        try {
+            const existingContent = await fsPromises.readFile(settingsFilePath, 'utf-8');
+            const existingSettings = JSON.parse(existingContent) as Record<string, unknown>;
+            // Preserve all existing keys, only replace hooks
+            for (const key of Object.keys(existingSettings)) {
+                if (key !== 'hooks') {
+                    (settings as Record<string, unknown>)[key] = existingSettings[key];
+                }
+            }
+        } catch {
+            // File doesn't exist or isn't valid JSON - write fresh
+        }
+    }
+
     // Write the settings file atomically with cleanup on failure
     // Use format-aware writing when CodeAgent is available (JSON for Claude, TOML for Codex)
-    const tempPath = path.join(settingsDir, `${settingsFileName}.${Date.now()}.tmp`);
+    const tempPath = path.join(settingsDir, `${path.basename(settingsFilePath)}.${Date.now()}.tmp`);
     try {
         if (codeAgent) {
             const format = getSettingsFormat(codeAgent);
@@ -357,6 +391,29 @@ exit 0
         // Clean up temp file on failure
         await fsPromises.unlink(tempPath).catch(() => {});
         throw err;
+    }
+
+    // For project settings paths, ensure the file is gitignored in the worktree
+    // so users don't accidentally commit our generated settings
+    if (projectSettingsPath) {
+        const relativePath = path.relative(worktreePath, projectSettingsPath);
+        const gitignorePath = path.join(worktreePath, '.gitignore');
+        try {
+            let content = '';
+            try {
+                content = await fsPromises.readFile(gitignorePath, 'utf-8');
+            } catch {
+                // .gitignore doesn't exist yet
+            }
+            const lines = content.split('\n');
+            if (!lines.some(line => line.trim() === relativePath)) {
+                const separator = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
+                await fsPromises.appendFile(gitignorePath, `${separator}${relativePath}\n`);
+            }
+        } catch {
+            // Non-critical - log and continue
+            console.warn(`Lanes: Could not update .gitignore for ${relativePath}`);
+        }
     }
 
     return settingsFilePath;
