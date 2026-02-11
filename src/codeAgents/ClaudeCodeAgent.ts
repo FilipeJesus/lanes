@@ -316,6 +316,16 @@ export class ClaudeCodeAgent extends CodeAgent {
         return hooks;
     }
 
+    // --- Prompt Improvement ---
+
+    buildPromptImproveCommand(prompt: string): { command: string; args: string[] } | null {
+        const metaPrompt = `You are a prompt engineer. The user wants to send the following text as a starting prompt to an AI coding assistant session. Your job is to improve and restructure this prompt to be clearer, more specific, and better organized. Keep the same intent but make it more effective. Reply with the improved prompt only — no preamble, no explanation, no surrounding quotes, no "Here is the improved prompt:" prefix.
+
+Original prompt:
+${prompt}`;
+        return { command: this.config.cliCommand, args: ['--print', metaPrompt] };
+    }
+
     // --- MCP Support ---
 
     supportsMcp(): boolean {

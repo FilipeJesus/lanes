@@ -208,7 +208,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Handle auto-prompt request - improve prompt using the selected agent
     sessionFormProvider.setOnAutoPrompt(async (prompt: string, agentName: string) => {
         const agent = getAgent(agentName) || codeAgent;
-        const { command, args } = agent.buildPromptImproveCommand(prompt);
+        const result = agent.buildPromptImproveCommand(prompt);
+        if (!result) {
+            throw new Error(`${agent.displayName} does not support prompt improvement`);
+        }
+        const { command, args } = result;
 
         return new Promise<string>((resolve, reject) => {
             const child = execFile(command, args, {
