@@ -58,10 +58,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _onSubmit?: SessionFormSubmitCallback;
     private _onRefreshWorkflows?: () => void | Promise<void>;
+    private _onAutoPrompt?: (prompt: string, agent: string) => Promise<string>;
     private _workflows: WorkflowMetadata[] = [];
     private _agentAvailability: Map<string, boolean> = new Map();
     private _defaultAgent: string = 'claude';
     private _attachmentsTempDir?: string;
+    private _autoPromptInProgress = false;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -114,6 +116,13 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
      */
     public setOnRefreshWorkflows(callback: () => void | Promise<void>): void {
         this._onRefreshWorkflows = callback;
+    }
+
+    /**
+     * Set the callback to be invoked when the auto-prompt button is clicked
+     */
+    public setOnAutoPrompt(callback: (prompt: string, agent: string) => Promise<string>): void {
+        this._onAutoPrompt = callback;
     }
 
     /**
@@ -268,6 +277,35 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
+                case 'autoPrompt': {
+                    if (this._autoPromptInProgress) {
+                        break;
+                    }
+                    this._autoPromptInProgress = true;
+                    try {
+                        const promptText = typeof message.prompt === 'string' ? message.prompt.trim() : '';
+                        if (!promptText) {
+                            vscode.window.showWarningMessage('Lanes: Please enter some text in the starting prompt field before using prompt improvement.');
+                            this._view?.webview.postMessage({ command: 'autoPromptResult', success: false });
+                            break;
+                        }
+                        // Emit event for extension to handle
+                        if (this._onAutoPrompt) {
+                            try {
+                                const result = await this._onAutoPrompt(promptText, message.agent || 'claude');
+                                this._view?.webview.postMessage({ command: 'autoPromptResult', success: true, improvedPrompt: result });
+                            } catch (err) {
+                                vscode.window.showErrorMessage(`Lanes: Prompt improvement failed: ${err instanceof Error ? err.message : String(err)}`);
+                                this._view?.webview.postMessage({ command: 'autoPromptResult', success: false });
+                            }
+                        } else {
+                            this._view?.webview.postMessage({ command: 'autoPromptResult', success: false });
+                        }
+                    } finally {
+                        this._autoPromptInProgress = false;
+                    }
+                    break;
+                }
                 case 'uploadAttachments': {
                     const incomingFiles = Array.isArray(message.files) ? message.files : [];
                     if (incomingFiles.length === 0) {
@@ -465,6 +503,74 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         .attach-btn:hover {
             background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .prompt-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .prompt-label-row label {
+            margin-bottom: 0;
+        }
+
+        .auto-prompt-btn {
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--vscode-foreground);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            opacity: 0.7;
+        }
+
+        .auto-prompt-btn:hover {
+            background-color: var(--vscode-list-hoverBackground);
+            opacity: 1;
+        }
+
+        .auto-prompt-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .textarea-wrapper.loading {
+            position: relative;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .textarea-wrapper.loading textarea {
+            opacity: 0.5;
+        }
+
+        .textarea-wrapper.loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--vscode-focusBorder) 50%,
+                transparent 100%
+            );
+            opacity: 0.15;
+            background-size: 200% 100%;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         .attachment-chips {
@@ -773,7 +879,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         </div>
 
         <div class="form-group">
-            <label for="prompt">Starting Prompt (optional)</label>
+            <div class="prompt-label-row">
+                <label for="prompt">Starting Prompt (optional)</label>
+                <button type="button" class="auto-prompt-btn" id="autoPromptBtn" title="Improve prompt with AI" aria-label="Improve prompt with AI">&#10024;</button>
+            </div>
             <div class="textarea-wrapper">
                 <textarea
                     id="prompt"
@@ -825,6 +934,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         const workflowInput = document.getElementById('workflow');
         const refreshWorkflowBtn = document.getElementById('refreshWorkflowBtn');
         const attachBtn = document.getElementById('attachBtn');
+        const autoPromptBtn = document.getElementById('autoPromptBtn');
         const fileInput = document.getElementById('fileInput');
         const attachmentChipsContainer = document.getElementById('attachmentChips');
         const attachmentProgress = document.getElementById('attachmentProgress');
@@ -998,6 +1108,18 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             if (fileInput) {
                 fileInput.click();
             }
+        });
+
+        autoPromptBtn.addEventListener('click', () => {
+            const text = promptInput.value.trim();
+            if (!text) {
+                vscode.postMessage({ command: 'autoPrompt', prompt: '' });
+                return;
+            }
+            // Disable button and show loading state on textarea
+            autoPromptBtn.disabled = true;
+            document.querySelector('.textarea-wrapper').classList.add('loading');
+            vscode.postMessage({ command: 'autoPrompt', prompt: text, agent: selectedAgent });
         });
 
         if (fileInput) {
@@ -1201,11 +1323,21 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         window.addEventListener('message', (event) => {
             const message = event.data;
             switch (message.command) {
+                case 'autoPromptResult':
+                    autoPromptBtn.disabled = false;
+                    document.querySelector('.textarea-wrapper').classList.remove('loading');
+                    if (message.success && message.improvedPrompt) {
+                        promptInput.value = message.improvedPrompt;
+                        saveState();
+                    }
+                    break;
                 case 'clearForm':
                     nameInput.value = '';
                     selectAgent('${this._escapeHtml(this._defaultAgent)}', false);
                     sourceBranchInput.value = '';
                     promptInput.value = '';
+                    document.querySelector('.textarea-wrapper').classList.remove('loading');
+                    autoPromptBtn.disabled = false;
                     bypassPermissions = false;
                     updateBypassBtn();
                     workflowInput.value = '';

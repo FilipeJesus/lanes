@@ -10,6 +10,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { execFile } from 'child_process';
 
 import { fileExists, readDir, isDirectory } from './services/FileService';
 
@@ -202,6 +203,40 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // Resolve agent name to CodeAgent instance
         const selectedAgent = getAgent(agent) || codeAgent;
         await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, selectedAgent);
+    });
+
+    // Handle auto-prompt request - improve prompt using the selected agent
+    sessionFormProvider.setOnAutoPrompt(async (prompt: string, agentName: string) => {
+        const agent = getAgent(agentName) || codeAgent;
+        const { command, args } = agent.buildPromptImproveCommand(prompt);
+
+        return new Promise<string>((resolve, reject) => {
+            const child = execFile(command, args, {
+                timeout: 60000,
+                maxBuffer: 1024 * 1024
+            }, (error, stdout) => {
+                if (error) {
+                    const execError = error as { killed?: boolean; signal?: string };
+                    if (execError.killed || execError.signal === 'SIGTERM') {
+                        reject(new Error('Agent command timed out'));
+                    } else {
+                        reject(new Error(`Agent command failed: ${error.message}`));
+                    }
+                    return;
+                }
+
+                const result = stdout.trim();
+                if (!result) {
+                    reject(new Error('Agent returned empty response'));
+                    return;
+                }
+
+                resolve(result);
+            });
+
+            // Close stdin so the CLI doesn't hang waiting for piped input
+            child.stdin?.end();
+        });
     });
 
     // Helper function to refresh workflows in both the tree view and the session form

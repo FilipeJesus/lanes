@@ -408,4 +408,24 @@ export abstract class CodeAgent {
     getMcpConfig(_worktreePath: string, _workflowPath: string, _repoRoot: string): McpConfig | null {
         return null;
     }
+
+    // --- Prompt Improvement (Non-interactive) ---
+
+    /**
+     * Build a command to improve/structure a prompt using the agent in non-interactive mode.
+     * The command should output the improved prompt to stdout.
+     *
+     * Uses the `--print` flag which is supported by Claude Code and Codex CLI.
+     * Subclasses can override this if their CLI uses a different flag.
+     *
+     * @param prompt The original prompt text to improve
+     * @returns Object with command and args array for execFile
+     */
+    buildPromptImproveCommand(prompt: string): { command: string; args: string[] } {
+        const metaPrompt = `You are a prompt engineer. The user wants to send the following text as a starting prompt to an AI coding assistant session. Your job is to improve and restructure this prompt to be clearer, more specific, and better organized. Keep the same intent but make it more effective. Reply with the improved prompt only — no preamble, no explanation, no surrounding quotes, no "Here is the improved prompt:" prefix.
+
+Original prompt:
+${prompt}`;
+        return { command: this.config.cliCommand, args: ['--print', metaPrompt] };
+    }
 }
