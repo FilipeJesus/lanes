@@ -13,8 +13,8 @@ import * as fsPromises from 'fs/promises';
 import { fileExists } from './FileService';
 import type { PendingSessionConfig } from '../types/extension';
 import type { ClearSessionConfig } from '../types/extension';
-import { AgentSessionProvider, getSessionTerminalMode } from '../AgentSessionProvider';
-import { CodeAgent } from '../codeAgents';
+import { AgentSessionProvider, getSessionTerminalMode, getSessionAgentName } from '../AgentSessionProvider';
+import { CodeAgent, getAgent } from '../codeAgents';
 import { getErrorMessage } from '../utils';
 import { createSession as createSessionService } from './SessionService';
 import { openAgentTerminal as openAgentTerminalService } from './TerminalService';
@@ -191,10 +191,13 @@ async function executeClearRequest(
     baseRepoPath: string | undefined,
     clearSessionIdImpl: (worktreePath: string) => Promise<void>
 ): Promise<void> {
+    const sessionAgentName = await getSessionAgentName(config.worktreePath);
+    const sessionAgent = getAgent(sessionAgentName) || codeAgent;
+
     await clearSessionIdImpl(config.worktreePath);
 
     const sessionName = path.basename(config.worktreePath);
-    const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
+    const termName = sessionAgent ? sessionAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
     const existingTerminal = vscode.window.terminals.find(t => t.name === termName);
     if (existingTerminal) {
@@ -210,7 +213,7 @@ async function executeClearRequest(
         await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    await openAgentTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, codeAgent, baseRepoPath, true);
+    await openAgentTerminalService(sessionName, config.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath, true);
     console.log(`Session cleared: ${sessionName}`);
 }
 
@@ -244,7 +247,9 @@ export async function processClearRequest(
         console.log(`Processing clear request for: ${config.worktreePath}`);
 
         const sessionName = path.basename(config.worktreePath);
-        const termName = codeAgent ? codeAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
+        const sessionAgentName = await getSessionAgentName(config.worktreePath);
+        const sessionAgent = getAgent(sessionAgentName) || codeAgent;
+        const termName = sessionAgent ? sessionAgent.getTerminalName(sessionName) : `Claude: ${sessionName}`;
 
         // Check if this window owns the terminal
         const ownsTerminal = vscode.window.terminals.some(t => t.name === termName);

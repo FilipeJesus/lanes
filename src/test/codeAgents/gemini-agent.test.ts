@@ -166,4 +166,13 @@ suite('GeminiAgent Configuration', () => {
         assert.ok(Array.isArray(hooks), 'Should return an array');
         assert.ok(hooks.length > 0, 'Should have hooks');
     });
+
+    test('session capture hook reads session_id from stdin, not env var', () => {
+        const hooks = agent.generateHooksConfig('/path', '/session', '/status');
+        const sessionStartHook = hooks.find(h => h.event === 'SessionStart');
+        assert.ok(sessionStartHook, 'Should have a SessionStart hook');
+        const captureCmd = sessionStartHook!.commands[0];
+        assert.ok(captureCmd.command.includes('process.stdin'), 'Session capture should read from stdin');
+        assert.ok(!captureCmd.command.includes('GEMINI_SESSION_ID'), 'Session capture should not use GEMINI_SESSION_ID env var');
+    });
 });

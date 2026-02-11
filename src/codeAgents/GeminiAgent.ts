@@ -23,7 +23,6 @@ import {
  * Gemini CLI implementation of the CodeAgent interface
  *
  * Notes:
- * - Gemini does not support Claude-style hooks, so it is treated as hookless.
  * - MCP configuration is delivered via settings.json (project-level).
  * - Prompts are sent via stdin (no positional prompt support).
  */
@@ -314,7 +313,7 @@ export class GeminiAgent extends CodeAgent {
     }
 
     private buildStatusCommand(statusFilePath: string, status: string): HookCommand {
-        const body = `echo '{\"decision\":\"allow\"}'; printf '{\"status\":\"${status}\"}' > \"${statusFilePath}\"`;
+        const body = `printf '{\"status\":\"${status}\"}' > \"${statusFilePath}\"; printf '{}'`;
         return {
             type: 'command',
             command: this.buildAllowCommand(body)
@@ -326,17 +325,20 @@ export class GeminiAgent extends CodeAgent {
         const nodeScript = [
             "const fs=require('fs');",
             `const p='${escapedPath}';`,
+            "let input='';",
+            "process.stdin.on('data',c=>input+=c);",
+            "process.stdin.on('end',()=>{",
             "let data={};",
             "try{data=JSON.parse(fs.readFileSync(p,'utf8'))}catch{}",
-            "const sid=process.env.GEMINI_SESSION_ID||data.sessionId;",
-            "if(sid){data.sessionId=sid;}",
+            "try{const hook=JSON.parse(input);if(hook.session_id){data.sessionId=hook.session_id;}}catch{}",
             "data.timestamp=new Date().toISOString();",
-            "fs.writeFileSync(p, JSON.stringify(data));"
+            "fs.writeFileSync(p,JSON.stringify(data));",
+            "process.stdout.write('{}');",
+            "});"
         ].join('');
-        const body = `echo '{\"decision\":\"allow\"}'; node -e \"${nodeScript}\"`;
         return {
             type: 'command',
-            command: this.buildAllowCommand(body)
+            command: `bash -lc "node -e \\"${nodeScript}\\""`
         };
     }
 
