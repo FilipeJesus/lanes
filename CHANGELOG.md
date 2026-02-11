@@ -5,6 +5,23 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-02-11
+
+### Added
+- Gemini CLI support as a coding agent backend (#128)
+- Snowflake Cortex Code support as a coding agent (#125)
+- Generate Insights command — produces Markdown report with token usage, tool usage, skills, and MCP server calls from Claude session JSONL files (#127)
+- Auto-prompt improvement — sparkles button sends prompt to the selected agent's CLI for AI-powered rewriting, with shimmer animation (#126)
+
+### Changed
+- `buildPromptImproveCommand` is now optional in base `CodeAgent` — agents that don't support prompt improvement return `null` (#126)
+
+### Fixed
+- Resolve correct agent when clearing Gemini/Codex sessions — previously used the global Claude agent, causing terminals not to be found (#128)
+
+### Security
+- Fix npm audit vulnerabilities — updated `@isaacs/brace-expansion`, `@modelcontextprotocol/sdk`, `hono`, and `lodash` to patched versions (#123)
+
 ## [1.2.0] - 2026-02-10
 
 ### Added
