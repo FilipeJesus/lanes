@@ -40,7 +40,7 @@ import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
 import { getErrorMessage } from './utils';
 
-import { CodeAgent, getDefaultAgent, getAgent, validateAndGetAgent, getAvailableAgents, isCliAvailable } from './codeAgents';
+import { CodeAgent, getDefaultAgent, getAgent, isCliAvailable } from './codeAgents';
 import type { ServiceContainer } from './types/serviceContainer';
 
 import { registerAllCommands } from './commands';
@@ -103,47 +103,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Create the global code agent instance using the factory
     // Reads lanes.defaultAgent setting and creates the appropriate agent
+    // CLI availability is checked lazily at session creation time, not here.
     const defaultAgentName = getDefaultAgent();
-    let codeAgent: CodeAgent;
-
-    // Validate CLI availability for the selected agent
-    const validatedAgent = await validateAndGetAgent(defaultAgentName);
-    if (validatedAgent) {
-        codeAgent = validatedAgent;
-    } else {
-        // CLI not available - fall back to Claude (always available as default)
-        const fallbackAgent = getAgent('claude');
-        if (!fallbackAgent) {
-            // This should never happen - Claude is always in the factory map
-            throw new Error('Failed to create default Claude agent');
-        }
-        codeAgent = fallbackAgent;
-    }
+    const codeAgent: CodeAgent = getAgent(defaultAgentName) || getAgent('claude')!;
     console.log(`Code agent initialized: ${codeAgent.displayName} (${codeAgent.name})`);
-
-    // Check CLI availability for all registered agents (for form dropdown)
-    const agentAvailability = new Map<string, boolean>();
-    for (const agentName of getAvailableAgents()) {
-        const agent = getAgent(agentName);
-        if (agent) {
-            const available = await isCliAvailable(agent.cliCommand);
-            agentAvailability.set(agentName, available);
-        } else {
-            agentAvailability.set(agentName, false);
-        }
-    }
-
-    // Determine effective default agent for the form
-    let effectiveDefaultAgent = defaultAgentName;
-    if (!agentAvailability.get(defaultAgentName)) {
-        // Only show warning if defaultAgent is not claude (avoid duplicate warnings)
-        if (defaultAgentName !== 'claude') {
-            vscode.window.showWarningMessage(
-                `Default agent '${defaultAgentName}' is not installed. Falling back to Claude Code.`
-            );
-        }
-        effectiveDefaultAgent = 'claude';
-    }
 
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
@@ -194,14 +157,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
-    // Set agent availability for form dropdown
-    sessionFormProvider.setAgentAvailability(agentAvailability, effectiveDefaultAgent);
+    // Set default agent for the form dropdown
+    sessionFormProvider.setDefaultAgent(defaultAgentName);
 
     // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
     sessionFormProvider.setOnSubmit(async (name: string, agent: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
         // Resolve agent name to CodeAgent instance
         const selectedAgent = getAgent(agent) || codeAgent;
+
+        // Validate CLI availability at session creation time (not during activation)
+        const cliAvailable = await isCliAvailable(selectedAgent.cliCommand);
+        if (!cliAvailable) {
+            vscode.window.showErrorMessage(
+                `${selectedAgent.displayName} CLI ('${selectedAgent.cliCommand}') is not installed. ` +
+                `Please install it or select a different agent from the dropdown.\n` +
+                `Tip: You can change the default agent in Settings > Lanes > Default Agent.`
+            );
+            throw new Error(`CLI not available`);
+        }
+
         await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, selectedAgent);
     });
 
