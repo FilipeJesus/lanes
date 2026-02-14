@@ -376,7 +376,7 @@ async function openClaudeTerminalTmux(
         }
 
         // Auto-start agent - resume if session ID exists, otherwise start fresh
-        const sessionData = await getSessionId(worktreePath);
+        const sessionData = await getSessionId(worktreePath, codeAgent);
         let shouldStartFresh = true;
 
         if (sessionData?.sessionId) {
@@ -456,30 +456,19 @@ Proceed by calling workflow_status now.`;
             }
 
             if (codeAgent) {
-                // Use CodeAgent to build start command
+                // Use CodeAgent to build start command (each agent handles prompt formatting)
                 const startCommand = codeAgent.buildStartCommand({
                     permissionMode: validatedMode,
                     settingsPath,
                     mcpConfigPath,
-                    mcpConfigOverrides
+                    mcpConfigOverrides,
+                    prompt: promptFileCommand || combinedPrompt || undefined
                 });
+                await TmuxService.sendCommand(tmuxSessionName, startCommand);
 
-                if (codeAgent.supportsPositionalPrompt()) {
-                    if (promptFileCommand) {
-                        await TmuxService.sendCommand(tmuxSessionName, `${startCommand} ${promptFileCommand}`);
-                    } else if (combinedPrompt) {
-                        const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-                        await TmuxService.sendCommand(tmuxSessionName, `${startCommand} '${escapedPrompt}'`);
-                    } else {
-                        await TmuxService.sendCommand(tmuxSessionName, startCommand);
-                    }
-                } else {
-                    // Agent doesn't support positional prompts (e.g., Cortex Code)
-                    // Start the agent first, then send the prompt as stdin
-                    await TmuxService.sendCommand(tmuxSessionName, startCommand);
-                    if (combinedPrompt) {
-                        await TmuxService.sendCommand(tmuxSessionName, combinedPrompt);
-                    }
+                // Agents that can't include prompt in CLI (e.g., Cortex) need it via stdin
+                if (!codeAgent.supportsPromptInCommand() && combinedPrompt) {
+                    await TmuxService.sendCommand(tmuxSessionName, combinedPrompt);
                 }
             } else {
                 // Fallback to hardcoded command construction
@@ -701,7 +690,7 @@ export async function openAgentTerminal(
     }
 
     // D. Auto-start agent - resume if session ID exists, otherwise start fresh
-    const sessionData = await getSessionId(worktreePath);
+    const sessionData = await getSessionId(worktreePath, codeAgent);
     let shouldStartFresh = true;
 
     if (sessionData?.sessionId) {
@@ -787,33 +776,19 @@ Proceed by calling workflow_status now.`;
         }
 
         if (codeAgent) {
-            // Use CodeAgent to build start command
-            // Note: When using prompt file, we don't pass prompt to buildStartCommand
-            // Instead, we append the prompt file command to the generated command
+            // Use CodeAgent to build start command (each agent handles prompt formatting)
             const startCommand = codeAgent.buildStartCommand({
                 permissionMode: validatedMode,
                 settingsPath,
                 mcpConfigPath,
-                mcpConfigOverrides
-                // Don't pass prompt here - we handle it via file
+                mcpConfigOverrides,
+                prompt: promptFileCommand || combinedPrompt || undefined
             });
+            terminal.sendText(startCommand);
 
-            if (codeAgent.supportsPositionalPrompt()) {
-                if (promptFileCommand) {
-                    terminal.sendText(`${startCommand} ${promptFileCommand}`);
-                } else if (combinedPrompt) {
-                    const escapedPrompt = combinedPrompt.replace(/'/g, "'\\''");
-                    terminal.sendText(`${startCommand} '${escapedPrompt}'`);
-                } else {
-                    terminal.sendText(startCommand);
-                }
-            } else {
-                // Agent doesn't support positional prompts (e.g., Cortex Code)
-                // Start the agent first, then send the prompt as stdin
-                terminal.sendText(startCommand);
-                if (combinedPrompt) {
-                    terminal.sendText(combinedPrompt);
-                }
+            // Agents that can't include prompt in CLI (e.g., Cortex) need it via stdin
+            if (!codeAgent.supportsPromptInCommand() && combinedPrompt) {
+                terminal.sendText(combinedPrompt);
             }
         } else {
             // Fallback to hardcoded command construction

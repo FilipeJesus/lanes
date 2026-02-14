@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { CodeAgent, DEFAULT_AGENT_NAME } from './codeAgents';
+import { CodeAgent, DEFAULT_AGENT_NAME, getAgent } from './codeAgents';
 import { validateWorktreesFolder } from './validation';
 import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from './services/FileService';
 
@@ -274,14 +274,33 @@ export async function getAgentStatus(worktreePath: string): Promise<AgentSession
     } catch { return null; }
 }
 
-export async function getSessionId(worktreePath: string): Promise<AgentSessionData | null> {
+export async function getSessionId(worktreePath: string, codeAgent?: CodeAgent): Promise<AgentSessionData | null> {
     const sessionPath = getSessionFilePath(worktreePath);
     try {
         const exists = await fileExists(sessionPath);
         if (!exists) { return null; }
         const content = await readFile(sessionPath);
-        if (globalCodeAgent) {
-            const sessionData = globalCodeAgent.parseSessionData(content);
+
+        // Determine which agent to use for parsing:
+        // 1. Explicit codeAgent parameter (preferred - matches the session's own agent)
+        // 2. Agent from the session file's agentName field (handles cross-agent scenarios)
+        // 3. Global default agent
+        let agent = codeAgent || globalCodeAgent;
+        if (!codeAgent && !agent) {
+            // No agent available at all - use legacy fallback below
+        } else if (!codeAgent) {
+            // Try to use the session's own agent if it differs from the global one
+            try {
+                const rawData = JSON.parse(content);
+                if (rawData.agentName && typeof rawData.agentName === 'string' && rawData.agentName !== agent?.name) {
+                    const sessionAgent = getAgent(rawData.agentName);
+                    if (sessionAgent) { agent = sessionAgent; }
+                }
+            } catch { /* fall through to current agent */ }
+        }
+
+        if (agent) {
+            const sessionData = agent.parseSessionData(content);
             if (!sessionData) { return null; }
             return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, agentName: sessionData.agentName, isChimeEnabled: sessionData.isChimeEnabled };
         }

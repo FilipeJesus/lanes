@@ -102,8 +102,7 @@ export class GeminiAgent extends CodeAgent {
         }
 
         if (options.prompt) {
-            const escapedPrompt = options.prompt.replace(/'/g, "'\\''");
-            parts.push(`'${escapedPrompt}'`);
+            parts.push(this.formatPromptForShell(options.prompt));
         }
 
         return parts.join(' ');
@@ -266,7 +265,7 @@ export class GeminiAgent extends CodeAgent {
 
     // --- Prompt Passing ---
 
-    supportsPositionalPrompt(): boolean {
+    supportsPromptInCommand(): boolean {
         return true;
     }
 

@@ -418,12 +418,34 @@ export abstract class CodeAgent {
     // --- Prompt Passing ---
 
     /**
-     * Whether the agent accepts an initial prompt as a positional CLI argument.
+     * Whether the agent accepts an initial prompt via its CLI (buildStartCommand).
+     * When true, the prompt is passed to buildStartCommand which includes it in the command.
      * When false, the prompt is sent as terminal stdin after the agent starts.
-     * Default: true (most CLI agents accept `cli 'prompt'` syntax)
+     * Default: true (most CLI agents accept prompts via CLI flags or positional args)
      */
-    supportsPositionalPrompt(): boolean {
+    supportsPromptInCommand(): boolean {
         return true;
+    }
+
+    /**
+     * Format a prompt string for safe shell use.
+     * Pre-formatted shell commands (e.g., "$(cat "/path")") are returned as-is.
+     * Raw text prompts are escaped and wrapped in single quotes.
+     */
+    protected formatPromptForShell(prompt: string): string {
+        if (prompt.startsWith('"$(')) {
+            return prompt;
+        }
+        const escaped = prompt.replace(/'/g, "'\\''");
+        return `'${escaped}'`;
+    }
+
+    /**
+     * Escape a string for safe use in shell single quotes.
+     * Replaces single quotes with the shell escape sequence '\''
+     */
+    protected escapeForSingleQuotes(str: string): string {
+        return str.replace(/'/g, "'\\''");
     }
 
     // --- Settings Delivery ---
@@ -499,6 +521,22 @@ export abstract class CodeAgent {
      */
     async captureSessionId(_beforeTimestamp: Date): Promise<string | null> {
         return null;
+    }
+
+    // --- MCP Settings Format ---
+
+    /**
+     * Transform MCP configuration into the format expected by this agent's settings file.
+     * Used when getMcpConfigDelivery() returns 'settings'.
+     *
+     * Default returns `{ mcpServers: mcpConfig.mcpServers }` (Claude/Gemini format).
+     * Override in agents that use a different settings format (e.g., OpenCode uses `mcp` key).
+     *
+     * @param mcpConfig The standard MCP configuration
+     * @returns Object to merge into the agent's settings file
+     */
+    formatMcpForSettings(mcpConfig: McpConfig): Record<string, unknown> {
+        return { mcpServers: mcpConfig.mcpServers };
     }
 
     // --- MCP Overrides ---

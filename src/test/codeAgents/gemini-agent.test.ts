@@ -157,8 +157,8 @@ suite('GeminiAgent Configuration', () => {
         assert.strictEqual(agent.getMcpConfigDelivery(), 'settings', 'Gemini should deliver MCP via settings');
     });
 
-    test('supportsPositionalPrompt returns true', () => {
-        assert.strictEqual(agent.supportsPositionalPrompt(), true, 'Gemini should support positional prompts');
+    test('supportsPromptInCommand returns true', () => {
+        assert.strictEqual(agent.supportsPromptInCommand(), true, 'Gemini should support prompt in command');
     });
 
     test('generateHooksConfig returns hooks', () => {

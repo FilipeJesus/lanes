@@ -109,8 +109,8 @@ export class CortexCodeAgent extends CodeAgent {
             }
         }
 
-        // Cortex CLI does not support positional prompt arguments.
-        // Prompts are delivered via terminal stdin (see supportsPositionalPrompt).
+        // Cortex CLI does not accept prompts via CLI.
+        // Prompts are delivered via terminal stdin (see supportsPromptInCommand).
 
         return parts.join(' ');
     }
@@ -294,7 +294,9 @@ export class CortexCodeAgent extends CodeAgent {
 
     // --- Prompt Passing ---
 
-    supportsPositionalPrompt(): boolean {
+    supportsPromptInCommand(): boolean {
+        // Cortex CLI does not accept prompts via CLI flags or positional args.
+        // Prompts are delivered via terminal stdin after the agent starts.
         return false;
     }
 

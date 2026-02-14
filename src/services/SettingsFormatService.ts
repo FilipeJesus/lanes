@@ -60,6 +60,94 @@ export class JsonSettingsFormat implements SettingsFormat {
 }
 
 /**
+ * JSONC (JSON with Comments) settings format implementation.
+ *
+ * Used by OpenCode for opencode.jsonc files.
+ * Strips single-line (//) and multi-line comments before parsing.
+ * Writes standard JSON (valid JSONC since JSON is a subset).
+ */
+export class JsoncSettingsFormat implements SettingsFormat {
+    readonly extension = '.jsonc';
+
+    /**
+     * Strip JSONC comments from content.
+     * Handles // line comments and multi-line comments outside of strings.
+     */
+    private stripComments(content: string): string {
+        let result = '';
+        let i = 0;
+        let inString = false;
+        let stringChar = '';
+
+        while (i < content.length) {
+            // Handle string contents (don't strip inside strings)
+            if (inString) {
+                if (content[i] === '\\') {
+                    result += content[i] + (content[i + 1] || '');
+                    i += 2;
+                    continue;
+                }
+                if (content[i] === stringChar) {
+                    inString = false;
+                }
+                result += content[i];
+                i++;
+                continue;
+            }
+
+            // Check for string start
+            if (content[i] === '"' || content[i] === "'") {
+                inString = true;
+                stringChar = content[i];
+                result += content[i];
+                i++;
+                continue;
+            }
+
+            // Check for // line comment
+            if (content[i] === '/' && content[i + 1] === '/') {
+                // Skip until end of line, preserve the newline
+                while (i < content.length && content[i] !== '\n') {
+                    i++;
+                }
+                if (i < content.length && content[i] === '\n') {
+                    result += '\n';
+                    i++;
+                }
+                continue;
+            }
+
+            // Check for /* block comment */
+            if (content[i] === '/' && content[i + 1] === '*') {
+                i += 2;
+                while (i < content.length && !(content[i] === '*' && content[i + 1] === '/')) {
+                    i++;
+                }
+                if (i < content.length) {
+                    i += 2; // Skip */
+                }
+                continue;
+            }
+
+            result += content[i];
+            i++;
+        }
+
+        return result;
+    }
+
+    async read(filePath: string): Promise<Record<string, unknown>> {
+        const content = await fsPromises.readFile(filePath, 'utf-8');
+        const stripped = this.stripComments(content);
+        return JSON.parse(stripped) as Record<string, unknown>;
+    }
+
+    async write(filePath: string, data: Record<string, unknown>): Promise<void> {
+        await fsPromises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    }
+}
+
+/**
  * TOML settings format implementation.
  *
  * Used by Codex CLI for config.toml files.
@@ -85,6 +173,9 @@ export class TomlSettingsFormat implements SettingsFormat {
 /** Singleton JSON format instance */
 const jsonFormat = new JsonSettingsFormat();
 
+/** Singleton JSONC format instance */
+const jsoncFormat = new JsoncSettingsFormat();
+
 /** Singleton TOML format instance */
 const tomlFormat = new TomlSettingsFormat();
 
@@ -93,6 +184,7 @@ const tomlFormat = new TomlSettingsFormat();
  *
  * Determines the format based on the agent's settings file name:
  * - Files ending in .toml use TomlSettingsFormat
+ * - Files ending in .jsonc use JsoncSettingsFormat
  * - All other files use JsonSettingsFormat (default)
  *
  * @param codeAgent The code agent to get the format for
@@ -102,6 +194,9 @@ export function getSettingsFormat(codeAgent: CodeAgent): SettingsFormat {
     const settingsFileName = codeAgent.getSettingsFileName();
     if (settingsFileName.endsWith('.toml')) {
         return tomlFormat;
+    }
+    if (settingsFileName.endsWith('.jsonc')) {
+        return jsoncFormat;
     }
     return jsonFormat;
 }

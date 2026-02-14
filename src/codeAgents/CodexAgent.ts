@@ -80,13 +80,6 @@ export class CodexAgent extends CodeAgent {
     // --- Private Helper Methods ---
 
     /**
-     * Escape string for safe use inside single quotes in shell command
-     */
-    private escapeForSingleQuotes(str: string): string {
-        return str.replace(/'/g, "'\\''");
-    }
-
-    /**
      * Validate that session ID is a valid UUID format
      * @throws Error if session ID is not a valid UUID
      */
@@ -141,10 +134,9 @@ export class CodexAgent extends CodeAgent {
             }
         }
 
-        // Add escaped prompt in single quotes if provided
+        // Add prompt if provided
         if (options.prompt) {
-            const escapedPrompt = this.escapeForSingleQuotes(options.prompt);
-            parts.push(`'${escapedPrompt}'`);
+            parts.push(this.formatPromptForShell(options.prompt));
         }
 
         return parts.join(' ');
