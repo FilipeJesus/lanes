@@ -16,7 +16,8 @@ import {
     HookCommand,
     StartCommandOptions,
     ResumeCommandOptions,
-    McpConfig
+    McpConfig,
+    AgentFeature
 } from './CodeAgent';
 
 /**
@@ -34,12 +35,13 @@ export class ClaudeCodeAgent extends CodeAgent {
     constructor() {
         super({
             name: 'claude',
-            displayName: 'Claude',
+            displayName: 'Claude Code',
             cliCommand: 'claude',
             sessionFileExtension: '.claude-session',
             statusFileExtension: '.claude-status',
             settingsFileName: 'claude-settings.json',
-            defaultDataDir: '.claude'
+            defaultDataDir: '.claude',
+            logoSvg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(0 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.4" transform="rotate(33 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(62 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(98 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(130 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(163 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(195 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(228 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(260 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(292 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.2" transform="rotate(325 12 12)"/></svg>'
         });
     }
 
@@ -314,6 +316,12 @@ export class ClaudeCodeAgent extends CodeAgent {
         }
 
         return hooks;
+    }
+
+    // --- Feature Support ---
+
+    supportsFeature(feature: AgentFeature): boolean {
+        return feature === 'insights';
     }
 
     // --- Prompt Improvement ---

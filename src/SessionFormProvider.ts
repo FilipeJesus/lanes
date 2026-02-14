@@ -4,6 +4,7 @@ import * as os from 'os';
 import { promises as fs } from 'fs';
 import * as crypto from 'crypto';
 import { WorkflowMetadata } from './workflow';
+import { getDefaultAgent, getAvailableAgents, getAgent } from './codeAgents';
 
 /**
  * Valid permission modes for Claude CLI
@@ -60,7 +61,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _onRefreshWorkflows?: () => void | Promise<void>;
     private _onAutoPrompt?: (prompt: string, agent: string) => Promise<string>;
     private _workflows: WorkflowMetadata[] = [];
-    private _defaultAgent: string = 'claude';
+    private _defaultAgent: string = getDefaultAgent();
+    private _defaultAgentChanged = false;
     private _attachmentsTempDir?: string;
     private _autoPromptInProgress = false;
 
@@ -125,18 +127,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Set the default agent for the form dropdown
+     * Set the default agent for the form dropdown.
+     * Marks a flag so the next webview render picks up the change.
      */
     public setDefaultAgent(defaultAgent: string): void {
         this._defaultAgent = defaultAgent;
-
-        // If webview is already visible, send update
-        if (this._view) {
-            this._view.webview.postMessage({
-                command: 'updateDefaultAgent',
-                defaultAgent: defaultAgent
-            });
-        }
+        this._defaultAgentChanged = true;
     }
 
     /**
@@ -173,57 +169,46 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Agent definitions with inline SVG logos
-     */
-    private static readonly AGENTS = [
-        {
-            name: 'claude',
-            label: 'Claude Code',
-            // Claude sunburst logo — rounded rays radiating from center
-            svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(0 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.4" transform="rotate(33 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(62 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(98 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(130 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(163 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3.5" stroke-width="2.2" transform="rotate(195 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2.5" stroke-width="2.4" transform="rotate(228 12 12)"/><line x1="12" y1="10.5" x2="12" y2="4" stroke-width="2.2" transform="rotate(260 12 12)"/><line x1="12" y1="10.5" x2="12" y2="2" stroke-width="2.4" transform="rotate(292 12 12)"/><line x1="12" y1="10.5" x2="12" y2="3" stroke-width="2.2" transform="rotate(325 12 12)"/></svg>'
-        },
-        {
-            name: 'codex',
-            label: 'Codex CLI',
-            // OpenAI logo
-            svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>'
-        },
-        {
-            name: 'gemini',
-            label: 'Gemini CLI',
-            // Google Gemini 4-pointed sparkle
-            svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1Q12 12 23 12Q12 12 12 23Q12 12 1 12Q12 12 12 1Z"/></svg>'
-        },
-        {
-            name: 'cortex',
-            label: 'Cortex Code',
-            // Snowflake company logo mark
-            svg: '<svg viewBox="0 0 64 64" fill="currentColor"><path d="M9.86 15.298l13.008 7.8a3.72 3.72 0 0 0 4.589-.601 4.01 4.01 0 0 0 1.227-2.908V3.956a3.81 3.81 0 0 0-1.861-3.42 3.81 3.81 0 0 0-3.893 0 3.81 3.81 0 0 0-1.861 3.42v8.896l-7.387-4.43a3.79 3.79 0 0 0-2.922-.4c-.986.265-1.818.94-2.3 1.844-1.057 1.9-.44 4.28 1.4 5.422m31.27 7.8l13.008-7.8c1.84-1.143 2.458-3.533 1.4-5.424a3.75 3.75 0 0 0-5.22-1.452l-7.3 4.37v-8.84a3.81 3.81 0 1 0-7.615 0v15.323a4.08 4.08 0 0 0 .494 2.367c.482.903 1.314 1.57 2.3 1.844a3.71 3.71 0 0 0 2.922-.4M29.552 31.97c.013-.25.108-.5.272-.68l1.52-1.58a1.06 1.06 0 0 1 .658-.282h.057a1.05 1.05 0 0 1 .656.282l1.52 1.58a1.12 1.12 0 0 1 .272.681v.06a1.13 1.13 0 0 1-.272.683l-1.52 1.58a1.04 1.04 0 0 1-.656.284h-.057c-.246-.014-.48-.115-.658-.284l-1.52-1.58a1.13 1.13 0 0 1-.272-.683zm-4.604-.65v1.364a1.54 1.54 0 0 0 .372.93l5.16 5.357a1.42 1.42 0 0 0 .895.386h1.312a1.42 1.42 0 0 0 .895-.386l5.16-5.357a1.54 1.54 0 0 0 .372-.93V31.32a1.54 1.54 0 0 0-.372-.93l-5.16-5.357a1.42 1.42 0 0 0-.895-.386h-1.312a1.42 1.42 0 0 0-.895.386L25.32 30.4a1.55 1.55 0 0 0-.372.93M3.13 27.62l7.365 4.417L3.13 36.45a4.06 4.06 0 0 0-1.399 5.424 3.75 3.75 0 0 0 2.3 1.844c.986.274 2.042.133 2.922-.392l13.008-7.8c1.2-.762 1.9-2.078 1.9-3.492a4.16 4.16 0 0 0-1.9-3.492l-13.008-7.8a3.79 3.79 0 0 0-2.922-.4c-.986.265-1.818.94-2.3 1.844-1.057 1.9-.44 4.278 1.4 5.422m38.995 4.442a4 4 0 0 0 1.91 3.477l13 7.8c.88.524 1.934.666 2.92.392s1.817-.94 2.3-1.843a4.05 4.05 0 0 0-1.4-5.424L53.5 32.038l7.365-4.417c1.84-1.143 2.457-3.53 1.4-5.422a3.74 3.74 0 0 0-2.3-1.844c-.987-.274-2.042-.134-2.92.4l-13 7.8a4 4 0 0 0-1.91 3.507M25.48 40.508a3.7 3.7 0 0 0-2.611.464l-13.008 7.8c-1.84 1.143-2.456 3.53-1.4 5.422.483.903 1.314 1.57 2.3 1.843a3.75 3.75 0 0 0 2.922-.392l7.387-4.43v8.83a3.81 3.81 0 1 0 7.614 0V44.4a3.91 3.91 0 0 0-3.205-3.903m28.66 8.276l-13.008-7.8a3.75 3.75 0 0 0-2.922-.392 3.74 3.74 0 0 0-2.3 1.843 4.09 4.09 0 0 0-.494 2.37v15.25a3.81 3.81 0 1 0 7.614 0V51.28l7.287 4.37a3.79 3.79 0 0 0 2.922.4c.986-.265 1.818-.94 2.3-1.844 1.057-1.9.44-4.28-1.4-5.422"/></svg>'
-        }
-    ];
-
-    /**
      * Generate HTML for the custom agent dropdown (shown next to session name)
      * Shows the selected agent's logo as trigger; dropdown menu shows logo + label per agent.
      * Default agent is determined by the lanes.defaultAgent global setting.
+     * Agent data (name, displayName, logoSvg) is derived from CodeAgent instances.
      */
     private _getAgentSelectorHtml(): string {
-        // Find the default agent's SVG for the trigger button
-        const defaultDef = SessionFormProvider.AGENTS.find(a => a.name === this._defaultAgent)
-            ?? SessionFormProvider.AGENTS[0];
+        const agentNames = getAvailableAgents();
+        const agents = agentNames.map(name => getAgent(name)).filter(a => a !== null);
+
+        // Find the default agent for the trigger button
+        const defaultAgent = agents.find(a => a.name === this._defaultAgent) ?? agents[0];
 
         // Build dropdown menu items — all agents are always selectable;
         // CLI availability is validated at session creation time.
         let itemsHtml = '';
-        for (const agent of SessionFormProvider.AGENTS) {
+        for (const agent of agents) {
             const active = agent.name === this._defaultAgent ? ' active' : '';
-            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}">${agent.svg}<span>${this._escapeHtml(agent.label)}</span></button>`;
+            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}">${agent.logoSvg}<span>${this._escapeHtml(agent.displayName)}</span></button>`;
         }
 
         return `<div class="agent-dropdown" id="agentDropdown">` +
-            `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultDef.label)}" aria-haspopup="true" aria-expanded="false">${defaultDef.svg}</button>` +
+            `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultAgent.displayName)}" aria-haspopup="true" aria-expanded="false">${defaultAgent.logoSvg}</button>` +
             `<div class="agent-dropdown-menu" id="agentMenu">${itemsHtml}</div>` +
             `</div>`;
+    }
+
+    /**
+     * Generate a JSON object mapping agent names to display names,
+     * for injection into the webview JavaScript.
+     */
+    private _getAgentLabelsJson(): string {
+        const agentNames = getAvailableAgents();
+        const labels: Record<string, string> = {};
+        for (const name of agentNames) {
+            const agent = getAgent(name);
+            if (agent) {
+                labels[name] = agent.displayName;
+            }
+        }
+        return JSON.stringify(labels);
     }
 
     /**
@@ -258,6 +243,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        // The flag was consumed during HTML generation, reset it
+        this._defaultAgentChanged = false;
+
         // Send current workflows to the webview after it's resolved
         // This ensures workflows are available even if the webview is recreated
         if (this._workflows.length > 0) {
@@ -290,7 +278,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                         // Emit event for extension to handle
                         if (this._onAutoPrompt) {
                             try {
-                                const result = await this._onAutoPrompt(promptText, message.agent || 'claude');
+                                const result = await this._onAutoPrompt(promptText, message.agent || this._defaultAgent);
                                 this._view?.webview.postMessage({ command: 'autoPromptResult', success: true, improvedPrompt: result });
                             } catch (err) {
                                 vscode.window.showErrorMessage(`Lanes: Prompt improvement failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -347,7 +335,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                             // Await the callback to ensure session creation completes before clearing form
                             await this._onSubmit(
                                 message.name,
-                                message.agent || 'claude',
+                                message.agent || this._defaultAgent,
                                 message.prompt,
                                 message.sourceBranch || '',
                                 message.permissionMode || 'acceptEdits',
@@ -927,6 +915,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         let bypassPermissions = false;
         let selectedAgent = '${this._escapeHtml(this._defaultAgent)}';
+        const defaultAgentChanged = ${this._defaultAgentChanged ? 'true' : 'false'};
         let attachments = [];
         const MAX_FILES = 20;
 
@@ -944,7 +933,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 agentTrigger.innerHTML = agentSvgs[agentName];
             }
             // Update trigger tooltip
-            var labels = { 'claude': 'Claude Code', 'codex': 'Codex CLI', 'gemini': 'Gemini CLI', 'cortex': 'Cortex Code' };
+            var labels = ${this._getAgentLabelsJson()};
             if (agentTrigger) agentTrigger.title = labels[agentName] || agentName;
             // Update active state in menu
             agentItems.forEach(function(item) {
@@ -1187,11 +1176,13 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             saveState();
         });
 
-        // Restore saved state when webview is recreated
+        // Restore saved state when webview is recreated.
+        // If the default agent setting changed since last render, use the
+        // new default instead of the previously saved agent selection.
         const previousState = vscode.getState();
         if (previousState) {
             nameInput.value = previousState.name || '';
-            if (previousState.agent) {
+            if (!defaultAgentChanged && previousState.agent) {
                 selectAgent(previousState.agent, false);
             }
             sourceBranchInput.value = previousState.sourceBranch || '';
@@ -1369,11 +1360,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     updateWorkflowDropdown(message.workflows);
                     refreshWorkflowBtn.disabled = false;
                     refreshWorkflowBtn.textContent = '↻';
-                    break;
-                case 'updateDefaultAgent':
-                    if (message.defaultAgent) {
-                        selectAgent(message.defaultAgent);
-                    }
                     break;
             }
         });

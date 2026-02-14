@@ -39,7 +39,8 @@ export class GeminiAgent extends CodeAgent {
             sessionFileExtension: '.claude-session',
             statusFileExtension: '.claude-status',
             settingsFileName: 'settings.json',
-            defaultDataDir: '.gemini'
+            defaultDataDir: '.gemini',
+            logoSvg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1Q12 12 23 12Q12 12 12 23Q12 12 1 12Q12 12 12 1Z"/></svg>'
         });
     }
 

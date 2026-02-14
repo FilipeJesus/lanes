@@ -159,7 +159,7 @@ suite('CodexAgent Configuration', () => {
     });
 
     test('agent has correct display name', () => {
-        assert.strictEqual(agent.displayName, 'Codex', 'Display name should be Codex');
+        assert.strictEqual(agent.displayName, 'Codex CLI', 'Display name should be Codex CLI');
     });
 
     test('agent has correct CLI command', () => {
