@@ -23,3 +23,9 @@ socials/
 
 # Coverage reports
 coverage/
+
+# GSD
+.planning/
+
+# superpower
+docs/plan
