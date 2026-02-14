@@ -1,0 +1,355 @@
+                        <section id="create-session" class="doc-section mb-16 scroll-mt-24">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Create a New Session</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Creating a new session in Lanes is straightforward. Each session is isolated and runs in its own Git worktree, giving Claude Code a clean workspace to work in without affecting your main codebase.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Step 1: Prerequisites -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Before You Start</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Make sure you have:
+                                        </p>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
+                                            <li>Opened a folder or workspace in VS Code</li>
+                                            <li>A Git repository initialized (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">git init</code> if needed)</li>
+                                            <li>Claude Code installed globally (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @anthropic-ai/claude-code</code>)</li>
+                                            <li>Logged into Claude (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">claude login</code>)</li>
+                                            <li><code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">jq</code> installed for status tracking (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">brew install jq</code> on macOS or <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">apt install jq</code> on Linux)</li>
+                                            <li><em>Optional:</em> Codex CLI installed (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @openai/codex</code>) for OpenAI agent support</li>
+                                        </ul>
+                                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-3">
+                                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                                <strong>Note:</strong> Lanes currently supports macOS and Linux. Windows is not yet supported (WSL may work).
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Open Lanes Sidebar -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Step 1: Open the Lanes Sidebar</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Click the Lanes icon in the VS Code activity bar (the vertical bar on the far left) to open the Lanes panel. You'll see the session creation form at the top.
+                                        </p>
+                                        <div class="bg-accent-dim border border-accent/20 rounded-lg p-4 mt-3">
+                                            <div class="flex gap-2">
+                                                <svg class="w-5 h-5 text-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-accent font-medium">Tip</p>
+                                                    <p class="text-sm text-accent mt-1">
+                                                        Can't find the Lanes icon? Use the command palette (<kbd class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">Cmd+Shift+P</kbd>) and search for "Lanes: Create Session".
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Fill in Session Details -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Step 2: Fill in the Session Form</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The form has several fields to configure your session. Here's what each one does:
+                                        </p>
+
+                                        <div class="space-y-6">
+                                            <!-- Agent Selection -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                                                    Agent Selection
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    Choose which AI coding agent to use for this session. Click the agent logo to switch between available agents.
+                                                </p>
+                                                <div class="space-y-2 text-sm">
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">Claude Code</code>
+                                                        <span class="text-ink-muted">Anthropic's coding agent — uses hooks for status tracking</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">Codex CLI</code>
+                                                        <span class="text-ink-muted">OpenAI's coding agent — uses polling for session ID capture</span>
+                                                    </div>
+                                                </div>
+                                                <div class="bg-accent-dim border border-accent/20 rounded-lg p-3 mt-3">
+                                                    <p class="text-xs text-accent">
+                                                        <strong>Tip:</strong> Set a default agent with the <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">lanes.defaultAgent</code> setting to skip this step.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Session Name -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                                                    Session Name <span class="text-red-500 ml-1">*</span>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    A unique identifier for your session. This becomes the Git branch name, so use descriptive, Git-safe names.
+                                                </p>
+                                                <div class="bg-surface-2 rounded-lg p-3 font-mono text-sm text-ink-muted mb-2">
+                                                    <span class="text-green-600 dark:text-green-400">✓ Good:</span> fix-login-bug, add-dark-mode, refactor-api-client<br>
+                                                    <span class="text-red-600 dark:text-red-400">✗ Bad:</span> my session, task#123, testing!!!
+                                                </div>
+                                                <p class="text-xs text-ink-faint italic">
+                                                    Allowed characters: letters, numbers, hyphens, underscores, dots, and slashes
+                                                </p>
+                                            </div>
+
+                                            <!-- Source Branch -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-surface-3 text-ink rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                                                    Source Branch (optional)
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    The branch to create the worktree from. If left empty, Lanes uses your current HEAD.
+                                                </p>
+                                                <div class="bg-surface-2 rounded-lg p-3 text-sm text-ink-muted">
+                                                    <strong>Example:</strong> Enter <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">main</code> to always start from main, or <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">develop</code> for your development branch.
+                                                </div>
+                                                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mt-3">
+                                                    <p class="text-xs text-amber-600 dark:text-amber-400">
+                                                        <strong>Note:</strong> The source branch must already exist. Lanes will create a new branch (with the session name) from this branch.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Starting Prompt -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-surface-3 text-ink rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                                                    Starting Prompt (optional)
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    The initial task description sent to Claude Code when the session starts. Be specific about what you want Claude to do.
+                                                </p>
+                                                <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs text-ink-muted mb-2">
+                                                    Example: "Fix the authentication bug where users get logged out after 5 minutes. The issue seems to be in the token refresh logic in src/auth/TokenManager.ts"
+                                                </div>
+                                                <p class="text-xs text-ink-faint italic">
+                                                    Leave empty if you want to start with a blank session and provide instructions manually.
+                                                </p>
+                                            </div>
+
+                                            <!-- File Attachments -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-surface-3 text-ink rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                                                    File Attachments (optional)
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    Drag-and-drop or click to attach files to your session. File contents are included with the starting prompt, giving the agent additional context.
+                                                </p>
+                                                <div class="bg-surface-2 rounded-lg p-3 text-sm text-ink-muted mb-2">
+                                                    <strong>Use cases:</strong> Design specs, API schemas, screenshots, reference implementations, or any file the agent should read before starting.
+                                                </div>
+                                                <p class="text-xs text-ink-faint italic">
+                                                    A progress indicator shows upload status for each file.
+                                                </p>
+                                            </div>
+
+                                            <!-- Permission Mode -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs font-bold">6</span>
+                                                    Permission Mode
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Controls what Claude Code can do without asking for permission. Choose based on your trust level and workflow:
+                                                </p>
+                                                <div class="space-y-2 text-sm">
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">default</code>
+                                                        <span class="text-ink-muted">Standard behavior - asks for permission on sensitive operations</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">acceptEdits</code>
+                                                        <span class="text-ink-muted">Auto-accepts file edits (recommended for most workflows)</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">dontAsk</code>
+                                                        <span class="text-ink-muted">Auto-deny tools unless explicitly allowed by an allow rule</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">bypassPermissions</code>
+                                                        <span class="text-ink-muted">Runs all commands automatically (use with caution)</span>
+                                                    </div>
+                                                </div>
+                                                <div class="bg-accent-dim border border-accent/20 rounded-lg p-3 mt-3">
+                                                    <p class="text-xs text-accent">
+                                                        <strong>Recommendation:</strong> Start with <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">default</code> or <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">acceptEdits</code> until you're comfortable with how Claude works.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Workflow Template -->
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <span class="w-6 h-6 bg-surface-3 text-ink rounded-full flex items-center justify-center text-xs font-bold">7</span>
+                                                    Workflow Template (optional)
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    Choose a structured workflow to guide Claude through your task. Workflows define clear phases like plan, implement, test, and review.
+                                                </p>
+                                                <div class="space-y-2 text-sm mb-3">
+                                                    <div class="flex gap-2 items-start">
+                                                        <span class="text-ink-faint flex-shrink-0">•</span>
+                                                        <div>
+                                                            <strong class="text-ink">None (ad-hoc mode):</strong>
+                                                            <span class="text-ink-muted"> Freeform session - Claude works without a predefined structure</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex gap-2 items-start">
+                                                        <span class="text-ink-faint flex-shrink-0">•</span>
+                                                        <div>
+                                                            <strong class="text-ink">Custom Workflows:</strong>
+                                                            <span class="text-ink-muted"> Your own workflows from <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.lanes/workflows/</code></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <p class="text-xs text-ink-faint italic">
+                                                    Click the refresh button (↻) to reload the workflow list if you just added new workflow files.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 4: Create the Session -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Step 3: Click "Create Session"</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Once you've filled in the required fields, click the <strong>Create Session</strong> button. Lanes will:
+                                        </p>
+                                        <div class="space-y-3">
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Create a new Git worktree</p>
+                                                    <p class="text-sm text-ink-muted">Located at <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.worktrees/[session-name]</code> - a complete, isolated copy of your repository</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Create a new branch</p>
+                                                    <p class="text-sm text-ink-muted">Named after your session, branched from the source branch (or current HEAD)</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Open a dedicated terminal</p>
+                                                    <p class="text-sm text-ink-muted">Each session gets its own terminal window in VS Code</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Launch the selected agent</p>
+                                                    <p class="text-sm text-ink-muted">With your starting prompt, file attachments (if any), and selected permission mode</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">5</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Initialize workflow (if selected)</p>
+                                                    <p class="text-sm text-ink-muted">Sets up the MCP server and prepares the workflow state</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- What Happens Next -->
+                                    <div class="bg-surface-1 border border-border rounded-xl p-6">
+                                        <h3 class="text-xl font-bold text-ink mb-3">What Happens Next?</h3>
+                                        <div class="space-y-3 text-ink-muted">
+                                            <p>
+                                                <strong>Terminal Opens:</strong> You'll see a new terminal window appear with Claude Code running. The terminal title shows your session name.
+                                            </p>
+                                            <p>
+                                                <strong>Session Appears in Sidebar:</strong> Your new session shows up in the "Active Sessions" list in the Lanes sidebar with a real-time status indicator.
+                                            </p>
+                                            <p>
+                                                <strong>Claude Starts Working:</strong> If you provided a starting prompt, Claude immediately begins working on your task. Otherwise, it waits for your instructions.
+                                            </p>
+                                            <p>
+                                                <strong>Isolated Environment:</strong> All changes Claude makes are contained in the worktree. Your main working directory remains untouched.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tips and Best Practices -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Tips for Success</h3>
+                                        <div class="space-y-3">
+                                            <div class="flex gap-3 items-start">
+                                                <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-ink font-medium">Use descriptive session names</p>
+                                                    <p class="text-sm text-ink-muted">Names like <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">fix-user-logout-bug</code> are more helpful than <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">session1</code></p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-ink font-medium">Be specific in your prompts</p>
+                                                    <p class="text-sm text-ink-muted">Include file paths, expected behavior, and any relevant context</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-ink font-medium">Start with a clean working directory</p>
+                                                    <p class="text-sm text-ink-muted">Commit or stash changes in your main branch before creating sessions</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-ink font-medium">Use workflows for complex tasks</p>
+                                                    <p class="text-sm text-ink-muted">Features with multiple files, testing requirements, or documentation needs benefit from structured workflows</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-ink font-medium">One task per session</p>
+                                                    <p class="text-sm text-ink-muted">Keep sessions focused on a single goal - create multiple sessions for multiple tasks</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Common Issues -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Troubleshooting Common Issues</h3>
+                                        <div class="space-y-3">
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <p class="text-sm font-bold text-red-600 dark:text-red-400 mb-1">Error: "Session name already exists"</p>
+                                                <p class="text-sm text-red-600 dark:text-red-400">A session with this name is already active, or a branch with this name exists. Choose a different name or delete the existing session first.</p>
+                                            </div>
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <p class="text-sm font-bold text-red-600 dark:text-red-400 mb-1">Error: "Not a git repository"</p>
+                                                <p class="text-sm text-red-600 dark:text-red-400">Run <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">git init</code> in your project folder to initialize a Git repository.</p>
+                                            </div>
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <p class="text-sm font-bold text-red-600 dark:text-red-400 mb-1">Error: "Claude Code not found"</p>
+                                                <p class="text-sm text-red-600 dark:text-red-400">Install Claude Code globally: <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">npm install -g @anthropic-ai/claude-code</code></p>
+                                            </div>
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <p class="text-sm font-bold text-red-600 dark:text-red-400 mb-1">Error: "Codex CLI not found"</p>
+                                                <p class="text-sm text-red-600 dark:text-red-400">Install Codex CLI globally: <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">npm install -g @openai/codex</code>. Make sure you have an OpenAI API key configured.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

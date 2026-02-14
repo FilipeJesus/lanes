@@ -1,0 +1,71 @@
+                        <section id="local-settings" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Local Settings Propagation</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Lanes can automatically propagate your <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.claude/settings.local.json</code> file from your base repository to each worktree. This ensures your local Claude Code configuration is available in all sessions.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Configuration -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Configuration</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Add to your VS Code settings:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-4 font-mono text-sm text-ink-muted mb-4">
+                                            <span class="text-blue-600 dark:text-blue-400">"lanes.localSettingsPropagation"</span>: <span class="text-green-600 dark:text-green-400">"copy"</span>
+                                        </div>
+                                        <div class="space-y-2 text-sm">
+                                            <div class="flex gap-2">
+                                                <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">copy</code>
+                                                <span class="text-ink-muted">Default — copies the settings file to each worktree. Works on all platforms.</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">symlink</code>
+                                                <span class="text-ink-muted">Creates a symbolic link. More efficient but may require developer mode on Windows.</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">disabled</code>
+                                                <span class="text-ink-muted">Does not propagate settings to worktrees.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- How It Works -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">How It Works</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            When you create a new session (worktree), Lanes checks if <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.claude/settings.local.json</code> exists in your base repository. If it does and propagation is enabled, the file is copied or symlinked to <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">&lt;worktree&gt;/.claude/settings.local.json</code>.
+                                        </p>
+                                    </div>
+
+                                    <!-- Use Cases -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Common Use Cases</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Environment Variables</h4>
+                                                <p class="text-xs text-ink-muted">Set custom <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">ANTHROPIC_DEFAULT_HAIKU_MODEL</code> for all sessions.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Model Settings</h4>
+                                                <p class="text-xs text-ink-muted">Configure default models or permission modes across all worktrees.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Custom Hooks</h4>
+                                                <p class="text-xs text-ink-muted">Define hooks that apply to all sessions automatically.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">API Keys</h4>
+                                                <p class="text-xs text-ink-muted">Propagate API key configurations so agents in every worktree can access required services.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

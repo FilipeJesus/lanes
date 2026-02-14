@@ -1,0 +1,82 @@
+                        <section id="permission-modes" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Permission Modes</h2>
+                                </div>
+
+                                <div class="mb-8">
+                                    <p class="text-ink-muted mb-4">
+                                        Permission modes control how Claude Code interacts with your files and executes commands. Each mode offers a different balance between automation and control, allowing you to choose the level of oversight that matches your workflow and security requirements.
+                                    </p>
+                                    <p class="text-ink-muted">
+                                        When creating a new session, you can select the permission mode from the dropdown in the session form. The mode you choose will apply to Claude's entire session in that worktree.
+                                    </p>
+                                </div>
+
+                                <!-- Quick Comparison Table -->
+                                <div class="mb-8 overflow-x-auto">
+                                    <h3 class="text-xl font-bold text-ink mb-4">Quick Comparison</h3>
+                                    <table class="w-full text-sm border-collapse">
+                                        <thead>
+                                            <tr class="bg-surface-2">
+                                                <th class="text-left p-3 font-semibold text-ink border-b border-border">Mode</th>
+                                                <th class="text-left p-3 font-semibold text-ink border-b border-border">File Edits</th>
+                                                <th class="text-left p-3 font-semibold text-ink border-b border-border">Commands</th>
+                                                <th class="text-left p-3 font-semibold text-ink border-b border-border">Best For</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="text-ink-muted">
+                                            <tr class="border-b border-border">
+                                                <td class="p-3 font-medium text-ink">default</td>
+                                                <td class="p-3">Ask first</td>
+                                                <td class="p-3">Ask first unless allowed by an allow rule</td>
+                                                <td class="p-3">Standard interactive workflow</td>
+                                            </tr>
+                                            <tr class="border-b border-border">
+                                                <td class="p-3 font-medium text-ink">acceptEdits</td>
+                                                <td class="p-3">Auto-approve</td>
+                                                <td class="p-3">Ask first unless allowed by an allow rule</td>
+                                                <td class="p-3">Fast coding, careful with commands</td>
+                                            </tr>
+                                            <tr class="border-b border-border">
+                                                <td class="p-3 font-medium text-ink">dontAsk</td>
+                                                <td class="p-3">Auto-approve</td>
+                                                <td class="p-3">Auto-deny unless allowed by an allow rule</td>
+                                                <td class="p-3">Auto-deny tools unless explicitly allowed by an allow rule</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="p-3 font-medium text-red-600 dark:text-red-400">bypassPermissions</td>
+                                                <td class="p-3">Auto-approve</td>
+                                                <td class="p-3">Auto-approve</td>
+                                                <td class="p-3">Testing/debugging only</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- How to Select -->
+                                <div class="mt-8 bg-surface-2 rounded-lg p-6">
+                                    <h3 class="text-xl font-bold text-ink mb-4">How to Select a Permission Mode</h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <h4 class="font-semibold text-ink mb-2">When Creating a Session</h4>
+                                            <ol class="list-decimal list-inside text-ink-muted space-y-2 ml-4">
+                                                <li>Open the Lanes sidebar in VS Code</li>
+                                                <li>Fill out the session form with your session name and prompt</li>
+                                                <li>Select your desired permission mode from the "Permission Mode" dropdown</li>
+                                                <li>Click "Create Session"</li>
+                                            </ol>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-ink-muted">
+                                                The permission mode is set when the session is created and applies to Claude's entire session in that worktree. Choose carefully based on your task and trust level.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </section>

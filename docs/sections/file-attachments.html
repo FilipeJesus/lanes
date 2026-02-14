@@ -1,0 +1,65 @@
+                        <section id="file-attachments" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">File Attachments</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Attach files to your session to give the agent additional context before it starts working. Files are read and their contents are included with the starting prompt.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- How to Attach -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">How to Attach Files</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            In the session creation form, you can attach files in two ways:
+                                        </p>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
+                                            <li><strong class="text-ink">Click to browse:</strong> Click the attachment area to open a file picker</li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Upload Progress -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Upload Progress</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Each attached file shows an upload progress indicator. Once uploaded, file contents are processed and ready to be included with your prompt.
+                                        </p>
+                                    </div>
+
+                                    <!-- How Contents Are Included -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">How Contents Are Included</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            When you create the session, file contents are appended to the starting prompt. The agent receives the full text of each file along with the filename, giving it immediate access to the context it needs.
+                                        </p>
+                                    </div>
+
+                                    <!-- Use Cases -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Common Use Cases</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Design Specifications</h4>
+                                                <p class="text-xs text-ink-muted">Attach design docs or mockup descriptions so the agent understands the target UI/UX.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">API Schemas</h4>
+                                                <p class="text-xs text-ink-muted">Include OpenAPI specs or GraphQL schemas for API integration tasks.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Reference Code</h4>
+                                                <p class="text-xs text-ink-muted">Attach example implementations or patterns you want the agent to follow.</p>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-1 text-sm">Bug Reports</h4>
+                                                <p class="text-xs text-ink-muted">Include error logs, stack traces, or issue descriptions for debugging sessions.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

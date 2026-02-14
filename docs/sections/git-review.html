@@ -1,0 +1,176 @@
+                        <section id="git-review" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Reviewing Changes</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Lanes includes a built-in code review tool that lets you view changes, add comments, and generate review feedback for your coding agents.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Opening the Diff Viewer -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Opening the Git Changes Viewer</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            To review changes made in a session:
+                                        </p>
+                                        <ol class="space-y-3 mb-4">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted">Click the <strong class="text-ink">"Show Git Changes"</strong> button in the session's action bar (the diff icon)</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted">A new panel opens showing all file changes between your session branch and the comparison branch</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted">This can be slow when there are many changes.</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                    </div>
+
+                                    <!-- Understanding the Diff View -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Understanding the Diff View</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The diff viewer shows changes in a unified diff format:
+                                        </p>
+                                        <div class="space-y-4">
+                                            <div class="bg-surface-2 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2">Comparison Branch</h4>
+                                                <p class="text-sm text-ink-muted">
+                                                    By default, changes are compared against <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">main</code> or <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">master</code>.
+                                                    You can change this using the branch selector dropdown at the top of the diff panel.
+                                                </p>
+                                            </div>
+                                            <div class="grid md:grid-cols-2 gap-4">
+                                                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4">
+                                                    <h5 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                        <span class="text-green-600 dark:text-green-400">+</span> Added Lines
+                                                    </h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Lines highlighted in green are new additions to the codebase.
+                                                    </p>
+                                                </div>
+                                                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4">
+                                                    <h5 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                        <span class="text-red-600 dark:text-red-400">-</span> Removed Lines
+                                                    </h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Lines highlighted in red have been deleted from the original.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Adding Review Comments -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Adding Review Comments</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            You can add comments to specific lines in the diff to provide feedback:
+                                        </p>
+                                        <ol class="space-y-3 mb-4">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted"><strong class="text-ink">Click on any line</strong> in the diff view to select it</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted"><strong class="text-ink">Type your comment</strong> in the input field that appears</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted"><strong class="text-ink">Press Enter</strong> to save the comment</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                        <p class="text-ink-muted mb-4">
+                                            Comments are displayed inline with the code, making it easy to track your feedback as you review.
+                                        </p>
+                                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                                            <p class="text-sm text-amber-600 dark:text-amber-400">
+                                                <strong>Note:</strong> Comments are stored locally in the diff viewer session. They are not persisted to git or any external system.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Submitting Review -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Submitting Your Review</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Once you've added all your comments, you can generate a formatted review to share with your coding agent:
+                                        </p>
+                                        <ol class="space-y-3 mb-6">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted">Click the <strong class="text-ink">"Submit Review"</strong> button at the top of the diff panel</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted">The review is <strong class="text-ink">automatically copied to your clipboard</strong> in a structured markdown format</p>
+                                                </div>
+                                            </li>
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-7 h-7 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <p class="text-ink-muted"><strong class="text-ink">Paste</strong> the review into your coding agent's terminal or chat</p>
+                                                </div>
+                                            </li>
+                                        </ol>
+
+                                        <h4 class="text-lg font-semibold text-ink mb-3">Clipboard Format</h4>
+                                        <p class="text-ink-muted mb-4">
+                                            The generated review follows a structured markdown format that's easy for AI agents to parse:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg overflow-hidden">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-2">
+                                                <span class="text-xs text-ink-faint font-mono">Example: Clipboard Output</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-ink-muted overflow-x-auto"><code><span class="text-purple-600 dark:text-purple-400"># Code Review Comments</span>
+
+<span class="text-blue-600 dark:text-blue-400">## docs/docs.html</span>
+
+<span class="text-ink-muted">**Line 38** (added):</span>
+```
++    &lt;/script&gt;
+```
+<span class="text-green-600 dark:text-green-400">&gt; Is this really a script tag? It seems misplaced.</span>
+
+<span class="text-ink-muted">**Line 142** (added):</span>
+```
++    const user = await getUser();
+```
+<span class="text-green-600 dark:text-green-400">&gt; Consider adding error handling for the getUser() call.</span>
+
+<span class="text-blue-600 dark:text-blue-400">## src/utils/helper.ts</span>
+
+<span class="text-ink-muted">**Line 25** (removed):</span>
+```
+-    // TODO: Remove this hack
+```
+<span class="text-green-600 dark:text-green-400">&gt; Good cleanup! But make sure the hack was actually fixed, not just the comment removed.</span></code></pre>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>

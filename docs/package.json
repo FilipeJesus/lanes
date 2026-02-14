@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Blog build scripts for Lanes website",
   "scripts": {
-    "build": "node scripts/build-blog.js"
+    "build": "node scripts/build-blog.js",
+    "build:docs": "node scripts/build-docs.js"
   },
   "dependencies": {
     "dompurify": "^3.3.1",

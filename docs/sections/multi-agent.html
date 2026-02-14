@@ -1,0 +1,98 @@
+                        <section id="multi-agent" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Multi-Agent Support</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Lanes supports multiple AI coding agents. Choose the best agent for each task, or mix agents across sessions.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Supported Agents -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Supported Agents</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2">Claude Code</h4>
+                                                <p class="text-sm text-ink-muted mb-2">Anthropic's coding agent with deep code understanding and multi-file editing capabilities.</p>
+                                                <ul class="text-xs text-ink-faint space-y-1">
+                                                    <li>&#x2022; Status tracking via hooks</li>
+                                                    <li>&#x2022; Permission modes (default, acceptEdits, bypassPermissions)</li>
+                                                    <li>&#x2022; MCP workflow support built-in</li>
+                                                    <li>&#x2022; Session resume with <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">--resume</code></li>
+                                                </ul>
+                                            </div>
+                                            <div class="bg-surface-1 rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2">Codex CLI</h4>
+                                                <p class="text-sm text-ink-muted mb-2">OpenAI's command-line coding agent for code generation and editing tasks.</p>
+                                                <ul class="text-xs text-ink-faint space-y-1">
+                                                    <li>&#x2022; Status tracking via polling</li>
+                                                    <li>&#x2022; TOML-based configuration</li>
+                                                    <li>&#x2022; MCP workflow support via config overrides</li>
+                                                    <li>&#x2022; Hookless session ID capture</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- How to Select -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Selecting an Agent</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            In the session creation form, click the agent logo at the top to cycle between available agents. The selected agent's logo is displayed inline, and the form adjusts available options accordingly.
+                                        </p>
+                                        <div class="bg-accent-dim border border-accent/20 rounded-lg p-4">
+                                            <p class="text-sm text-accent">
+                                                <strong>Default agent:</strong> Set <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">lanes.defaultAgent</code> in VS Code settings to <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"claude-code"</code> or <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"codex"</code> to pre-select your preferred agent.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Differences Between Agents -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Differences Between Agents</h3>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-sm">
+                                                <thead>
+                                                    <tr class="border-b border-border">
+                                                        <th class="text-left py-2 px-3 font-bold text-ink">Feature</th>
+                                                        <th class="text-left py-2 px-3 font-bold text-ink">Claude Code</th>
+                                                        <th class="text-left py-2 px-3 font-bold text-ink">Codex CLI</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="text-ink-muted">
+                                                    <tr class="border-b border-border">
+                                                        <td class="py-2 px-3">Status tracking</td>
+                                                        <td class="py-2 px-3">Hook-based (real-time)</td>
+                                                        <td class="py-2 px-3">Polling-based</td>
+                                                    </tr>
+                                                    <tr class="border-b border-border">
+                                                        <td class="py-2 px-3">Session ID capture</td>
+                                                        <td class="py-2 px-3">Via hooks</td>
+                                                        <td class="py-2 px-3">Via polling</td>
+                                                    </tr>
+                                                    <tr class="border-b border-border">
+                                                        <td class="py-2 px-3">Configuration format</td>
+                                                        <td class="py-2 px-3">JSON</td>
+                                                        <td class="py-2 px-3">TOML</td>
+                                                    </tr>
+                                                    <tr class="border-b border-border">
+                                                        <td class="py-2 px-3">MCP workflows</td>
+                                                        <td class="py-2 px-3">Native support</td>
+                                                        <td class="py-2 px-3">Via config overrides</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="py-2 px-3">Permission modes</td>
+                                                        <td class="py-2 px-3">Full support</td>
+                                                        <td class="py-2 px-3">Agent-specific modes</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
