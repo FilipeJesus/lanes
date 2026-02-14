@@ -30,6 +30,9 @@ export interface CodeAgentConfig {
 
     /** Default data directory name (e.g., '.claude') */
     defaultDataDir: string;
+
+    /** Inline SVG logo for the agent, used in the webview dropdown */
+    logoSvg: string;
 }
 
 /**
@@ -143,6 +146,12 @@ export interface ResumeCommandOptions {
 }
 
 /**
+ * Feature flags for agent capabilities.
+ * Used to gate features based on agent support rather than name checks.
+ */
+export type AgentFeature = 'insights';
+
+/**
  * MCP (Model Context Protocol) server configuration
  */
 export interface McpServerConfig {
@@ -225,6 +234,9 @@ export abstract class CodeAgent {
         if (!config.defaultDataDir || typeof config.defaultDataDir !== 'string') {
             throw new Error('CodeAgentConfig requires a non-empty defaultDataDir');
         }
+        if (!config.logoSvg || typeof config.logoSvg !== 'string') {
+            throw new Error('CodeAgentConfig requires a non-empty logoSvg');
+        }
     }
 
     // --- Config Getters ---
@@ -248,6 +260,13 @@ export abstract class CodeAgent {
      */
     get cliCommand(): string {
         return this.config.cliCommand;
+    }
+
+    /**
+     * Get the agent's inline SVG logo
+     */
+    get logoSvg(): string {
+        return this.config.logoSvg;
     }
 
     // --- File Naming ---
@@ -454,6 +473,45 @@ export abstract class CodeAgent {
      */
     getMcpConfig(_worktreePath: string, _workflowPath: string, _repoRoot: string): McpConfig | null {
         return null;
+    }
+
+    // --- Feature Support ---
+
+    /**
+     * Check if this agent supports a specific feature.
+     * Override in subclasses to declare feature support.
+     *
+     * @param _feature The feature to check
+     * @returns true if the feature is supported, false otherwise
+     */
+    supportsFeature(_feature: AgentFeature): boolean {
+        return false;
+    }
+
+    // --- Session ID Capture ---
+
+    /**
+     * Capture the session ID for agents that don't support hooks.
+     * Override this in hookless agents to implement agent-specific capture logic.
+     *
+     * @param _beforeTimestamp Only consider sessions created after this time
+     * @returns Session ID string, or null if capture is not supported or failed
+     */
+    async captureSessionId(_beforeTimestamp: Date): Promise<string | null> {
+        return null;
+    }
+
+    // --- MCP Overrides ---
+
+    /**
+     * Build MCP configuration overrides as CLI arguments.
+     * Override this in agents that deliver MCP config via CLI overrides (e.g., `-c key=value`).
+     *
+     * @param _mcpConfig The MCP configuration to convert to overrides
+     * @returns Array of override strings, or empty array if not applicable
+     */
+    buildMcpOverrides(_mcpConfig: McpConfig): string[] {
+        return [];
     }
 
     // --- Prompt Improvement (Non-interactive) ---

@@ -17,7 +17,8 @@ export type {
     ResumeCommandOptions,
     McpServerConfig,
     McpConfig,
-    McpConfigDelivery
+    McpConfigDelivery,
+    AgentFeature
 } from './CodeAgent';
 
 // Export the abstract base class
@@ -29,5 +30,5 @@ export { CodexAgent } from './CodexAgent';
 export { CortexCodeAgent } from './CortexCodeAgent';
 export { GeminiAgent } from './GeminiAgent';
 
-// Export factory functions
-export { getAgent, getAvailableAgents, getDefaultAgent, isCliAvailable, validateAndGetAgent } from './factory';
+// Export factory functions and constants
+export { getAgent, getAvailableAgents, getDefaultAgent, isCliAvailable, validateAndGetAgent, DEFAULT_AGENT_NAME } from './factory';

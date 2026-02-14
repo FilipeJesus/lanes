@@ -20,6 +20,12 @@ import { CortexCodeAgent } from './CortexCodeAgent';
 import { GeminiAgent } from './GeminiAgent';
 
 /**
+ * The default agent name used as fallback throughout the extension.
+ * Referenced instead of hardcoding 'claude' in every file.
+ */
+export const DEFAULT_AGENT_NAME = 'claude';
+
+/**
  * Singleton instance cache - one CodeAgent instance per agent type.
  * Ensures the same object reference is returned for repeated calls.
  */
@@ -83,7 +89,7 @@ export function getAvailableAgents(): string[] {
  */
 export function getDefaultAgent(): string {
     const config = vscode.workspace.getConfiguration('lanes');
-    const agent = config.get<string>('defaultAgent', 'claude');
+    const agent = config.get<string>('defaultAgent', DEFAULT_AGENT_NAME);
 
     // Validate against known agents
     const validAgents = getAvailableAgents();
@@ -91,7 +97,7 @@ export function getDefaultAgent(): string {
         vscode.window.showWarningMessage(
             `Unknown agent '${agent}' in lanes.defaultAgent setting. Falling back to Claude.`
         );
-        return 'claude';
+        return DEFAULT_AGENT_NAME;
     }
 
     return agent;

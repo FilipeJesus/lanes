@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { CodeAgent } from './codeAgents';
+import { CodeAgent, DEFAULT_AGENT_NAME } from './codeAgents';
 import { validateWorktreesFolder } from './validation';
 import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from './services/FileService';
 
@@ -289,7 +289,7 @@ export async function getSessionId(worktreePath: string): Promise<AgentSessionDa
         if (!data.sessionId || typeof data.sessionId !== 'string' || data.sessionId.trim() === '') { return null; }
         const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
         if (!SESSION_ID_PATTERN.test(data.sessionId)) { return null; }
-        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || 'claude', isChimeEnabled: data.isChimeEnabled };
+        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || DEFAULT_AGENT_NAME, isChimeEnabled: data.isChimeEnabled };
     } catch { return null; }
 }
 
@@ -297,12 +297,12 @@ export async function getSessionAgentName(worktreePath: string): Promise<string>
     const sessionPath = getSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
-        if (!data) { return 'claude'; }
+        if (!data) { return DEFAULT_AGENT_NAME; }
         if (typeof data.agentName === 'string' && data.agentName.trim() !== '') {
             return data.agentName;
         }
-        return 'claude';
-    } catch { return 'claude'; }
+        return DEFAULT_AGENT_NAME;
+    } catch { return DEFAULT_AGENT_NAME; }
 }
 
 export async function clearSessionId(worktreePath: string): Promise<void> {

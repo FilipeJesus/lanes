@@ -40,7 +40,7 @@ import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
 import { getErrorMessage } from './utils';
 
-import { CodeAgent, getDefaultAgent, getAgent, isCliAvailable } from './codeAgents';
+import { CodeAgent, getDefaultAgent, getAgent, isCliAvailable, DEFAULT_AGENT_NAME } from './codeAgents';
 import type { ServiceContainer } from './types/serviceContainer';
 
 import { registerAllCommands } from './commands';
@@ -105,7 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Reads lanes.defaultAgent setting and creates the appropriate agent
     // CLI availability is checked lazily at session creation time, not here.
     const defaultAgentName = getDefaultAgent();
-    const codeAgent: CodeAgent = getAgent(defaultAgentName) || getAgent('claude')!;
+    const codeAgent: CodeAgent = getAgent(defaultAgentName) || getAgent(DEFAULT_AGENT_NAME)!;
     console.log(`Code agent initialized: ${codeAgent.displayName} (${codeAgent.name})`);
 
     // Initialize global storage context for session file storage
@@ -257,6 +257,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Use a flag to prevent concurrent execution during async operations
     let isUpdatingStorageConfig = false;
     const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
+        if (event.affectsConfiguration('lanes.defaultAgent')) {
+            sessionFormProvider.setDefaultAgent(getDefaultAgent());
+        }
         if (event.affectsConfiguration('lanes.useGlobalStorage')) {
             // Prevent concurrent execution
             if (isUpdatingStorageConfig) {

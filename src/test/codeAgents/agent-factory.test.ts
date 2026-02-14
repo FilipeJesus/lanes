@@ -96,11 +96,11 @@ suite('Agent Factory', () => {
         const gemini = getAgent('gemini');
 
         assert.strictEqual(claude!.name, 'claude', 'Claude agent should have name "claude"');
-        assert.strictEqual(claude!.displayName, 'Claude', 'Claude should have correct display name');
+        assert.strictEqual(claude!.displayName, 'Claude Code', 'Claude should have correct display name');
         assert.strictEqual(claude!.cliCommand, 'claude', 'Claude should have correct CLI command');
 
         assert.strictEqual(codex!.name, 'codex', 'Codex agent should have name "codex"');
-        assert.strictEqual(codex!.displayName, 'Codex', 'Codex should have correct display name');
+        assert.strictEqual(codex!.displayName, 'Codex CLI', 'Codex should have correct display name');
         assert.strictEqual(codex!.cliCommand, 'codex', 'Codex should have correct CLI command');
 
         assert.strictEqual(cortex!.name, 'cortex', 'Cortex agent should have name "cortex"');

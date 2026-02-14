@@ -541,8 +541,9 @@ export function registerSessionCommands(
         }
 
         const agentName = await getSessionAgentName(item.worktreePath);
-        if (agentName !== 'claude') {
-            vscode.window.showInformationMessage('Insights are only available for Claude sessions.');
+        const agent = getAgent(agentName);
+        if (!agent?.supportsFeature('insights')) {
+            vscode.window.showInformationMessage(`Insights are not supported by ${agent?.displayName ?? agentName}.`);
             return;
         }
 

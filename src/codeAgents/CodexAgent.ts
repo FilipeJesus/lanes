@@ -49,12 +49,13 @@ export class CodexAgent extends CodeAgent {
     constructor() {
         super({
             name: 'codex',
-            displayName: 'Codex',
+            displayName: 'Codex CLI',
             cliCommand: 'codex',
             sessionFileExtension: '.claude-session',
             statusFileExtension: '.claude-status',
             settingsFileName: 'config.toml',
-            defaultDataDir: '.codex'
+            defaultDataDir: '.codex',
+            logoSvg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>'
         });
     }
 
@@ -272,6 +273,18 @@ export class CodexAgent extends CodeAgent {
         return [];
     }
 
+    // --- MCP Overrides ---
+
+    buildMcpOverrides(mcpConfig: McpConfig): string[] {
+        const overrides: string[] = [];
+        for (const [name, server] of Object.entries(mcpConfig.mcpServers)) {
+            const safeName = /^[A-Za-z0-9_-]+$/.test(name) ? name : `"${name.replace(/"/g, '\\"')}"`;
+            overrides.push(`mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`);
+            overrides.push(`mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`);
+        }
+        return overrides;
+    }
+
     // --- Prompt Improvement ---
 
     buildPromptImproveCommand(prompt: string): { command: string; args: string[] } | null {
@@ -334,7 +347,7 @@ ${prompt}`;
         return results;
     }
 
-    static async captureSessionId(
+    async captureSessionId(
         beforeTimestamp: Date,
         timeoutMs: number = 10000,
         pollIntervalMs: number = 500

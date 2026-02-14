@@ -42,16 +42,6 @@ function getMcpConfigDelivery(codeAgent?: CodeAgent): McpConfigDelivery {
     return codeAgent?.getMcpConfigDelivery() ?? 'cli';
 }
 
-function buildCodexMcpOverrides(mcpConfig: { mcpServers: Record<string, { command: string; args: string[] }> }): string[] {
-    const overrides: string[] = [];
-    for (const [name, server] of Object.entries(mcpConfig.mcpServers)) {
-        const safeName = /^[A-Za-z0-9_-]+$/.test(name) ? name : `"${name.replace(/"/g, '\\"')}"`;
-        overrides.push(`mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`);
-        overrides.push(`mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`);
-    }
-    return overrides;
-}
-
 /**
  * Register terminal lifecycle tracking for hookless agents.
  * Listens to terminal close events to update status files when a hookless
@@ -352,7 +342,7 @@ async function openClaudeTerminalTmux(
                     }
                     if (mcpConfig) {
                         if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
-                            mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
+                            mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);
                         } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
                             // Write MCP config to a file
                             mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
@@ -676,7 +666,7 @@ export async function openAgentTerminal(
                 }
                 if (mcpConfig) {
                     if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
-                        mcpConfigOverrides = buildCodexMcpOverrides(mcpConfig);
+                        mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);
                     } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
                         // Write MCP config to a file (inline JSON escaping is problematic)
                         mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
@@ -865,20 +855,15 @@ async function captureHooklessSessionId(
     beforeTimestamp: Date
 ): Promise<void> {
     try {
-        // Codex: capture session ID via filesystem polling
-        const { CodexAgent } = await import('../codeAgents/CodexAgent.js');
-        if (!(codeAgent instanceof CodexAgent)) {
-            return; // No capture mechanism for this hookless agent
-        }
-
-        const sessionId = await CodexAgent.captureSessionId(beforeTimestamp);
-
+        const sessionId = await codeAgent.captureSessionId(beforeTimestamp);
         if (!sessionId) {
-            // LOCKED DECISION: strict error, no silent fallback
-            vscode.window.showWarningMessage(
-                'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
-                'If you need to resume, try starting a new session.'
-            );
+            // Show warning only for agents that are hookless (they need session capture to work)
+            if (!codeAgent.supportsHooks()) {
+                vscode.window.showWarningMessage(
+                    `Lanes: Could not capture ${codeAgent.displayName} session ID. Resume may not work for this session. ` +
+                    'If you need to resume, try starting a new session.'
+                );
+            }
             return;
         }
 
@@ -892,14 +877,8 @@ async function captureHooklessSessionId(
             sessionId,
             timestamp: new Date().toISOString()
         });
-
-        console.log(`Lanes: Captured Codex session ID: ${sessionId}`);
     } catch (err) {
         console.error('Lanes: Failed to capture hookless session ID:', getErrorMessage(err));
-        vscode.window.showWarningMessage(
-            'Lanes: Could not capture Codex session ID. Resume may not work for this session. ' +
-            'If you need to resume, try starting a new session.'
-        );
     }
 }
 
