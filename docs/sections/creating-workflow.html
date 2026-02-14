@@ -1,0 +1,496 @@
+                        <section id="creating-workflow" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Creating a Workflow</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Learn how to create custom workflows for your projects, with a complete annotated example and best practices.
+                                </p>
+
+                                <div class="space-y-10">
+                                    <!-- Creating Custom Workflows -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Step-by-Step Guide</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Custom workflows let you define project-specific development processes. They appear in the "Custom" section of the workflow dropdown.
+                                        </p>
+                                        <ol class="space-y-4 mb-6">
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Define corresponding agents (if needed)</h5>
+                                                    <p class="text-sm text-ink-muted mb-2">
+                                                        First thing you will want to do is make sure you have already created all the agents you want to use in your workflow ahead of time. This is because agent names in your workflow must match either inline definitions or external agent files.
+                                                    </p>
+                                                    <div class="bg-surface-2 rounded-lg p-2 font-mono text-sm text-ink-muted mb-2">
+                                                        mkdir -p .claude/agents<br>
+                                                        # Create .claude/agents/my-agent.md
+                                                    </div>
+                                                    <p class="text-xs text-ink-faint">
+                                                        Note: Inline agent definitions in the workflow file take precedence over external files.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Start creating a workflow document</h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Open the Lanes sidebar → Open the "Workflow" window → Press the '+' icon.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Start creating a workflow document</h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        If you like, choose a template to start from (feature, bugfix, refactor, or default). This will create a new YAML file in <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.lanes/workflows/</code>.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">4</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Write your workflow</h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Edit your the template document, you can use the examples below or use the Workflow Structure page for guidance.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">5</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Validate your workflow</h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        The lanes extension comes with the 'Validate Workflow' command which you cna find in your command palette. This will check your workflow for common errors and help ensure it is correctly formatted.
+                                                    </p>
+                                                </div>
+                                            </li>
+
+                                            <li class="flex gap-3">
+                                                <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">6</span>
+                                                <div class="flex-1">
+                                                    <h5 class="font-semibold text-ink mb-1">Use the new Workflow</h5>
+                                                    <p class="text-sm text-ink-muted">
+                                                        The workflow should now appear in the workflow dropdown in the Lanes New Session window. You might need to use the refresh button. Select it to start using your custom workflow for new worktrees.
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        </ol>
+
+                                    </div>
+
+                                    <!-- Simple Workflow Example -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Simple Workflow Example</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            For straightforward tasks, you can create a workflow with just steps—no agents or loops required. The main Claude agent handles all steps directly:
+                                        </p>
+
+                                        <div class="bg-surface-2 rounded-lg overflow-hidden mb-4">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-2">
+                                                <span class="text-xs text-ink-faint font-mono">simple-workflow.yaml</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-ink-muted overflow-x-auto"><code><span class="text-gray-500"># A minimal workflow - just name, description, and steps</span>
+<span class="text-purple-400">name:</span> simple-task
+<span class="text-purple-400">description:</span> Execute a straightforward task
+
+<span class="text-purple-400">steps:</span>
+  - <span class="text-green-400">id:</span> analyze
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Analyze the codebase and identify what needs to be done.
+
+  - <span class="text-green-400">id:</span> implement
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Implement the required changes.
+      Ensure all tests pass.
+
+  - <span class="text-green-400">id:</span> verify
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Run tests and verify the implementation.
+      Update documentation if needed.</code></pre>
+                                        </div>
+
+                                        <div class="bg-accent-dim border border-accent/20 rounded-lg p-4 mb-4">
+                                            <p class="text-sm text-accent">
+                                                <strong>Tip:</strong> Simple workflows are great for quick prototypes, single-developer tasks, or when you don't need specialized phases.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Context and Artefacts Example -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Context Management and Artefact Tracking</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            For larger features, you can use <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">context: clear</code> to give Claude a fresh context window between planning and implementation. Combine this with <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">artefacts: true</code> to preserve important work across the reset:
+                                        </p>
+
+                                        <div class="bg-surface-2 rounded-lg overflow-hidden mb-4">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-2">
+                                                <span class="text-xs text-ink-faint font-mono">context-aware-workflow.yaml</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-ink-muted overflow-x-auto"><code><span class="text-purple-400">name:</span> feature-with-context-reset
+<span class="text-purple-400">description:</span> Large feature development with context management
+
+<span class="text-purple-400">steps:</span>
+  - <span class="text-green-400">id:</span> brainstorming
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      Use brainstorming skill to explore the problem space.
+
+  - <span class="text-green-400">id:</span> writing-plans
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">artefacts:</span> <span class="text-blue-400">true</span>  <span class="text-gray-500"># Track created plan files</span>
+    <span class="text-green-400">instructions:</span> |
+      Create detailed implementation plans.
+      Use "/writing-plans" skill from superpower to start.
+
+  - <span class="text-green-400">id:</span> implementation
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">context:</span> <span class="text-blue-400">clear</span>  <span class="text-gray-500"># Fresh context for implementation</span>
+    <span class="text-green-400">instructions:</span> |
+      Implement the features based on the plans.
+      Use "/subagent-driven-development" skill to start.
+      <span class="text-gray-500"># Artefacts from previous step are available here</span></code></pre>
+                                        </div>
+
+                                        <div class="grid md:grid-cols-2 gap-4 mb-4">
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-ink mb-2 font-mono text-sm">Why use context: clear?</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Large features can exhaust Claude's context window. Clearing between planning and implementation gives the orchestrator a fresh start while the saved plans guide implementation.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-amber-500 p-4">
+                                                <h5 class="font-bold text-ink mb-2 font-mono text-sm">Why use artefacts: true?</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    When context is cleared, downstream steps need to know what files were created. Artefact tracking makes these files visible to subsequent steps.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="bg-red-500/10 border border-red-500/20 p-4">
+                                            <p class="text-sm text-red-600 dark:text-red-400">
+                                                <strong>Important:</strong> Only use <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">context: clear</code> when you're confident your workflow saves plans in artefacts. Without saved plans, the implementation step won't have the necessary context.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Complete Annotated Example -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Complete Annotated Example (with Agents and Loops)</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            For complex workflows that need specialized agents and iteration over tasks, here's a complete template with detailed annotations:
+                                        </p>
+
+                                        <div class="bg-surface-2 rounded-lg overflow-hidden">
+                                            <div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-2">
+                                                <span class="text-xs text-ink-faint font-mono">my-custom-workflow.yaml</span>
+                                            </div>
+                                            <pre class="p-4 text-sm font-mono text-ink-muted overflow-x-auto" style="max-height: 600px;"><code><span class="text-gray-500"># ==============================================================================</span>
+<span class="text-gray-500"># WORKFLOW TEMPLATE: Custom Feature Development</span>
+<span class="text-gray-500"># ==============================================================================</span>
+
+<span class="text-gray-500"># Required: Unique name for this workflow</span>
+<span class="text-purple-400">name:</span> custom-dev-workflow
+
+<span class="text-gray-500"># Required: Description shown in workflow selector</span>
+<span class="text-purple-400">description:</span> Custom workflow for our team's feature development process
+
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-gray-500"># AGENTS: Define specialized roles with tool permissions</span>
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-purple-400">agents:</span>
+  <span class="text-gray-500"># Planning agent - can read code but not modify it</span>
+  <span class="text-blue-400">planner:</span>
+    <span class="text-green-400">description:</span> Analyzes requirements and breaks down work
+
+  <span class="text-gray-500"># Implementation agent - can write code but not commit</span>
+  <span class="text-blue-400">coder:</span>
+    <span class="text-green-400">description:</span> Implements features according to plan
+
+  <span class="text-gray-500"># Test agent - can run tests and fix test code</span>
+  <span class="text-blue-400">tester:</span>
+    <span class="text-green-400">description:</span> Runs tests and fixes failures
+
+  <span class="text-gray-500"># Review agent - read-only, provides feedback</span>
+  <span class="text-blue-400">reviewer:</span>
+    <span class="text-green-400">description:</span> Reviews code quality and security
+
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-gray-500"># LOOPS: Reusable sub-workflows that iterate over tasks</span>
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-purple-400">loops:</span>
+  <span class="text-gray-500"># This loop executes for each task in the task list</span>
+  <span class="text-blue-400">build_feature:</span>
+    <span class="text-gray-500"># Sub-step 1: Implement the feature</span>
+    - <span class="text-green-400">id:</span> code
+      <span class="text-green-400">agent:</span> coder
+      <span class="text-green-400">instructions:</span> |
+        Implement: {task.title}
+
+        Steps:
+        1. Read relevant files to understand context
+        2. Plan your implementation approach
+        3. Write the code
+        4. Verify it compiles without errors
+
+        Do NOT run tests - that's handled in the next step.
+
+    <span class="text-gray-500"># Sub-step 2: Test the implementation</span>
+    - <span class="text-green-400">id:</span> test
+      <span class="text-green-400">agent:</span> tester
+      <span class="text-green-400">instructions:</span> |
+        Test the implementation of: {task.title}
+
+        1. Run the full test suite
+        2. Identify any failing tests
+        3. Fix test failures
+        4. Ensure all tests pass
+        5. Report test results
+      <span class="text-green-400">on_fail:</span> retry  <span class="text-gray-500"># Retry if tests fail</span>
+
+    <span class="text-gray-500"># Sub-step 3: Review the code</span>
+    - <span class="text-green-400">id:</span> review
+      <span class="text-green-400">agent:</span> reviewer
+      <span class="text-green-400">instructions:</span> |
+        Review the implementation of: {task.title}
+
+        Check for:
+        1. Security vulnerabilities
+        2. Proper error handling
+        3. Code quality and maintainability
+        4. Adherence to project patterns
+        5. Edge cases and potential bugs
+
+        Provide specific feedback on any issues found.
+
+    <span class="text-gray-500"># Sub-step 4: Address review feedback (no agent = main Claude)</span>
+    - <span class="text-green-400">id:</span> fix_issues
+      <span class="text-green-400">instructions:</span> |
+        Review feedback for: {task.title}
+
+        1. Read the reviewer's feedback
+        2. If there are critical issues, fix them
+        3. If there are minor suggestions, note them for future work
+        4. Mark the task as complete
+
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-gray-500"># STEPS: Main workflow sequence (executed in order)</span>
+<span class="text-gray-500"># ==============================================================================</span>
+<span class="text-purple-400">steps:</span>
+  <span class="text-gray-500"># Step 1: ACTION type - single operation by planner agent</span>
+  - <span class="text-green-400">id:</span> analyze
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> planner
+    <span class="text-green-400">instructions:</span> |
+      Analyze the user's goal and break it into discrete tasks.
+
+      Consider:
+      1. What features or changes are needed?
+      2. What are the dependencies between tasks?
+      3. What is the optimal implementation order?
+
+      Document your analysis clearly.
+
+  <span class="text-gray-500"># Step 2: ACTION type - planner defines the task list</span>
+  - <span class="text-green-400">id:</span> create_tasks
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> planner
+    <span class="text-green-400">instructions:</span> |
+      Create a task list based on your analysis.
+
+      For each task, define:
+      - id: unique-identifier (e.g., 'add-login', 'fix-validation')
+      - title: Clear, concise title (e.g., 'Add login form')
+      - description: Detailed requirements
+
+      Call workflow_set_tasks('build_feature', tasks) when ready.
+
+  <span class="text-gray-500"># Step 3: LOOP type - references the 'build_feature' loop above</span>
+  <span class="text-gray-500"># This will execute all sub-steps for each task</span>
+  - <span class="text-green-400">id:</span> build_feature
+    <span class="text-green-400">type:</span> loop
+
+  <span class="text-gray-500"># Step 4: ACTION type - final review of all changes</span>
+  - <span class="text-green-400">id:</span> final_review
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">agent:</span> reviewer
+    <span class="text-green-400">instructions:</span> |
+      Review the complete implementation.
+
+      Check:
+      1. Consistency across all changes
+      2. Integration between features
+      3. Overall code quality
+      4. Any missed requirements from the original goal
+
+      Provide a summary of the implementation quality.
+
+  <span class="text-gray-500"># Step 5: ACTION type - finalize and prepare for commit</span>
+  - <span class="text-green-400">id:</span> finalize
+    <span class="text-green-400">type:</span> action
+    <span class="text-green-400">instructions:</span> |
+      <span class="text-gray-500"># No agent specified - main Claude handles this</span>
+      Finalize the implementation.
+
+      1. Review the final review feedback
+      2. Address any critical issues
+      3. Run final tests
+      4. Prepare a summary of what was accomplished
+      5. The workflow will complete and you can commit</code></pre>
+                                        </div>
+                                    </div>
+
+                                    <!-- Best Practices -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Best Practices for Custom Workflows</h3>
+
+                                        <div class="space-y-4">
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Keep Agent Roles Focused</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Each agent should have a single, clear responsibility. Don't create "super agents" that can do everything.
+                                                    Focused agents enforce separation of concerns and prevent mistakes.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Use Clear, Specific Instructions</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Instructions should be explicit and actionable. Include numbered steps, expected outputs, and what NOT to do.
+                                                    Remember that different Claude instances will execute these instructions across context windows.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Use on_fail Strategically</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    • <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">retry</code> - For test failures or transient issues<br>
+                                                    • <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">skip</code> - For optional steps that might fail<br>
+                                                    • <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">abort</code> (default) - For critical steps that must succeed
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Use Task Variables</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Always reference <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">{task.id}</code> and <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">{task.title}</code>
+                                                    in loop instructions. This provides context across different tasks and helps Claude understand what it's working on.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Test Your Workflow</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Before rolling out a custom workflow to your team, test it on a real task. Verify that:
+                                                    • Each step produces the expected output
+                                                    • Agents execute their roles correctly
+                                                    • The workflow completes successfully
+                                                    • The final result matches expectations
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-surface-1 border-l-4 border-emerald-500 p-4">
+                                                <h5 class="font-bold text-green-900 dark:text-green-200 mb-2">Version Control Your Workflows</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    Commit your <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.lanes/workflows/</code> directory to git.
+                                                    This ensures your team uses consistent workflows and you can track changes over time.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Validation and Debugging -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Validation and Debugging</h3>
+
+                                        <p class="text-ink-muted mb-4">
+                                            Lanes validates workflow templates when they're loaded. Common validation errors:
+                                        </p>
+
+                                        <div class="space-y-3">
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <h5 class="font-bold text-red-600 dark:text-red-400 mb-2 font-mono text-sm">Agent 'X' references unknown agent 'Y'</h5>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    A step references an agent that isn't defined. Check:
+                                                </p>
+                                                <ul class="text-sm text-ink-muted list-disc list-inside ml-4">
+                                                    <li>Is the agent name spelled correctly?</li>
+                                                    <li>Is the agent defined in the <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">agents:</code> section?</li>
+                                                    <li>Does a matching file exist in <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.claude/agents/</code>?</li>
+                                                </ul>
+                                            </div>
+
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <h5 class="font-bold text-red-600 dark:text-red-400 mb-2 font-mono text-sm">Loop step 'X' references unknown loop definition</h5>
+                                                <p class="text-sm text-ink-muted">
+                                                    A <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">type: loop</code> step's <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">id</code>
+                                                    doesn't match any loop in the <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">loops:</code> section.
+                                                    The loop step ID must exactly match a loop name.
+                                                </p>
+                                            </div>
+
+                                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                                                <h5 class="font-bold text-red-600 dark:text-red-400 mb-2 font-mono text-sm">Invalid YAML syntax</h5>
+                                                <p class="text-sm text-ink-muted mb-2">
+                                                    YAML parsing failed. Common issues:
+                                                </p>
+                                                <ul class="text-sm text-ink-muted list-disc list-inside ml-4">
+                                                    <li>Incorrect indentation (YAML uses 2 spaces, not tabs)</li>
+                                                    <li>Missing colons after keys</li>
+                                                    <li>Unquoted strings with special characters</li>
+                                                    <li>Inconsistent list formatting</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Next Steps -->
+                                    <div class="bg-surface-1 border border-border rounded-xl p-6">
+                                        <h3 class="text-xl font-bold text-ink mb-3">Next Steps</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Now that you understand workflow templates, you might want to:
+                                        </p>
+                                        <ul class="space-y-2 text-sm text-ink-muted">
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="#lanes-mcp" class="text-accent hover:underline">Learn about the Lanes MCP Server</a> - Understanding how workflows communicate with Claude
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <span>Study the built-in workflows in <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">workflows/</code> for real-world examples</span>
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <span>Create a custom workflow for your team's specific development process</span>
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents" class="text-accent hover:underline" target="_blank">Read Anthropic's research</a> on effective harnesses for long-running agents
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

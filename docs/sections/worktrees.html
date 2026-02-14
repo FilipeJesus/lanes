@@ -1,0 +1,137 @@
+                        <section id="worktrees" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Understanding Worktrees</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Git worktrees are the foundation of Lanes' isolation strategy. They allow you to have multiple working directories attached to the same repository, enabling you to work on multiple tasks simultaneously without conflicts.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- What are Git Worktrees? -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">What are Git Worktrees?</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Imagine you're working on a feature in your project, but suddenly need to fix a critical bug. Normally, you'd have to:
+                                        </p>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4 mb-4">
+                                            <li>Stash or commit your incomplete work</li>
+                                            <li>Switch branches</li>
+                                            <li>Fix the bug</li>
+                                            <li>Switch back</li>
+                                            <li>Restore your work-in-progress</li>
+                                        </ul>
+                                        <p class="text-ink-muted mb-4">
+                                            <strong class="text-ink">Git worktrees solve this problem.</strong> They let you check out multiple branches simultaneously, each in its own separate directory. Think of it as having multiple copies of your project, each on a different branch, but all sharing the same Git database.
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-4 font-mono text-sm text-ink-muted mb-4">
+                                            <span class="text-ink-faint"># Your repository structure with Lanes</span><br>
+                                            my-project/<br>
+                                            ├── .git/                <span class="text-ink-faint"># Shared git database (history, commits, refs)</span><br>
+                                            ├── src/                 <span class="text-ink-faint"># Your main working directory</span><br>
+                                            ├── package.json<br>
+                                            └── .worktrees/          <span class="text-ink-faint"># Lanes stores worktrees here</span><br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;├── fix-login-bug/   <span class="text-ink-faint"># Claude working on bug fix</span><br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── src/<br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── package.json<br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;└── add-dark-mode/   <span class="text-ink-faint"># Claude working on new feature</span><br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── src/<br>
+                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── package.json
+                                        </div>
+                                        <div class="bg-accent-dim border border-accent/20 rounded-lg p-4">
+                                            <div class="flex gap-2">
+                                                <svg class="w-5 h-5 text-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <div>
+                                                    <p class="text-sm text-accent font-medium">Key Insight</p>
+                                                    <p class="text-sm text-accent mt-1">
+                                                        Each worktree is a complete working directory with its own files, but they all share the same <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.git</code> database. This means commits made in one worktree are immediately visible in all others, but the working files remain isolated.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- How Lanes Uses Worktrees -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">How Lanes Uses Worktrees</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            When you create a new Lanes session, here's what happens under the hood:
+                                        </p>
+                                        <div class="space-y-3 mb-4">
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Creates a new branch</p>
+                                                    <p class="text-sm text-ink-muted">Named after your session (e.g., <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">fix-login-bug</code>), branched from your source branch</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Creates a worktree directory</p>
+                                                    <p class="text-sm text-ink-muted">Located at <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.worktrees/fix-login-bug/</code> with a full checkout of your project</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex gap-3 items-start">
+                                                <div class="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
+                                                <div>
+                                                    <p class="text-ink font-medium">Launches Claude Code</p>
+                                                    <p class="text-sm text-ink-muted">Claude works exclusively in the worktree directory, completely isolated from your main workspace</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-surface-2 rounded-lg p-4 font-mono text-sm text-ink-muted">
+                                            <span class="text-ink-faint"># Git command that Lanes runs (simplified):</span><br>
+                                            git worktree add .worktrees/fix-login-bug -b fix-login-bug
+                                        </div>
+                                    </div>
+
+                                    <!-- Benefits of Isolation -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Benefits of Complete Isolation</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    <h4 class="font-bold text-ink">No File Conflicts</h4>
+                                                </div>
+                                                <p class="text-sm text-ink-muted">
+                                                    Changes in one session never affect files in another. You can run multiple Claude sessions simultaneously without any interference.
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                    <h4 class="font-bold text-ink">Clean Starting State</h4>
+                                                </div>
+                                                <p class="text-sm text-ink-muted">
+                                                    Each session starts fresh from your source branch. No leftover files or uncommitted changes from previous work.
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    <h4 class="font-bold text-ink">No Context Switching</h4>
+                                                </div>
+                                                <p class="text-sm text-ink-muted">
+                                                    Say goodbye to <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">git stash</code>. Your main workspace stays exactly as you left it while Claude works elsewhere.
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                                    <h4 class="font-bold text-ink">Parallel Workflows</h4>
+                                                </div>
+                                                <p class="text-sm text-ink-muted">
+                                                    Run multiple agents on different tasks at the same time. One fixing bugs, another implementing features.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>

@@ -1,0 +1,645 @@
+                        <section id="lanes-mcp" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Lanes MCP</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    The Lanes Model Context Protocol (MCP) server enables workflows to maintain state, track progress, and coordinate between agents across context windows. This technical explains how the MCP integration works under the hood.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- What is MCP? -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">What is MCP?</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The <strong class="text-ink">Model Context Protocol (MCP)</strong> is Anthropic's open protocol that enables AI assistants to securely connect to data sources and tools. It provides a standardized way to extend Claude with custom capabilities while maintaining security and control.
+                                        </p>
+                                        <p class="text-ink-muted mb-4">
+                                            The Lanes MCP server is a specialized MCP implementation that gives Claude fine-grained control over workflow execution:
+                                        </p>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
+                                            <li><strong class="text-ink">Workflow State Management:</strong> Tracks current position in workflow, step outputs, and task progress</li>
+                                            <li><strong class="text-ink">Session Management:</strong> Allows Claude to request creation of new Lanes sessions programmatically</li>
+                                            <li><strong class="text-ink">Context Preservation:</strong> Maintains history across steps so agents can reference earlier work</li>
+                                        </ul>
+                                        <div class="mt-4 bg-accent-dim border border-accent/20 rounded-lg p-4">
+                                            <p class="text-sm text-accent">
+                                                <strong>Learn more:</strong> Visit <a href="https://modelcontextprotocol.io/" class="underline hover:text-blue-700 dark:hover:text-blue-400" target="_blank">modelcontextprotocol.io</a> for the official MCP specification.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Architecture -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Architecture</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            When you start a workflow session, Lanes automatically spins up an MCP server process that communicates with Claude via stdio:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-6 mb-4">
+                                            <pre class="text-sm font-mono text-ink-muted overflow-x-auto"><code>┌─────────────────────────────────────────────────────────┐
+│                    VS Code Extension                    │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Start Workflow Session                          │  │
+│  └──────────────────┬───────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Spawn MCP Server Process                        │  │
+│  │  node server.js --worktree <path> --workflow-path│  │
+│  └──────────────────┬───────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Generate .claude/mcp.json config                │  │
+│  └──────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                      │
+                      ▼ stdio transport
+┌─────────────────────────────────────────────────────────┐
+│                   MCP Server Process                    │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Workflow State Machine                          │  │
+│  │  - Current step/sub-step                         │  │
+│  │  - Task iteration                                │  │
+│  │  - Step outputs history                          │  │
+│  └──────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Tool Handlers                                   │  │
+│  │  - workflow_start                                │  │
+│  │  - workflow_set_tasks                            │  │
+│  │  - workflow_status                               │  │
+│  │  - workflow_advance                              │  │
+│  │  - workflow_context                              │  │
+│  │  - session_create                                │  │
+│  │  - session_clear                                 │  │
+│  └──────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  File System Persistence                         │  │
+│  │  - workflow-state.json (state)                   │  │
+│  └──────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                      │
+                      ▼ MCP protocol
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Code                          │
+│                                                         │
+│  Calls MCP tools to navigate workflow steps             │
+└─────────────────────────────────────────────────────────┘</code></pre>
+                                        </div>
+                                        <p class="text-ink-muted">
+                                            The MCP server runs in the background for the lifetime of the session. Claude can call the MCP tools at any time to query or update workflow state.
+                                        </p>
+                                    </div>
+
+                                    <!-- MCP Tools -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">MCP Tools Reference</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The Lanes MCP server exposes six tools that Claude uses to control workflow execution:
+                                        </p>
+
+                                        <!-- Tool: workflow_start -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">workflow_start</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Initialize the workflow and return the first step instructions. If the workflow was previously started, returns the current status (enables resume).
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <div class="mb-2">
+                                                            <span class="text-blue-600 dark:text-blue-400">summary</span>
+                                                            <span class="text-gray-500">?: string</span>
+                                                            <span class="text-ink-muted ml-2">// Optional brief summary (max 10 words)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "status": "active",
+  "step": {
+    "id": "plan",
+    "type": "action",
+    "agent": "orchestrator",
+    "instructions": "Analyze the goal and break it into..."
+  },
+  "progress": {
+    "currentStepIndex": 0,
+    "totalSteps": 5,
+    "stepsCompleted": 0
+  },
+  "summary": "Add user authentication"
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Example Usage:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <span class="text-purple-600 dark:text-purple-400">workflow_start</span>(<span class="text-green-600 dark:text-green-400">"Add user authentication"</span>)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: workflow_set_tasks -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">workflow_set_tasks</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Associate tasks with a loop step. Each task will be iterated through the loop's sub-steps.</code>.
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <div class="mb-2">
+                                                            <span class="text-blue-600 dark:text-blue-400">loop_id</span>
+                                                            <span class="text-gray-500">: string</span>
+                                                            <span class="text-ink-muted ml-2">// Loop step ID to associate tasks with</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="text-blue-600 dark:text-blue-400">tasks</span>
+                                                            <span class="text-gray-500">: Task[]</span>
+                                                            <span class="text-ink-muted ml-2">// Array of task objects</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Task Object:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+<pre class="text-ink-muted">{
+  "id": string,            // Unique identifier
+  "title": string,         // Human-readable title
+  "description"?: string   // Optional detailed description
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+<pre class="text-ink-muted">{
+  "success": true,
+  "tasksSet": 3
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Example Usage:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted"><span class="text-purple-600 dark:text-purple-400">workflow_set_tasks</span>(<span class="text-green-600 dark:text-green-400">"feature_development"</span>, [
+  {
+    <span class="text-blue-600 dark:text-blue-400">id</span>: <span class="text-green-600 dark:text-green-400">"login-form"</span>,
+    <span class="text-blue-600 dark:text-blue-400">title</span>: <span class="text-green-600 dark:text-green-400">"Create login form"</span>,
+    <span class="text-blue-600 dark:text-blue-400">description</span>: <span class="text-green-600 dark:text-green-400">"Build login form with email and password"</span>
+  },
+  {
+    <span class="text-blue-600 dark:text-blue-400">id</span>: <span class="text-green-600 dark:text-green-400">"auth-api"</span>,
+    <span class="text-blue-600 dark:text-blue-400">title</span>: <span class="text-green-600 dark:text-green-400">"Implement auth API"</span>,
+    <span class="text-blue-600 dark:text-blue-400">description</span>: <span class="text-green-600 dark:text-green-400">"Create API endpoint for authentication"</span>
+  }
+])</pre>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: workflow_status -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">workflow_status</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Get current workflow position with full context. Returns the current step, sub-step (if in a loop), agent, instructions, and progress.
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <span class="text-ink-muted">None</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns (in loop):</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "status": "active",
+  "step": {
+    "id": "feature_development",
+    "type": "loop",
+    "subStep": {
+      "id": "implement",
+      "agent": "implementer",
+      "instructions": "Implement: Create login form..."
+    }
+  },
+  "task": {
+    "id": "login-form",
+    "title": "Create login form",
+    "index": 0,
+    "total": 2
+  },
+  "progress": {
+    "currentStepIndex": 2,
+    "totalSteps": 5,
+    "stepsCompleted": 1
+  }
+}</pre>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: workflow_advance -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">workflow_advance</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Complete the current step/sub-step and advance to the next. When a task completes (all sub-steps done), automatically updates <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow-state.json</code> to mark the task as <code class="text-xs">passes: true</code>.
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <div>
+                                                            <span class="text-blue-600 dark:text-blue-400">output</span>
+                                                            <span class="text-gray-500">: string</span>
+                                                            <span class="text-ink-muted ml-2">// Summary of what was accomplished</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "status": "active",
+  "step": {
+    "id": "feature_development",
+    "type": "loop",
+    "subStep": {
+      "id": "test",
+      "agent": "tester",
+      "instructions": "Run tests for: Create login form..."
+    }
+  },
+  "task": {
+    "id": "login-form",
+    "title": "Create login form",
+    "index": 0,
+    "total": 2
+  },
+  "progress": { ... }
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Example Usage:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <span class="text-purple-600 dark:text-purple-400">workflow_advance</span>(<span class="text-green-600 dark:text-green-400">"Implemented login form with email and password fields"</span>)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: workflow_context -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">workflow_context</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Get outputs from previous steps. Returns a record keyed by step path (e.g., <code class="text-xs">"plan"</code> or <code class="text-xs">"feature_development.login-form.implement"</code>).
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <span class="text-ink-muted">None</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "plan": "Analyzed requirements. Identified 2 tasks: login-form, auth-api",
+  "define_tasks": "Created task list with 2 tasks",
+  "feature_development.login-form.implement": "Implemented login form with...",
+  "feature_development.login-form.test": "All tests passing",
+  "feature_development.login-form.review": "Code looks good, no issues"
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <p class="text-xs text-ink-muted mt-3">
+                                                    This enables agents to reference earlier work and build upon previous decisions.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: session_create -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">session_create</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Request creation of a new Lanes session. Writes a config file to <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.lanes/pending-sessions/</code> that the VS Code extension monitors and processes.
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <div class="mb-2">
+                                                            <span class="text-blue-600 dark:text-blue-400">name</span>
+                                                            <span class="text-gray-500">: string</span>
+                                                            <span class="text-ink-muted ml-2">// Session name (sanitized for git)</span>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <span class="text-blue-600 dark:text-blue-400">sourceBranch</span>
+                                                            <span class="text-gray-500">: string</span>
+                                                            <span class="text-ink-muted ml-2">// Branch to create worktree from</span>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <span class="text-blue-600 dark:text-blue-400">prompt</span>
+                                                            <span class="text-gray-500">?: string</span>
+                                                            <span class="text-ink-muted ml-2">// Optional starting prompt</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="text-blue-600 dark:text-blue-400">workflow</span>
+                                                            <span class="text-gray-500">?: string</span>
+                                                            <span class="text-ink-muted ml-2">// Workflow template (feature, bugfix, etc.)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+<pre class="text-ink-muted">{
+  "success": true,
+  "configPath": ".lanes/pending-sessions/fix-auth-bug-1736454321.json"
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Example Usage:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted"><span class="text-purple-600 dark:text-purple-400">session_create</span>(
+  <span class="text-green-600 dark:text-green-400">"fix-auth-bug"</span>,
+  <span class="text-green-600 dark:text-green-400">"main"</span>,
+  <span class="text-green-600 dark:text-green-400">"Fix authentication timeout issue"</span>,
+  <span class="text-green-600 dark:text-green-400">"bugfix"</span>
+)</pre>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tool: session_clear -->
+                                        <div class="mb-6">
+                                            <div class="bg-surface-2 rounded-lg p-5">
+                                                <h4 class="text-lg font-bold text-ink mb-3">
+                                                    <code class="text-base bg-surface-2 px-2 py-1 rounded font-mono text-ink-muted">session_clear</code>
+                                                </h4>
+                                                <p class="text-sm text-ink-muted mb-3">
+                                                    Clear the Claude session's context window. This gives the agent a fresh start while preserving the workflow state. Useful when transitioning between planning and implementation phases for large features.
+                                                </p>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Parameters:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+                                                        <span class="text-ink-muted">None</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Returns:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono">
+<pre class="text-ink-muted">{
+  "success": true,
+  "message": "Session context cleared"
+}</pre>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p class="text-xs font-semibold text-ink-muted mb-2">Example Usage:</p>
+                                                    <div class="bg-surface-1 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted"><span class="text-purple-600 dark:text-purple-400">session_clear</span>()</pre>
+                                                    </div>
+                                                </div>
+                                                <p class="text-xs text-ink-muted mt-3">
+                                                    <strong>Note:</strong> This is typically called automatically by Lanes when a workflow step has <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">context: clear</code> set. You can also call it manually if needed.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Workflow State Persistence -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Workflow State Persistence</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The MCP server persists workflow state to <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow-state.json</code> in the worktree root after every state change. This enables:
+                                        </p>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4 mb-4">
+                                            <li><strong class="text-ink">Resume capability:</strong> If Claude crashes or loses context, calling <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow_start</code> again restores to the current position</li>
+                                            <li><strong class="text-ink">Context preservation:</strong> All step outputs are stored and accessible via <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow_context</code></li>
+                                            <li><strong class="text-ink">Progress tracking:</strong> Current step, task progress, and completion status are persisted</li>
+                                        </ul>
+                                        <div class="mb-4">
+                                            <p class="text-xs font-semibold text-ink-muted mb-2">Example workflow-state.json:</p>
+                                            <div class="bg-surface-2 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "status": "active",
+  "currentStepIndex": 2,
+  "currentSubStepIndex": 1,
+  "currentTaskIndex": 0,
+  "stepOutputs": {
+    "plan": "Analyzed requirements...",
+    "define_tasks": "Created task list...",
+    "feature_development.login-form.implement": "Implemented login form..."
+  },
+  "loopTasks": {
+    "feature_development": [
+      {
+        "id": "login-form",
+        "title": "Create login form",
+        "description": "Build login form with email and password",
+        "status": "in_progress"
+      },
+      {
+        "id": "auth-api",
+        "title": "Implement auth API",
+        "description": "Create API endpoint for authentication",
+        "status": "pending"
+      }
+    ]
+  },
+  "summary": "Add user authentication"
+}</pre>
+                                            </div>
+                                        </div>
+                                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                                            <p class="text-sm text-amber-600 dark:text-amber-400">
+                                                <strong>Important:</strong> The workflow state file is automatically managed by the MCP server. Do not manually edit this file.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Example Usage Flow -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">Example Usage Flow</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Here's how Claude uses the MCP tools to execute a typical workflow:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-6">
+                                            <div class="space-y-4 text-sm font-mono">
+                                                <div>
+                                                    <div class="text-purple-600 dark:text-purple-400 mb-1">// 1. Start the workflow</div>
+                                                    <div class="bg-surface-1 rounded-lg p-3 mb-2">
+                                                        <span class="text-ink-muted">Claude calls: </span>
+                                                        <span class="text-blue-600 dark:text-blue-400">workflow_start</span>(<span class="text-green-600 dark:text-green-400">"Add user authentication"</span>)
+                                                    </div>
+                                                    <div class="bg-surface-1 rounded-lg p-3">
+                                                        <span class="text-ink-muted">Returns: </span>
+                                                        <span class="text-ink-muted">"Step 1: plan" with instructions</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="border-l-2 border-blue-500 pl-4">
+                                                    <div class="text-purple-600 dark:text-purple-400 mb-1">// 2. Claude reads code and plans the work</div>
+                                                    <div class="text-ink-muted mb-2">Analyzes codebase, identifies 2 tasks needed...</div>
+                                                    <div class="bg-surface-1 rounded-lg p-3 mb-2">
+                                                        <span class="text-ink-muted">Claude calls: </span>
+                                                        <span class="text-blue-600 dark:text-blue-400">workflow_advance</span>(<span class="text-green-600 dark:text-green-400">"Analyzed requirements. Need 2 tasks: login form and auth API"</span>)
+                                                    </div>
+                                                    <div class="bg-surface-1 rounded-lg p-3">
+                                                        <span class="text-ink-muted">Returns: </span>
+                                                        <span class="text-ink-muted">"Step 2: define_tasks" with instructions</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="border-l-2 border-green-500 pl-4">
+                                                    <div class="text-purple-600 dark:text-purple-400 mb-1">// 3. Define the task list</div>
+                                                    <div class="bg-surface-1 rounded-lg p-3 mb-2 overflow-x-auto">
+<pre class="text-ink-muted"><span class="text-ink-muted">Claude calls: </span><span class="text-blue-600 dark:text-blue-400">workflow_set_tasks</span>(<span class="text-green-600 dark:text-green-400">"feature_development"</span>, [
+  { <span class="text-blue-600 dark:text-blue-400">id</span>: <span class="text-green-600 dark:text-green-400">"login-form"</span>, <span class="text-blue-600 dark:text-blue-400">title</span>: <span class="text-green-600 dark:text-green-400">"Create login form"</span>, ... },
+  { <span class="text-blue-600 dark:text-blue-400">id</span>: <span class="text-green-600 dark:text-green-400">"auth-api"</span>, <span class="text-blue-600 dark:text-blue-400">title</span>: <span class="text-green-600 dark:text-green-400">"Implement auth API"</span>, ... }
+])</pre>
+                                                    </div>
+                                                    <div class="bg-surface-1 rounded-lg p-3">
+                                                        <span class="text-ink-muted">Returns: </span>
+                                                        <span class="text-ink-muted">"Task 1/2: implement login-form" with instructions</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="border-l-2 border-yellow-500 pl-4">
+                                                    <div class="text-purple-600 dark:text-purple-400 mb-1">// 4. Implement the first task</div>
+                                                    <div class="text-ink-muted mb-2">Claude writes the login form code...</div>
+                                                    <div class="bg-surface-1 rounded-lg p-3 mb-2">
+                                                        <span class="text-ink-muted">Claude calls: </span>
+                                                        <span class="text-blue-600 dark:text-blue-400">workflow_advance</span>(<span class="text-green-600 dark:text-green-400">"Implemented login form with email and password fields"</span>)
+                                                    </div>
+                                                    <div class="bg-surface-1 rounded-lg p-3">
+                                                        <span class="text-ink-muted">Returns: </span>
+                                                        <span class="text-ink-muted">"Task 1/2: test login-form" with instructions</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="border-l-2 border-red-500 pl-4">
+                                                    <div class="text-purple-600 dark:text-purple-400 mb-1">// 5. Run tests</div>
+                                                    <div class="text-ink-muted mb-2">Claude runs test suite, fixes any failures...</div>
+                                                    <div class="bg-surface-1 rounded-lg p-3 mb-2">
+                                                        <span class="text-ink-muted">Claude calls: </span>
+                                                        <span class="text-blue-600 dark:text-blue-400">workflow_advance</span>(<span class="text-green-600 dark:text-green-400">"All tests pass"</span>)
+                                                    </div>
+                                                    <div class="bg-surface-1 rounded-lg p-3">
+                                                        <span class="text-ink-muted">Returns: </span>
+                                                        <span class="text-ink-muted">"Task 1/2: review login-form" with instructions</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="text-ink-muted text-center py-2">
+                                                    ... and so on through all tasks and steps ...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MCP Configuration -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-ink mb-4">MCP Configuration</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            The Lanes MCP server is automatically configured when you create a workflow session. The VS Code extension:
+                                        </p>
+                                        <ol class="list-decimal list-inside text-ink-muted space-y-2 ml-4 mb-4">
+                                            <li>Spawns the MCP server process with the workflow path and worktree path</li>
+                                            <li>Generates a <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">.claude/mcp.json</code> config file in the worktree</li>
+                                            <li>Passes the config to Claude Code via the <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">--mcp-config</code> flag</li>
+                                        </ol>
+                                        <div class="mb-4">
+                                            <p class="text-xs font-semibold text-ink-muted mb-2">Generated .claude/mcp.json:</p>
+                                            <div class="bg-surface-2 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+<pre class="text-ink-muted">{
+  "mcpServers": {
+    "lanes-workflow": {
+      "command": "node",
+      "args": [
+        "/path/to/lanes/dist/mcp/server.js",
+        "--worktree", "/path/to/worktree",
+        "--workflow-path", "/path/to/workflow.yaml"
+      ]
+    }
+  }
+}</pre>
+                                            </div>
+                                        </div>
+                                        <p class="text-ink-muted">
+                                            The MCP server runs in the background for the lifetime of the session. It's automatically stopped when the session is closed.
+                                        </p>
+                                    </div>
+
+                                    <!-- Next Steps -->
+                                    <div class="bg-surface-1 border border-border rounded-xl p-6">
+                                        <h3 class="text-xl font-bold text-ink mb-3">Next Steps</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            Now that you understand the Lanes MCP server, you might want to:
+                                        </p>
+                                        <ul class="space-y-2 text-sm text-ink-muted">
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <span>Explore the MCP server source code in <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">src/mcp/</code></span>
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="#workflow-templates" class="text-accent hover:underline">Review the Workflow Templates documentation</a> to understand how workflows are structured
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="https://modelcontextprotocol.io/" class="text-accent hover:underline" target="_blank">Read the MCP specification</a> to understand the protocol
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <span>Try creating a workflow session and observe the MCP tools in action</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

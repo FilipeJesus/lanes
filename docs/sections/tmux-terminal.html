@@ -1,0 +1,66 @@
+                        <section id="tmux-terminal" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Tmux Terminal</h2>
+                                </div>
+                                <p class="text-ink-muted mb-6">
+                                    Lanes can use tmux as an alternative terminal backend instead of VS Code's built-in terminals. Tmux sessions persist independently of VS Code, making them more resilient to window reloads and crashes.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Benefits -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Benefits</h3>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
+                                            <li><strong class="text-ink">Persistence:</strong> Sessions survive VS Code restarts and window reloads</li>
+                                            <li><strong class="text-ink">Resilience:</strong> Agent continues running even if VS Code crashes</li>
+                                            <li><strong class="text-ink">Scrollback:</strong> Full terminal history preserved in tmux</li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Configuration -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Configuration</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Set the terminal mode in VS Code settings:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-4 font-mono text-sm text-ink-muted mb-3">
+                                            <span class="text-blue-600 dark:text-blue-400">"lanes.terminalMode"</span>: <span class="text-green-600 dark:text-green-400">"tmux"</span>
+                                        </div>
+                                        <div class="space-y-2 text-sm">
+                                            <div class="flex gap-2">
+                                                <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">vscode</code>
+                                                <span class="text-ink-muted">Default — uses VS Code's built-in terminal</span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <code class="bg-surface-2 px-2 py-0.5 rounded text-xs font-mono text-ink-muted flex-shrink-0">tmux</code>
+                                                <span class="text-ink-muted">Uses tmux for persistent terminal sessions</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Prerequisites -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Prerequisites</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            Tmux must be installed on your system:
+                                        </p>
+                                        <div class="bg-surface-2 rounded-lg p-4 font-mono text-sm text-ink-muted">
+                                            <span class="text-green-600 dark:text-green-400">$</span> brew install tmux <span class="text-gray-500"># macOS</span><br>
+                                            <span class="text-green-600 dark:text-green-400">$</span> sudo apt-get install tmux <span class="text-gray-500"># Ubuntu/Debian</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Per-Session Mode -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Per-Session Persistence</h3>
+                                        <p class="text-ink-muted mb-3">
+                                            The terminal mode is stored per session, so each session remembers whether it was created with VS Code or tmux terminals. Changing the global setting only affects new sessions.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>

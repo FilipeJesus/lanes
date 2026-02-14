@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - Lanes</title>
+    <meta name="description" content="Complete documentation for Lanes - Learn how to manage multiple AI coding sessions (Claude Code, Codex CLI) in VS Code using Git worktrees.">
+    <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        surface: {
+                            0: 'var(--surface-0)',
+                            1: 'var(--surface-1)',
+                            2: 'var(--surface-2)',
+                            3: 'var(--surface-3)',
+                        },
+                        accent: 'var(--accent)',
+                        'accent-dim': 'var(--accent-dim)',
+                        ink: {
+                            DEFAULT: 'var(--ink)',
+                            muted: 'var(--ink-muted)',
+                            faint: 'var(--ink-faint)',
+                        },
+                        border: 'var(--border)',
+                    },
+                    fontFamily: {
+                        display: ['"DM Sans"', 'system-ui', 'sans-serif'],
+                        body: ['"DM Sans"', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <script>
+        if (localStorage.theme === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <style>
+        /* --- Theme tokens --- */
+        :root {
+            --surface-0: #f8f7f5;
+            --surface-1: #efeeeb;
+            --surface-2: #e6e4e0;
+            --surface-3: #dddbd6;
+            --accent: #0969da;
+            --accent-dim: rgba(9, 105, 218, 0.12);
+            --ink: #1c1917;
+            --ink-muted: #57534e;
+            --ink-faint: #a8a29e;
+            --border: rgba(0, 0, 0, 0.08);
+        }
+        .dark {
+            --surface-0: #121110;
+            --surface-1: #1a1918;
+            --surface-2: #242220;
+            --surface-3: #2e2c29;
+            --accent: #58a6ff;
+            --accent-dim: rgba(88, 166, 255, 0.10);
+            --ink: #e7e5e4;
+            --ink-muted: #a8a29e;
+            --ink-faint: #57534e;
+            --border: rgba(255, 255, 255, 0.06);
+        }
+
+        /* --- Grain overlay --- */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 256px 256px;
+        }
+
+        /* --- Sidebar styling --- */
+        .sidebar-link {
+            transition: all 0.2s ease;
+            color: var(--ink-muted);
+        }
+        .sidebar-link:hover {
+            background-color: var(--surface-2);
+            color: var(--ink);
+        }
+        .sidebar-link.active {
+            background-color: var(--accent);
+            color: #ffffff !important;
+        }
+        .sidebar-link.active svg {
+            color: #ffffff;
+        }
+
+        /* Mobile nav link styling */
+        .mobile-nav-link {
+            transition: all 0.2s ease;
+            color: var(--ink-muted);
+        }
+        .mobile-nav-link:hover {
+            background-color: var(--surface-2);
+            color: var(--ink);
+        }
+        .mobile-nav-link.active {
+            background-color: var(--accent);
+            color: #ffffff !important;
+        }
+        .mobile-nav-link.active svg {
+            color: #ffffff;
+        }
+
+        /* Section transitions */
+        .doc-section {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Sticky sidebar */
+        @media (min-width: 1024px) {
+            .docs-sidebar {
+                position: sticky;
+                top: 5rem;
+                height: fit-content;
+                max-height: calc(100vh - 7rem);
+                overflow-y: auto;
+            }
+        }
+
+        /* --- Mobile nav drawer --- */
+        .mobile-nav-drawer {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .mobile-nav-drawer.open {
+            transform: translateX(0);
+        }
+        .mobile-backdrop {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .mobile-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body class="bg-surface-0 text-ink font-body antialiased selection:bg-accent selection:text-white">
+
+    <!-- Mobile nav backdrop -->
+    <div id="mobile-backdrop" class="mobile-backdrop fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"></div>
+
+    <!-- Mobile nav drawer -->
+    <div id="mobile-nav-drawer" class="mobile-nav-drawer fixed top-0 right-0 bottom-0 w-72 z-50 bg-surface-1 border-l border-border p-6 flex flex-col md:hidden">
+        <div class="flex items-center justify-between mb-8">
+            <span class="text-lg font-semibold text-ink">Menu</span>
+            <button id="mobile-nav-close" class="p-2 -mr-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Close menu">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <nav class="flex flex-col gap-1">
+            <a href="index.html" class="px-3 py-2.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors">Home</a>
+            <a href="index.html#features" class="px-3 py-2.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors">Features</a>
+            <a href="index.html#how-it-works" class="px-3 py-2.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors">How it Works</a>
+            <a href="blog/index.html" class="px-3 py-2.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors">Blog</a>
+            <a href="docs.html" class="px-3 py-2.5 rounded-lg text-accent font-medium">Docs</a>
+        </nav>
+        <div class="mt-auto pt-6 border-t border-border flex flex-col gap-3">
+            <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes" class="flex items-center justify-center gap-2 bg-ink text-surface-0 dark:bg-white dark:text-surface-0 px-4 py-2.5 rounded-lg font-semibold text-sm">
+                Install from Marketplace
+            </a>
+            <a href="https://github.com/FilipeJesus/lanes" class="flex items-center justify-center gap-2 border border-border px-4 py-2.5 rounded-lg font-medium text-sm text-ink-muted hover:text-ink transition-colors">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+                View on GitHub
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-30 bg-surface-0/80 backdrop-blur-md border-b border-border">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center gap-2.5">
+                    <a href="index.html" class="flex items-center gap-2.5">
+                        <img src="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png" alt="Lanes Logo" class="w-7 h-7">
+                        <span class="text-lg font-bold text-ink tracking-tight font-display">Lanes</span>
+                    </a>
+                    <span class="hidden sm:inline text-[10px] uppercase tracking-widest font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Free</span>
+                </div>
+                <div class="hidden md:flex items-center gap-1">
+                    <a href="index.html" class="px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink transition-colors">Home</a>
+                    <a href="index.html#features" class="px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink transition-colors">Features</a>
+                    <a href="index.html#how-it-works" class="px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink transition-colors">How it Works</a>
+                    <a href="blog/index.html" class="px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink transition-colors">Blog</a>
+                    <a href="docs.html" class="px-3 py-1.5 rounded-md text-sm font-medium text-accent">Docs</a>
+                    <span class="w-px h-5 bg-border mx-2"></span>
+                    <a href="https://github.com/FilipeJesus/lanes" class="px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink transition-colors flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+                        GitHub
+                    </a>
+                    <button id="theme-toggle" class="ml-1 p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Toggle theme">
+                        <svg id="sun-icon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        <svg id="moon-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    </button>
+                </div>
+                <!-- Mobile: theme toggle + hamburger -->
+                <div class="flex items-center gap-1 md:hidden">
+                    <button id="theme-toggle-m" class="p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Toggle theme">
+                        <svg id="sun-icon-m" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        <svg id="moon-icon-m" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    </button>
+                    <button id="mobile-nav-open" class="p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Open menu">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+
+                <!-- Sidebar Navigation -->
+                <aside class="hidden lg:block lg:col-span-3 docs-sidebar">
+                    <div class="bg-surface-1 rounded-xl border border-border p-4">
+                        <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Sessions</h3>
+                        <nav class="space-y-1">
+                            <button data-section="create-session" class="sidebar-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Create a New Session</span>
+                            </button>
+                            <button data-section="worktrees" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                <span>Understanding Worktrees</span>
+                            </button>
+                            <button data-section="permission-modes" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Permission Modes</span>
+                            </button>
+                            <button data-section="git-review" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span>Reviewing Changes</span>
+                            </button>
+                        </nav>
+
+                        <!-- Features Section Group -->
+                        <div class="mt-6 pt-4 border-t border-border">
+                            <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Features</h3>
+                            <nav class="space-y-1">
+                                <button data-section="multi-agent" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    <span>Multi-Agent Support</span>
+                                </button>
+                                <button data-section="file-attachments" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    <span>File Attachments</span>
+                                </button>
+                                <button data-section="tmux-terminal" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>Tmux Terminal</span>
+                                </button>
+                                <button data-section="local-settings" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Local Settings</span>
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Workflow Section Group -->
+                        <div class="mt-6 pt-4 border-t border-border">
+                            <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Workflows</h3>
+                            <nav class="space-y-1">
+                                <button data-section="workflows-intro" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    <span>Introduction to Workflows</span>
+                                </button>
+                                <button data-section="workflow-structure" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path></svg>
+                                    <span>Workflow Structure</span>
+                                </button>
+                                <button data-section="creating-workflow" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    <span>Creating a Workflow</span>
+                                </button>
+                                <button data-section="lanes-mcp" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Lanes MCP</span>
+                                </button>
+                            </nav>
+
+                        <!-- Contributing -->
+                        <div class="border-t border-border pt-4">
+                            <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Contributing</h3>
+                            <nav class="space-y-1">
+                                <button data-section="contributing" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    <span>Contributing</span>
+                                </button>
+                            </nav>
+                        </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Mobile Navigation (collapsible) -->
+                <div class="lg:hidden mb-8">
+                    <button id="mobile-nav-toggle" class="w-full bg-surface-1 rounded-xl border border-border p-4 flex items-center justify-between text-ink font-medium">
+                        <span id="mobile-nav-current">Create a New Session</span>
+                        <svg class="w-5 h-5 transition-transform" id="mobile-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <nav id="mobile-nav" class="hidden mt-2 bg-surface-1 rounded-xl border border-border p-4">
+                        <!-- Getting Started -->
+                        <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Documentation</p>
+                        <div class="space-y-1 mb-4">
+                            <button data-section="create-session" class="mobile-nav-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Create a New Session</span>
+                            </button>
+                            <button data-section="worktrees" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                <span>Understanding Worktrees</span>
+                            </button>
+                            <button data-section="permission-modes" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Permission Modes</span>
+                            </button>
+                            <button data-section="git-review" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span>Reviewing Changes</span>
+                            </button>
+                        </div>
+                        <!-- Features -->
+                        <div class="border-t border-border pt-3">
+                            <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Features</p>
+                            <div class="space-y-1 mb-4">
+                                <button data-section="multi-agent" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    <span>Multi-Agent Support</span>
+                                </button>
+                                <button data-section="file-attachments" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                    <span>File Attachments</span>
+                                </button>
+                                <button data-section="tmux-terminal" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>Tmux Terminal</span>
+                                </button>
+                                <button data-section="local-settings" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Local Settings</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Workflows -->
+                        <div class="border-t border-border pt-3">
+                            <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Workflows</p>
+                            <div class="space-y-1">
+                                <button data-section="workflows-intro" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    <span>Introduction to Workflows</span>
+                                </button>
+                                <button data-section="workflow-structure" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path></svg>
+                                    <span>Workflow Structure</span>
+                                </button>
+                                <button data-section="creating-workflow" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    <span>Creating a Workflow</span>
+                                </button>
+                                <button data-section="lanes-mcp" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Lanes MCP</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Contributing -->
+                        <div class="border-t border-border pt-3">
+                            <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Contributing</p>
+                            <div class="space-y-1">
+                                <button data-section="contributing" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    <span>Contributing</span>
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Main Documentation Content -->
+                <div class="lg:col-span-9">
+                    <div class="max-w-4xl mx-auto">
+
+                        <!-- Page Header -->
+                        <div class="mb-8">
+                            <h1 class="text-4xl font-bold text-ink font-display mb-2">Documentation</h1>
+                            <p class="text-lg text-ink-muted">
+                                Everything you need to get started with Lanes.
+                            </p>
+                        </div>
+
+                        <!-- SECTIONS -->
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-border py-10 bg-surface-0">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p class="text-xs text-ink-faint text-center sm:text-left">
+                    <span class="text-emerald-600 dark:text-emerald-400">Free &amp; Open Source</span> under MIT License.
+                    Built by <a href="https://github.com/FilipeJesus" class="text-accent hover:underline">FilipeJesus</a>.
+                </p>
+                <div class="flex items-center gap-5 flex-wrap justify-center">
+                    <a href="blog/index.html" class="text-xs text-ink-faint hover:text-ink transition-colors">Blog</a>
+                    <a href="docs.html" class="text-xs text-ink-faint hover:text-ink transition-colors">Docs</a>
+                    <a href="https://github.com/FilipeJesus/lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">GitHub</a>
+                    <a href="https://github.com/FilipeJesus/lanes/issues" class="text-xs text-ink-faint hover:text-ink transition-colors">Issues</a>
+                    <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">Marketplace</a>
+                    <a href="https://open-vsx.org/extension/FilipeMarquesJesus/lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">Open VSX</a>
+                    <a href="https://www.paypal.com/donate/?business=JEYBHRR3E4PEU&no_recurring=0&item_name=Loving+Lanes?+I+am+too%21+Thank+you+so+much+for+supporting+it%27s+development.&currency_code=GBP" class="text-xs text-ink-faint hover:text-ink transition-colors">Donate</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Theme toggle ---
+        function syncThemeIcons() {
+            const isDark = document.documentElement.classList.contains('dark');
+            ['', '-m'].forEach(suffix => {
+                const sun = document.getElementById('sun-icon' + suffix);
+                const moon = document.getElementById('moon-icon' + suffix);
+                if (!sun || !moon) return;
+                sun.classList.toggle('hidden', isDark);
+                moon.classList.toggle('hidden', !isDark);
+            });
+        }
+        syncThemeIcons();
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+            syncThemeIcons();
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        document.getElementById('theme-toggle-m').addEventListener('click', toggleTheme);
+
+        // --- Mobile nav drawer ---
+        const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
+        const mobileBackdrop = document.getElementById('mobile-backdrop');
+
+        function openMobileNav() {
+            mobileNavDrawer.classList.add('open');
+            mobileBackdrop.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeMobileNav() {
+            mobileNavDrawer.classList.remove('open');
+            mobileBackdrop.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('mobile-nav-open').addEventListener('click', openMobileNav);
+        document.getElementById('mobile-nav-close').addEventListener('click', closeMobileNav);
+        mobileBackdrop.addEventListener('click', closeMobileNav);
+
+        // Close mobile nav on link click
+        mobileNavDrawer.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => {
+                if (a.getAttribute('href').startsWith('#')) {
+                    closeMobileNav();
+                }
+            });
+        });
+
+        // --- Section navigation ---
+        const sectionNames = {
+            'create-session': 'Create a New Session',
+            'worktrees': 'Understanding Worktrees',
+            'permission-modes': 'Permission Modes',
+            'git-review': 'Reviewing Changes',
+            'multi-agent': 'Multi-Agent Support',
+            'file-attachments': 'File Attachments',
+            'tmux-terminal': 'Tmux Terminal',
+            'local-settings': 'Local Settings',
+            'workflows-intro': 'Introduction to Workflows',
+            'workflow-structure': 'Workflow Structure',
+            'creating-workflow': 'Creating a Workflow',
+            'lanes-mcp': 'Lanes MCP',
+            'contributing': 'Contributing'
+        };
+
+        // Docs sidebar mobile navigation toggle
+        const docsNavToggle = document.getElementById('mobile-nav-toggle');
+        const docsNav = document.getElementById('mobile-nav');
+        const docsNavIcon = document.getElementById('mobile-nav-icon');
+        const docsNavCurrent = document.getElementById('mobile-nav-current');
+
+        docsNavToggle.addEventListener('click', () => {
+            docsNav.classList.toggle('hidden');
+            docsNavIcon.style.transform = docsNav.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+        // Section navigation functionality
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+        const sections = document.querySelectorAll('.doc-section');
+
+        function showSection(sectionId) {
+            // Hide all sections
+            sections.forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Show the target section
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('hidden');
+            }
+
+            // Update sidebar active state
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.section === sectionId) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update mobile nav active state
+            mobileNavLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.section === sectionId) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update mobile nav current section text
+            if (docsNavCurrent && sectionNames[sectionId]) {
+                docsNavCurrent.textContent = sectionNames[sectionId];
+            }
+
+            // Close docs mobile nav
+            docsNav.classList.add('hidden');
+            docsNavIcon.style.transform = 'rotate(0deg)';
+
+            // Scroll to top of content area
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Update URL hash without triggering scroll
+            history.replaceState(null, null, `#${sectionId}`);
+        }
+
+        // Add click handlers to sidebar links
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.dataset.section;
+                showSection(sectionId);
+            });
+        });
+
+        // Add click handlers to mobile nav links
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.dataset.section;
+                showSection(sectionId);
+            });
+        });
+
+        // Handle internal anchor links to sections
+        document.querySelectorAll('a[href^="#"]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const sectionId = link.getAttribute('href').slice(1);
+                if (sectionNames[sectionId]) {
+                    e.preventDefault();
+                    showSection(sectionId);
+                }
+            });
+        });
+
+        // Handle initial load with hash in URL
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.slice(1);
+            if (hash && sectionNames[hash]) {
+                showSection(hash);
+            }
+        });
+    </script>
+</body>
+</html>

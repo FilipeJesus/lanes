@@ -1,0 +1,339 @@
+                        <section id="workflows-intro" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Introduction to Workflows</h2>
+                                </div>
+
+                                <p class="text-ink-muted mb-8 text-lg">
+                                    Workflows are structured development processes that guide Claude through proven phases like planning, implementation, testing, and review. Built on research from <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents" class="text-accent hover:underline">Anthropic's long-running agent harnesses</a>, they bring consistency and quality to complex development tasks.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- What are Workflows? -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-4">What are Workflows?</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            A workflow is like a development playbook that Claude follows step-by-step. Each workflow defines:
+                                        </p>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                                                    </svg>
+                                                    Phases
+                                                </h4>
+                                                <p class="text-sm text-ink-muted">
+                                                    The sequence of steps (plan, implement, test, review) that ensure thorough development
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                                    </svg>
+                                                    Specialized Agents
+                                                </h4>
+                                                <p class="text-sm text-ink-muted">
+                                                    Different "roles" for Claude with specific tools and restrictions (orchestrator, implementer, tester, reviewer)
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                    </svg>
+                                                    Repeatable Loops
+                                                </h4>
+                                                <p class="text-sm text-ink-muted">
+                                                    Patterns that repeat for each task (implement → test → review → resolve)
+                                                </p>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                <h4 class="font-bold text-ink mb-2 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    Progress Tracking
+                                                </h4>
+                                                <p class="text-sm text-ink-muted">
+                                                    Automatic state persistence so Claude can resume work across context windows
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Why Use Workflows? -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-4">Why Use Workflows?</h3>
+                                        <div class="space-y-4">
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-bold text-ink mb-1">Consistent Structure</h4>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Every task follows the same proven pattern: plan before coding, test after implementation, review before completion. This prevents common mistakes like coding without a plan or skipping tests.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-8 h-8 bg-violet-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-bold text-ink mb-1">Higher Quality</h4>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Specialized agents bring focused expertise to each phase. The reviewer agent only reads code (can't edit), ensuring objective feedback. The tester focuses solely on test quality.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-bold text-ink mb-1">Built-in Checkpoints</h4>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Workflows prevent Claude from jumping ahead or getting sidetracked. Each phase must complete before moving to the next, ensuring nothing is skipped.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-bold text-ink mb-1">Seamless Context Continuity</h4>
+                                                    <p class="text-sm text-ink-muted">
+                                                        Workflow state is saved to <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow-state.json</code> after each step. If Claude runs out of context or the session ends, you can resume exactly where you left off.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                                                        <!-- Built-in Workflow Types -->
+                                                                        <div>
+                                                                            <h3 class="text-xl font-bold text-ink mb-4">Built-in Workflow Types</h3>
+                                                                            <p class="text-ink-muted mb-4">
+                                                                                Lanes includes four workflow templates out of the box. Each is optimized for a specific type of development work:
+                                                                            </p>
+                                                                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                                                                <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-blue-600 dark:text-blue-400 font-bold text-sm">FT</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-ink mb-2 text-sm">Feature Dev</h4>
+                                                                                    <p class="text-xs text-ink-muted">
+                                                                                        New features with tests and review.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-red-600 dark:text-red-400 font-bold text-sm">BF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-ink mb-2 text-sm">Bug Fix</h4>
+                                                                                    <p class="text-xs text-ink-muted">
+                                                                                        Investigate and fix bugs safely.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-violet-500/10 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-purple-600 dark:text-purple-400 font-bold text-sm">RF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-ink mb-2 text-sm">Refactor</h4>
+                                                                                    <p class="text-xs text-ink-muted">
+                                                                                        Improve code quality safely.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-surface-2 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-ink-muted font-bold text-sm">DF</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-ink mb-2 text-sm">Default</h4>
+                                                                                    <p class="text-xs text-ink-muted">
+                                                                                        General-purpose tasks.
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="bg-surface-1 border border-border rounded-lg p-4">
+                                                                                    <div class="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-3">
+                                                                                        <span class="text-green-600 dark:text-green-400 font-bold text-sm">CW</span>
+                                                                                    </div>
+                                                                                    <h4 class="font-bold text-ink mb-2 text-sm">Custom</h4>
+                                                                                    <p class="text-xs text-ink-muted">
+                                                                                        Your own workflows.
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+
+                                    <!-- Starting a Workflow -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-4">How to Start a Workflow Session</h3>
+                                        <div class="bg-surface-1 rounded-lg p-6 border border-border">
+                                            <div class="space-y-4">
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center font-bold text-xs">1</div>
+                                                    <div>
+                                                        <p class="text-ink-muted">
+                                                            <strong>Click "New Session"</strong> in the Lanes sidebar
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center font-bold text-xs">3</div>
+                                                    <div>
+                                                        <p class="text-ink-muted">
+                                                            <strong>Enter a branch name</strong> (e.g., "feat-user-auth" or "fix-login-bug")
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center font-bold text-xs">4</div>
+                                                    <div>
+                                                        <p class="text-ink-muted">
+                                                            <strong>Describe your goal</strong> to Claude (e.g., "Add user authentication with email and password")
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center font-bold text-xs">2</div>
+                                                    <div>
+                                                        <p class="text-ink-muted">
+                                                            <strong>Choose a workflow type</strong> from the dropdown (If you have not created a custom workflow you will need to. You can learn how in the Creating Workflows section.)
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="mt-4 pt-4 border-t border-border">
+                                                <p class="text-sm text-ink-muted">
+                                                    Claude will automatically follow the workflow phases, creating a <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">workflow-state.json</code> file to track progress and saving workflow state after each step.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- When to Use Workflows -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-4">When to Use Workflows vs. Ad-Hoc Sessions</h3>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div class="bg-surface-1 border border-border rounded-lg p-5">
+                                                <h4 class="font-bold text-ink mb-3 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    Use Workflows For:
+                                                </h4>
+                                                <ul class="space-y-2 text-sm text-ink-muted">
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>New features with multiple components</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>Complex bug fixes requiring investigation</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>Large refactors touching multiple files</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>Work that needs thorough testing and review</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>Tasks that may span multiple sessions</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-green-600 dark:text-green-400 mt-0.5">•</span>
+                                                        <span>Team projects needing consistent process</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div class="bg-surface-1 border border-border rounded-lg p-5">
+                                                <h4 class="font-bold text-ink mb-3 flex items-center gap-2">
+                                                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                                    </svg>
+                                                    Use Ad-Hoc Sessions For:
+                                                </h4>
+                                                <ul class="space-y-2 text-sm text-ink-muted">
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>Quick fixes (typos, small tweaks)</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>Exploratory coding or prototyping</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>One-off scripts or utilities</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>Documentation updates</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>Code review or analysis (no changes)</span>
+                                                    </li>
+                                                    <li class="flex items-start gap-2">
+                                                        <span class="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                                                        <span>When you want full manual control</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                                            <p class="text-sm text-ink-muted">
+                                                <strong class="text-amber-600 dark:text-amber-400">Tip:</strong> Start with a workflow for quality work. You can always switch to ad-hoc if the structure feels unnecessary. Workflows add minimal overhead but provide significant benefits for anything beyond trivial changes.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Next Steps -->
+                                    <div class="bg-surface-1 border border-border rounded-xl p-6">
+                                        <h3 class="text-xl font-bold text-ink mb-3">Want to Learn More?</h3>
+                                        <p class="text-ink-muted mb-4">
+                                            This introduction covered the basics of workflows. For deeper understanding:
+                                        </p>
+                                        <ul class="space-y-2 text-sm text-ink-muted">
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="#workflow-templates" class="text-accent hover:underline">Workflow Templates</a> - Learn YAML syntax and create custom workflows
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="#lanes-mcp" class="text-accent hover:underline">Lanes MCP</a> - Understand how workflows use Model Context Protocol
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                                <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents" class="text-accent hover:underline" target="_blank">Anthropic's Research Paper</a> - The science behind workflow harnesses
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
