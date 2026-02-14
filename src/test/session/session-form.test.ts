@@ -791,10 +791,9 @@ suite('Session Form', () => {
 	});
 
 	suite('Agent Dropdown', () => {
-		test('Form includes agent dropdown when multiple agents available', () => {
+		test('Form includes agent dropdown with all agents', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -814,30 +813,14 @@ suite('Session Form', () => {
 			);
 		});
 
-		test('Form hides agent dropdown when only one agent available', () => {
+		test('Agent dropdown always shows all agents as selectable', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', false]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
 
-			// Assert: Agent dropdown is hidden
-			assert.ok(
-				html.includes('style="display:none"'),
-				'Agent dropdown should be hidden when only one agent available'
-			);
-		});
-
-		test('Agent dropdown items are enabled for available agents', () => {
-			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
-
-			// Act
-			const html = getFormHtml(provider);
-
-			// Assert: Both items should not have disabled attribute
+			// Assert: All items should not have disabled attribute
 			const claudeMatch = html.match(/<button[^>]*data-agent="claude"[^>]*>/);
 			const codexMatch = html.match(/<button[^>]*data-agent="codex"[^>]*>/);
 			assert.ok(claudeMatch, 'Claude item should exist');

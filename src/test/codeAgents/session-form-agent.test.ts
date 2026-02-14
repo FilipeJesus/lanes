@@ -83,8 +83,7 @@ suite('Session Form Agent Selection', () => {
 	suite('Agent Dropdown Rendering', () => {
 		test('Default agent codex is pre-selected', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'codex');
+			provider.setDefaultAgent('codex');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -99,8 +98,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Default agent claude is pre-selected', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -115,8 +113,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Form includes agent dropdown with SVG logos when multiple agents available', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -134,8 +131,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Dropdown trigger has tooltip title', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -155,8 +151,7 @@ suite('Session Form Agent Selection', () => {
 	suite('Permission Toggle Per Agent', () => {
 		test('Form shows bypass permissions toggle for claude agent', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', false]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -174,8 +169,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Form JavaScript includes permission toggle button click handler', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -193,8 +187,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Form JavaScript includes updateBypassBtn function', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'claude');
+			provider.setDefaultAgent('claude');
 
 			// Act
 			const html = getFormHtml(provider);
@@ -303,8 +296,7 @@ suite('Session Form Agent Selection', () => {
 
 		test('Form clears agent selection to default after submission', () => {
 			// Arrange
-			const availability = new Map([['claude', true], ['codex', true]]);
-			provider.setAgentAvailability(availability, 'codex');
+			provider.setDefaultAgent('codex');
 
 			// Act
 			const html = getFormHtml(provider);

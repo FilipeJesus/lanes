@@ -60,7 +60,6 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _onRefreshWorkflows?: () => void | Promise<void>;
     private _onAutoPrompt?: (prompt: string, agent: string) => Promise<string>;
     private _workflows: WorkflowMetadata[] = [];
-    private _agentAvailability: Map<string, boolean> = new Map();
     private _defaultAgent: string = 'claude';
     private _attachmentsTempDir?: string;
     private _autoPromptInProgress = false;
@@ -126,17 +125,15 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Set agent availability and default agent for the form dropdown
+     * Set the default agent for the form dropdown
      */
-    public setAgentAvailability(availability: Map<string, boolean>, defaultAgent: string): void {
-        this._agentAvailability = availability;
+    public setDefaultAgent(defaultAgent: string): void {
         this._defaultAgent = defaultAgent;
 
         // If webview is already visible, send update
         if (this._view) {
             this._view.webview.postMessage({
-                command: 'updateAgentAvailability',
-                availability: Array.from(availability.entries()),
+                command: 'updateDefaultAgent',
                 defaultAgent: defaultAgent
             });
         }
@@ -194,8 +191,8 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         {
             name: 'gemini',
             label: 'Gemini CLI',
-            // Simple starburst mark
-            svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.6 6.2L21 10l-6.4 1.8L12 22l-2.6-10.2L3 10l6.4-1.8L12 2z"/></svg>'
+            // Google Gemini 4-pointed sparkle
+            svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1Q12 12 23 12Q12 12 12 23Q12 12 1 12Q12 12 12 1Z"/></svg>'
         },
         {
             name: 'cortex',
@@ -211,30 +208,19 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
      * Default agent is determined by the lanes.defaultAgent global setting.
      */
     private _getAgentSelectorHtml(): string {
-        // Count available agents to decide visibility
-        let availableCount = 0;
-        for (const available of this._agentAvailability.values()) {
-            if (available) { availableCount++; }
-        }
-
-        const hidden = availableCount <= 1 ? ' style="display:none"' : '';
-
         // Find the default agent's SVG for the trigger button
         const defaultDef = SessionFormProvider.AGENTS.find(a => a.name === this._defaultAgent)
             ?? SessionFormProvider.AGENTS[0];
 
-        // Build dropdown menu items
+        // Build dropdown menu items — all agents are always selectable;
+        // CLI availability is validated at session creation time.
         let itemsHtml = '';
         for (const agent of SessionFormProvider.AGENTS) {
-            const available = this._agentAvailability.get(agent.name) ?? false;
             const active = agent.name === this._defaultAgent ? ' active' : '';
-            const disabled = available ? '' : ' disabled';
-            const label = available ? agent.label : `${agent.label} (not installed)`;
-
-            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}"${disabled}>${agent.svg}<span>${this._escapeHtml(label)}</span></button>`;
+            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}">${agent.svg}<span>${this._escapeHtml(agent.label)}</span></button>`;
         }
 
-        return `<div class="agent-dropdown" id="agentDropdown"${hidden}>` +
+        return `<div class="agent-dropdown" id="agentDropdown">` +
             `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultDef.label)}" aria-haspopup="true" aria-expanded="false">${defaultDef.svg}</button>` +
             `<div class="agent-dropdown-menu" id="agentMenu">${itemsHtml}</div>` +
             `</div>`;
@@ -838,26 +824,12 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-list-activeSelectionForeground);
         }
 
-        .agent-dropdown-item:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .agent-dropdown-item:disabled:hover {
-            background: transparent;
-        }
-
         .agent-dropdown-item svg {
             width: 16px;
             height: 16px;
             flex-shrink: 0;
         }
 
-        select option:disabled {
-            opacity: 0.5;
-            color: var(--vscode-disabledForeground);
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
@@ -1398,36 +1370,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     refreshWorkflowBtn.disabled = false;
                     refreshWorkflowBtn.textContent = '↻';
                     break;
-                case 'updateAgentAvailability':
-                    // Update agent availability dynamically
-                    if (message.availability) {
-                        const availabilityMap = new Map(message.availability);
-                        let availableCount = 0;
-                        for (const available of availabilityMap.values()) {
-                            if (available) {
-                                availableCount++;
-                            }
-                        }
-
-                        if (agentDropdown) {
-                            agentDropdown.style.display = availableCount <= 1 ? 'none' : '';
-                        }
-
-                        // Update menu item disabled states and labels
-                        agentItems.forEach(function(item) {
-                            const agentName = item.dataset.agent;
-                            const available = availabilityMap.get(agentName) ?? false;
-                            item.disabled = !available;
-                        const baseLabels = { 'claude': 'Claude Code', 'codex': 'Codex CLI', 'gemini': 'Gemini CLI', 'cortex': 'Cortex Code' };
-                            const baseLabel = baseLabels[agentName] || agentName;
-                            const span = item.querySelector('span');
-                            if (span) span.textContent = available ? baseLabel : baseLabel + ' (not installed)';
-                        });
-
-                        // Update default selection if provided
-                        if (message.defaultAgent) {
-                            selectAgent(message.defaultAgent);
-                        }
+                case 'updateDefaultAgent':
+                    if (message.defaultAgent) {
+                        selectAgent(message.defaultAgent);
                     }
                     break;
             }
