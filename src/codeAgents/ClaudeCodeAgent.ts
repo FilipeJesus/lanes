@@ -85,14 +85,6 @@ export class ClaudeCodeAgent extends CodeAgent {
     // --- Command Building ---
 
     /**
-     * Escape a string for safe use in shell single quotes
-     * Replaces single quotes with the shell escape sequence '\''
-     */
-    private escapeForSingleQuotes(str: string): string {
-        return str.replace(/'/g, "'\\''");
-    }
-
-    /**
      * Validate that a session ID is in valid UUID format
      * @throws Error if session ID is not a valid UUID
      */
@@ -125,10 +117,8 @@ export class ClaudeCodeAgent extends CodeAgent {
         }
 
         // Add prompt last (if provided)
-        // Use single quotes with proper escaping to prevent shell injection
         if (options.prompt) {
-            const escapedPrompt = this.escapeForSingleQuotes(options.prompt);
-            parts.push(`'${escapedPrompt}'`);
+            parts.push(this.formatPromptForShell(options.prompt));
         }
 
         return parts.join(' ');

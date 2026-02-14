@@ -18,6 +18,7 @@ import { ClaudeCodeAgent } from './ClaudeCodeAgent';
 import { CodexAgent } from './CodexAgent';
 import { CortexCodeAgent } from './CortexCodeAgent';
 import { GeminiAgent } from './GeminiAgent';
+import { OpenCodeAgent } from './OpenCodeAgent';
 
 /**
  * The default agent name used as fallback throughout the extension.
@@ -39,7 +40,8 @@ const agentConstructors: Record<string, () => CodeAgent> = {
     'claude': () => new ClaudeCodeAgent(),
     'codex': () => new CodexAgent(),
     'cortex': () => new CortexCodeAgent(),
-    'gemini': () => new GeminiAgent()
+    'gemini': () => new GeminiAgent(),
+    'opencode': () => new OpenCodeAgent()
 };
 
 /**
@@ -48,7 +50,7 @@ const agentConstructors: Record<string, () => CodeAgent> = {
  * Returns the same instance for repeated calls with the same name.
  * Returns null if the agent name is not in the factory map.
  *
- * @param agentName Agent identifier ('claude', 'codex', 'cortex', or 'gemini')
+ * @param agentName Agent identifier ('claude', 'codex', 'cortex', 'gemini', or 'opencode')
  * @returns CodeAgent instance, or null if agent name is not recognized
  */
 export function getAgent(agentName: string): CodeAgent | null {
@@ -72,7 +74,7 @@ export function getAgent(agentName: string): CodeAgent | null {
 /**
  * Get list of all available agent names.
  *
- * @returns Array of agent name strings (e.g., ['claude', 'codex', 'cortex', 'gemini'])
+ * @returns Array of agent name strings (e.g., ['claude', 'codex', 'cortex', 'gemini', 'opencode'])
  */
 export function getAvailableAgents(): string[] {
     return Object.keys(agentConstructors);

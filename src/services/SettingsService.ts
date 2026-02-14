@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { CodeAgent, McpConfig } from '../codeAgents';
-import { getSettingsFormat } from './SettingsFormatService';
+import { getSettingsFormat, JsonSettingsFormat } from './SettingsFormatService';
 import {
     getSessionId,
     getPromptsPath,
@@ -341,8 +341,14 @@ exit 0
     if (hooks !== undefined) {
         settings.hooks = hooks;
     }
+    // Use agent-specific MCP format when available (e.g., OpenCode uses 'mcp' key with array commands)
     if (mcpConfig?.mcpServers) {
-        settings.mcpServers = mcpConfig.mcpServers;
+        if (codeAgent && codeAgent.getMcpConfigDelivery() === 'settings') {
+            const formatted = codeAgent.formatMcpForSettings(mcpConfig);
+            Object.assign(settings, formatted);
+        } else {
+            settings.mcpServers = mcpConfig.mcpServers;
+        }
     }
 
     // Save workflow path to session file for future restoration (MCP is passed via --mcp-config flag)
@@ -370,8 +376,9 @@ exit 0
     // to avoid overwriting user configuration (model preferences, env vars, etc.)
     if (projectSettingsPath) {
         try {
-            const existingContent = await fsPromises.readFile(settingsFilePath, 'utf-8');
-            const existingSettings = JSON.parse(existingContent) as Record<string, unknown>;
+            // Use format-aware reading to handle JSONC comments, TOML, etc.
+            const format = codeAgent ? getSettingsFormat(codeAgent) : new JsonSettingsFormat();
+            const existingSettings = await format.read(settingsFilePath);
             // Start from existing settings, then overlay hooks/mcp as needed
             for (const key of Object.keys(existingSettings)) {
                 (settings as Record<string, unknown>)[key] = existingSettings[key];
@@ -383,15 +390,31 @@ exit 0
             }
 
             // Merge MCP servers (preserve existing, add/override ours)
+            // Use agent-specific format when available
             if (mcpConfig?.mcpServers) {
-                const existingMcp = (existingSettings as Record<string, unknown>).mcpServers;
-                const existingMcpServers = (existingMcp && typeof existingMcp === 'object')
-                    ? existingMcp as Record<string, unknown>
-                    : {};
-                (settings as Record<string, unknown>).mcpServers = {
-                    ...existingMcpServers,
-                    ...mcpConfig.mcpServers
-                };
+                if (codeAgent && codeAgent.getMcpConfigDelivery() === 'settings') {
+                    const formatted = codeAgent.formatMcpForSettings(mcpConfig);
+                    for (const [key, value] of Object.entries(formatted)) {
+                        const existingValue = (existingSettings as Record<string, unknown>)[key];
+                        if (existingValue && typeof existingValue === 'object' && typeof value === 'object') {
+                            (settings as Record<string, unknown>)[key] = {
+                                ...(existingValue as Record<string, unknown>),
+                                ...(value as Record<string, unknown>)
+                            };
+                        } else {
+                            (settings as Record<string, unknown>)[key] = value;
+                        }
+                    }
+                } else {
+                    const existingMcp = (existingSettings as Record<string, unknown>).mcpServers;
+                    const existingMcpServers = (existingMcp && typeof existingMcp === 'object')
+                        ? existingMcp as Record<string, unknown>
+                        : {};
+                    (settings as Record<string, unknown>).mcpServers = {
+                        ...existingMcpServers,
+                        ...mcpConfig.mcpServers
+                    };
+                }
             }
         } catch {
             // File doesn't exist or isn't valid JSON - write fresh

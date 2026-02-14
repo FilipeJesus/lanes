@@ -257,13 +257,15 @@
               "claude",
               "codex",
               "cortex",
-              "gemini"
+              "gemini",
+              "opencode"
             ],
             "enumDescriptions": [
               "Claude Code - AI coding assistant by Anthropic",
               "Codex CLI - AI coding assistant by OpenAI (requires codex CLI)",
               "Cortex Code - AI coding assistant by Snowflake (requires cortex CLI)",
-              "Gemini CLI - AI coding assistant by Google (requires gemini CLI)"
+              "Gemini CLI - AI coding assistant by Google (requires gemini CLI)",
+              "OpenCode - Open source AI coding agent (requires opencode CLI)"
             ],
             "default": "claude",
             "description": "Default code agent for new sessions",
