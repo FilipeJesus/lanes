@@ -16,6 +16,7 @@ import { validateBranchName, getErrorMessage } from '../utils';
 import { LanesError, GitError, ValidationError } from '../errors';
 import { fileExists, ensureDir } from '../services/FileService';
 import { generateInsights, formatInsightsReport } from '../services/InsightsService';
+import { analyzeInsights } from '../services/InsightsAnalyzer';
 import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
@@ -558,7 +559,8 @@ export function registerSessionCommands(
                 return;
             }
 
-            const report = formatInsightsReport(item.label, insights);
+            const analysis = analyzeInsights(insights);
+            const report = formatInsightsReport(item.label, insights, analysis);
             const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
             await vscode.window.showTextDocument(document, { preview: false });
         } catch (err) {
