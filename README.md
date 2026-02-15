@@ -10,7 +10,7 @@
 
 Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, and Gemini CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
 
-![Lanes in action](media/screenshot.png)
+<video src="media/lanes-demo.mp4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
 ---
 
