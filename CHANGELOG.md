@@ -5,6 +5,27 @@ All notable changes to the Lanes extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-02-15
+
+### Added
+- OpenCode support as a coding agent backend (#136)
+- Pin/unpin sessions to keep important sessions at the top of the sidebar (#140)
+- VS Code notification alongside chime on session status change (#139)
+- Session insights with analysis engine and actionable recommendations (#141)
+- Polling-based status tracking for hookless agents (#142)
+- Demo form automation and minor improvements (#137)
+- Terminal Noir design system applied to docs and blog pages (#134)
+
+### Changed
+- Agent CLI availability checks deferred to session creation time instead of activation (#130)
+- Agent metadata and logic moved into `CodeAgent` class hierarchy (#131)
+
+### Fixed
+- Remove colour from sparkle and paperclip icons for proper theme adaptation (#129)
+
+### Docs
+- Replace static screenshot with demo video on marketplace page (#138)
+
 ## [1.2.1] - 2026-02-11
 
 ### Added
