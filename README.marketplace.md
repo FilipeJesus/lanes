@@ -23,7 +23,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 ## Example View
 
-![Lanes in action](media/screenshot.png)
+<video src="media/lanes-demo.mp4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
 ## Requirements
 
