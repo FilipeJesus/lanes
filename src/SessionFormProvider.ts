@@ -366,6 +366,19 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Programmatically fill the form fields and optionally submit.
+     * Used by demo automation (e.g., Demo Time) to populate the webview form.
+     */
+    public fillForm(fields: { name?: string; prompt?: string; sourceBranch?: string; agent?: string; workflow?: string; autoSubmit?: boolean }) {
+        if (this._view) {
+            this._view.webview.postMessage({
+                command: 'fillForm',
+                ...fields
+            });
+        }
+    }
+
+    /**
      * Play the chime sound in the webview
      */
     public playChime() {
@@ -1360,6 +1373,24 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     updateWorkflowDropdown(message.workflows);
                     refreshWorkflowBtn.disabled = false;
                     refreshWorkflowBtn.textContent = '↻';
+                    break;
+                case 'fillForm':
+                    if (message.name !== undefined) nameInput.value = message.name;
+                    if (message.prompt !== undefined) promptInput.value = message.prompt;
+                    if (message.sourceBranch !== undefined) sourceBranchInput.value = message.sourceBranch;
+                    if (message.agent) selectAgent(message.agent);
+                    if (message.workflow !== undefined) {
+                        // Try to find the workflow option by matching the end of the path
+                        const opts = Array.from(workflowInput.options);
+                        const match = opts.find(opt => opt.value.endsWith('/' + message.workflow + '.yaml') || opt.value.endsWith('/' + message.workflow + '.yml') || opt.value === message.workflow);
+                        if (match) {
+                            workflowInput.value = match.value;
+                        }
+                    }
+                    saveState();
+                    if (message.autoSubmit) {
+                        form.dispatchEvent(new Event('submit', { cancelable: true }));
+                    }
                     break;
             }
         });
