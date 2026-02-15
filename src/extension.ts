@@ -115,7 +115,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
-    const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath);
+    const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath, codeAgent, context);
     const sessionTreeView = vscode.window.createTreeView('lanesSessionsView', {
         treeDataProvider: sessionProvider,
         showCollapseAll: false
