@@ -446,7 +446,17 @@ export class SessionItem extends vscode.TreeItem {
         }
         const previousIcon = previousIconState.get(this.worktreePath);
         if (iconId === 'bell' && previousIcon !== 'bell') {
-            if (chimeEnabled) { void vscode.commands.executeCommand('lanes.playChime'); }
+            if (chimeEnabled) {
+                void vscode.commands.executeCommand('lanes.playChime');
+                void vscode.window.showInformationMessage(
+                    `Session '${this.label}' is waiting for your input`,
+                    'Open Session'
+                ).then(selection => {
+                    if (selection === 'Open Session') {
+                        void vscode.commands.executeCommand('lanes.openSession', this);
+                    }
+                });
+            }
         }
         previousIconState.set(this.worktreePath, iconId);
         if (iconId === 'bell') { return new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.yellow')); }
