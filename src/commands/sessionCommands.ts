@@ -199,6 +199,9 @@ export function registerSessionCommands(
                 }
             }
 
+            // Clean up pin state for the deleted session
+            await sessionProvider.unpinSession(item.worktreePath);
+
             sessionProvider.refresh();
             vscode.window.showInformationMessage(`Deleted session: ${item.label}`);
 
@@ -566,6 +569,36 @@ export function registerSessionCommands(
         }
     });
 
+    // Command: Pin a session
+    const pinSessionDisposable = vscode.commands.registerCommand('lanes.pinSession', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please select a session to pin.');
+            return;
+        }
+
+        try {
+            await sessionProvider.pinSession(item.worktreePath);
+            sessionProvider.refresh();
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to pin session: ${getErrorMessage(err)}`);
+        }
+    });
+
+    // Command: Unpin a session
+    const unpinSessionDisposable = vscode.commands.registerCommand('lanes.unpinSession', async (item: SessionItem) => {
+        if (!item || !item.worktreePath) {
+            vscode.window.showErrorMessage('Please select a session to unpin.');
+            return;
+        }
+
+        try {
+            await sessionProvider.unpinSession(item.worktreePath);
+            sessionProvider.refresh();
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to unpin session: ${getErrorMessage(err)}`);
+        }
+    });
+
     // Register all disposables
     const disposables = [
         createDisposable,
@@ -583,7 +616,9 @@ export function registerSessionCommands(
         openWorkflowStateDisposable,
         playChimeDisposable,
         testChimeDisposable,
-        generateInsightsDisposable
+        generateInsightsDisposable,
+        pinSessionDisposable,
+        unpinSessionDisposable
     ];
 
     // Demo automation command: fill the session form programmatically

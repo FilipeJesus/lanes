@@ -417,7 +417,8 @@ export class SessionItem extends vscode.TreeItem {
         collapsibleState: vscode.TreeItemCollapsibleState,
         agentStatus?: AgentSessionStatus | null,
         workflowStatus?: WorkflowStatus | null,
-        chimeEnabled?: boolean
+        chimeEnabled?: boolean,
+        pinned?: boolean
     ) {
         const storedWorkflowStatus = workflowStatus ?? null;
         const hasWorkflowStepInfo = storedWorkflowStatus?.active && storedWorkflowStatus.step;
@@ -426,11 +427,11 @@ export class SessionItem extends vscode.TreeItem {
             : vscode.TreeItemCollapsibleState.None;
         super(label, effectiveCollapsibleState);
         this.workflowStatus = storedWorkflowStatus;
-        this.tooltip = `Path: ${this.worktreePath}`;
-        this.description = this.getDescriptionForStatus(agentStatus, workflowStatus);
+        this.tooltip = pinned ? `[Pinned] Path: ${this.worktreePath}` : `Path: ${this.worktreePath}`;
+        this.description = this.getDescriptionForStatus(agentStatus, workflowStatus, pinned);
         this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
         this.command = { command: 'lanes.openSession', title: 'Open Session', arguments: [this] };
-        this.contextValue = 'sessionItem';
+        this.contextValue = pinned ? 'sessionItemPinned' : 'sessionItem';
     }
 
     private getIconForStatus(agentStatus?: AgentSessionStatus | null, chimeEnabled?: boolean): vscode.ThemeIcon {
@@ -464,28 +465,50 @@ export class SessionItem extends vscode.TreeItem {
         else { return new vscode.ThemeIcon(iconId); }
     }
 
-    private getDescriptionForStatus(agentStatus?: AgentSessionStatus | null, workflowStatus?: WorkflowStatus | null): string {
+    private getDescriptionForStatus(agentStatus?: AgentSessionStatus | null, workflowStatus?: WorkflowStatus | null, pinned?: boolean): string {
         const summary = workflowStatus?.summary;
         const withSummary = (base: string): string => summary ? `${base} - ${summary}` : base;
-        if (agentStatus?.status === 'waiting_for_user') { return withSummary('Waiting'); }
-        if (agentStatus?.status === 'working') { return withSummary('Working'); }
-        if (summary) { return summary; }
-        return "Active";
+        const withPinned = (base: string): string => pinned ? `Pinned - ${base}` : base;
+        if (agentStatus?.status === 'waiting_for_user') { return withPinned(withSummary('Waiting')); }
+        if (agentStatus?.status === 'working') { return withPinned(withSummary('Working')); }
+        if (summary) { return withPinned(summary); }
+        return withPinned("Active");
     }
 }
 
 export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem | SessionDetailItem>, vscode.Disposable {
+    private static readonly PINNED_SESSIONS_KEY = 'lanes.pinnedSessions';
     private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private readonly sessionsRoot: string | undefined;
 
-    constructor(private workspaceRoot: string | undefined, baseRepoPath?: string, private codeAgent?: CodeAgent) {
+    constructor(private workspaceRoot: string | undefined, baseRepoPath?: string, private codeAgent?: CodeAgent, private extensionContext?: vscode.ExtensionContext) {
         this.sessionsRoot = baseRepoPath || workspaceRoot;
     }
 
     dispose(): void { this._onDidChangeTreeData.dispose(); }
     refresh(): void { this._onDidChangeTreeData.fire(); }
     getTreeItem(element: SessionItem | SessionDetailItem): vscode.TreeItem { return element; }
+
+    getPinnedSessions(): string[] {
+        if (!this.extensionContext) { return []; }
+        return this.extensionContext.workspaceState.get<string[]>(AgentSessionProvider.PINNED_SESSIONS_KEY, []);
+    }
+
+    async pinSession(worktreePath: string): Promise<void> {
+        if (!this.extensionContext) { return; }
+        const pinned = this.getPinnedSessions();
+        if (!pinned.includes(worktreePath)) {
+            await this.extensionContext.workspaceState.update(AgentSessionProvider.PINNED_SESSIONS_KEY, [...pinned, worktreePath]);
+        }
+    }
+
+    async unpinSession(worktreePath: string): Promise<void> {
+        if (!this.extensionContext) { return; }
+        const pinned = this.getPinnedSessions();
+        const updated = pinned.filter(p => p !== worktreePath);
+        await this.extensionContext.workspaceState.update(AgentSessionProvider.PINNED_SESSIONS_KEY, updated);
+    }
 
     async getChildren(element?: SessionItem | SessionDetailItem): Promise<(SessionItem | SessionDetailItem)[]> {
         if (!this.sessionsRoot) { return []; }
@@ -504,6 +527,8 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
     private async getSessionsInDir(dirPath: string): Promise<SessionItem[]> {
         const entries = await readDir(dirPath);
         const items: SessionItem[] = [];
+        const pinnedSet = new Set(this.getPinnedSessions());
+
         for (const folderName of entries) {
             const fullPath = path.join(dirPath, folderName);
             const isDir = await isDirectory(fullPath);
@@ -511,9 +536,15 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
                 const agentStatus = await getAgentStatus(fullPath);
                 const workflowStatus = await getWorkflowStatus(fullPath);
                 const chimeEnabled = await getSessionChimeEnabled(fullPath);
-                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled));
+                const pinned = pinnedSet.has(fullPath);
+                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
             }
         }
-        return items;
+
+        // Sort: pinned items first, then unpinned. Maintain relative order within each group.
+        const pinnedItems = items.filter(item => pinnedSet.has(item.worktreePath));
+        const unpinnedItems = items.filter(item => !pinnedSet.has(item.worktreePath));
+
+        return [...pinnedItems, ...unpinnedItems];
     }
 }

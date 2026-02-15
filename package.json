@@ -160,6 +160,16 @@
         "command": "lanes.generateInsights",
         "title": "Generate Insights",
         "icon": "$(graph)"
+      },
+      {
+        "command": "lanes.pinSession",
+        "title": "Pin Session",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "lanes.unpinSession",
+        "title": "Unpin Session",
+        "icon": "$(pinned)"
       }
     ],
     "menus": {
@@ -173,18 +183,33 @@
       "view/item/context": [
         {
           "command": "lanes.openInNewWindow",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
           "group": "inline@0"
         },
         {
           "command": "lanes.showGitChanges",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
           "group": "inline@1"
         },
         {
           "command": "lanes.openWorkflowState",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
           "group": "inline@2"
+        },
+        {
+          "command": "lanes.searchInWorktree",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "group": "inline@3"
+        },
+        {
+          "command": "lanes.pinSession",
+          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "group": "inline@4"
+        },
+        {
+          "command": "lanes.unpinSession",
+          "when": "view == lanesSessionsView && viewItem == sessionItemPinned",
+          "group": "inline@4"
         },
         {
           "command": "lanes.setupStatusHooks",
@@ -198,32 +223,37 @@
         },
         {
           "command": "lanes.enableChime",
-          "when": "view == lanesSessionsView && viewItem == sessionItem && !lanes.chimeEnabled",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/ && !lanes.chimeEnabled",
           "group": "navigation"
         },
         {
           "command": "lanes.disableChime",
-          "when": "view == lanesSessionsView && viewItem == sessionItem && lanes.chimeEnabled",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/ && lanes.chimeEnabled",
           "group": "navigation"
         },
         {
           "command": "lanes.clearSession",
-          "when": "view == lanesSessionsView && viewItem == sessionItem"
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/"
         },
         {
           "command": "lanes.createTerminal",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
           "group": "navigation"
         },
         {
-          "command": "lanes.searchInWorktree",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
-          "group": "inline@3"
+          "command": "lanes.generateInsights",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "group": "insights"
         },
         {
-          "command": "lanes.generateInsights",
+          "command": "lanes.pinSession",
           "when": "view == lanesSessionsView && viewItem == sessionItem",
-          "group": "insights"
+          "group": "pin"
+        },
+        {
+          "command": "lanes.unpinSession",
+          "when": "view == lanesSessionsView && viewItem == sessionItemPinned",
+          "group": "pin"
         }
       ]
     },
