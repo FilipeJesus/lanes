@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import { readDir, readFile } from './FileService';
+import { AnalysisResult } from './InsightsAnalyzer';
 
 export interface ConversationData {
     sessionId: string;
@@ -17,6 +18,11 @@ export interface ConversationData {
     totalDurationMs: number;
     userPromptPreviews: string[];
     model: string;
+    toolErrors: { tool: string; error: string }[];
+    toolSequence: string[];
+    fileOperations: { file: string; operation: 'Read' | 'Edit' | 'Write' | 'Glob' | 'Grep'; count: number }[];
+    subAgentDelegations: { type: string; description: string }[];
+    costEstimate: { inputCost: number; outputCost: number; totalCost: number };
 }
 
 export interface SessionInsights {
@@ -33,11 +39,36 @@ export interface SessionInsights {
     totalDurationMs: number;
     earliestTimestamp: string | null;
     latestTimestamp: string | null;
+    totalToolErrors: { tool: string; error: string }[];
+    totalFileOperations: Map<string, { reads: number; edits: number; writes: number }>;
+    totalSubAgentDelegations: { type: string; count: number }[];
 }
 
 export function getClaudeProjectDir(worktreePath: string): string {
     const hash = worktreePath.replace(/[/.]/g, '-');
     return path.join(os.homedir(), '.claude', 'projects', hash);
+}
+
+function calculateCostEstimate(model: string, inputTokens: number, outputTokens: number): { inputCost: number; outputCost: number; totalCost: number } {
+    let inputPricePerMillion = 3;
+    let outputPricePerMillion = 15;
+
+    if (model.includes('claude-opus-4')) {
+        inputPricePerMillion = 15;
+        outputPricePerMillion = 75;
+    } else if (model.includes('claude-haiku-3-5')) {
+        inputPricePerMillion = 0.80;
+        outputPricePerMillion = 4;
+    } else if (model.includes('claude-sonnet-4')) {
+        inputPricePerMillion = 3;
+        outputPricePerMillion = 15;
+    }
+
+    const inputCost = (inputTokens / 1_000_000) * inputPricePerMillion;
+    const outputCost = (outputTokens / 1_000_000) * outputPricePerMillion;
+    const totalCost = inputCost + outputCost;
+
+    return { inputCost, outputCost, totalCost };
 }
 
 export async function parseConversationFile(filePath: string): Promise<ConversationData> {
@@ -58,6 +89,10 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     let totalDurationMs = 0;
     const userPromptPreviews: string[] = [];
     let model = '';
+    const toolErrors: { tool: string; error: string }[] = [];
+    const toolSequence: string[] = [];
+    const fileOperationsMap = new Map<string, Map<string, number>>();
+    const subAgentDelegations: { type: string; description: string }[] = [];
 
     // Track current assistant turn state for grouping streaming entries.
     // Consecutive assistant entries form a single turn; each entry is one
@@ -69,6 +104,8 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     const turnToolNames: string[] = [];
     const turnSkillNames: string[] = [];
     const turnMcpNames: string[] = [];
+    // Map tool_id to tool name for tracking errors
+    const toolIdToName = new Map<string, string>();
 
     function finalizeAssistantTurn(): void {
         if (!inAssistantTurn) { return; }
@@ -145,6 +182,34 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
                         userMessageCount++;
                         userPromptPreviews.push(textParts.join(' ').slice(0, 200));
                     }
+                } else {
+                    // Extract tool errors from tool_result entries
+                    for (const block of msgContent) {
+                        if (block.type === 'tool_result') {
+                            const toolId = block.tool_use_id as string | undefined;
+                            const isError = block.is_error as boolean | undefined;
+                            const content = block.content;
+
+                            if (isError && toolId) {
+                                const toolName = toolIdToName.get(toolId) || 'unknown';
+                                let errorText = '';
+
+                                if (typeof content === 'string') {
+                                    errorText = content;
+                                } else if (Array.isArray(content)) {
+                                    // Extract text from content blocks
+                                    errorText = content
+                                        .filter((c: Record<string, unknown>) => c.type === 'text')
+                                        .map((c: Record<string, unknown>) => c.text as string)
+                                        .join(' ');
+                                }
+
+                                if (errorText) {
+                                    toolErrors.push({ tool: toolName, error: errorText });
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } else if (type === 'assistant') {
@@ -165,21 +230,53 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
                 for (const block of contentArr) {
                     if (block.type === 'tool_use' && typeof block.name === 'string') {
                         const toolName = block.name as string;
+                        const toolId = block.id as string | undefined;
+                        const input = block.input as Record<string, unknown> | undefined;
+
                         turnToolNames.push(toolName);
+
+                        // Track tool ID for error mapping
+                        if (toolId) {
+                            toolIdToName.set(toolId, toolName);
+                        }
+
+                        // Add to tool sequence
+                        toolSequence.push(toolName);
+
                         // Extract skill name from Skill tool invocations
                         if (toolName === 'Skill') {
-                            const input = block.input as Record<string, unknown> | undefined;
                             if (input && typeof input.skill === 'string') {
                                 turnSkillNames.push(input.skill as string);
                             }
                         }
                         // Extract MCP server and tool from mcp__<server>__<tool> pattern
-                        if (toolName.startsWith('mcp__')) {
+                        else if (toolName.startsWith('mcp__')) {
                             const parts = toolName.split('__');
                             if (parts.length >= 3) {
                                 const server = parts[1];
                                 const mcpTool = parts.slice(2).join('__');
                                 turnMcpNames.push(`${server}: ${mcpTool}`);
+                            }
+                        }
+                        // Extract file operations
+                        else if (input && (toolName === 'Read' || toolName === 'Edit' || toolName === 'Write' || toolName === 'Glob' || toolName === 'Grep')) {
+                            const filePath = (input.file_path as string | undefined)
+                                ?? (input.path as string | undefined)
+                                ?? (input.pattern as string | undefined);
+                            if (filePath) {
+                                if (!fileOperationsMap.has(filePath)) {
+                                    fileOperationsMap.set(filePath, new Map());
+                                }
+                                const opMap = fileOperationsMap.get(filePath)!;
+                                opMap.set(toolName, (opMap.get(toolName) || 0) + 1);
+                            }
+                        }
+                        // Extract subagent delegations from Task tool
+                        else if (toolName === 'Task' && input) {
+                            const subagentType = input.subagent_type as string | undefined;
+                            const description = input.description as string | undefined;
+                            if (subagentType && description) {
+                                subAgentDelegations.push({ type: subagentType, description });
                             }
                         }
                     }
@@ -200,6 +297,21 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     // Finalize any trailing assistant turn at end of file
     finalizeAssistantTurn();
 
+    // Convert fileOperationsMap to array format
+    const fileOperations: ConversationData['fileOperations'] = [];
+    for (const [file, opMap] of fileOperationsMap) {
+        for (const [op, count] of opMap) {
+            fileOperations.push({
+                file,
+                operation: op as 'Read' | 'Edit' | 'Write' | 'Glob' | 'Grep',
+                count
+            });
+        }
+    }
+
+    // Calculate cost estimate
+    const costEstimate = calculateCostEstimate(model, totalInputTokens, totalOutputTokens);
+
     return {
         sessionId,
         firstTimestamp,
@@ -215,6 +327,11 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
         totalDurationMs,
         userPromptPreviews,
         model,
+        toolErrors,
+        toolSequence,
+        fileOperations,
+        subAgentDelegations,
+        costEstimate,
     };
 }
 
@@ -251,6 +368,9 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
     let totalDurationMs = 0;
     let earliestTimestamp: string | null = null;
     let latestTimestamp: string | null = null;
+    const totalToolErrors: { tool: string; error: string }[] = [];
+    const totalFileOperations = new Map<string, { reads: number; edits: number; writes: number }>();
+    const subAgentDelegationCounts = new Map<string, number>();
 
     for (const conv of conversations) {
         totalUserMessages += conv.userMessageCount;
@@ -270,6 +390,35 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
             totalMcpUses.set(mcp, (totalMcpUses.get(mcp) || 0) + count);
         }
 
+        // Aggregate tool errors
+        for (const error of conv.toolErrors) {
+            totalToolErrors.push(error);
+        }
+
+        // Aggregate file operations
+        for (const fileOp of conv.fileOperations) {
+            const existing = totalFileOperations.get(fileOp.file);
+            if (!existing) {
+                totalFileOperations.set(fileOp.file, { reads: 0, edits: 0, writes: 0 });
+            }
+            const stats = totalFileOperations.get(fileOp.file)!;
+            if (fileOp.operation === 'Read') {
+                stats.reads += fileOp.count;
+            } else if (fileOp.operation === 'Edit') {
+                stats.edits += fileOp.count;
+            } else if (fileOp.operation === 'Write') {
+                stats.writes += fileOp.count;
+            } else if (fileOp.operation === 'Glob' || fileOp.operation === 'Grep') {
+                // Count Glob/Grep as reads for aggregation purposes
+                stats.reads += fileOp.count;
+            }
+        }
+
+        // Aggregate subagent delegations
+        for (const delegation of conv.subAgentDelegations) {
+            subAgentDelegationCounts.set(delegation.type, (subAgentDelegationCounts.get(delegation.type) || 0) + 1);
+        }
+
         if (conv.firstTimestamp) {
             if (!earliestTimestamp || conv.firstTimestamp < earliestTimestamp) {
                 earliestTimestamp = conv.firstTimestamp;
@@ -280,6 +429,12 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
                 latestTimestamp = conv.lastTimestamp;
             }
         }
+    }
+
+    // Convert subagent delegation counts to array
+    const totalSubAgentDelegations: { type: string; count: number }[] = [];
+    for (const [type, count] of subAgentDelegationCounts) {
+        totalSubAgentDelegations.push({ type, count });
     }
 
     return {
@@ -296,6 +451,9 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
         totalDurationMs,
         earliestTimestamp,
         latestTimestamp,
+        totalToolErrors,
+        totalFileOperations,
+        totalSubAgentDelegations,
     };
 }
 
@@ -334,7 +492,21 @@ function formatNumber(n: number): string {
     return n.toLocaleString('en-US');
 }
 
-export function formatInsightsReport(sessionName: string, insights: SessionInsights): string {
+function percentageBar(value: number, max: number = 100, width: number = 20): string {
+    const filled = Math.min(width, Math.max(0, Math.round((value / max) * width)));
+    const empty = width - filled;
+    return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${value.toFixed(1)}%`;
+}
+
+function truncateFilePath(filePath: string, segments: number = 2): string {
+    const parts = filePath.split('/').filter(p => p.length > 0);
+    if (parts.length <= segments) {
+        return filePath;
+    }
+    return parts.slice(-segments).join('/');
+}
+
+export function formatInsightsReport(sessionName: string, insights: SessionInsights, analysis?: AnalysisResult): string {
     const lines: string[] = [];
 
     lines.push(`# Session Insights: ${sessionName}`);
@@ -353,7 +525,55 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
     if (model) {
         lines.push(`- **Model**: ${model}`);
     }
+    if (analysis) {
+        lines.push(`- **Estimated cost**: $${analysis.efficiency.totalCost.toFixed(2)}`);
+        lines.push(`- **Complexity**: ${analysis.patterns.conversationComplexity}`);
+    }
     lines.push('');
+
+    // Recommendations (only if analysis provided and has recommendations)
+    if (analysis && analysis.recommendations.length > 0) {
+        lines.push('## Recommendations');
+        lines.push('');
+        for (const rec of analysis.recommendations) {
+            let icon = 'ℹ️';
+            if (rec.severity === 'warning') {
+                icon = '⚠️';
+            } else if (rec.severity === 'suggestion') {
+                icon = '💡';
+            }
+            lines.push(`> ${icon} **${rec.title}** — ${rec.detail}`);
+            lines.push('');
+        }
+    }
+
+    // Efficiency (only if analysis provided)
+    if (analysis) {
+        lines.push('## Efficiency');
+        lines.push('');
+        lines.push('| Metric | Value |');
+        lines.push('|--------|-------|');
+        lines.push(`| Cache hit rate | ${percentageBar(analysis.efficiency.cacheHitRate)} |`);
+        lines.push(`| Tokens per message | ${formatNumber(Math.round(analysis.efficiency.tokensPerUserMessage))} |`);
+        lines.push(`| Output/Input ratio | ${analysis.efficiency.outputInputRatio.toFixed(2)} |`);
+
+        const avgTurnSeconds = Math.floor(analysis.efficiency.averageTurnDurationMs / 1000);
+        const avgTurnMinutes = Math.floor(avgTurnSeconds / 60);
+        const avgTurnRemainingSeconds = avgTurnSeconds % 60;
+        lines.push(`| Avg turn duration | ${avgTurnMinutes}m ${avgTurnRemainingSeconds}s |`);
+
+        lines.push(`| Avg turns/conversation | ${analysis.efficiency.averageTurnsPerConversation.toFixed(1)} |`);
+        lines.push(`| Avg messages/conversation | ${analysis.efficiency.averageUserMessagesPerConversation.toFixed(1)} |`);
+        lines.push('');
+
+        lines.push('### Cost Breakdown');
+        lines.push('| | Amount |');
+        lines.push('|--|--------|');
+        lines.push(`| Input | $${analysis.efficiency.inputCost.toFixed(2)} |`);
+        lines.push(`| Output | $${analysis.efficiency.outputCost.toFixed(2)} |`);
+        lines.push(`| **Total** | **$${analysis.efficiency.totalCost.toFixed(2)}** |`);
+        lines.push('');
+    }
 
     // Token usage
     lines.push('## Token Usage');
@@ -363,6 +583,54 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
     lines.push(`| Output tokens | ${formatNumber(insights.totalOutputTokens)} |`);
     lines.push(`| Cache read tokens | ${formatNumber(insights.totalCacheReadTokens)} |`);
     lines.push('');
+
+    // Workflow Patterns (only if analysis provided)
+    if (analysis) {
+        const hasToolChains = analysis.patterns.topToolChains.length > 0;
+        const hasFileHotspots = analysis.patterns.fileHotspots.length > 0;
+        const hasDelegations = analysis.patterns.delegationSummary.length > 0;
+
+        if (hasToolChains || hasFileHotspots || hasDelegations) {
+            lines.push('## Workflow Patterns');
+            lines.push('');
+
+            // Tool Chains
+            if (hasToolChains) {
+                lines.push('### Tool Chains');
+                lines.push('');
+                for (const chain of analysis.patterns.topToolChains) {
+                    const chainStr = chain.sequence.join(' → ');
+                    lines.push(`${chainStr} (×${chain.count})`);
+                    lines.push('');
+                }
+            }
+
+            // File Hotspots
+            if (hasFileHotspots) {
+                lines.push('### File Hotspots');
+                lines.push('');
+                lines.push('| File | Total | Reads | Edits | Writes |');
+                lines.push('|------|-------|-------|-------|--------|');
+                for (const hotspot of analysis.patterns.fileHotspots) {
+                    const truncatedFile = truncateFilePath(hotspot.file);
+                    lines.push(`| ${truncatedFile} | ${hotspot.totalOperations} | ${hotspot.reads} | ${hotspot.edits} | ${hotspot.writes} |`);
+                }
+                lines.push('');
+            }
+
+            // Sub-Agent Delegations
+            if (hasDelegations) {
+                lines.push('### Sub-Agent Delegations');
+                lines.push('');
+                lines.push('| Agent Type | Count | % |');
+                lines.push('|------------|-------|---|');
+                for (const delegation of analysis.patterns.delegationSummary) {
+                    lines.push(`| ${delegation.type} | ${delegation.count} | ${delegation.percentage.toFixed(1)}% |`);
+                }
+                lines.push('');
+            }
+        }
+    }
 
     // Tool usage
     if (insights.totalToolUses.size > 0) {
@@ -377,13 +645,32 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
     }
 
     // Skills used
+    lines.push('## Skills Used');
     if (insights.totalSkillUses.size > 0) {
         const sortedSkills = [...insights.totalSkillUses.entries()].sort((a, b) => b[1] - a[1]);
-        lines.push('## Skills Used');
         lines.push('| Skill | Uses |');
         lines.push('|-------|------|');
         for (const [skill, count] of sortedSkills) {
             lines.push(`| ${skill} | ${count} |`);
+        }
+    } else {
+        lines.push('No skills used.');
+    }
+    lines.push('');
+
+    // Error Analysis (only if analysis provided and has errors)
+    if (analysis && analysis.errorAnalysis.totalErrors > 0) {
+        lines.push('## Error Analysis');
+        lines.push('');
+        lines.push(`- **Total errors**: ${analysis.errorAnalysis.totalErrors} (${analysis.errorAnalysis.errorRate.toFixed(1)}% of tool calls)`);
+        if (analysis.errorAnalysis.mostFailedTool) {
+            lines.push(`- **Most failed tool**: ${analysis.errorAnalysis.mostFailedTool}`);
+        }
+        lines.push('');
+        lines.push('| Tool | Errors | % of Errors |');
+        lines.push('|------|--------|-------------|');
+        for (const errorStat of analysis.errorAnalysis.errorsByTool) {
+            lines.push(`| ${errorStat.tool} | ${errorStat.count} | ${errorStat.percentage.toFixed(1)}% |`);
         }
         lines.push('');
     }
@@ -429,6 +716,7 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
             if (conv.totalDurationMs > 0) {
                 lines.push(`- **Duration**: ${formatDuration(conv.totalDurationMs)}`);
             }
+            lines.push(`- **Cost**: $${conv.costEstimate.totalCost.toFixed(2)}`);
             if (conv.userPromptPreviews.length > 0) {
                 lines.push('- **Prompts**:');
                 for (const preview of conv.userPromptPreviews) {
