@@ -18,7 +18,8 @@ export type {
     McpServerConfig,
     McpConfig,
     McpConfigDelivery,
-    AgentFeature
+    AgentFeature,
+    CapturedSession
 } from './CodeAgent';
 
 // Export the abstract base class

@@ -388,6 +388,19 @@
         }
       },
       {
+        "title": "Lanes: Status Polling",
+        "properties": {
+          "lanes.polling.quietThresholdMs": {
+            "type": "number",
+            "default": 3000,
+            "minimum": 500,
+            "maximum": 60000,
+            "description": "Time in milliseconds with no session log activity before status changes to 'waiting for user input'. Applies to agents without hook support (OpenCode, Codex).",
+            "order": 1
+          }
+        }
+      },
+      {
         "title": "Lanes: Terminal",
         "properties": {
           "lanes.terminalMode": {

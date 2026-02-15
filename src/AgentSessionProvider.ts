@@ -154,6 +154,8 @@ export interface AgentSessionData {
     isChimeEnabled?: boolean;
     taskListId?: string;
     terminal?: 'code' | 'tmux';
+    /** Path to the agent's session log file (for polling status on hookless agents) */
+    logPath?: string;
 }
 
 export async function saveSessionWorkflow(worktreePath: string, workflow: string): Promise<void> {
@@ -299,16 +301,23 @@ export async function getSessionId(worktreePath: string, codeAgent?: CodeAgent):
             } catch { /* fall through to current agent */ }
         }
 
+        // Parse raw JSON once to extract fields not covered by agent.parseSessionData()
+        let rawLogPath: string | undefined;
+        try {
+            const rawData = JSON.parse(content);
+            if (typeof rawData.logPath === 'string') { rawLogPath = rawData.logPath; }
+        } catch { /* ignore parse errors - agent parser handles validation */ }
+
         if (agent) {
             const sessionData = agent.parseSessionData(content);
             if (!sessionData) { return null; }
-            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, agentName: sessionData.agentName, isChimeEnabled: sessionData.isChimeEnabled };
+            return { sessionId: sessionData.sessionId, timestamp: sessionData.timestamp, workflow: sessionData.workflow, agentName: sessionData.agentName, isChimeEnabled: sessionData.isChimeEnabled, logPath: rawLogPath };
         }
         const data = JSON.parse(content);
         if (!data.sessionId || typeof data.sessionId !== 'string' || data.sessionId.trim() === '') { return null; }
         const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
         if (!SESSION_ID_PATTERN.test(data.sessionId)) { return null; }
-        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || DEFAULT_AGENT_NAME, isChimeEnabled: data.isChimeEnabled };
+        return { sessionId: data.sessionId, timestamp: data.timestamp, workflow: data.workflow, agentName: data.agentName || DEFAULT_AGENT_NAME, isChimeEnabled: data.isChimeEnabled, logPath: rawLogPath };
     } catch { return null; }
 }
 

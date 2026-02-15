@@ -34,9 +34,9 @@ suite('Package.json Configuration Test Suite', () => {
 
 	suite('Configuration Structure', () => {
 
-		test('should verify configuration is an array with 6 sections', () => {
+		test('should verify configuration is an array with 7 sections', () => {
 			assert.ok(Array.isArray(config));
-			assert.strictEqual(config.length, 6);
+			assert.strictEqual(config.length, 7);
 		});
 
 		test('should verify each configuration section has the correct title', () => {
@@ -46,6 +46,7 @@ suite('Package.json Configuration Test Suite', () => {
 				'Lanes: Advanced',
 				'Lanes: Workflows',
 				'Lanes: Audio',
+				'Lanes: Status Polling',
 				'Lanes: Terminal'
 			];
 
@@ -157,6 +158,25 @@ suite('Package.json Configuration Test Suite', () => {
 
 			assert.ok(audioSection.properties['lanes.chimeSound'].enumDescriptions);
 			assert.strictEqual(audioSection.properties['lanes.chimeSound'].enumDescriptions.length, 4);
+		});
+	});
+
+	suite('Status Polling Section', () => {
+
+		test('should verify Status Polling section contains correct settings', () => {
+			const pollingSection = getConfigSection(config, 'Lanes: Status Polling');
+
+			assert.ok(pollingSection);
+			assert.ok(pollingSection.properties?.['lanes.polling.quietThresholdMs']);
+
+			assert.strictEqual(pollingSection.properties['lanes.polling.quietThresholdMs'].order, 1);
+
+			assert.strictEqual(pollingSection.properties['lanes.polling.quietThresholdMs'].type, 'number');
+			assert.strictEqual(pollingSection.properties['lanes.polling.quietThresholdMs'].default, 3000);
+			assert.strictEqual(pollingSection.properties['lanes.polling.quietThresholdMs'].minimum, 500);
+			assert.strictEqual(pollingSection.properties['lanes.polling.quietThresholdMs'].maximum, 60000);
+			assert.ok(pollingSection.properties['lanes.polling.quietThresholdMs'].description);
+			assert.ok(pollingSection.properties['lanes.polling.quietThresholdMs'].description.length > 20);
 		});
 	});
 

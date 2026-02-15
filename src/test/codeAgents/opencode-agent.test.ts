@@ -203,9 +203,13 @@ suite('OpenCodeAgent', () => {
     });
 
     suite('Valid Status States', () => {
-        test('getValidStatusStates returns active and idle', () => {
+        test('getValidStatusStates returns all polling-capable states', () => {
             const states = agent.getValidStatusStates();
-            assert.deepStrictEqual(states, ['active', 'idle'], 'Should return active and idle states');
+            assert.deepStrictEqual(
+                states,
+                ['active', 'idle', 'working', 'waiting_for_user'],
+                'Should return active, idle, working, and waiting_for_user states'
+            );
         });
     });
 

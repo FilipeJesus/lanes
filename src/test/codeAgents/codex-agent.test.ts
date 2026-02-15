@@ -185,11 +185,13 @@ suite('CodexAgent Configuration', () => {
         assert.strictEqual(icon.color, 'terminal.ansiBlue', 'Icon color should be blue');
     });
 
-    test('getValidStatusStates returns active and idle only', () => {
+    test('getValidStatusStates returns all polling-capable states', () => {
         const states = agent.getValidStatusStates();
-        assert.strictEqual(states.length, 2, 'Should have exactly 2 states');
+        assert.strictEqual(states.length, 4, 'Should have exactly 4 states');
         assert.ok(states.includes('active'), 'Should include active state');
         assert.ok(states.includes('idle'), 'Should include idle state');
+        assert.ok(states.includes('working'), 'Should include working state');
+        assert.ok(states.includes('waiting_for_user'), 'Should include waiting_for_user state');
     });
 
     test('getHookEvents returns empty array (no hooks)', () => {

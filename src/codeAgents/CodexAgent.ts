@@ -15,6 +15,7 @@
 
 import {
     CodeAgent,
+    CapturedSession,
     SessionData,
     AgentStatus,
     PermissionMode,
@@ -215,8 +216,8 @@ export class CodexAgent extends CodeAgent {
     }
 
     getValidStatusStates(): string[] {
-        // Hookless agents only have active/idle (no granular working/waiting_for_user)
-        return ['active', 'idle'];
+        // Hookless agents with polling support have granular status via session log watching
+        return ['active', 'idle', 'working', 'waiting_for_user'];
     }
 
     // --- Permission Modes ---
@@ -313,15 +314,6 @@ ${prompt}`;
     // --- Session ID Capture (Hookless Agent Support) ---
 
     /**
-     * Capture Codex session ID by reading the most recently modified session file
-     * from ~/.codex/sessions/. Polls with a 500ms interval until timeout.
-     *
-     * @param beforeTimestamp Only consider files modified after this time (to filter pre-existing sessions)
-     * @param timeoutMs Maximum time to wait (default: 10000ms -- generous for slow starts)
-     * @param pollIntervalMs Poll interval (default: 500ms)
-     * @returns Session ID string (UUID format) or null if capture fails
-     */
-    /**
      * Recursively find all .jsonl files in a directory.
      * Codex stores sessions in YYYY/MM/DD/ subdirectories.
      */
@@ -339,11 +331,20 @@ ${prompt}`;
         return results;
     }
 
+    /**
+     * Capture Codex session ID by reading the most recently modified session file
+     * from ~/.codex/sessions/. Polls with a 500ms interval until timeout.
+     *
+     * @param beforeTimestamp Only consider files modified after this time (to filter pre-existing sessions)
+     * @param timeoutMs Maximum time to wait (default: 10000ms -- generous for slow starts)
+     * @param pollIntervalMs Poll interval (default: 500ms)
+     * @returns CapturedSession with sessionId and logPath, or null if capture fails
+     */
     async captureSessionId(
         beforeTimestamp: Date,
         timeoutMs: number = 10000,
         pollIntervalMs: number = 500
-    ): Promise<string | null> {
+    ): Promise<CapturedSession | null> {
         const sessionsDir = path.join(os.homedir(), '.codex', 'sessions');
         const beforeTime = beforeTimestamp.getTime();
         const startTime = Date.now();
@@ -407,7 +408,10 @@ ${prompt}`;
 
                             if (possibleSessionId && typeof possibleSessionId === 'string') {
                                 if (CodexAgent.SESSION_ID_PATTERN.test(possibleSessionId)) {
-                                    return possibleSessionId;
+                                    return {
+                                        sessionId: possibleSessionId,
+                                        logPath: filePath
+                                    };
                                 }
                             }
                         } catch {
