@@ -38,6 +38,7 @@ import * as BrokenWorktreeService from './services/BrokenWorktreeService';
 import * as SettingsService from './services/SettingsService';
 import * as SessionService from './services/SessionService';
 import * as TerminalService from './services/TerminalService';
+import { disposeAll as disposeAllPolling } from './services/PollingStatusService';
 import { getErrorMessage } from './utils';
 
 import { CodeAgent, getDefaultAgent, getAgent, isCliAvailable, DEFAULT_AGENT_NAME } from './codeAgents';
@@ -374,4 +375,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 export function deactivate(): void {
     // Clear Project Manager cache to avoid stale references
     clearProjectManagerCache();
+    // Dispose all active polling trackers for hookless agents
+    disposeAllPolling();
 }

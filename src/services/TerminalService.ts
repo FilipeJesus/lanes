@@ -19,6 +19,7 @@ import { PermissionMode, isValidPermissionMode } from '../SessionFormProvider';
 import { CodeAgent, McpConfig, McpConfigDelivery } from '../codeAgents';
 import * as SettingsService from './SettingsService';
 import * as TmuxService from './TmuxService';
+import { startPolling, stopPolling } from './PollingStatusService';
 import { getErrorMessage } from '../utils';
 import {
     getSessionId,
@@ -54,6 +55,9 @@ export function registerHooklessTerminalTracking(context: vscode.ExtensionContex
     const disposable = vscode.window.onDidCloseTerminal(async (terminal) => {
         const worktreePath = hooklessTerminals.get(terminal);
         if (!worktreePath) { return; }
+
+        // Stop polling before writing idle status
+        stopPolling(terminal);
 
         // Terminal closed - write idle status
         try {
@@ -705,6 +709,11 @@ export async function openAgentTerminal(
                 });
                 terminal.sendText(resumeCommand);
                 shouldStartFresh = false;
+
+                // For hookless agents resuming, start polling if we have a saved logPath
+                if (!codeAgent.supportsHooks() && sessionData.logPath) {
+                    startPolling(terminal, sessionData.logPath, worktreePath);
+                }
             } catch (err) {
                 // Invalid session ID format - log and start fresh session
                 console.error('Failed to build resume command, starting fresh session:', getErrorMessage(err));
@@ -812,7 +821,7 @@ Proceed by calling workflow_status now.`;
 
         // For hookless agents, capture session ID asynchronously after start
         if (codeAgent && !codeAgent.supportsHooks()) {
-            captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp);
+            captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal);
         }
     }
 }
@@ -821,17 +830,21 @@ Proceed by calling workflow_status now.`;
  * Asynchronously capture session ID for a hookless agent and write it to the session file.
  * This is designed to be called fire-and-forget -- errors are logged but don't block terminal creation.
  *
+ * When a session ID is successfully captured, this also starts polling the agent's
+ * session log file for activity-based status updates (working / waiting_for_user).
+ *
  * LOCKED DECISION: If capture fails, show error to user suggesting to start a new session.
  * Do NOT silently fall back to --last.
  */
 async function captureHooklessSessionId(
     codeAgent: CodeAgent,
     worktreePath: string,
-    beforeTimestamp: Date
+    beforeTimestamp: Date,
+    terminal: vscode.Terminal
 ): Promise<void> {
     try {
-        const sessionId = await codeAgent.captureSessionId(beforeTimestamp);
-        if (!sessionId) {
+        const result = await codeAgent.captureSessionId(beforeTimestamp);
+        if (!result) {
             // Show warning only for agents that are hookless (they need session capture to work)
             if (!codeAgent.supportsHooks()) {
                 vscode.window.showWarningMessage(
@@ -842,16 +855,20 @@ async function captureHooklessSessionId(
             return;
         }
 
-        // Write captured session ID back to the session file (merge with existing data)
+        // Write captured session ID and log path back to the session file (merge with existing data)
         const sessionFilePath = getSessionFilePath(worktreePath);
         let existingData: Record<string, unknown> = {};
         const parsed = await readJson<Record<string, unknown>>(sessionFilePath);
         if (parsed) { existingData = parsed; }
         await writeJson(sessionFilePath, {
             ...existingData,
-            sessionId,
+            sessionId: result.sessionId,
+            logPath: result.logPath,
             timestamp: new Date().toISOString()
         });
+
+        // Start polling the session log file for activity-based status updates
+        startPolling(terminal, result.logPath, worktreePath);
     } catch (err) {
         console.error('Lanes: Failed to capture hookless session ID:', getErrorMessage(err));
     }

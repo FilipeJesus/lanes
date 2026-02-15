@@ -12,6 +12,7 @@ import * as os from 'os';
 import * as fs from 'fs/promises';
 import {
     CodeAgent,
+    CapturedSession,
     SessionData,
     AgentStatus,
     PermissionMode,
@@ -169,8 +170,8 @@ export class OpenCodeAgent extends CodeAgent {
     }
 
     getValidStatusStates(): string[] {
-        // Hookless agents only have active/idle (no granular working/waiting_for_user)
-        return ['active', 'idle'];
+        // Hookless agents with polling support have granular status via session log watching
+        return ['active', 'idle', 'working', 'waiting_for_user'];
     }
 
     // --- Permission Modes ---
@@ -277,13 +278,13 @@ export class OpenCodeAgent extends CodeAgent {
      * @param beforeTimestamp Only consider sessions created after this time
      * @param timeoutMs Maximum time to wait (default: 15000ms)
      * @param pollIntervalMs Poll interval (default: 500ms)
-     * @returns Session ID string (ses_ format) or null if capture fails
+     * @returns CapturedSession with sessionId and logPath, or null if capture fails
      */
     async captureSessionId(
         beforeTimestamp: Date,
         timeoutMs: number = 15000,
         pollIntervalMs: number = 500
-    ): Promise<string | null> {
+    ): Promise<CapturedSession | null> {
         // OpenCode stores data in XDG_DATA_HOME/opencode or ~/.local/share/opencode
         const dataDir = process.env.XDG_DATA_HOME
             ? path.join(process.env.XDG_DATA_HOME, 'opencode')
@@ -299,7 +300,10 @@ export class OpenCodeAgent extends CodeAgent {
                 const result = await this.findNewSessionFile(sessionDiffDir, beforeMs);
                 if (result) {
                     console.log(`Lanes: OpenCode captureSessionId - found session ${result} after ${Date.now() - startTime}ms`);
-                    return result;
+                    return {
+                        sessionId: result,
+                        logPath: path.join(sessionDiffDir, `${result}.json`)
+                    };
                 }
                 await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
             }

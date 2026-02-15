@@ -151,6 +151,14 @@ export interface ResumeCommandOptions {
  */
 export type AgentFeature = 'insights';
 
+/** Result of capturing a hookless agent's session ID */
+export interface CapturedSession {
+    /** The captured session ID */
+    sessionId: string;
+    /** Path to the agent's session log file (for polling status) */
+    logPath: string;
+}
+
 /**
  * MCP (Model Context Protocol) server configuration
  */
@@ -517,9 +525,9 @@ export abstract class CodeAgent {
      * Override this in hookless agents to implement agent-specific capture logic.
      *
      * @param _beforeTimestamp Only consider sessions created after this time
-     * @returns Session ID string, or null if capture is not supported or failed
+     * @returns CapturedSession with sessionId and logPath, or null if capture is not supported or failed
      */
-    async captureSessionId(_beforeTimestamp: Date): Promise<string | null> {
+    async captureSessionId(_beforeTimestamp: Date): Promise<CapturedSession | null> {
         return null;
     }
 
