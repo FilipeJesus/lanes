@@ -586,5 +586,16 @@ export function registerSessionCommands(
         generateInsightsDisposable
     ];
 
+    // Demo automation command: fill the session form programmatically
+    const demoFillFormDisposable = vscode.commands.registerCommand(
+        'lanes.demoFillForm',
+        (args?: { name?: string; prompt?: string; sourceBranch?: string; agent?: string; workflow?: string; autoSubmit?: boolean }) => {
+            if (args) {
+                services.sessionFormProvider.fillForm(args);
+            }
+        }
+    );
+    disposables.push(demoFillFormDisposable);
+
     disposables.forEach(d => context.subscriptions.push(d));
 }
