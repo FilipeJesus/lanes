@@ -1,0 +1,88 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: version
+        run: |
+          NEW_VERSION=$(npm version ${{ inputs.version_type }} --no-git-tag-version)
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $NEW_VERSION"
+
+      - name: Generate changelog
+        run: npx conventional-changelog -p conventionalcommits -i CHANGELOG.md -s
+
+      - name: Create release branch and PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          BRANCH="release/${VERSION}"
+
+          git checkout -b "$BRANCH"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: release ${VERSION}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "chore: release ${VERSION}" \
+            --body "$(cat <<'EOF'
+          ## Release ${VERSION}
+
+          This PR was automatically created by the **Prepare Release** workflow.
+
+          ### Checklist
+          - [ ] Review the changelog entries in `CHANGELOG.md`
+          - [ ] Verify the version in `package.json`
+          - [ ] Merge this PR to trigger the release
+
+          ### What happens next
+          1. Merge this PR into `main`
+          2. Create and push a tag: `git tag ${VERSION} && git push origin ${VERSION}`
+          3. The **Release** workflow will automatically build, test, and publish to:
+             - VS Code Marketplace
+             - Open VSX Registry
+             - GitHub Releases (with VSIX artifact)
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"

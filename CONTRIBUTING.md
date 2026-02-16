@@ -154,13 +154,40 @@ Use descriptive branch names:
 - `docs-` - Documentation changes (`docs-api-update`)
 - `test-` - Test additions or improvements (`test-add-workflow-tests`)
 
+### Commit Messages
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). A `commit-msg` hook enforces this via **commitlint**.
+
+Format: `type(scope): description`
+
+| Type | When to use |
+|------|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, no logic change |
+| `refactor` | Code restructuring, no behavior change |
+| `test` | Adding or updating tests |
+| `chore` | Build, CI, dependencies, tooling |
+
+Examples:
+
+```
+feat: add tmux terminal backend
+fix(sessions): prevent duplicate worktree creation
+docs: update contributing guidelines
+chore: release v1.4.0
+```
+
+Breaking changes must include `BREAKING CHANGE:` in the commit body or use `!` after the type (e.g., `feat!: rename session API`).
+
 ### Making Changes
 
 1. Create a feature branch from `main`
 2. Make your changes following the [Coding Standards](#coding-standards)
 3. Add or update tests as needed
 4. Ensure all tests pass and linting succeeds
-5. Commit with clear, descriptive messages
+5. Commit using the conventional commit format above
 
 ## Coding Standards
 
@@ -351,16 +378,21 @@ When adding workflow templates to `workflows/`:
 
 ## Release Process
 
-Releases are managed by the maintainer using semantic versioning:
+Releases are automated via GitHub Actions and follow semantic versioning:
 
 - **Major** (X.0.0) - Breaking changes
 - **Minor** (0.X.0) - New features, backward compatible
 - **Patch** (0.0.X) - Bug fixes
 
-Releases are published to:
-- VS Code Marketplace
-- Open VSX Registry
-- GitHub Releases
+### How releases work
+
+1. **Prepare** — run the "Prepare Release" workflow from the GitHub Actions tab, selecting the version bump type
+2. **Review** — a PR is opened with the bumped version and auto-generated changelog (from conventional commits), review and merge it
+3. **Tag** — create and push a version tag: `git tag v1.4.0 && git push origin v1.4.0`
+4. **Publish** — the "Release" workflow triggers automatically and publishes to:
+   - VS Code Marketplace
+   - Open VSX Registry
+   - GitHub Releases (with VSIX artifact)
 
 ## Getting Help
 

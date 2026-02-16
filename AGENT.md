@@ -124,10 +124,24 @@ Update at the end of each session:
 - [What should be done next]
 ```
 
+## Commit Message Format
+
+This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via commitlint. A `commit-msg` hook will reject non-conforming messages.
+
+Format: `type(scope): description`
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+Examples:
+- `feat: add tmux terminal backend`
+- `fix(sessions): prevent duplicate worktree creation`
+- `chore: release v1.4.0`
+
 ## Constraints
 
 - Always run tests before committing: `npm test`
 - Pre-commit hook enforces: compile, lint, and test
+- Commit-msg hook enforces: conventional commit format
 - Never commit code that breaks existing tests
 - Keep changes focused and minimal
 
