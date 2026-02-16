@@ -1,3 +1,15 @@
+## [1.3.2](https://github.com/FilipeJesus/lanes/compare/v1.3.1...v1.3.2) (2026-02-16)
+
+### Features
+
+* add CI release workflows and conventional commit enforcement ([ede6049](https://github.com/FilipeJesus/lanes/commit/ede604908dbd177e75e0fe623fc05bf1170c6083))
+* auto-tag on release PR merge ([441aaf1](https://github.com/FilipeJesus/lanes/commit/441aaf1ccbdbe2bec67ca122e2392def82e65a28))
+
+### Bug Fixes
+
+* make release workflow manually triggered and fix secrets error ([07022b6](https://github.com/FilipeJesus/lanes/commit/07022b61678e36502b0765a21b99446f5f473242))
+* skip husky hooks in CI prepare-release workflow ([c377fc0](https://github.com/FilipeJesus/lanes/commit/c377fc09c81b498622e1de77f667af844b659612))
+* upgrade CI Node.js from 18 to 20 ([14d4bef](https://github.com/FilipeJesus/lanes/commit/14d4befa72125c266f29fb3ce2aa140fa2706329))
 ## [1.3.1](https://github.com/FilipeJesus/lanes/compare/v1.1.1...v1.3.1) (2026-02-16)
 
 ### Features
