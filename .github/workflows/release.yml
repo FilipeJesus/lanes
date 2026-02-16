@@ -1,9 +1,7 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -35,16 +33,17 @@ jobs:
       - name: Run tests
         run: xvfb-run -a npm test
 
-      - name: Extract version from tag
+      - name: Extract version from package.json
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify package.json version matches tag
         run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION="${{ steps.version.outputs.version }}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing v${VERSION}"
+
+      - name: Check tag does not already exist
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ steps.version.outputs.version }} already exists. Has this version already been released?"
             exit 1
           fi
 
@@ -70,14 +69,21 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX Registry
-        if: ${{ secrets.OVSX_PAT != '' }}
         run: npx ovsx publish "lanes-${{ steps.version.outputs.version }}.vsix" -p "$OVSX_PAT"
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         continue-on-error: true
 
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: "v${{ steps.version.outputs.version }}"
           files: "lanes-${{ steps.version.outputs.version }}.vsix"
           generate_release_notes: true
