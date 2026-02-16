@@ -77,8 +77,8 @@ jobs:
 
           ### What happens next
           1. Merge this PR into `main`
-          2. The **Auto Tag Release** workflow will create and push the `${VERSION}` tag
-          3. The **Release** workflow will automatically build, test, and publish to:
+          2. Go to **Actions → Release → Run workflow** to publish
+          3. The Release workflow will build, test, tag, and publish to:
              - VS Code Marketplace
              - Open VSX Registry
              - GitHub Releases (with VSIX artifact)
