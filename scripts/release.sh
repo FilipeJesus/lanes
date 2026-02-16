@@ -1,7 +1,14 @@
 #!/bin/bash
 set -e
 
-# Lanes Release Script
+# Lanes Release Script (Local Fallback)
+#
+# PREFERRED: Use the GitHub Actions workflows instead:
+#   1. Run "Prepare Release" workflow (Actions tab) to bump version + open PR
+#   2. Merge the PR, then tag the merge commit: git tag vX.Y.Z && git push origin vX.Y.Z
+#   3. The "Release" workflow publishes automatically on tag push
+#
+# This script is kept as a local fallback for when CI is unavailable.
 # Usage: ./scripts/release.sh [patch|minor|major] [--skip-changelog]
 
 VERSION_TYPE=${1:-patch}

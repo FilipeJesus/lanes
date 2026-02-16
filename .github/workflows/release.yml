@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: xvfb-run -a npm test
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify package.json version matches tag
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Swap README for marketplace
+        run: |
+          if [ -f "README.marketplace.md" ]; then
+            cp README.md README.github.md
+            cp README.marketplace.md README.md
+          fi
+
+      - name: Package extension
+        run: npx vsce package -o "lanes-${{ steps.version.outputs.version }}.vsix"
+
+      - name: Restore GitHub README
+        run: |
+          if [ -f "README.github.md" ]; then
+            mv README.github.md README.md
+          fi
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --packagePath "lanes-${{ steps.version.outputs.version }}.vsix"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX Registry
+        if: ${{ secrets.OVSX_PAT != '' }}
+        run: npx ovsx publish "lanes-${{ steps.version.outputs.version }}.vsix" -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        continue-on-error: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "lanes-${{ steps.version.outputs.version }}.vsix"
+          generate_release_notes: true

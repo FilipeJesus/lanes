@@ -431,12 +431,15 @@
     "lint": "eslint src",
     "test": "vscode-test",
     "prepare": "husky",
+    "changelog": "conventional-changelog -p conventionalcommits -i CHANGELOG.md -s",
     "release": "./scripts/release.sh",
     "release:patch": "./scripts/release.sh patch",
     "release:minor": "./scripts/release.sh minor",
     "release:major": "./scripts/release.sh major"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/sinon": "^21.0.0",
@@ -444,6 +447,7 @@
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
+    "conventional-changelog-cli": "^5.0.0",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",

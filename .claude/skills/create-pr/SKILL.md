@@ -33,8 +33,11 @@ Before creating a PR, ensure:
    - If not, ask the user to provide the appropriate branch name
 
 3. **Commit changes** (if not already committed)
-   - Use conventional commit format: `type(scope): description`
+   - This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via commitlint (commit-msg hook)
+   - Format: `type(scope): description`
    - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+   - Examples: `feat: add tmux terminal backend`, `fix(sessions): prevent duplicate worktree creation`
+   - Breaking changes: include `BREAKING CHANGE:` in body or use `!` suffix (e.g., `feat!: rename session API`)
 
 4. **Push to remote**
    - Push the current branch to the fork/remote
