@@ -60,7 +60,7 @@ jobs:
 
           git checkout -b "$BRANCH"
           git add package.json package-lock.json CHANGELOG.md
-          git commit -m "chore: release ${VERSION}"
+          HUSKY=0 git commit -m "chore: release ${VERSION}"
           git push origin "$BRANCH"
 
           gh pr create \
