@@ -10,7 +10,7 @@
 
 Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, and Gemini CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
 
-<video src="media/lanes-demo.mp4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
+<video src="https://raw.githubusercontent.com/FilipeJesus/lanes/main/media/lanes-demo.mp4#t=4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
 ---
 
@@ -133,9 +133,8 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 - [x] File attachments in session form
 - [x] Tmux terminal backend
 - [x] Local settings propagation to worktrees
-- [ ] Additional agent integrations
+- [x] Additional agent integrations
 - [ ] Windows support
-- [ ] Merge assistant (review and merge session branches)
 - [ ] Multi-repo support
 
 ---
