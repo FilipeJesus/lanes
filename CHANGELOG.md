@@ -1,3 +1,33 @@
+## [1.3.1](https://github.com/FilipeJesus/lanes/compare/v1.1.1...v1.3.1) (2026-02-16)
+
+### Features
+
+* add CI release workflows and conventional commit enforcement ([58828c8](https://github.com/FilipeJesus/lanes/commit/58828c8f8a2d86e2fa5844a2e7c2a9ea4fad3fb4))
+* add Codex CLI support as second agent ([#118](https://github.com/FilipeJesus/lanes/issues/118)) ([400c4c2](https://github.com/FilipeJesus/lanes/commit/400c4c27e166a500e4cbc0fad4396e1a64a33efc))
+* add Gemini CLI as a coding agent backend ([#128](https://github.com/FilipeJesus/lanes/issues/128)) ([b0dfc49](https://github.com/FilipeJesus/lanes/commit/b0dfc49c6bba6adb729488212d1e54b09e9cbed3))
+* add Generate Insights for Claude sessions ([#127](https://github.com/FilipeJesus/lanes/issues/127)) ([eb1e30b](https://github.com/FilipeJesus/lanes/commit/eb1e30b1e9e30e96f30cc96e19578ea2e33df70a))
+* add MCP workflow support for Codex CLI via config overrides ([#120](https://github.com/FilipeJesus/lanes/issues/120)) ([1c188ab](https://github.com/FilipeJesus/lanes/commit/1c188abcebe02614d1d86d7c31cf92bbe096fcf4))
+* add OpenCode as a coding agent backend ([#136](https://github.com/FilipeJesus/lanes/issues/136)) ([04a663e](https://github.com/FilipeJesus/lanes/commit/04a663e8fca495d6474c424d93dcc1fd90c2a76f))
+* add polling-based status tracking for hookless agents ([#142](https://github.com/FilipeJesus/lanes/issues/142)) ([1060a3f](https://github.com/FilipeJesus/lanes/commit/1060a3f218bb39e6549a082a9ebb8831bcd22808))
+* add Snowflake Cortex Code as a coding agent ([#125](https://github.com/FilipeJesus/lanes/issues/125)) ([df223d8](https://github.com/FilipeJesus/lanes/commit/df223d8fcd1304df44102aeeada89e9b32c25df6))
+* add tmux terminal backend with per-session mode persistence ([#117](https://github.com/FilipeJesus/lanes/issues/117)) ([9226682](https://github.com/FilipeJesus/lanes/commit/92266821bf42e0242804772a084d7207f1209f10))
+* apply Terminal Noir design system to docs and blog pages ([#134](https://github.com/FilipeJesus/lanes/issues/134)) ([4bc8094](https://github.com/FilipeJesus/lanes/commit/4bc80945c2ad7b8c4d3b7504b8300cf0932d80c4))
+* auto-prompt improvement with textarea shimmer ([#126](https://github.com/FilipeJesus/lanes/issues/126)) ([255983b](https://github.com/FilipeJesus/lanes/commit/255983b41169f232bdf396c3ed825225e3f3b221))
+* auto-tag on release PR merge ([2c0579d](https://github.com/FilipeJesus/lanes/commit/2c0579da65cabb7853626d4c8365bf472e195915))
+* deepen session insights with analysis engine and actionable recommendations ([#141](https://github.com/FilipeJesus/lanes/issues/141)) ([8ed16d7](https://github.com/FilipeJesus/lanes/commit/8ed16d7f2ee86edeed11686a9014d09b1aa6ff6f))
+* defer agent CLI checks to session creation time ([#130](https://github.com/FilipeJesus/lanes/issues/130)) ([c405425](https://github.com/FilipeJesus/lanes/commit/c405425729b157a100a05accb026caedef4af59c))
+* demo form automation and minor improvements ([#137](https://github.com/FilipeJesus/lanes/issues/137)) ([e615693](https://github.com/FilipeJesus/lanes/commit/e6156935fda3903bc237c125bf4b4193098af53e))
+* replace agent dropdown with inline logo selector ([#121](https://github.com/FilipeJesus/lanes/issues/121)) ([b22c1c1](https://github.com/FilipeJesus/lanes/commit/b22c1c1362dffd42829819007478e296b394de3d))
+* **sessions:** add pin/unpin sessions to keep important sessions at top ([#140](https://github.com/FilipeJesus/lanes/issues/140)) ([5554597](https://github.com/FilipeJesus/lanes/commit/55545970cd0c16c52c03abbeb19815a5738044b3))
+* show VS Code notification alongside chime on session status change ([#139](https://github.com/FilipeJesus/lanes/issues/139)) ([78a4c1e](https://github.com/FilipeJesus/lanes/commit/78a4c1e2e22a28b0d0bd85ce3145cbb5cdd64c87))
+
+### Bug Fixes
+
+* include hyphens in TOML bare key regex for Codex MCP server names ([#122](https://github.com/FilipeJesus/lanes/issues/122)) ([ea78b51](https://github.com/FilipeJesus/lanes/commit/ea78b510e4fde795e04cdaf3d25f7d1ce90af982))
+* prevent test failures during pre-commit hook execution ([#116](https://github.com/FilipeJesus/lanes/issues/116)) ([d206a7c](https://github.com/FilipeJesus/lanes/commit/d206a7c0462b72f55e32cee3fb6f75097d845ef6))
+* remove colour from sparkle and paperclip icons ([#129](https://github.com/FilipeJesus/lanes/issues/129)) ([03b9a63](https://github.com/FilipeJesus/lanes/commit/03b9a638aff141d25f2dc1050942648523b2edb7))
+* retain session form webview context when hidden ([088961a](https://github.com/FilipeJesus/lanes/commit/088961a4ad624e451044823c885a17e0aabf5f95))
+* use absolute URL for demo video in README so it renders on GitHub ([d5c887a](https://github.com/FilipeJesus/lanes/commit/d5c887ac09d2b1e421c5d0e2a1c872f3af324ce9))
 # Changelog
 
 All notable changes to the Lanes extension will be documented in this file.
