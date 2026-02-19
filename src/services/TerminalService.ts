@@ -359,7 +359,7 @@ async function openClaudeTerminalTmux(
                     const mcpConfigFallback = {
                         mcpServers: {
                             'lanes-workflow': {
-                                command: 'node',
+                                command: process.versions.electron ? 'node' : process.execPath,
                                 args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
                             }
                         }
@@ -673,7 +673,7 @@ export async function openAgentTerminal(
                 const mcpConfigFallback = {
                     mcpServers: {
                         'lanes-workflow': {
-                            command: 'node',
+                            command: process.versions.electron ? 'node' : process.execPath,
                             args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
                         }
                     }

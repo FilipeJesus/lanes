@@ -290,7 +290,7 @@ export class GeminiAgent extends CodeAgent {
         return {
             mcpServers: {
                 'lanes-workflow': {
-                    command: 'node',
+                    command: process.versions.electron ? 'node' : process.execPath,
                     args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
                 }
             }
