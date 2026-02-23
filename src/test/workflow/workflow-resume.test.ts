@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { WorkflowStateMachine, loadWorkflowTemplateFromString, type WorkflowState } from '../../workflow';
+import { WorkflowStateMachine, loadWorkflowTemplateFromString, type WorkflowState } from '../../core/workflow';
 import { saveState, loadState, getStatePath } from '../../mcp/tools';
 
 // Valid workflow template YAML for testing resume behavior

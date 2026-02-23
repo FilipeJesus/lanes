@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { ClaudeCodeAgent } from '../../codeAgents/ClaudeCodeAgent';
+import { ClaudeCodeAgent } from '../../core/codeAgents/ClaudeCodeAgent';
 
 suite('ClaudeCodeAgent Hooks', () => {
     let tempDir: string;

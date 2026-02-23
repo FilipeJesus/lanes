@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../gitService';
-import { detectBrokenWorktrees, repairWorktree } from '../services/BrokenWorktreeService';
-import type { BrokenWorktree } from '../services/BrokenWorktreeService';
+import { detectBrokenWorktrees, repairWorktree } from '../core/services/BrokenWorktreeService';
+import type { BrokenWorktree } from '../core/services/BrokenWorktreeService';
 
 suite('Broken Worktree Detection', () => {
 
@@ -44,7 +44,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(worktreePath, '.git'), gitFileContent);
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should find the broken worktree
 		assert.strictEqual(brokenWorktrees.length, 1, 'Should detect one broken worktree');
@@ -68,7 +68,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(worktreePath, '.git'), gitFileContent);
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should not find any broken worktrees
 		assert.strictEqual(brokenWorktrees.length, 0, 'Should not detect healthy worktree as broken');
@@ -84,7 +84,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(worktreePath, 'README.md'), '# Test');
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should not find any broken worktrees
 		assert.strictEqual(brokenWorktrees.length, 0, 'Should ignore directories without .git file');
@@ -102,7 +102,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(gitDir, 'HEAD'), 'ref: refs/heads/main\n');
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should not find any broken worktrees (it's a full repo, not a worktree)
 		assert.strictEqual(brokenWorktrees.length, 0, 'Should ignore directories with .git directory');
@@ -122,7 +122,7 @@ suite('Broken Worktree Detection', () => {
 		}
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should find all broken worktrees
 		assert.strictEqual(brokenWorktrees.length, 3, 'Should detect all broken worktrees');
@@ -135,7 +135,7 @@ suite('Broken Worktree Detection', () => {
 		fs.rmSync(worktreesDir, { recursive: true, force: true });
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should return empty array
 		assert.strictEqual(brokenWorktrees.length, 0, 'Should return empty array when .worktrees does not exist');
@@ -159,7 +159,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(healthyPath, '.git'), `gitdir: ${existingMetadataPath}\n`);
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should only find the broken worktree
 		assert.strictEqual(brokenWorktrees.length, 1, 'Should only detect broken worktree');
@@ -176,7 +176,7 @@ suite('Broken Worktree Detection', () => {
 		fs.writeFileSync(path.join(worktreePath, '.git'), 'invalid content without gitdir\n');
 
 		// Act: Detect broken worktrees
-		const brokenWorktrees = await detectBrokenWorktrees(tempDir);
+		const brokenWorktrees = await detectBrokenWorktrees(tempDir, '.worktrees');
 
 		// Assert: Should not detect as broken (can't determine if it's broken without valid gitdir)
 		assert.strictEqual(brokenWorktrees.length, 0, 'Should ignore .git files without gitdir reference');
@@ -341,7 +341,7 @@ suite('Broken Worktree Repair', () => {
 		fs.writeFileSync(testFilePath, testFileContent);
 
 		// Verify it's detected as broken
-		const brokenBefore = await detectBrokenWorktrees(tempDir);
+		const brokenBefore = await detectBrokenWorktrees(tempDir, '.worktrees');
 		assert.strictEqual(brokenBefore.length, 1, 'Worktree should be detected as broken');
 
 		// Act: Repair the worktree
@@ -357,7 +357,7 @@ suite('Broken Worktree Repair', () => {
 		assert.strictEqual(result.error, undefined, 'Should not have error message');
 
 		// Verify worktree is no longer broken
-		const brokenAfter = await detectBrokenWorktrees(tempDir);
+		const brokenAfter = await detectBrokenWorktrees(tempDir, '.worktrees');
 		assert.strictEqual(brokenAfter.length, 0, 'Worktree should no longer be broken');
 
 		// Verify repair was tracked by our mock

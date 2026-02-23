@@ -16,7 +16,7 @@ import {
 	workflowSetTasks,
 	workflowAdvance,
 } from '../../mcp/tools';
-import { Task } from '../../workflow';
+import { Task } from '../../core/workflow';
 
 const TEST_WORKFLOW_YAML = `
 name: test-workflow

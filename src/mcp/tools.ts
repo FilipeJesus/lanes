@@ -9,11 +9,11 @@ import {
   Task,
   WorkflowStatusResponse,
   WorkflowState,
-} from '../workflow';
+} from '../core/workflow';
 import * as path from 'path';
-import { sanitizeSessionName } from '../utils';
-import { mcpAdapter } from '../services/McpAdapter';
-import { fileExists, ensureDir, writeJson } from '../services/FileService';
+import { sanitizeSessionName } from '../core/utils';
+import { mcpAdapter } from '../core/services/McpAdapter';
+import { fileExists, ensureDir, writeJson } from '../core/services/FileService';
 
 /**
  * Result from workflowStart containing the machine and initial status.

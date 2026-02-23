@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { GeminiAgent } from '../../codeAgents/GeminiAgent';
+import { GeminiAgent } from '../../core/codeAgents/GeminiAgent';
 
 suite('GeminiAgent Command Building', () => {
     let agent: GeminiAgent;

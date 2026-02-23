@@ -13,8 +13,8 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
-import { ClaudeCodeAgent } from '../../codeAgents/ClaudeCodeAgent';
-import { CodexAgent } from '../../codeAgents/CodexAgent';
+import { ClaudeCodeAgent } from '../../core/codeAgents/ClaudeCodeAgent';
+import { CodexAgent } from '../../core/codeAgents/CodexAgent';
 
 suite('Backward Compatibility', () => {
 	suite('Legacy Command Aliases', () => {

@@ -15,9 +15,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import { vol } from 'memfs';
-import { GitError } from '../../errors';
+import { GitError } from '../../core/errors';
 import * as gitService from '../../gitService';
-import { validateBranchName } from '../../utils';
+import { validateBranchName } from '../../core/utils';
 import { setupMemfs, createTestRepo } from '../testSetup';
 
 suite('Git Error Recovery: Merge-base Fallback', () => {

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { CodexAgent } from '../../codeAgents/CodexAgent';
+import { CodexAgent } from '../../core/codeAgents/CodexAgent';
 
 suite('CodexAgent Command Building', () => {
     let agent: CodexAgent;

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
-import { parseDiff, GitChangesPanel, FileDiff } from '../../GitChangesPanel';
+import { parseDiff, GitChangesPanel, FileDiff } from '../../vscode/providers/GitChangesPanel';
 
 suite('Git Diff Webview Test Suite', () => {
 

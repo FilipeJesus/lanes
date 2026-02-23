@@ -6,7 +6,7 @@
  * No MCP SDK types are imported here - this is a pure abstraction.
  */
 
-import type { WorkflowState } from '../workflow/types';
+import type { WorkflowState } from '../core/workflow/types';
 
 /**
  * Configuration for a pending Claude session request.

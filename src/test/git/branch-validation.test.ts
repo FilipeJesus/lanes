@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { validateBranchName } from '../../utils';
+import { validateBranchName } from '../../core/utils';
 
 suite('validateBranchName', () => {
 

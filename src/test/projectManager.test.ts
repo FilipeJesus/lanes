@@ -3,8 +3,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { isProjectManagerAvailable, getProjects, addProject, removeProject, clearCache, getExtensionId, initialize as initializePMService } from '../ProjectManagerService';
-import { getRepoName } from '../services/SettingsService';
+import { isProjectManagerAvailable, getProjects, addProject, removeProject, clearCache, getExtensionId, initialize as initializePMService } from '../vscode/ProjectManagerService';
+import { getRepoName } from '../core/services/SettingsService';
 
 suite('Project Manager Test Suite', () => {
 

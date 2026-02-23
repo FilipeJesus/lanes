@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { parseDiff, GitChangesPanel, ReviewComment, formatReviewForClipboard } from '../../GitChangesPanel';
+import { parseDiff, GitChangesPanel, ReviewComment, formatReviewForClipboard } from '../../vscode/providers/GitChangesPanel';
 
 suite('Git Diff Comments Test Suite', () => {
 

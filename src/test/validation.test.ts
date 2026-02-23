@@ -24,7 +24,7 @@ import {
     sanitizeForDisplay,
     isPathWithinBase,
     normalizePath
-} from '../validation';
+} from '../core/validation';
 
 // Helper to get test workspace path
 function getTestWorkspacePath(): string {

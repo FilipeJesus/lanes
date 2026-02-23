@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { PreviousSessionItem } from '../PreviousSessionProvider';
+import { PreviousSessionItem } from '../vscode/providers/PreviousSessionProvider';
 
 suite('PreviousSessionItem', () => {
 

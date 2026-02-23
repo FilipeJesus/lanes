@@ -7,7 +7,7 @@ import {
 	SessionItem,
 	getWorkflowStatus,
 	WorkflowStatus
-} from '../../AgentSessionProvider';
+} from '../../vscode/providers/AgentSessionProvider';
 
 suite('Session Provider', () => {
 

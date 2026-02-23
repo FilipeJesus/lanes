@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { propagateLocalSettings, LocalSettingsPropagationMode } from '../localSettings';
+import { propagateLocalSettings, LocalSettingsPropagationMode } from '../core/localSettings';
 
 suite('Local Settings Propagation', () => {
     let tempDir: string;

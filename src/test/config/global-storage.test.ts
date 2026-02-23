@@ -11,7 +11,7 @@ import {
 	initializeGlobalStorageContext,
 	getStatusFilePath,
 	getSessionFilePath,
-} from '../../AgentSessionProvider';
+} from '../../vscode/providers/AgentSessionProvider';
 
 /**
  * Helper function to get a configuration property from the package.json configuration array.
