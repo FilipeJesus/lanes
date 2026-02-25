@@ -1,24 +1,177 @@
-## Session: 2025-12-31
+## Session: 2026-02-25
 
 ### Completed
-- Implemented worktree detection with `getBaseRepoPath()` function to detect if running in a worktree and resolve base repository path
-- Added Project Manager integration with `addProjectToProjectManager()` and `removeProjectFromProjectManager()` functions
-- Projects are saved using `{repo_name}-{session_name}` format with `lanes` tag
-- Added "Open in New Window" button alongside git diff button using `$(multiple-windows)` icon
-- Updated `ClaudeSessionProvider` to accept `baseRepoPath` parameter for showing sessions from base repo when in worktree
-- Updated session creation to use base repo path when in a worktree window
-- Added atomic writes for Project Manager file operations
-- Added validation for HOME/APPDATA environment variables
-- Added JSON structure validation when reading projects file
-- Added repository name sanitization for special characters
-- Implemented 24 new tests (206 total tests now pass)
+- Implemented Node.js bridge server for IntelliJ plugin integration
+- Created JSON-RPC 2.0 protocol handler over stdio (newline-delimited JSON)
+- Implemented all 24 protocol methods defined in BridgeProtocol.kt:
+  - Session management (list, create, delete, clear, getStatus, open, pin, unpin)
+  - Git operations (listBranches, getDiff, getWorktreeInfo, repairWorktrees)
+  - Workflow management (list, validate, create, getState)
+  - Agent management (list, getConfig)
+  - Configuration (get, set, getAll)
+  - Terminal management (create, send, list)
+  - File watching (watch, unwatch)
+- Created NotificationEmitter for server→client events
+- Created ConfigStore for JSON-backed configuration (.lanes/intellij-config.json)
+- Created FileWatchManager using Node.js fs.watch
+- Integrated with core services (SessionDataService, TmuxService, DiffService, BrokenWorktreeService, WorkflowService)
+- Added comprehensive test plan in tests.json (8 test suites covering all handlers)
+- All code compiles successfully with TypeScript
 
-### Acceptance Criteria Met
-- [x] New open window button opens a new VS Code window for the worktree
-- [x] When in a worktree window, all worktrees are shown in active sessions
-- [x] When in a worktree, new sessions are created in the base repo directory
-- [x] Projects are saved in Project Manager using `{repo_name}-{session_name}` format
+### Architecture
+```
+IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core Services
+```
+
+### Files Created
+- src/bridge/server.ts - Main entry point with stdio protocol handling
+- src/bridge/handlers.ts - Method handler registry (24 methods)
+- src/bridge/notifications.ts - Notification emitter
+- src/bridge/config.ts - JSON configuration store
+- src/bridge/fileWatcher.ts - File system watching
+- src/bridge/README.md - Documentation
 
 ### Next Steps
-- Consider adding optional dependency on Project Manager extension in package.json
-- Consider showing user notification when Project Manager is not installed
+- Implement tests (test-engineer to read tests.json)
+- Integrate bridge with IntelliJ plugin Kotlin code
+- Test end-to-end communication between plugin and bridge
+- Add reverse RPC mechanism for UI/storage operations (ui.*, storage.*)
+
+## Session: 2026-02-25 (Task 4: UI Components)
+
+### Completed
+- Implemented LanesToolWindowFactory for creating the Lanes tool window
+  - Registered in plugin.xml as toolWindow extension
+  - Creates SessionsTreePanel with sessions tree
+  - Only shown for Git repositories
+- Implemented SessionsTreePanel with full sessions tree UI
+  - JTree-based panel displaying sessions grouped by Active/Stopped
+  - Custom tree cell renderer with status icons and branch info
+  - Right-click context menu (Resume, Stop, Delete, Open Worktree, Show Diff, Pin/Unpin)
+  - Toolbar with New Session and Refresh actions
+  - Auto-refresh on bridge notifications (sessionCreated, sessionDeleted, sessionStatusChanged)
+  - Uses coroutines for all bridge communication
+- Implemented CreateSessionDialog for session creation
+  - DialogWrapper-based form with input validation
+  - Session name validation (required, no special chars, max 50 chars)
+  - Dropdowns populated from bridge: branches, workflows, agents
+  - Fetches data via git.listBranches, workflow.list, agent.list
+  - Creates session via session.create on OK
+- Implemented LanesSettingsConfigurable for plugin settings
+  - Configurable implementation for IDE Settings
+  - Settings fields: worktrees folder, prompts folder, default agent, use global storage, terminal mode, local settings propagation
+  - File choosers for folder selections
+  - Reads/writes via ConfigAdapter (suspend functions)
+  - Registered as applicationConfigurable in plugin.xml
+- Created test plan (tests.json) with 11 test cases covering:
+  - Tool window registration and creation
+  - Sessions tree display and actions
+  - Context menu functionality
+  - Auto-refresh notifications
+  - Dialog validation and creation
+  - Settings page load/save
+- All code compiles successfully
+- Full build passes (./gradlew build)
+
+### Files Created
+- src/main/kotlin/com/lanes/intellij/ui/LanesToolWindowFactory.kt
+- src/main/kotlin/com/lanes/intellij/ui/SessionsTreePanel.kt
+- src/main/kotlin/com/lanes/intellij/ui/CreateSessionDialog.kt
+- src/main/kotlin/com/lanes/intellij/settings/LanesSettingsConfigurable.kt
+- tests.json (ephemeral, for test-engineer)
+
+### Files Modified
+- src/main/resources/META-INF/plugin.xml (uncommented toolWindow and applicationConfigurable extensions)
+
+### Technical Notes
+- All UI operations use ApplicationManager.getApplication().invokeLater for EDT safety
+- All bridge calls are suspend functions using coroutines (Dispatchers.IO for bridge, Dispatchers.Main for UI)
+- SessionsTreePanel manages its own coroutine scope with proper disposal
+- Tree cell renderer uses AllIcons for status indication
+- Settings page uses deprecated UI DSL V1 (warnings only, still functional)
+
+### Next Steps
+- Hand off to test-engineer to implement tests from tests.json
+- After tests pass, delete tests.json
+- Task 5: Actions and status bar widget (optional)
+- End-to-end testing with actual bridge process
+
+## Session: 2026-02-25 (Task 5: Command/Action Registration & Packaging)
+
+### Completed
+- Implemented 8 AnAction subclasses in src/main/kotlin/com/lanes/intellij/actions/:
+  - NewSessionAction - Opens CreateSessionDialog
+  - DeleteSessionAction - Deletes selected session with confirmation
+  - RefreshSessionsAction - Refreshes the sessions tree
+  - OpenWorktreeAction - Opens session's worktree directory in file browser
+  - PinSessionAction - Pins session to protect from cleanup
+  - UnpinSessionAction - Unpins session
+  - ShowDiffAction - Shows git diff for session
+  - SendToAgentAction - Sends text to agent terminal (via terminal.send)
+- All actions implement proper update() logic for context-aware enable/disable state
+- All actions use coroutines (CoroutineScope with Dispatchers.Main + SupervisorJob) for bridge calls
+- Updated LanesToolWindowFactory to define DataKeys:
+  - SELECTED_SESSION_KEY - For selected session name
+  - SESSION_IS_PINNED_KEY - For pinned state
+  - REFRESH_CALLBACK_KEY - For refresh callback
+- Updated SessionsTreePanel to implement DataProvider interface
+  - Provides session context data to actions
+- Implemented LanesStartupActivity (ProjectActivity):
+  - Starts bridge process on project open
+  - Only for Git repositories
+  - Uses suspend functions
+- Implemented LanesPluginLifecycle (DynamicPluginListener):
+  - Stops all bridge processes on plugin unload
+  - Prevents orphaned Node.js processes
+- Updated plugin.xml with complete action registration:
+  - LanesActions group in Tools menu (8 actions with keyboard shortcut for New Session)
+  - LanesSessionContextMenu for context menu
+  - postStartupActivity for LanesStartupActivity
+  - applicationListeners for LanesPluginLifecycle
+- Updated build.gradle.kts for packaging:
+  - prepareSandbox task copies bridge files (src/bridge/*.ts, *.js, *.json)
+  - Copies core and vscode dependencies to plugin distribution
+  - Fixed deprecated buildDir usage
+- Created test plan (tests.json) with 9 new test cases covering:
+  - Action functionality (new, delete, refresh, pin/unpin)
+  - Action visibility and enabled state
+  - Startup activity
+  - Plugin lifecycle
+  - Action registration
+  - Bridge bundling
+- All code compiles successfully
+- Full build passes (./gradlew build)
+
+### Files Created
+- src/main/kotlin/com/lanes/intellij/actions/NewSessionAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/DeleteSessionAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/RefreshSessionsAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/OpenWorktreeAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/PinSessionAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/UnpinSessionAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/ShowDiffAction.kt
+- src/main/kotlin/com/lanes/intellij/actions/SendToAgentAction.kt
+- src/main/kotlin/com/lanes/intellij/startup/LanesStartupActivity.kt
+- src/main/kotlin/com/lanes/intellij/lifecycle/LanesPluginLifecycle.kt
+
+### Files Modified
+- src/main/kotlin/com/lanes/intellij/ui/LanesToolWindowFactory.kt (added DataKeys)
+- src/main/kotlin/com/lanes/intellij/ui/SessionsTreePanel.kt (implements DataProvider)
+- src/main/resources/META-INF/plugin.xml (actions, startup activity, lifecycle listener)
+- build.gradle.kts (packaging configuration)
+- tests.json (added Task 5 tests)
+
+### Technical Notes
+- All actions implement DumbAware interface for indexing compatibility
+- Actions use withContext(Dispatchers.IO) for bridge calls, invokeLater for UI updates
+- SendToAgentAction uses terminal.send (not agent.send) with terminal.list to find terminal
+- Startup activity uses ProjectActivity (modern API) instead of deprecated StartupActivity
+- Plugin lifecycle uses DynamicPluginListener for proper cleanup
+- Packaging copies TypeScript source files (compilation will happen in Task 2 build step)
+- All actions are registered in both Tools menu and context menu
+
+### Next Steps
+- Hand off to test-engineer to implement tests from tests.json
+- After tests pass, delete tests.json
+- Test end-to-end workflow: install plugin, start bridge, create session, use actions
+- Consider adding status bar widget (optional enhancement)
