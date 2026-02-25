@@ -5,9 +5,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
-import { AgentSessionProvider } from '../../AgentSessionProvider';
-import { getBaseBranch } from '../../services/DiffService';
-import * as SettingsService from '../../services/SettingsService';
+import { AgentSessionProvider } from '../../vscode/providers/AgentSessionProvider';
+import { getBaseBranch } from '../../core/services/DiffService';
+import * as SettingsService from '../../core/services/SettingsService';
 
 suite('Git Base Branch Test Suite', () => {
 
@@ -143,13 +143,8 @@ suite('Git Base Branch Test Suite', () => {
 		});
 
 		test('should return configured value when lanes.baseBranch setting is set', async () => {
-			// Arrange: Set the baseBranch configuration to 'develop'
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('baseBranch', 'develop', vscode.ConfigurationTarget.Global);
-
-			// Act: Call getBaseBranch - the cwd doesn't matter when config is set
-			// since it should return the configured value without checking git
-			const result = await getBaseBranch(repoRoot);
+			// Arrange: Pass the configured branch value directly
+			const result = await getBaseBranch(repoRoot, 'develop');
 
 			// Assert: Should return the configured value
 			assert.strictEqual(
@@ -160,12 +155,8 @@ suite('Git Base Branch Test Suite', () => {
 		});
 
 		test('should use fallback detection when baseBranch setting is empty', async () => {
-			// Arrange: Ensure the baseBranch configuration is empty
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('baseBranch', '', vscode.ConfigurationTarget.Global);
-
-			// Act: Call getBaseBranch with the actual repo path
-			const result = await getBaseBranch(repoRoot);
+			// Act: Call getBaseBranch with empty configured branch
+			const result = await getBaseBranch(repoRoot, '');
 
 			// Assert: Should return one of the fallback branches
 			// The fallback order is: origin/main, origin/master, main, master
@@ -177,12 +168,8 @@ suite('Git Base Branch Test Suite', () => {
 		});
 
 		test('should treat whitespace-only setting as empty and use fallback', async () => {
-			// Arrange: Set the baseBranch configuration to whitespace only
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('baseBranch', '   ', vscode.ConfigurationTarget.Global);
-
-			// Act: Call getBaseBranch with the actual repo path
-			const result = await getBaseBranch(repoRoot);
+			// Act: Call getBaseBranch with whitespace-only configured branch
+			const result = await getBaseBranch(repoRoot, '   ');
 
 			// Assert: Should return one of the fallback branches (treating whitespace as empty)
 			const validFallbacks = ['origin/main', 'origin/master', 'main', 'master'];
@@ -321,7 +308,7 @@ suite('Git Base Branch Test Suite', () => {
 		suite('HTML Rendering', () => {
 
 			test('should render base branch input field with correct default value', () => {
-				const { GitChangesPanel, parseDiff } = require('../../GitChangesPanel');
+				const { GitChangesPanel, parseDiff } = require('../../vscode/providers/GitChangesPanel');
 				assert.strictEqual(GitChangesPanel.createOrShow.length, 5, 'createOrShow should accept 5 parameters including currentBaseBranch');
 
 				const testDiff = `diff --git a/test.ts b/test.ts
@@ -337,7 +324,7 @@ index 1234567..abcdefg 100644
 			});
 
 			test('should render Update Diff button next to base branch input', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.ok(typeof GitChangesPanel.createOrShow === 'function', 'GitChangesPanel should have createOrShow method');
 			});
 		});
@@ -356,7 +343,7 @@ index 1234567..abcdefg 100644
 			});
 
 			test('branchExists integration for branch validation', async function() {
-				const { branchExists } = await import('../../services/BrokenWorktreeService.js');
+				const { branchExists } = await import('../../core/services/BrokenWorktreeService.js');
 				const repoRoot = path.resolve(__dirname, '..', '..');
 				const mainExists = await branchExists(repoRoot, 'main');
 				if (!mainExists) {
@@ -371,13 +358,13 @@ index 1234567..abcdefg 100644
 		suite('Panel State', () => {
 
 			test('should store worktreePath for regenerating diffs', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.strictEqual(GitChangesPanel.createOrShow.length, 5, 'createOrShow should accept 5 parameters');
 				assert.ok(typeof GitChangesPanel.setOnBranchChange === 'function', 'Should have setOnBranchChange method');
 			});
 
 			test('should update worktreePath when createOrShow is called with existing panel', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.ok('currentPanel' in GitChangesPanel, 'Should have currentPanel static property');
 			});
 		});

@@ -1,10 +1,10 @@
 import * as assert from 'assert';
-import { getAgent, getAvailableAgents } from '../../codeAgents/factory';
-import { ClaudeCodeAgent } from '../../codeAgents/ClaudeCodeAgent';
-import { CodexAgent } from '../../codeAgents/CodexAgent';
-import { CortexCodeAgent } from '../../codeAgents/CortexCodeAgent';
-import { GeminiAgent } from '../../codeAgents/GeminiAgent';
-import { OpenCodeAgent } from '../../codeAgents/OpenCodeAgent';
+import { getAgent, getAvailableAgents } from '../../core/codeAgents/factory';
+import { ClaudeCodeAgent } from '../../core/codeAgents/ClaudeCodeAgent';
+import { CodexAgent } from '../../core/codeAgents/CodexAgent';
+import { CortexCodeAgent } from '../../core/codeAgents/CortexCodeAgent';
+import { GeminiAgent } from '../../core/codeAgents/GeminiAgent';
+import { OpenCodeAgent } from '../../core/codeAgents/OpenCodeAgent';
 
 suite('Agent Factory', () => {
     test('getAgent("claude") returns ClaudeCodeAgent instance', () => {
@@ -150,14 +150,14 @@ suite('Agent Factory - CLI Availability Implementation', () => {
     }
 
     test('isCliAvailable is exported function', () => {
-        const { isCliAvailable } = require('../../codeAgents/factory');
+        const { isCliAvailable } = require('../../core/codeAgents/factory');
         assert.strictEqual(typeof isCliAvailable, 'function', 'isCliAvailable should be a function');
     });
 
     test('factory module imports execFile not exec', () => {
         // Read the factory source to verify it uses execFile
         const fs = require('fs');
-        const factoryPath = getSourcePath('codeAgents/factory.ts');
+        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
         assert.ok(source.includes('import { execFile }'), 'Should import execFile from child_process');
@@ -167,7 +167,7 @@ suite('Agent Factory - CLI Availability Implementation', () => {
     test('isCliAvailable implementation uses execFile with args array', () => {
         // Read the factory source to verify implementation
         const fs = require('fs');
-        const factoryPath = getSourcePath('codeAgents/factory.ts');
+        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
         // Verify execFile is called with args array, not template literal
@@ -188,7 +188,7 @@ suite('Agent Factory - CLI Availability Implementation', () => {
     test('isCliAvailable uses shell:true not hardcoded shell path', () => {
         // Read the factory source to verify shell option
         const fs = require('fs');
-        const factoryPath = getSourcePath('codeAgents/factory.ts');
+        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
         // Verify shell: true is used, not shell: '/bin/sh'

@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
-import { getBranchesInWorktrees } from '../../services/SessionService';
-import { branchExists } from '../../services/BrokenWorktreeService';
+import { getBranchesInWorktrees } from '../../vscode/services/SessionService';
+import { branchExists } from '../../core/services/BrokenWorktreeService';
 
 suite('Git Branches Test Suite', () => {
 

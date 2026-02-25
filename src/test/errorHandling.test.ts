@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { LanesError, GitError, ValidationError } from '../errors';
+import { LanesError, GitError, ValidationError } from '../core/errors';
 
 suite('Error Handling', () => {
 

@@ -10,7 +10,7 @@ import {
 	WorkflowProgress,
 	TaskStatusContext,
 	WorkflowStatusResponse,
-} from '../../workflow';
+} from '../../core/workflow';
 
 suite('Workflow Types', () => {
 	test('All workflow types are properly exported', () => {

@@ -3,8 +3,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { AgentSessionProvider, SessionItem, getAgentStatus, getSessionId, AgentSessionStatus, getSessionFilePath, getStatusFilePath, initializeGlobalStorageContext } from '../AgentSessionProvider';
-import { SessionFormProvider } from '../SessionFormProvider';
+import { AgentSessionProvider, SessionItem, getAgentStatus, getSessionId, AgentSessionStatus, getSessionFilePath, getStatusFilePath, initializeGlobalStorageContext } from '../vscode/providers/AgentSessionProvider';
+import { SessionFormProvider } from '../vscode/providers/SessionFormProvider';
 
 suite('Edge Cases Test Suite', () => {
 

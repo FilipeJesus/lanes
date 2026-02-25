@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
-} from '../../AgentSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../../services/SettingsService';
+} from '../../vscode/providers/AgentSessionProvider';
+import { getOrCreateExtensionSettingsFile } from '../../core/services/SettingsService';
 
 suite('Extension Settings File Hooks', () => {
 

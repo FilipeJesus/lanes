@@ -20,9 +20,9 @@ import * as path from 'path';
 import { vol } from 'memfs';
 import sinon from 'sinon';
 import * as gitService from '../../gitService';
-import { GitError, ValidationError } from '../../errors';
-import { validateSessionName } from '../../validation';
-import { validateBranchName } from '../../utils';
+import { GitError, ValidationError } from '../../core/errors';
+import { validateSessionName } from '../../core/validation';
+import { validateBranchName } from '../../core/utils';
 import { setupMemfs, createTestRepo } from '../testSetup';
 
 suite('Error Path Integration: Git Operations', () => {

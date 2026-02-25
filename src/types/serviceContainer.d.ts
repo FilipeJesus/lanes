@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import type { AgentSessionProvider } from '../AgentSessionProvider';
-import type { SessionFormProvider } from '../SessionFormProvider';
-import type { PreviousSessionProvider } from '../PreviousSessionProvider';
-import type { WorkflowsProvider } from '../WorkflowsProvider';
-import type { CodeAgent } from '../codeAgents';
+import type { AgentSessionProvider } from '../vscode/providers/AgentSessionProvider';
+import type { SessionFormProvider } from '../vscode/providers/SessionFormProvider';
+import type { PreviousSessionProvider } from '../vscode/providers/PreviousSessionProvider';
+import type { WorkflowsProvider } from '../vscode/providers/WorkflowsProvider';
+import type { CodeAgent } from '../core/codeAgents';
 
 /**
  * Service container for dependency injection.

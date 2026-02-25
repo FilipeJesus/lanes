@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { SessionItem, AgentSessionStatus, initializeGlobalStorageContext } from '../../AgentSessionProvider';
+import { SessionItem, AgentSessionStatus, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
 
 suite('SessionItem', () => {
 

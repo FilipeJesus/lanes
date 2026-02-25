@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { sanitizeSessionName } from '../utils';
+import { sanitizeSessionName } from '../core/utils';
 
 suite('sanitizeSessionName', () => {
 

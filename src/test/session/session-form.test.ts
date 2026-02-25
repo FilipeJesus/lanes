@@ -14,7 +14,7 @@ import {
 	PERMISSION_MODES,
 	isValidPermissionMode,
 	PermissionMode,
-} from '../../SessionFormProvider';
+} from '../../vscode/providers/SessionFormProvider';
 
 /**
  * Mock webview for testing HTML generation.

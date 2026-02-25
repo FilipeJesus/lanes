@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { AsyncQueue } from '../AsyncQueue';
+import { AsyncQueue } from '../core/AsyncQueue';
 
 suite('AsyncQueue', () => {
 

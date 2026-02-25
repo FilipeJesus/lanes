@@ -17,7 +17,7 @@ import {
   WorkflowState,
   Task,
   loadWorkflowTemplate,
-} from '../workflow';
+} from '../core/workflow';
 import * as path from 'path';
 
 // Parse command-line arguments

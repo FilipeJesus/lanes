@@ -23,7 +23,7 @@ import {
 	WorkflowStateMachine,
 	loadWorkflowTemplateFromString,
 	WorkflowTemplate,
-} from '../../workflow';
+} from '../../core/workflow';
 
 const TEST_WORKFLOW_YAML = `
 name: test-workflow

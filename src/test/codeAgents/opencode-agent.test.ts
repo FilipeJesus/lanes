@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { OpenCodeAgent } from '../../codeAgents/OpenCodeAgent';
+import { OpenCodeAgent } from '../../core/codeAgents/OpenCodeAgent';
 
 suite('OpenCodeAgent', () => {
     let agent: OpenCodeAgent;

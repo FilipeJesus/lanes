@@ -6,9 +6,9 @@ import * as fsPromises from 'fs/promises';
 import * as os from 'os';
 import {
     initializeGlobalStorageContext,
-} from '../AgentSessionProvider';
-import { getOrCreateExtensionSettingsFile } from '../services/SettingsService';
-import { ClaudeCodeAgent } from '../codeAgents/ClaudeCodeAgent';
+} from '../vscode/providers/AgentSessionProvider';
+import { getOrCreateExtensionSettingsFile } from '../core/services/SettingsService';
+import { ClaudeCodeAgent } from '../core/codeAgents/ClaudeCodeAgent';
 
 suite('Hook Script Generation', () => {
     let tempDir: string;

@@ -3,7 +3,7 @@ import {
 	WorkflowTemplate,
 	WorkflowStateMachine,
 	loadWorkflowTemplateFromString,
-} from '../../workflow';
+} from '../../core/workflow';
 
 suite('Context Management', () => {
 	let templateWithContext: WorkflowTemplate;

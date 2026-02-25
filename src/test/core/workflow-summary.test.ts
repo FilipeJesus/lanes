@@ -7,9 +7,9 @@ import {
 	SessionItem,
 	getWorkflowStatus,
 	WorkflowStatus
-} from '../../AgentSessionProvider';
-import { WorkflowState, WorkflowTemplate } from '../../workflow/types';
-import { WorkflowStateMachine } from '../../workflow/state';
+} from '../../vscode/providers/AgentSessionProvider';
+import { WorkflowState, WorkflowTemplate } from '../../core/workflow/types';
+import { WorkflowStateMachine } from '../../core/workflow/state';
 import { workflowStart } from '../../mcp/tools';
 
 suite('Workflow Summary Feature', () => {

@@ -14,7 +14,7 @@ import {
 	SessionFormProvider,
 	SessionFormSubmitCallback,
 	PermissionMode,
-} from '../../SessionFormProvider';
+} from '../../vscode/providers/SessionFormProvider';
 
 /**
  * Mock webview for testing HTML generation.

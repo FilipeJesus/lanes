@@ -22,7 +22,7 @@ import {
 	loadWorkflowTemplateFromString,
 	type WorkflowTemplate,
 	type Task,
-} from '../../workflow';
+} from '../../core/workflow';
 import {
 	workflowStartFromPath,
 	workflowAdvance,

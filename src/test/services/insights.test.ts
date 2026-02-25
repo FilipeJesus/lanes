@@ -1,14 +1,14 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as FileService from '../../services/FileService';
+import * as FileService from '../../core/services/FileService';
 import {
     parseConversationFile,
     generateInsights,
     formatInsightsReport,
     ConversationData,
     SessionInsights
-} from '../../services/InsightsService';
-import { AnalysisResult } from '../../services/InsightsAnalyzer';
+} from '../../core/services/InsightsService';
+import { AnalysisResult } from '../../core/services/InsightsAnalyzer';
 
 suite('InsightsService', () => {
     let readFileStub: sinon.SinonStub;

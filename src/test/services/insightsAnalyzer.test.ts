@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { analyzeInsights } from '../../services/InsightsAnalyzer';
-import { SessionInsights } from '../../services/InsightsService';
+import { analyzeInsights } from '../../core/services/InsightsAnalyzer';
+import { SessionInsights } from '../../core/services/InsightsService';
 
 suite('InsightsAnalyzer', () => {
     suite('Efficiency Metrics Computation', () => {

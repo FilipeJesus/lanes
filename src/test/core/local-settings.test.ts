@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { initializeGlobalStorageContext } from '../../AgentSessionProvider';
+import { initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
 
 suite('Local Settings Integration', () => {
 
@@ -50,7 +50,7 @@ suite('Local Settings Integration', () => {
 		fs.mkdirSync(worktreePath, { recursive: true });
 
 		// Act: Call propagateLocalSettings
-		const { propagateLocalSettings } = await import('../../localSettings.js');
+		const { propagateLocalSettings } = await import('../../core/localSettings.js');
 		await propagateLocalSettings(baseRepoPath, worktreePath, 'copy');
 
 		// Assert
@@ -71,7 +71,7 @@ suite('Local Settings Integration', () => {
 		fs.mkdirSync(worktreePath, { recursive: true });
 
 		// Act: Call propagateLocalSettings
-		const { propagateLocalSettings } = await import('../../localSettings.js');
+		const { propagateLocalSettings } = await import('../../core/localSettings.js');
 		await propagateLocalSettings(baseRepoPath, worktreePath, 'copy');
 
 		// Assert
