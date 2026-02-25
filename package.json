@@ -37,6 +37,9 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.bundle.js",
+  "bin": {
+    "lanes": "./out/cli.js"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -423,9 +426,10 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp",
+    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli",
     "bundle:extension": "node scripts/bundle-extension.mjs",
     "bundle:mcp": "node scripts/bundle-mcp.mjs",
+    "bundle:cli": "node scripts/bundle-cli.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -460,6 +464,7 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "commander": "^14.0.3",
     "yaml": "^2.8.2"
   },
   "overrides": {

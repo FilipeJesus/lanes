@@ -7,7 +7,7 @@
 
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import { execGit } from '../../gitService';
+import { execGit } from '../gitService';
 import { CodeAgent, McpConfig } from '../codeAgents';
 import { getSettingsFormat, JsonSettingsFormat } from './SettingsFormatService';
 import {
