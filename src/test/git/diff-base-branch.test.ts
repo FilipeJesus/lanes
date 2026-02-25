@@ -308,7 +308,7 @@ suite('Git Base Branch Test Suite', () => {
 		suite('HTML Rendering', () => {
 
 			test('should render base branch input field with correct default value', () => {
-				const { GitChangesPanel, parseDiff } = require('../../GitChangesPanel');
+				const { GitChangesPanel, parseDiff } = require('../../vscode/providers/GitChangesPanel');
 				assert.strictEqual(GitChangesPanel.createOrShow.length, 5, 'createOrShow should accept 5 parameters including currentBaseBranch');
 
 				const testDiff = `diff --git a/test.ts b/test.ts
@@ -324,7 +324,7 @@ index 1234567..abcdefg 100644
 			});
 
 			test('should render Update Diff button next to base branch input', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.ok(typeof GitChangesPanel.createOrShow === 'function', 'GitChangesPanel should have createOrShow method');
 			});
 		});
@@ -358,13 +358,13 @@ index 1234567..abcdefg 100644
 		suite('Panel State', () => {
 
 			test('should store worktreePath for regenerating diffs', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.strictEqual(GitChangesPanel.createOrShow.length, 5, 'createOrShow should accept 5 parameters');
 				assert.ok(typeof GitChangesPanel.setOnBranchChange === 'function', 'Should have setOnBranchChange method');
 			});
 
 			test('should update worktreePath when createOrShow is called with existing panel', () => {
-				const { GitChangesPanel } = require('../../GitChangesPanel');
+				const { GitChangesPanel } = require('../../vscode/providers/GitChangesPanel');
 				assert.ok('currentPanel' in GitChangesPanel, 'Should have currentPanel static property');
 			});
 		});

@@ -7,7 +7,7 @@ suite('SessionFormProvider Chime Configuration', () => {
 
 	test('should use default chime.mp3 when no configuration is set', () => {
 		// Arrange: Import SessionFormProvider
-		const { SessionFormProvider, CHIME_SOUNDS, isValidChimeSound } = require('../../SessionFormProvider');
+		const { SessionFormProvider, CHIME_SOUNDS, isValidChimeSound } = require('../../vscode/providers/SessionFormProvider');
 
 		// Act: Verify the validation function accepts 'chime'
 		const isValid = isValidChimeSound('chime');
@@ -19,7 +19,7 @@ suite('SessionFormProvider Chime Configuration', () => {
 
 	test('should accept valid chime sound selections', () => {
 		// Arrange: Import SessionFormProvider validation
-		const { isValidChimeSound, CHIME_SOUNDS } = require('../../SessionFormProvider');
+		const { isValidChimeSound, CHIME_SOUNDS } = require('../../vscode/providers/SessionFormProvider');
 
 		// Act & Assert: All valid values should pass validation
 		const validSounds = ['chime', 'alarm', 'level-up', 'notification'];
@@ -41,7 +41,7 @@ suite('SessionFormProvider Chime Configuration', () => {
 
 	test('should reject invalid chime sound values', () => {
 		// Arrange: Import SessionFormProvider validation
-		const { isValidChimeSound } = require('../../SessionFormProvider');
+		const { isValidChimeSound } = require('../../vscode/providers/SessionFormProvider');
 
 		// Act & Assert: Invalid values should fail validation
 		const invalidSounds = [
@@ -68,7 +68,7 @@ suite('SessionFormProvider Chime Configuration', () => {
 
 	test('should accept only the four valid chime sound values', () => {
 		// Arrange: Import SessionFormProvider constants
-		const { CHIME_SOUNDS } = require('../../SessionFormProvider');
+		const { CHIME_SOUNDS } = require('../../vscode/providers/SessionFormProvider');
 
 		// Assert: Verify only the 4 valid values are accepted
 		assert.deepStrictEqual(
