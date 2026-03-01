@@ -13,6 +13,7 @@ import {
 import {
 	resolveSessionFilePath,
 	resolveStatusFilePath,
+	ensureLanesGitignore,
 } from '../../core/session/SessionDataService';
 
 /** Compute the old global storage path for backward-compat fallback tests */
@@ -181,6 +182,52 @@ suite('Global Storage Configuration Test Suite', () => {
 			const result = getSessionNameFromWorktree(worktreePath);
 
 			assert.strictEqual(result, 'feature-123');
+		});
+	});
+
+	suite('ensureLanesGitignore', () => {
+
+		test('should create .lanes/.gitignore with all required entries', async () => {
+			const gitignorePath = path.join(tempDir, '.lanes', '.gitignore');
+
+			await ensureLanesGitignore(tempDir);
+
+			assert.ok(fs.existsSync(gitignorePath), '.lanes/.gitignore should exist');
+			const content = fs.readFileSync(gitignorePath, 'utf-8');
+			const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+			assert.ok(lines.includes('clear-requests'), 'Should contain clear-requests');
+			assert.ok(lines.includes('current-sessions'), 'Should contain current-sessions');
+			assert.ok(lines.includes('pending-sessions'), 'Should contain pending-sessions');
+			assert.ok(lines.includes('prompts'), 'Should contain prompts');
+		});
+
+		test('should be idempotent (no duplicates on second call)', async () => {
+			await ensureLanesGitignore(tempDir);
+			const first = fs.readFileSync(path.join(tempDir, '.lanes', '.gitignore'), 'utf-8');
+
+			await ensureLanesGitignore(tempDir);
+			const second = fs.readFileSync(path.join(tempDir, '.lanes', '.gitignore'), 'utf-8');
+
+			assert.strictEqual(first, second, 'Content should be identical after second call');
+		});
+
+		test('should preserve existing content and only add missing entries', async () => {
+			const lanesDir = path.join(tempDir, '.lanes');
+			fs.mkdirSync(lanesDir, { recursive: true });
+			fs.writeFileSync(path.join(lanesDir, '.gitignore'), 'custom-entry\ncurrent-sessions\n');
+
+			await ensureLanesGitignore(tempDir);
+
+			const content = fs.readFileSync(path.join(lanesDir, '.gitignore'), 'utf-8');
+			assert.ok(content.includes('custom-entry'), 'Should preserve existing entries');
+			assert.ok(content.includes('current-sessions'), 'Should keep existing matching entry');
+			assert.ok(content.includes('clear-requests'), 'Should add missing entry');
+			assert.ok(content.includes('pending-sessions'), 'Should add missing entry');
+			assert.ok(content.includes('prompts'), 'Should add missing entry');
+
+			// current-sessions should appear only once
+			const matches = content.split('\n').filter(l => l.trim() === 'current-sessions');
+			assert.strictEqual(matches.length, 1, 'Should not duplicate existing entries');
 		});
 	});
 
