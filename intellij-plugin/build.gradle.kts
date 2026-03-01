@@ -63,6 +63,9 @@ intellijPlatform {
 tasks {
     test {
         useJUnitPlatform()
+        // BridgeRuntimeSmokeTest needs the packaged plugin sandbox
+        // (bridge JS + node_modules) produced by prepareSandbox.
+        dependsOn(prepareSandbox)
     }
 
     buildSearchableOptions {
@@ -123,6 +126,9 @@ tasks {
         }
         from("${projectDir}/../node_modules/readdirp") {
             into("${rootProject.name}/node_modules/readdirp")
+        }
+        from("${projectDir}/../node_modules/picomatch") {
+            into("${rootProject.name}/node_modules/picomatch")
         }
     }
 }
