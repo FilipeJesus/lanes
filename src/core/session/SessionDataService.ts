@@ -253,7 +253,7 @@ export async function getSessionPermissionMode(worktreePath: string): Promise<st
     } catch { return null; }
 }
 
-export async function saveSessionTerminalMode(worktreePath: string, terminal: 'code' | 'tmux'): Promise<void> {
+export async function saveSessionTerminalMode(worktreePath: string, terminal: 'code' | 'vscode' | 'tmux'): Promise<void> {
     const sessionPath = getSessionFilePath(worktreePath);
     try {
         await ensureDir(path.dirname(sessionPath));
