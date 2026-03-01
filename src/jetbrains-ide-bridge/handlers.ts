@@ -18,7 +18,6 @@ import {
     getSessionFilePath,
     getAgentStatus,
     getSessionId,
-    getPromptsPath,
     clearSessionId,
     getSessionNameFromWorktree,
     getWorktreesFolder,
@@ -31,7 +30,8 @@ import * as TmuxService from '../core/services/TmuxService';
 import * as DiffService from '../core/services/DiffService';
 import * as BrokenWorktreeService from '../core/services/BrokenWorktreeService';
 import { discoverWorkflows } from '../core/workflow/discovery';
-import { getWorkflowOrchestratorInstructions, validateWorkflow } from '../core/services/WorkflowService';
+import { validateWorkflow } from '../core/services/WorkflowService';
+import { assemblePrompt, writePromptFile } from '../core/services/PromptService';
 import { getAgent, getAvailableAgents } from '../core/codeAgents';
 import { ConfigStore } from './config';
 import { NotificationEmitter } from './notifications';
@@ -161,14 +161,10 @@ function buildCreateSessionPrompt(
     prompt: string | undefined,
     effectiveWorkflow: string | null
 ): string | undefined {
-    const trimmed = prompt?.trim() ?? '';
-    if (effectiveWorkflow && trimmed) {
-        return getWorkflowOrchestratorInstructions(effectiveWorkflow) + trimmed;
-    }
-    if (effectiveWorkflow) {
-        return getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
-    }
-    return trimmed || undefined;
+    return assemblePrompt({
+        userPrompt: prompt,
+        effectiveWorkflow,
+    });
 }
 
 async function resolveExtensionPath(): Promise<string> {
@@ -348,7 +344,7 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
     const workflow = params.workflow as string | undefined;
     const agent = params.agent as string | undefined;
     const prompt = params.prompt as string | undefined;
-    const attachments = params.attachments as string[] | undefined;
+    const _attachments = params.attachments as string[] | undefined;
     const permissionMode = params.permissionMode as string | undefined;
 
     if (!name) {
@@ -390,13 +386,9 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
         let launchPrompt = startPrompt;
         if (startPrompt) {
             const promptsFolder = configStore.get('lanes.promptsFolder') as string ?? '';
-            const promptPathInfo = getPromptsPath(name, workspaceRoot, promptsFolder);
-            if (promptPathInfo) {
-                await fs.mkdir(promptPathInfo.needsDir, { recursive: true });
-                await fs.writeFile(promptPathInfo.path, startPrompt, 'utf-8');
-                // Use command substitution to avoid terminal issues with multiline prompts.
-                const escapedPromptPath = promptPathInfo.path.replace(/"/g, '\\"');
-                launchPrompt = `"$(cat "${escapedPromptPath}")"`;
+            const result = await writePromptFile(startPrompt, name, workspaceRoot, promptsFolder);
+            if (result) {
+                launchPrompt = result.commandArg;
             }
         }
         const launch = await buildAgentLaunchCommand(launchContext, {
@@ -413,7 +405,7 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
             JSON.stringify({
                 sessionId,
                 timestamp: new Date().toISOString(),
-                agentName: launchContext.codeAgent.name,
+                agentName: launchContext.codeAgent!.name,
                 workflow: launchContext.effectiveWorkflow ?? undefined,
                 permissionMode: permissionMode ?? undefined
             }, null, 2),
@@ -436,11 +428,13 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
         if (TmuxService.isTmuxMode(terminalMode)) {
             const tmuxInstalled = await TmuxService.isTmuxInstalled();
             if (tmuxInstalled) {
-                const sanitizedName = TmuxService.sanitizeTmuxSessionName(name);
-                await TmuxService.createSession(sanitizedName, worktreePath);
-                await TmuxService.sendCommand(sanitizedName, launch.command);
+                const tmuxResult = await TmuxService.launchInTmux({
+                    sessionName: name,
+                    worktreePath,
+                    command: launch.command,
+                });
                 await saveSessionTerminalMode(worktreePath, 'tmux');
-                command = `tmux attach-session -t "${sanitizedName}"`;
+                command = tmuxResult.attachCommand;
             }
         } else {
             await saveSessionTerminalMode(worktreePath, 'vscode');
@@ -536,12 +530,12 @@ async function handleSessionOpen(params: Record<string, unknown>): Promise<unkno
     if (TmuxService.isTmuxMode(terminalMode)) {
         const tmuxInstalled = await TmuxService.isTmuxInstalled();
         if (tmuxInstalled) {
-            const sanitizedName = TmuxService.sanitizeTmuxSessionName(sessionName);
-            if (!await TmuxService.sessionExists(sanitizedName)) {
-                await TmuxService.createSession(sanitizedName, worktreePath);
-                await TmuxService.sendCommand(sanitizedName, launch.command);
-            }
-            command = `tmux attach-session -t "${sanitizedName}"`;
+            const tmuxResult = await TmuxService.launchInTmux({
+                sessionName,
+                worktreePath,
+                command: launch.command,
+            });
+            command = tmuxResult.attachCommand;
         }
     }
 

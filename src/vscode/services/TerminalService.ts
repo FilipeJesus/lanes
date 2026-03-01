@@ -11,8 +11,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fsPromises from 'fs/promises';
-
 import { fileExists, ensureDir, writeJson, readJson } from '../../core/services/FileService';
 import { SessionItem, getStatusFilePath, getSessionFilePath } from '../providers/AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../providers/SessionFormProvider';
@@ -21,12 +19,12 @@ import * as TmuxService from '../../core/services/TmuxService';
 import { startPolling, stopPolling } from './PollingStatusService';
 import { getErrorMessage } from '../../core/utils';
 import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
+import { assemblePrompt, writePromptFile } from '../../core/services/PromptService';
 import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     getSessionTerminalMode,
     getOrCreateTaskListId,
-    getPromptsPath
 } from '../providers/AgentSessionProvider';
 
 // Terminal close delay constant
@@ -96,43 +94,6 @@ export async function trackHooklessTerminal(terminal: vscode.Terminal, worktreeP
     }
 }
 
-/**
- * Generates the workflow orchestrator instructions to prepend to a prompt.
- * These instructions guide Claude through the structured workflow phases.
- */
-function getWorkflowOrchestratorInstructions(workflow?: string | null): string {
-    return `You are the main agent following a structured workflow. Your goal is to successfully complete the workflow which guides you through the work requested by your user.
-To be successfull you must follow the workflow and follow these instructions carefully.
-
-## CRITICAL RULES
-
-1. **Always check workflow_status first** to see your current step
-2. **For tasks/steps which specify a agent or subagent**, spawn sub-agents using the Task tool to do the task even if you think you can do it yourself
-3. **Call workflow_advance** after completing each step
-4. **Never skip steps** - complete each one before advancing
-5. **Only perform actions for the CURRENT step** - do NOT call workflow tools that belong to future steps. If you are unsure about a parameter value (like a loop name), read the workflow file (${workflow}) or wait for the step that provides that information instead of guessing.
-6. **Do NOT call workflow_set_tasks unless instructed to do so in the step instructions**
-7. **Do not play the role of a specified agent** - always spawn the required agent using the Task tool
-
-## Workflow
-
-1. Call workflow_start to begin the workflow
-2. In workflow: follow instructions for each step and only that step at the end of each step call workflow_advance to move to the next step
-3. When complete: review all work and commit if approved
-
-## Sub-Agent Spawning
-
-When the current step requires an agent/subagent other than orchestrator:
-- Use the Task tool to spawn a sub-agent, make sure it knows it should NOT call workflow_advance
-- Wait for the sub-agent to complete
-- YOU should call workflow_advance with a summary
-
----
-
-## User Request
-
-`;
-}
 
 /**
  * Count existing terminals for a session to determine the next terminal number.
@@ -341,47 +302,18 @@ async function openClaudeTerminalTmux(
             await saveSessionPermissionMode(worktreePath, validatedMode);
             await saveSessionTerminalMode(worktreePath, 'tmux');
 
-            let combinedPrompt = prompt?.trim() || '';
-
-            // For workflow sessions, prepend orchestrator instructions
-            if (launch.effectiveWorkflow && combinedPrompt) {
-                // User provided a prompt - prepend orchestrator instructions
-                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + combinedPrompt;
-            } else if (launch.effectiveWorkflow && skipWorkflowPrompt) {
-                // Cleared session with workflow - add resume prompt
-                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
-
-To resume your work:
-1. Call workflow_status to check the current state of the workflow
-2. Review any artifacts from the previous session to understand what was completed
-3. Continue with the next steps in the workflow
-
-Proceed with resuming the workflow from where it left off.`;
-            } else if (launch.effectiveWorkflow) {
-                // New workflow session without user prompt - add start prompt
-                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + 'Start the workflow and follow the steps.';
-            } else if (skipWorkflowPrompt) {
-                // Cleared session without a workflow - prompt Claude to check for workflow state
-                combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
-
-To resume your work:
-1. Call workflow_status to check if there is an active workflow and its current state
-2. Continue working based on the workflow status
-
-Proceed by calling workflow_status now.`;
-            }
+            const combinedPrompt = assemblePrompt({
+                userPrompt: prompt,
+                effectiveWorkflow: launch.effectiveWorkflow,
+                isCleared: skipWorkflowPrompt,
+            }) || '';
 
             // Write prompt to file for history and to avoid terminal buffer issues
             let promptFileCommand: string | undefined;
             if (combinedPrompt) {
                 const repoRootForPrompt = path.dirname(path.dirname(worktreePath));
-                const promptPathInfo = getPromptsPath(taskName, repoRootForPrompt);
-                if (promptPathInfo) {
-                    await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
-                    await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
-                    // Use command substitution to read prompt from file
-                    promptFileCommand = `"$(cat "${promptPathInfo.path}")"`;
-                }
+                const result = await writePromptFile(combinedPrompt, taskName, repoRootForPrompt);
+                promptFileCommand = result?.commandArg;
             }
 
             if (codeAgent) {
@@ -595,50 +527,18 @@ export async function openAgentTerminal(
         await saveSessionPermissionMode(worktreePath, validatedMode);
         await saveSessionTerminalMode(worktreePath, 'code');
 
-        let combinedPrompt = prompt?.trim() || '';
-
-        // For workflow sessions, prepend orchestrator instructions
-        // Note: use effectiveWorkflow (which includes restored workflow from session data)
-        // not workflow (the parameter, which may be undefined for cleared sessions)
-        if (launch.effectiveWorkflow && combinedPrompt) {
-            // User provided a prompt - prepend orchestrator instructions
-            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + combinedPrompt;
-        } else if (launch.effectiveWorkflow && skipWorkflowPrompt) {
-            // Cleared session with workflow - add resume prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
-
-To resume your work:
-1. Call workflow_status to check the current state of the workflow
-2. Review any artifacts from the previous session to understand what was completed
-3. Continue with the next steps in the workflow
-
-Proceed with resuming the workflow from where it left off.`;
-        } else if (launch.effectiveWorkflow) {
-            // New workflow session without user prompt - add start prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + 'Start the workflow and follow the steps.';
-        } else if (skipWorkflowPrompt) {
-            // Cleared session without a workflow - prompt Claude to check for workflow state
-            combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
-
-To resume your work:
-1. Call workflow_status to check if there is an active workflow and its current state
-2. Continue working based on the workflow status
-
-Proceed by calling workflow_status now.`;
-        }
+        const combinedPrompt = assemblePrompt({
+            userPrompt: prompt,
+            effectiveWorkflow: launch.effectiveWorkflow,
+            isCleared: skipWorkflowPrompt,
+        }) || '';
 
         // Write prompt to file for history and to avoid terminal buffer issues
-        // This applies to both CodeAgent and fallback paths
         let promptFileCommand: string | undefined;
         if (combinedPrompt) {
             const repoRootForPrompt = path.dirname(path.dirname(worktreePath));
-            const promptPathInfo = getPromptsPath(taskName, repoRootForPrompt);
-            if (promptPathInfo) {
-                await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
-                await fsPromises.writeFile(promptPathInfo.path, combinedPrompt, 'utf-8');
-                // Use command substitution to read prompt from file
-                promptFileCommand = `"$(cat "${promptPathInfo.path}")"`;
-            }
+            const result = await writePromptFile(combinedPrompt, taskName, repoRootForPrompt);
+            promptFileCommand = result?.commandArg;
         }
 
         if (codeAgent) {
