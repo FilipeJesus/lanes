@@ -5,7 +5,8 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.lanes.intellij.bridge.BridgeClient
 import kotlinx.coroutines.*
-import java.util.concurrent.CompletableFuture
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -19,7 +20,7 @@ class BridgeProcessManager : Disposable {
 
     private val logger = Logger.getInstance(BridgeProcessManager::class.java)
     private val clients = ConcurrentHashMap<String, BridgeClient>()
-    private val startupFutures = ConcurrentHashMap<String, CompletableFuture<BridgeClient>>()
+    private val startupMutex = Mutex()
     internal val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     /**
@@ -29,42 +30,18 @@ class BridgeProcessManager : Disposable {
      * @param workspaceRoot The absolute path to the workspace root
      * @return BridgeClient instance for this workspace
      */
-    suspend fun getClient(workspaceRoot: String): BridgeClient {
-        // Fast path: return existing client if running
-        clients[workspaceRoot]?.let { existing ->
-            if (existing.isRunning()) return existing
-            // Client exists but is not running — remove stale entry
-            clients.remove(workspaceRoot, existing)
+    suspend fun getClient(workspaceRoot: String): BridgeClient = startupMutex.withLock {
+        clients[workspaceRoot]?.takeIf { it.isRunning() }?.let { return@withLock it }
+        clients.remove(workspaceRoot)
+        val client = BridgeClient(workspaceRoot)
+        try {
+            withContext(Dispatchers.IO) { client.start() }
+        } catch (e: Exception) {
+            logger.error("Failed to start BridgeClient for workspace: $workspaceRoot", e)
+            throw e
         }
-
-        // If startup is already in progress for this workspace, await it.
-        startupFutures[workspaceRoot]?.let { inFlight ->
-            return withContext(Dispatchers.IO) { inFlight.get() }
-        }
-
-        val startupFuture = CompletableFuture<BridgeClient>()
-        val existingFuture = startupFutures.putIfAbsent(workspaceRoot, startupFuture)
-        if (existingFuture != null) {
-            return withContext(Dispatchers.IO) { existingFuture.get() }
-        }
-
-        return try {
-            withContext(Dispatchers.IO) {
-                val client = BridgeClient(workspaceRoot)
-                try {
-                    client.start()
-                    clients[workspaceRoot] = client
-                    startupFuture.complete(client)
-                    client
-                } catch (e: Exception) {
-                    startupFuture.completeExceptionally(e)
-                    logger.error("Failed to start BridgeClient for workspace: $workspaceRoot", e)
-                    throw e
-                }
-            }
-        } finally {
-            startupFutures.remove(workspaceRoot, startupFuture)
-        }
+        clients[workspaceRoot] = client
+        client
     }
 
     /**
@@ -72,7 +49,6 @@ class BridgeProcessManager : Disposable {
      */
     fun stopAll() {
         logger.info("Stopping all bridge clients")
-        startupFutures.clear()
         clients.values.forEach { client ->
             try {
                 client.dispose()

@@ -500,6 +500,9 @@ class BridgeClient(
 
         isDisposed = true
 
+        // Cancel in-flight restart coroutines before any process interaction
+        scope.cancel()
+
         // Complete all pending requests
         val exception = IOException("BridgeClient disposed")
         pendingRequests.values.forEach { it.completeExceptionally(exception) }
@@ -539,7 +542,6 @@ class BridgeClient(
             process?.destroyForcibly()
         }
 
-        scope.cancel()
         cleanup()
     }
 }

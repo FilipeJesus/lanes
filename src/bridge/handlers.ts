@@ -40,6 +40,29 @@ import { readJson } from '../core/services/FileService';
 import { buildAgentLaunchCommand, prepareAgentLaunchContext } from '../core/services/AgentLaunchSetupService';
 
 // =============================================================================
+// JSON-RPC Error Helper
+// =============================================================================
+
+/**
+ * An error that carries an explicit JSON-RPC error code.
+ * Thrown by handlers when a specific protocol-level error code is needed
+ * (e.g., -32602 INVALID_PARAMS) rather than a generic internal error.
+ */
+export class JsonRpcHandlerError extends Error {
+    public readonly code: number;
+
+    constructor(code: number, message: string) {
+        super(message);
+        this.name = 'JsonRpcHandlerError';
+        this.code = code;
+    }
+}
+
+function createJsonRpcError(code: number, message: string): JsonRpcHandlerError {
+    return new JsonRpcHandlerError(code, message);
+}
+
+// =============================================================================
 // Input Validation
 // =============================================================================
 
@@ -100,7 +123,7 @@ function validateWatchPattern(pattern: string): void {
     }
 }
 
-const VALID_CONFIG_KEYS = new Set([
+const VALID_CONFIG_KEYS = [
     'lanes.worktreesFolder',
     'lanes.promptsFolder',
     'lanes.defaultAgent',
@@ -113,7 +136,7 @@ const VALID_CONFIG_KEYS = new Set([
     'lanes.chimeSound',
     'lanes.polling.quietThresholdMs',
     'lanes.terminalMode'
-]);
+];
 
 // Global handler context
 let workspaceRoot: string;
@@ -263,6 +286,7 @@ async function handleSessionList(params: Record<string, unknown>): Promise<unkno
     const worktreesFolder = getWorktreesFolder();
     const worktreesDir = path.join(workspaceRoot, worktreesFolder);
 
+    const pinnedSessions = (configStore.get('lanes.pinnedSessions') as string[] | undefined) ?? [];
     const sessions: unknown[] = [];
 
     try {
@@ -290,8 +314,8 @@ async function handleSessionList(params: Record<string, unknown>): Promise<unkno
             // Get workflow status
             const workflowStatus = await getWorkflowStatus(worktreePath);
 
-            // For now, we don't have pin state persisted - always false
-            const isPinned = false;
+            // Read pin state from persisted config
+            const isPinned = pinnedSessions.includes(sessionName);
 
             if (!includeInactive && !isSessionActive(status as { status?: string } | null)) {
                 continue;
@@ -416,7 +440,7 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
                 await TmuxService.createSession(sanitizedName, worktreePath);
                 await TmuxService.sendCommand(sanitizedName, launch.command);
                 await saveSessionTerminalMode(worktreePath, 'tmux');
-                command = `tmux attach-session -t ${sanitizedName}`;
+                command = `tmux attach-session -t "${sanitizedName}"`;
             }
         } else {
             await saveSessionTerminalMode(worktreePath, 'vscode');
@@ -517,7 +541,7 @@ async function handleSessionOpen(params: Record<string, unknown>): Promise<unkno
                 await TmuxService.createSession(sanitizedName, worktreePath);
                 await TmuxService.sendCommand(sanitizedName, launch.command);
             }
-            command = `tmux attach-session -t ${sanitizedName}`;
+            command = `tmux attach-session -t "${sanitizedName}"`;
         }
     }
 
@@ -528,15 +552,27 @@ async function handleSessionOpen(params: Record<string, unknown>): Promise<unkno
     };
 }
 
-async function handleSessionPin(_params: Record<string, unknown>): Promise<unknown> {
-    // Pin state would need to be persisted somewhere
-    // For now, just acknowledge success
+async function handleSessionPin(params: Record<string, unknown>): Promise<unknown> {
+    const sessionName = params.sessionName as string;
+    validateSessionName(sessionName);
+
+    const pinned = (configStore.get('lanes.pinnedSessions') as string[] | undefined) ?? [];
+    if (!pinned.includes(sessionName)) {
+        pinned.push(sessionName);
+        await configStore.set('lanes.pinnedSessions', pinned);
+    }
+
     return { success: true };
 }
 
-async function handleSessionUnpin(_params: Record<string, unknown>): Promise<unknown> {
-    // Unpin state would need to be persisted somewhere
-    // For now, just acknowledge success
+async function handleSessionUnpin(params: Record<string, unknown>): Promise<unknown> {
+    const sessionName = params.sessionName as string;
+    validateSessionName(sessionName);
+
+    const pinned = (configStore.get('lanes.pinnedSessions') as string[] | undefined) ?? [];
+    const updated = pinned.filter(n => n !== sessionName);
+    await configStore.set('lanes.pinnedSessions', updated);
+
     return { success: true };
 }
 
@@ -857,6 +893,10 @@ async function handleConfigGet(params: Record<string, unknown>): Promise<unknown
         throw new Error('Missing required parameter: key');
     }
 
+    if (!VALID_CONFIG_KEYS.includes(key)) {
+        throw createJsonRpcError(-32602, `Invalid config key: ${key}. Valid keys: ${VALID_CONFIG_KEYS.join(', ')}`);
+    }
+
     const value = configStore.get(key);
     return { value: value ?? null };
 }
@@ -869,7 +909,7 @@ async function handleConfigSet(params: Record<string, unknown>): Promise<unknown
         throw new Error('Missing required parameters: key and value');
     }
 
-    if (!VALID_CONFIG_KEYS.has(key)) {
+    if (!VALID_CONFIG_KEYS.includes(key)) {
         throw new Error(`Unknown configuration key: ${key}`);
     }
 
@@ -904,7 +944,7 @@ async function handleTerminalCreate(params: Record<string, unknown>): Promise<un
 
     return {
         terminalName: sanitizedName,
-        attachCommand: `tmux attach-session -t ${sanitizedName}`
+        attachCommand: `tmux attach-session -t "${sanitizedName}"`
     };
 }
 
@@ -921,10 +961,19 @@ async function handleTerminalSend(params: Record<string, unknown>): Promise<unkn
     return { success: true };
 }
 
-async function handleTerminalList(_params: Record<string, unknown>): Promise<unknown> {
-    // List tmux sessions
-    // For now, return empty list (full implementation would parse tmux list-sessions)
-    return { terminals: [] };
+async function handleTerminalList(params: Record<string, unknown>): Promise<unknown> {
+    const sessionNameFilter = params.sessionName as string | undefined;
+
+    const sessionNames = await TmuxService.listSessions();
+
+    const terminals = sessionNames
+        .filter(name => !sessionNameFilter || name === sessionNameFilter)
+        .map(name => ({
+            name,
+            sessionName: name
+        }));
+
+    return { terminals };
 }
 
 // =============================================================================

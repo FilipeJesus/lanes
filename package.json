@@ -442,6 +442,7 @@
     "@commitlint/config-conventional": "^20.4.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/picomatch": "^4.0.2",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.11",
@@ -461,6 +462,7 @@
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "chokidar": "^4.0.3",
+    "picomatch": "^4.0.2",
     "yaml": "^2.8.2"
   },
   "overrides": {

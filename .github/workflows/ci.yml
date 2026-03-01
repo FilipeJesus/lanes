@@ -44,3 +44,23 @@ jobs:
 
       - name: Run tests
         run: xvfb-run -a npm test
+
+  intellij-plugin-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run IntelliJ plugin tests
+        working-directory: intellij-plugin
+        run: ./gradlew test
