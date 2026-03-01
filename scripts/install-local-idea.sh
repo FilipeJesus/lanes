@@ -7,7 +7,7 @@ set -euo pipefail
 #   ./scripts/install-local-idea.sh /path/to/JetBrains/IdeaIC2024.1
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PLUGIN_PROJECT_DIR="$ROOT_DIR/intellij-plugin"
+PLUGIN_PROJECT_DIR="$ROOT_DIR/jetbrains-ide-plugin"
 TEMP_DIR=""
 
 cleanup() {
