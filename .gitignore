@@ -18,7 +18,7 @@ tests.json
 .lanes/pending-sessions
 .lanes/current-sessions
 .lanes/clear-requests
-.lanes/intellij-config
+.lanes/jetbrains-ide-config
 
 # Git worktrees directory
 .worktrees/

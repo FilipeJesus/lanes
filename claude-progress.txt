@@ -12,7 +12,7 @@
   - Terminal management (create, send, list)
   - File watching (watch, unwatch)
 - Created NotificationEmitter for server→client events
-- Created ConfigStore for JSON-backed configuration (.lanes/intellij-config.json)
+- Created ConfigStore for JSON-backed configuration (.lanes/jetbrains-ide-config.json)
 - Created FileWatchManager using Node.js fs.watch
 - Integrated with core services (SessionDataService, TmuxService, DiffService, BrokenWorktreeService, WorkflowService)
 - Added comprehensive test plan in tests.json (8 test suites covering all handlers)
@@ -24,12 +24,12 @@ IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core
 ```
 
 ### Files Created
-- src/bridge/server.ts - Main entry point with stdio protocol handling
-- src/bridge/handlers.ts - Method handler registry (24 methods)
-- src/bridge/notifications.ts - Notification emitter
-- src/bridge/config.ts - JSON configuration store
-- src/bridge/fileWatcher.ts - File system watching
-- src/bridge/README.md - Documentation
+- src/jetbrains-ide-bridge/server.ts - Main entry point with stdio protocol handling
+- src/jetbrains-ide-bridge/handlers.ts - Method handler registry (24 methods)
+- src/jetbrains-ide-bridge/notifications.ts - Notification emitter
+- src/jetbrains-ide-bridge/config.ts - JSON configuration store
+- src/jetbrains-ide-bridge/fileWatcher.ts - File system watching
+- src/jetbrains-ide-bridge/README.md - Documentation
 
 ### Next Steps
 - Implement tests (test-engineer to read tests.json)
@@ -74,10 +74,10 @@ IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core
 - Full build passes (./gradlew build)
 
 ### Files Created
-- src/main/kotlin/com/lanes/intellij/ui/LanesToolWindowFactory.kt
-- src/main/kotlin/com/lanes/intellij/ui/SessionsTreePanel.kt
-- src/main/kotlin/com/lanes/intellij/ui/CreateSessionDialog.kt
-- src/main/kotlin/com/lanes/intellij/settings/LanesSettingsConfigurable.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/ui/LanesToolWindowFactory.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/ui/SessionsTreePanel.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/ui/CreateSessionDialog.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/settings/LanesSettingsConfigurable.kt
 - tests.json (ephemeral, for test-engineer)
 
 ### Files Modified
@@ -99,7 +99,7 @@ IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core
 ## Session: 2026-02-25 (Task 5: Command/Action Registration & Packaging)
 
 ### Completed
-- Implemented 8 AnAction subclasses in src/main/kotlin/com/lanes/intellij/actions/:
+- Implemented 8 AnAction subclasses in src/main/kotlin/com/lanes/jetbrainsIde/actions/:
   - NewSessionAction - Opens CreateSessionDialog
   - DeleteSessionAction - Deletes selected session with confirmation
   - RefreshSessionsAction - Refreshes the sessions tree
@@ -129,7 +129,7 @@ IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core
   - postStartupActivity for LanesStartupActivity
   - applicationListeners for LanesPluginLifecycle
 - Updated build.gradle.kts for packaging:
-  - prepareSandbox task copies bridge files (src/bridge/*.ts, *.js, *.json)
+  - prepareSandbox task copies bridge files (src/jetbrains-ide-bridge/*.ts, *.js, *.json)
   - Copies core and vscode dependencies to plugin distribution
   - Fixed deprecated buildDir usage
 - Created test plan (tests.json) with 9 new test cases covering:
@@ -143,20 +143,20 @@ IntelliJ Plugin (Kotlin) <--> Node.js Bridge (JSON-RPC 2.0 over stdio) <--> Core
 - Full build passes (./gradlew build)
 
 ### Files Created
-- src/main/kotlin/com/lanes/intellij/actions/NewSessionAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/DeleteSessionAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/RefreshSessionsAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/OpenWorktreeAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/PinSessionAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/UnpinSessionAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/ShowDiffAction.kt
-- src/main/kotlin/com/lanes/intellij/actions/SendToAgentAction.kt
-- src/main/kotlin/com/lanes/intellij/startup/LanesStartupActivity.kt
-- src/main/kotlin/com/lanes/intellij/lifecycle/LanesPluginLifecycle.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/NewSessionAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/DeleteSessionAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/RefreshSessionsAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/OpenWorktreeAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/PinSessionAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/UnpinSessionAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/ShowDiffAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/actions/SendToAgentAction.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/startup/LanesStartupActivity.kt
+- src/main/kotlin/com/lanes/jetbrainsIde/lifecycle/LanesPluginLifecycle.kt
 
 ### Files Modified
-- src/main/kotlin/com/lanes/intellij/ui/LanesToolWindowFactory.kt (added DataKeys)
-- src/main/kotlin/com/lanes/intellij/ui/SessionsTreePanel.kt (implements DataProvider)
+- src/main/kotlin/com/lanes/jetbrainsIde/ui/LanesToolWindowFactory.kt (added DataKeys)
+- src/main/kotlin/com/lanes/jetbrainsIde/ui/SessionsTreePanel.kt (implements DataProvider)
 - src/main/resources/META-INF/plugin.xml (actions, startup activity, lifecycle listener)
 - build.gradle.kts (packaging configuration)
 - tests.json (added Task 5 tests)

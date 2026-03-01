@@ -45,7 +45,7 @@ jobs:
       - name: Run tests
         run: xvfb-run -a npm test
 
-  intellij-plugin-test:
+  jetbrains-ide-plugin-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -70,6 +70,6 @@ jobs:
       - name: Install dependencies and compile bridge
         run: npm ci && npm run compile
 
-      - name: Run IntelliJ plugin tests
-        working-directory: intellij-plugin
+      - name: Run JetBrains IDE plugin tests
+        working-directory: jetbrains-ide-plugin
         run: ./gradlew test
