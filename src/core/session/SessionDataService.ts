@@ -13,7 +13,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CodeAgent, DEFAULT_AGENT_NAME, getAgent } from '../codeAgents';
 import { validateWorktreesFolder } from '../validation';
-import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from '../services/FileService';
+import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory, atomicWrite } from '../services/FileService';
 import {
     AgentStatusState,
     AgentSessionStatus,
@@ -101,6 +101,39 @@ export function getSettingsDir(worktreePath: string): string {
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || path.dirname(path.dirname(worktreePath));
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName);
+}
+
+/**
+ * Ensure a .gitignore file exists inside <repoRoot>/.lanes/ so that
+ * runtime directories are never committed.
+ */
+export async function ensureLanesGitignore(repoRoot: string): Promise<void> {
+    const lanesDir = path.join(repoRoot, '.lanes');
+    const gitignorePath = path.join(lanesDir, '.gitignore');
+
+    const entries = [
+        'clear-requests',
+        'current-sessions',
+        'pending-sessions',
+        'prompts',
+    ];
+
+    try {
+        await ensureDir(lanesDir);
+
+        let existing = '';
+        try { existing = await readFile(gitignorePath); } catch { /* file doesn't exist yet */ }
+
+        const existingLines = new Set(existing.split('\n').map(l => l.trim()));
+        const missing = entries.filter(e => !existingLines.has(e));
+        if (missing.length === 0) { return; }
+
+        const suffix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+        const content = existing + suffix + missing.join('\n') + '\n';
+        await atomicWrite(gitignorePath, content);
+    } catch (err) {
+        console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
+    }
 }
 
 /**

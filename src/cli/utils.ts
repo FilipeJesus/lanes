@@ -8,7 +8,7 @@ import { fileExists } from '../core/services/FileService';
 import * as SettingsService from '../core/services/SettingsService';
 import { CliConfigProvider } from './adapters/CliConfigProvider';
 import { CliGitPathResolver } from './adapters/CliGitPathResolver';
-import { setConfigCallbacks, initializeGlobalStorageContext } from '../core/session/SessionDataService';
+import { setConfigCallbacks, initializeGlobalStorageContext, ensureLanesGitignore } from '../core/session/SessionDataService';
 
 /**
  * Resolve the base repo root from the current working directory.
@@ -71,6 +71,9 @@ export async function initCli(): Promise<{ config: CliConfigProvider; repoRoot: 
         repoRoot,
         undefined  // Agent set per-command
     );
+
+    // Ensure .lanes/.gitignore exists so runtime data is never committed
+    await ensureLanesGitignore(repoRoot);
 
     return { config, repoRoot };
 }
