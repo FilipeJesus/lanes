@@ -21,9 +21,6 @@ import {
     getSessionChimeEnabled,
     clearSessionId,
     initializeGlobalStorageContext,
-    isGlobalStorageEnabled,
-    getGlobalStoragePath,
-    getRepoIdentifier,
     getWorktreesFolder,
     getWorkflowStatus
 } from './providers/AgentSessionProvider';
@@ -299,9 +296,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // This includes watchers for status files, session files, prompts, workflows, worktrees, and MCP requests
     registerWatchers(context, services, refreshWorkflows, validateWorkflowService);
 
-    // Listen for configuration changes to update hooks when storage location changes
-    // Use a flag to prevent concurrent execution during async operations
-    let isUpdatingStorageConfig = false;
+    // Listen for configuration changes
     const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration('lanes.defaultAgent')) {
             const newAgentResult = getDefaultAgent(vscode.workspace.getConfiguration('lanes').get<string>('defaultAgent', DEFAULT_AGENT_NAME));
@@ -309,61 +304,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 vscode.window.showWarningMessage(newAgentResult.warning);
             }
             sessionFormProvider.setDefaultAgent(newAgentResult.agent);
-        }
-        if (event.affectsConfiguration('lanes.useGlobalStorage')) {
-            // Prevent concurrent execution
-            if (isUpdatingStorageConfig) {
-                return;
-            }
-            isUpdatingStorageConfig = true;
-
-            try {
-                // Notify user about the change
-                const useGlobal = isGlobalStorageEnabled();
-                const message = useGlobal
-                    ? 'Lanes: Global storage enabled. New sessions will use global storage for tracking files.'
-                    : 'Lanes: Global storage disabled. New sessions will use worktree directories for tracking files.';
-                vscode.window.showInformationMessage(message);
-
-                // Offer to update existing worktrees
-                if (baseRepoPath) {
-                    const worktreesDir = path.join(baseRepoPath, getWorktreesFolder());
-                    if (await fileExists(worktreesDir)) {
-                        const updateExisting = await vscode.window.showQuickPick(
-                            [
-                                { label: 'Yes', description: 'Update hooks in all existing worktrees' },
-                                { label: 'No', description: 'Only apply to new sessions' }
-                            ],
-                            {
-                                placeHolder: 'Would you like to update hooks in existing worktrees?',
-                                title: 'Update Existing Sessions'
-                            }
-                        );
-
-                        if (updateExisting?.label === 'Yes') {
-                            try {
-                                const worktrees = await readDir(worktreesDir);
-                                let updated = 0;
-                                for (const worktree of worktrees) {
-                                    const worktreePath = path.join(worktreesDir, worktree);
-                                    if (await isDirectory(worktreePath)) {
-                                        await SettingsService.getOrCreateExtensionSettingsFile(worktreePath);
-                                        updated++;
-                                    }
-                                }
-                                vscode.window.showInformationMessage(`Updated settings files in ${updated} worktree(s).`);
-                            } catch (err) {
-                                vscode.window.showErrorMessage(`Failed to update some worktrees: ${getErrorMessage(err)}`);
-                            }
-                        }
-                    }
-                }
-
-                // Refresh the session provider to reflect any changes
-                sessionProvider.refresh();
-            } finally {
-                isUpdatingStorageConfig = false;
-            }
         }
     });
 

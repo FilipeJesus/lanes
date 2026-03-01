@@ -7,7 +7,6 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
-import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.panel
@@ -24,7 +23,6 @@ import javax.swing.JComponent
  * - Worktrees folder
  * - Prompts folder
  * - Default agent
- * - Use global storage toggle
  * - Terminal mode
  * - Local settings propagation
  *
@@ -38,7 +36,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
     private val worktreesFolderField = TextFieldWithBrowseButton()
     private val promptsFolderField = TextFieldWithBrowseButton()
     private val defaultAgentField = JBTextField()
-    private val useGlobalStorageCheckBox = JBCheckBox("Use global storage for sessions")
     private val terminalModeComboBox = ComboBox<String>(arrayOf("vscode", "tmux"))
     private val localSettingsPropagationComboBox = ComboBox<String>(arrayOf("copy", "symlink", "disabled"))
 
@@ -62,7 +59,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
         worktreesFolderField.textField.document.addDocumentListener(ModificationListener())
         promptsFolderField.textField.document.addDocumentListener(ModificationListener())
         defaultAgentField.document.addDocumentListener(ModificationListener())
-        useGlobalStorageCheckBox.addActionListener { isModified = true }
         terminalModeComboBox.addActionListener { isModified = true }
         localSettingsPropagationComboBox.addActionListener { isModified = true }
     }
@@ -88,9 +84,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
                 }
             }
             group("Advanced Settings") {
-                row {
-                    cell(useGlobalStorageCheckBox)
-                }
                 row("Terminal Mode:") {
                     cell(terminalModeComboBox)
                 }
@@ -104,7 +97,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
                     <p><b>Worktrees Folder:</b> Directory where Git worktrees will be created</p>
                     <p><b>Prompts Folder:</b> Directory containing custom prompt templates</p>
                     <p><b>Default Agent:</b> Default AI agent to use (e.g., 'claude', 'gemini')</p>
-                    <p><b>Global Storage:</b> Store session metadata globally (shared across projects)</p>
                     <p><b>Terminal Mode:</b> Use IDE terminal or tmux for sessions</p>
                     <p><b>Local Settings Propagation:</b> How to propagate .claude/settings.local.json to worktrees</p>
                     </html>
@@ -121,7 +113,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
         val worktrees = worktreesFolderField.text
         val prompts = promptsFolderField.text
         val agent = defaultAgentField.text
-        val globalStorage = useGlobalStorageCheckBox.isSelected
         val terminal = terminalModeComboBox.selectedItem as String
         val propagation = localSettingsPropagationComboBox.selectedItem as String
 
@@ -132,7 +123,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
                 adapter.set("lanes", "worktreesFolder", worktrees)
                 adapter.set("lanes", "promptsFolder", prompts)
                 adapter.set("lanes", "defaultAgent", agent)
-                adapter.set("lanes", "useGlobalStorage", globalStorage)
                 adapter.set("lanes", "terminalMode", terminal)
                 adapter.set("lanes", "localSettingsPropagation", propagation)
 
@@ -152,7 +142,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
                 val worktreesFolder = adapter.get("lanes", "worktreesFolder", ".worktrees")
                 val promptsFolder = adapter.get("lanes", "promptsFolder", "")
                 val defaultAgent = adapter.get("lanes", "defaultAgent", "claude")
-                val useGlobalStorage = adapter.get("lanes", "useGlobalStorage", false)
                 var terminalMode = adapter.get("lanes", "terminalMode", "vscode")
                 if (terminalMode == "code") {
                     terminalMode = "vscode"
@@ -163,7 +152,6 @@ class LanesSettingsConfigurable(private val project: Project) : Configurable {
                     worktreesFolderField.text = worktreesFolder
                     promptsFolderField.text = promptsFolder
                     defaultAgentField.text = defaultAgent
-                    useGlobalStorageCheckBox.isSelected = useGlobalStorage
                     terminalModeComboBox.selectedItem = terminalMode
                     localSettingsPropagationComboBox.selectedItem = localSettingsPropagation
                     isModified = false

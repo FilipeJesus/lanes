@@ -21,7 +21,6 @@ import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
     clearSessionId,
-    isGlobalStorageEnabled,
     getGlobalStoragePath,
     getWorktreesFolder,
     getSessionTerminalMode,
@@ -192,8 +191,8 @@ export function registerSessionCommands(
                 await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
             }
 
-            // Clean up global storage files if enabled
-            if (isGlobalStorageEnabled()) {
+            // Clean up global storage files (backward compatibility)
+            {
                 const statusFileName = codeAgent ? codeAgent.getStatusFileName() : '.claude-status';
                 const globalStoragePath = getGlobalStoragePath(item.worktreePath, statusFileName);
                 if (globalStoragePath) {

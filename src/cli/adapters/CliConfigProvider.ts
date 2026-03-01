@@ -18,7 +18,6 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
         localSettingsPropagation: 'copy',
         customWorkflowsFolder: '.lanes/workflows',
         terminalMode: 'vscode',
-        useGlobalStorage: false,  // CLI always uses local storage
         promptsFolder: '',
         permissionMode: 'acceptEdits',
     },

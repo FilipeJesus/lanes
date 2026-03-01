@@ -19,16 +19,10 @@ suite('Edge Cases Test Suite', () => {
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-edge-cases-global-storage-'));
 		// Initialize global storage context
 		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
-		// Disable global storage for these tests since we're testing worktree-based file paths
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
 	});
 
 	// Clean up after each test
 	teardown(async () => {
-		// Reset useGlobalStorage to default
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});

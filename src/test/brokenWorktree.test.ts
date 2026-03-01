@@ -19,16 +19,10 @@ suite('Broken Worktree Detection', () => {
 		worktreesDir = path.join(tempDir, '.worktrees');
 		fs.mkdirSync(worktreesDir, { recursive: true });
 
-		// Disable global storage for these tests since we're testing worktree-based file paths
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
 	});
 
 	// Clean up after each test
 	teardown(async () => {
-		// Reset useGlobalStorage to default
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
@@ -214,10 +208,6 @@ suite('Broken Worktree Repair', () => {
 		delete process.env.GIT_WORK_TREE;
 		delete process.env.GIT_INDEX_FILE;
 
-		// Disable global storage for these tests
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-
 		// Reset test state
 		branchesThatExist = new Set();
 		repairedWorktrees = [];
@@ -302,10 +292,6 @@ suite('Broken Worktree Repair', () => {
 		if (savedGitIndexFile !== undefined) {
 			process.env.GIT_INDEX_FILE = savedGitIndexFile;
 		}
-
-		// Reset useGlobalStorage to default
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 
 		// Restore stubs
 		if (execGitStub) {

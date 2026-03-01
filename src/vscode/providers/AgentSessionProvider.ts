@@ -45,6 +45,8 @@ export {
     getOrCreateTaskListId,
     getWorkflowStatus,
     setConfigCallbacks,
+    resolveSessionFilePath,
+    resolveStatusFilePath,
 } from '../../core/session/SessionDataService';
 
 import {
@@ -74,7 +76,6 @@ export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoP
     SessionDataService.initializeGlobalStorageContext(storageUri.fsPath, baseRepoPath, codeAgent);
     // Wire VS Code config reads into the core service
     SessionDataService.setConfigCallbacks({
-        getUseGlobalStorage: () => vscode.workspace.getConfiguration('lanes').get<boolean>('useGlobalStorage', true),
         getWorktreesFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('worktreesFolder', '.worktrees'),
         getPromptsFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('promptsFolder', ''),
     });
@@ -99,14 +100,6 @@ export function getGlobalStoragePath(worktreePath: string, filename: string): st
 }
 
 /**
- * Check if global storage is enabled by reading VS Code configuration.
- */
-export function isGlobalStorageEnabled(): boolean {
-    const config = vscode.workspace.getConfiguration('lanes');
-    return SessionDataService.isGlobalStorageEnabled(config.get<boolean>('useGlobalStorage', true));
-}
-
-/**
  * Get the worktrees folder by reading VS Code configuration.
  */
 export function getWorktreesFolder(): string {
@@ -115,19 +108,17 @@ export function getWorktreesFolder(): string {
 }
 
 /**
- * Get the session file path, reading useGlobalStorage from VS Code config.
+ * Get the session file path (always repo-local).
  */
 export function getSessionFilePath(worktreePath: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    return SessionDataService.getSessionFilePath(worktreePath, config.get<boolean>('useGlobalStorage', true));
+    return SessionDataService.getSessionFilePath(worktreePath);
 }
 
 /**
- * Get the status file path, reading useGlobalStorage from VS Code config.
+ * Get the status file path (always repo-local).
  */
 export function getStatusFilePath(worktreePath: string): string {
-    const config = vscode.workspace.getConfiguration('lanes');
-    return SessionDataService.getStatusFilePath(worktreePath, config.get<boolean>('useGlobalStorage', true));
+    return SessionDataService.getStatusFilePath(worktreePath);
 }
 
 /**

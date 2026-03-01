@@ -16,7 +16,7 @@ import { ensureDir } from '../core/services/FileService';
 import type { ServiceContainer } from '../types/serviceContainer';
 import { getStatusWatchPattern, getSessionWatchPattern } from '../core/services/SettingsService';
 import { checkPendingSessions, checkClearRequests, getPendingSessionsDir } from './services/SessionProcessService';
-import { getRepoIdentifier, getWorktreesFolder, isGlobalStorageEnabled, DEFAULTS } from './providers/AgentSessionProvider';
+import { getRepoIdentifier, getWorktreesFolder, DEFAULTS } from './providers/AgentSessionProvider';
 import { getPromptsDir } from './providers/PreviousSessionProvider';
 
 /**
@@ -68,9 +68,9 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 3. Watch global storage directory if enabled
+    // 3. Watch global storage directory for backward compatibility
     // ============================================
-    if (isGlobalStorageEnabled() && baseRepoPath) {
+    if (baseRepoPath) {
         const repoIdentifier = getRepoIdentifier(baseRepoPath);
         const globalStoragePath = path.join(context.globalStorageUri.fsPath, repoIdentifier);
 

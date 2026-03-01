@@ -159,7 +159,6 @@ async function handleInitialize(id: number, params: Record<string, unknown>): Pr
 
         // Set up config callbacks for SessionDataService
         setConfigCallbacks({
-            getUseGlobalStorage: () => configStore!.get('lanes.useGlobalStorage') as boolean ?? true,
             getWorktreesFolder: () => configStore!.get('lanes.worktreesFolder') as string ?? '.worktrees',
             getPromptsFolder: () => configStore!.get('lanes.promptsFolder') as string ?? '',
         });

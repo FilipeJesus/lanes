@@ -20,7 +20,6 @@ import {
     saveSessionWorkflow,
     getStatusFilePath,
     getSessionFilePath,
-    isGlobalStorageEnabled,
     getWorktreesFolder,
     getGlobalCodeAgent,
     DEFAULTS,
@@ -91,38 +90,24 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
 }
 
 /**
- * Get the glob pattern for watching status files based on configuration.
- * When global storage is enabled, returns pattern for global storage.
- * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
+ * Get the glob pattern for watching status files.
+ * Always watches .lanes/session_management with wildcard subdirectories.
  * Uses CodeAgent method to determine the status file name, falling back to DEFAULTS.
  * @returns Glob pattern for watching status files
  */
 export function getStatusWatchPattern(): string {
     const statusFileName = getGlobalCodeAgent()?.getStatusFileName() || DEFAULTS.statusFileName;
-    if (isGlobalStorageEnabled()) {
-        // For global storage, files are watched by the global storage file watcher
-        // Return minimal pattern since global storage handles watching differently
-        return '**/' + statusFileName;
-    }
-    // Non-global mode: watch .lanes/session_management/**/*/<statusFileName>
     return '.lanes/session_management/**/*/' + statusFileName;
 }
 
 /**
- * Get the glob pattern for watching session files based on configuration.
- * When global storage is enabled, returns pattern for global storage.
- * When disabled, returns pattern for .lanes/session_management with wildcard subdirectories.
+ * Get the glob pattern for watching session files.
+ * Always watches .lanes/session_management with wildcard subdirectories.
  * Uses CodeAgent method to determine the session file name, falling back to DEFAULTS.
  * @returns Glob pattern for watching session files
  */
 export function getSessionWatchPattern(): string {
     const sessionFileName = getGlobalCodeAgent()?.getSessionFileName() || DEFAULTS.sessionFileName;
-    if (isGlobalStorageEnabled()) {
-        // For global storage, files are watched by the global storage file watcher
-        // Return minimal pattern since global storage handles watching differently
-        return '**/' + sessionFileName;
-    }
-    // Non-global mode: watch .lanes/session_management/**/*/<sessionFileName>
     return '.lanes/session_management/**/*/' + sessionFileName;
 }
 
