@@ -23,7 +23,6 @@ import {
     initializeGlobalStorageContext,
     getWorktreesFolder,
     getWorkflowStatus,
-    ensureLanesGitignore,
 } from './providers/AgentSessionProvider';
 
 import { SessionFormProvider, PermissionMode } from './providers/SessionFormProvider';
@@ -155,13 +154,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // This must be done before creating the session provider
     initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath, codeAgent, context);
     console.log(`Global storage initialized at: ${context.globalStorageUri.fsPath}`);
-
-    // Ensure .lanes/.gitignore exists so runtime data is never committed
-    if (baseRepoPath) {
-        ensureLanesGitignore(baseRepoPath).catch(err => {
-            console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
-        });
-    }
 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository

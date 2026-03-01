@@ -47,7 +47,6 @@ export {
     setConfigCallbacks,
     resolveSessionFilePath,
     resolveStatusFilePath,
-    ensureLanesGitignore,
 } from '../../core/session/SessionDataService';
 
 import {

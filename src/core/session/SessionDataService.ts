@@ -63,6 +63,13 @@ export function initializeGlobalStorageContext(storagePath: string, baseRepoPath
     globalStoragePath = storagePath;
     baseRepoPathForStorage = baseRepoPath;
     globalCodeAgent = codeAgent;
+
+    // Ensure .lanes/.gitignore exists so runtime data is never committed
+    if (baseRepoPath) {
+        ensureLanesGitignore(baseRepoPath).catch(err => {
+            console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
+        });
+    }
 }
 
 function getGlobalStoragePath(): string | undefined {
