@@ -1,0 +1,152 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. -->
+    <id>com.lanes.jetbrainsIde</id>
+
+    <!-- Public plugin name should be written in Title Case. -->
+    <name>Lanes: AI Session Manager</name>
+
+    <!-- A displayed Vendor name or Organization ID. -->
+    <vendor email="filipeje@hotmail.co.uk" url="https://github.com/FilipeJesus/lanes">FilipeMarquesJesus</vendor>
+
+    <!-- Description of the plugin. -->
+    <description><![CDATA[
+        <p>
+            <strong>Lanes</strong> manages isolated AI agent sessions using Git worktrees.
+            Each session gets its own worktree and dedicated terminal, enabling parallel AI-assisted development workflows.
+        </p>
+        <h3>Features</h3>
+        <ul>
+            <li>Create isolated AI coding sessions with Git worktrees</li>
+            <li>Support for multiple AI agents (Claude, Gemini, OpenCode, Codex, Cortex)</li>
+            <li>Structured workflow templates for complex tasks</li>
+            <li>Session status tracking and notifications</li>
+            <li>Terminal integration (tmux support)</li>
+            <li>Git diff visualization for each session</li>
+        </ul>
+        <h3>Getting Started</h3>
+        <ol>
+            <li>Open a Git repository in your JetBrains IDE</li>
+            <li>Open the Lanes tool window</li>
+            <li>Create a new session with a descriptive name</li>
+            <li>Your AI agent will start in a dedicated worktree</li>
+        </ol>
+    ]]></description>
+
+    <!-- Product and plugin compatibility requirements. -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <!-- Extension points and services -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Application-level service for bridge process management -->
+        <applicationService
+            serviceImplementation="com.lanes.jetbrainsIde.services.BridgeProcessManager"/>
+
+        <!-- Project-level service for storage -->
+        <projectService
+            serviceImplementation="com.lanes.jetbrainsIde.adapters.StorageAdapter"/>
+
+        <!-- Tool window for sessions panel -->
+        <toolWindow
+            id="Lanes"
+            anchor="right"
+            icon="/icons/lanes.svg"
+            factoryClass="com.lanes.jetbrainsIde.ui.LanesToolWindowFactory"/>
+
+        <!-- Settings/Preferences page -->
+        <projectConfigurable
+            parentId="tools"
+            instance="com.lanes.jetbrainsIde.settings.LanesSettingsConfigurable"
+            id="com.lanes.jetbrainsIde.settings.LanesSettingsConfigurable"
+            displayName="Lanes"/>
+
+        <!-- Startup activity to initialize bridge on project open -->
+        <projectActivity
+            implementation="com.lanes.jetbrainsIde.startup.LanesStartupActivity"/>
+    </extensions>
+
+    <!-- Plugin lifecycle listener -->
+    <applicationListeners>
+        <listener
+            class="com.lanes.jetbrainsIde.lifecycle.LanesPluginLifecycle"
+            topic="com.intellij.ide.plugins.DynamicPluginListener"/>
+    </applicationListeners>
+
+    <!-- Actions -->
+    <actions>
+        <!-- Lanes action group in Tools menu -->
+        <group id="LanesActions" text="Lanes" description="Lanes AI Session Manager" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+            <action id="lanes.newSession"
+                    class="com.lanes.jetbrainsIde.actions.NewSessionAction"
+                    text="New Session"
+                    description="Create a new AI coding session"
+                    icon="AllIcons.General.Add">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt N"/>
+            </action>
+
+            <action id="lanes.refreshSessions"
+                    class="com.lanes.jetbrainsIde.actions.RefreshSessionsAction"
+                    text="Refresh Sessions"
+                    description="Refresh the list of sessions"
+                    icon="AllIcons.Actions.Refresh"/>
+
+            <separator/>
+
+            <action id="lanes.deleteSession"
+                    class="com.lanes.jetbrainsIde.actions.DeleteSessionAction"
+                    text="Delete Session"
+                    description="Delete the selected session"
+                    icon="AllIcons.Actions.Cancel"/>
+
+            <action id="lanes.openWorktree"
+                    class="com.lanes.jetbrainsIde.actions.OpenWorktreeAction"
+                    text="Open Worktree"
+                    description="Open the session's worktree directory"
+                    icon="AllIcons.Actions.MenuOpen"/>
+
+            <action id="lanes.showDiff"
+                    class="com.lanes.jetbrainsIde.actions.ShowDiffAction"
+                    text="Show Diff"
+                    description="Show git diff for the session"
+                    icon="AllIcons.Actions.Diff"/>
+
+            <separator/>
+
+            <action id="lanes.pinSession"
+                    class="com.lanes.jetbrainsIde.actions.PinSessionAction"
+                    text="Pin Session"
+                    description="Pin session to protect from cleanup"
+                    icon="AllIcons.General.Pin_tab"/>
+
+            <action id="lanes.unpinSession"
+                    class="com.lanes.jetbrainsIde.actions.UnpinSessionAction"
+                    text="Unpin Session"
+                    description="Unpin session to allow cleanup"
+                    icon="AllIcons.General.Remove"/>
+
+            <separator/>
+
+            <action id="lanes.sendToAgent"
+                    class="com.lanes.jetbrainsIde.actions.SendToAgentAction"
+                    text="Send to Agent"
+                    description="Send a message to the agent terminal"
+                    icon="AllIcons.Actions.Execute"/>
+        </group>
+
+        <!-- Context menu for sessions tree (will be populated dynamically by SessionsTreePanel) -->
+        <group id="LanesSessionContextMenu" text="Lanes Session Context Menu" popup="true">
+            <reference id="lanes.openWorktree"/>
+            <reference id="lanes.showDiff"/>
+            <separator/>
+            <reference id="lanes.pinSession"/>
+            <reference id="lanes.unpinSession"/>
+            <separator/>
+            <reference id="lanes.sendToAgent"/>
+            <separator/>
+            <reference id="lanes.deleteSession"/>
+        </group>
+    </actions>
+</idea-plugin>

@@ -75,28 +75,8 @@ export async function initCli(): Promise<{ config: CliConfigProvider; repoRoot: 
     return { config, repoRoot };
 }
 
-/**
- * Get branches checked out in existing worktrees.
- * Used to prevent checking out the same branch in multiple worktrees.
- */
-export async function getBranchesInWorktrees(cwd: string): Promise<Set<string>> {
-    const branches = new Set<string>();
-    try {
-        const output = await execGit(['worktree', 'list', '--porcelain'], cwd);
-        const lines = output.split('\n');
-        for (const line of lines) {
-            if (line.startsWith('branch refs/heads/')) {
-                const branchName = line.replace('branch refs/heads/', '').trim();
-                if (branchName) {
-                    branches.add(branchName);
-                }
-            }
-        }
-    } catch {
-        // Return empty set for graceful degradation
-    }
-    return branches;
-}
+// Re-export from core for backward compatibility
+export { getBranchesInWorktrees } from '../core/services/BrokenWorktreeService';
 
 /**
  * Print an error message and exit with code 1.
