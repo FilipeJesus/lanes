@@ -10,6 +10,15 @@ import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { getErrorMessage } from '../utils';
 
+export interface DiffFileContent {
+    path: string;
+    status: 'A' | 'M' | 'D' | 'R' | 'C' | 'T';
+    previousPath?: string;
+    beforeContent?: string;
+    afterContent?: string;
+    isBinary?: boolean;
+}
+
 /**
  * Parse untracked files from git status --porcelain output.
  * Untracked files are indicated by '??' prefix.
@@ -284,4 +293,155 @@ export async function generateDiffContent(
     }
 
     return diffContent;
+}
+
+function parseNameStatusLine(line: string): { status: string; oldPath?: string; newPath?: string } | null {
+    if (!line.trim()) {
+        return null;
+    }
+    const parts = line.split('\t');
+    if (parts.length < 2) {
+        return null;
+    }
+
+    const rawStatus = parts[0].trim();
+    const status = rawStatus.charAt(0);
+
+    if ((status === 'R' || status === 'C') && parts.length >= 3) {
+        return {
+            status,
+            oldPath: parts[1],
+            newPath: parts[2]
+        };
+    }
+
+    return {
+        status,
+        newPath: parts[1]
+    };
+}
+
+function isLikelyBinaryText(content: string): boolean {
+    return content.includes('\0');
+}
+
+async function readWorktreeFileContent(worktreePath: string, relativePath: string): Promise<{ content?: string; isBinary: boolean }> {
+    try {
+        const fullPath = path.join(worktreePath, relativePath);
+        const buffer = await fsPromises.readFile(fullPath);
+        const content = buffer.toString('utf-8');
+        return {
+            content: isLikelyBinaryText(content) ? undefined : content,
+            isBinary: isLikelyBinaryText(content)
+        };
+    } catch {
+        return { content: undefined, isBinary: false };
+    }
+}
+
+async function readGitObjectContent(worktreePath: string, revision: string, relativePath: string): Promise<{ content?: string; isBinary: boolean }> {
+    try {
+        const content = await execGit(['show', `${revision}:${relativePath}`], worktreePath);
+        return {
+            content: isLikelyBinaryText(content) ? undefined : content,
+            isBinary: isLikelyBinaryText(content)
+        };
+    } catch {
+        return { content: undefined, isBinary: false };
+    }
+}
+
+async function resolveComparisonRef(worktreePath: string, baseBranch: string, warnedMergeBaseBranches: Set<string>): Promise<string> {
+    if (baseBranch.startsWith('origin/') || baseBranch.includes('/')) {
+        try {
+            const parts = baseBranch.split('/');
+            const remote = parts[0];
+            const branch = parts.slice(1).join('/');
+            await execGit(['fetch', remote, branch], worktreePath);
+        } catch (fetchErr) {
+            console.warn(`Lanes: Failed to fetch ${baseBranch}:`, getErrorMessage(fetchErr));
+        }
+    }
+
+    try {
+        const mergeBase = await execGit(['merge-base', baseBranch, 'HEAD'], worktreePath);
+        return mergeBase.trim();
+    } catch (mergeBaseErr) {
+        console.warn(`Lanes: Could not get merge-base for ${baseBranch}, using three-dot fallback:`, getErrorMessage(mergeBaseErr));
+        warnedMergeBaseBranches.add(baseBranch);
+        return `${baseBranch}...HEAD`;
+    }
+}
+
+/**
+ * Generate structured per-file diff content for native IDE diff viewers.
+ */
+export async function generateDiffFiles(
+    worktreePath: string,
+    baseBranch: string,
+    warnedMergeBaseBranches: Set<string>,
+    options?: {
+        includeUncommitted?: boolean;
+    }
+): Promise<DiffFileContent[]> {
+    const includeUncommitted = options?.includeUncommitted ?? true;
+    const comparisonRef = await resolveComparisonRef(worktreePath, baseBranch, warnedMergeBaseBranches);
+    const nameStatusOutput = await execGit(['diff', '--name-status', comparisonRef], worktreePath);
+    const files: DiffFileContent[] = [];
+    const seenPaths = new Set<string>();
+
+    for (const line of nameStatusOutput.split('\n')) {
+        const parsed = parseNameStatusLine(line);
+        if (!parsed || !parsed.newPath) {
+            continue;
+        }
+
+        const normalizedStatus = (parsed.status || 'M') as DiffFileContent['status'];
+        const previousPath = parsed.oldPath;
+        const filePath = parsed.newPath;
+        const beforePath = previousPath ?? filePath;
+        const before = normalizedStatus === 'A'
+            ? { content: undefined, isBinary: false }
+            : await readGitObjectContent(worktreePath, comparisonRef, beforePath);
+        const after = normalizedStatus === 'D'
+            ? { content: undefined, isBinary: false }
+            : includeUncommitted
+                ? await readWorktreeFileContent(worktreePath, filePath)
+                : await readGitObjectContent(worktreePath, 'HEAD', filePath);
+
+        files.push({
+            path: filePath,
+            status: normalizedStatus,
+            previousPath,
+            beforeContent: before.content,
+            afterContent: after.content,
+            isBinary: before.isBinary || after.isBinary
+        });
+        seenPaths.add(filePath);
+    }
+
+    if (includeUncommitted) {
+        try {
+            const statusOutput = await execGit(['status', '--porcelain'], worktreePath);
+            const untrackedFiles = parseUntrackedFiles(statusOutput);
+            for (const filePath of untrackedFiles) {
+                if (seenPaths.has(filePath) || filePath.endsWith('/')) {
+                    continue;
+                }
+                const after = await readWorktreeFileContent(worktreePath, filePath);
+                files.push({
+                    path: filePath,
+                    status: 'A',
+                    beforeContent: undefined,
+                    afterContent: after.content,
+                    isBinary: after.isBinary
+                });
+                seenPaths.add(filePath);
+            }
+        } catch (statusErr) {
+            console.warn('Lanes: Could not get untracked files:', getErrorMessage(statusErr));
+        }
+    }
+
+    return files;
 }

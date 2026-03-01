@@ -172,3 +172,27 @@ export async function killSession(name: string): Promise<void> {
 		// Ignore errors (session might not exist)
 	}
 }
+
+/**
+ * List all active tmux sessions.
+ * Returns an empty array if tmux is not running or no sessions exist.
+ *
+ * @returns Array of session names
+ */
+export async function listSessions(): Promise<string[]> {
+	try {
+		const { stdout } = await execFileAsync(
+			'tmux',
+			['list-sessions', '-F', '#{session_name}'],
+			{ timeout: TMUX_EXEC_TIMEOUT_MS }
+		);
+		return stdout
+			.trim()
+			.split('\n')
+			.map(s => s.trim())
+			.filter(s => s.length > 0);
+	} catch {
+		// tmux not running or no sessions exist
+		return [];
+	}
+}
