@@ -9,6 +9,7 @@ import com.lanes.intellij.bridge.ConfigGetResult
 import com.lanes.intellij.bridge.ConfigMethods
 import com.lanes.intellij.bridge.ConfigSetParams
 import com.lanes.intellij.bridge.ConfigSetResult
+import kotlinx.coroutines.CancellationException
 
 /**
  * Adapter for configuration management via the bridge.
@@ -50,6 +51,8 @@ class ConfigAdapter(private val client: BridgeClient) {
             } else {
                 defaultValue
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             defaultValue
         }

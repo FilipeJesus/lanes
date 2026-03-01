@@ -20,7 +20,7 @@ import { initializeGitPath } from '../core/gitService';
 import { initializeGlobalStorageContext, setConfigCallbacks } from '../core/session/SessionDataService';
 import { getAgent } from '../core/codeAgents';
 import { isTmuxInstalled } from '../core/services/TmuxService';
-import { handleRequest, initializeHandlers, disposeHandlers } from './handlers';
+import { handleRequest, initializeHandlers, disposeHandlers, JsonRpcHandlerError } from './handlers';
 import { NotificationEmitter } from './notifications';
 import { ConfigStore } from './config';
 import { GitError } from '../core/errors';
@@ -264,7 +264,9 @@ async function processRequest(request: JsonRpcRequest): Promise<void> {
 
         // Map error types to error codes using typed errors
         let code = ErrorCodes.INTERNAL_ERROR;
-        if (err instanceof GitError) {
+        if (err instanceof JsonRpcHandlerError) {
+            code = err.code;
+        } else if (err instanceof GitError) {
             code = ErrorCodes.GIT_ERROR;
         } else if (err instanceof ValidationError) {
             code = ErrorCodes.VALIDATION_ERROR;

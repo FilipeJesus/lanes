@@ -7,8 +7,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as chokidar from 'chokidar';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const picomatch = require('picomatch') as (pattern: string) => (input: string) => boolean;
+import picomatch from 'picomatch';
 import { NotificationEmitter } from './notifications';
 
 /**

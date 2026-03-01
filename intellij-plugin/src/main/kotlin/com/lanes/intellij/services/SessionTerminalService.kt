@@ -1,6 +1,7 @@
 package com.lanes.intellij.services
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
@@ -33,12 +34,42 @@ object SessionTerminalService {
     }
 
     fun sendTextToSessionTerminal(project: Project, sessionName: String, text: String): Boolean {
-        val managerClass = runCatching { Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager") }
-            .getOrNull() ?: return false
+        val ideVersion = ApplicationInfo.getInstance().fullVersion
+        val managerClass = try {
+            Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager")
+        } catch (e: ClassNotFoundException) {
+            logger.warn(
+                "Terminal API not available in this IntelliJ version ($ideVersion). " +
+                    "Please report this issue.",
+                e
+            )
+            return false
+        }
         val getInstance = managerClass.methods.firstOrNull {
             it.name == "getInstance" && it.parameterCount == 1
-        } ?: return false
-        val manager = getInstance.invoke(null, project) ?: return false
+        } ?: run {
+            logger.warn(
+                "TerminalToolWindowManager.getInstance(Project) not found in IntelliJ version ($ideVersion). " +
+                    "Please report this issue."
+            )
+            return false
+        }
+        val manager = try {
+            getInstance.invoke(null, project)
+        } catch (e: Exception) {
+            logger.warn(
+                "Failed to resolve TerminalToolWindowManager instance in IntelliJ version ($ideVersion). " +
+                    "Please report this issue.",
+                e
+            )
+            return false
+        } ?: run {
+            logger.warn(
+                "TerminalToolWindowManager instance is null in IntelliJ version ($ideVersion). " +
+                    "Please report this issue."
+            )
+            return false
+        }
         val title = "Lanes: $sessionName"
         val widget = findWidget(manager, title) ?: return false
 
@@ -47,8 +78,23 @@ object SessionTerminalService {
             it.name == "executeCommand" &&
                 it.parameterCount == 1 &&
                 it.parameterTypes[0] == String::class.java
-        } ?: return false
-        executeCommand.invoke(widget, text)
+        } ?: run {
+            logger.warn(
+                "Terminal widget executeCommand method not found in IntelliJ version ($ideVersion). " +
+                    "Please report this issue."
+            )
+            return false
+        }
+        try {
+            executeCommand.invoke(widget, text)
+        } catch (e: Exception) {
+            logger.warn(
+                "Failed to invoke executeCommand on terminal widget in IntelliJ version ($ideVersion). " +
+                    "Please report this issue.",
+                e
+            )
+            return false
+        }
         return true
     }
 
@@ -59,14 +105,34 @@ object SessionTerminalService {
         command: String? = null
     ) {
         ApplicationManager.getApplication().invokeLater {
+            val ideVersion = ApplicationInfo.getInstance().fullVersion
             runCatching {
-                val managerClass = Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager")
+                val managerClass = try {
+                    Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager")
+                } catch (e: ClassNotFoundException) {
+                    error(
+                        "Terminal API not available in this IntelliJ version ($ideVersion). " +
+                            "Please report this issue."
+                    )
+                }
                 val getInstance = managerClass.methods.firstOrNull {
                     it.name == "getInstance" && it.parameterCount == 1
-                } ?: error("TerminalToolWindowManager.getInstance(Project) not found")
+                } ?: error(
+                    "TerminalToolWindowManager.getInstance(Project) not found in IntelliJ version ($ideVersion). " +
+                        "Please report this issue."
+                )
 
-                val manager = getInstance.invoke(null, project)
-                    ?: error("Failed to resolve TerminalToolWindowManager instance")
+                val manager = try {
+                    getInstance.invoke(null, project)
+                } catch (e: Exception) {
+                    error(
+                        "Failed to resolve TerminalToolWindowManager instance in IntelliJ version ($ideVersion). " +
+                            "Please report this issue."
+                    )
+                } ?: error(
+                    "TerminalToolWindowManager instance is null in IntelliJ version ($ideVersion). " +
+                        "Please report this issue."
+                )
 
                 val existingContent = findExistingTerminalContent(project, title)
                 if (existingContent != null) {
@@ -82,7 +148,10 @@ object SessionTerminalService {
 
                 val widget = createWidget(manager, worktreePath, title)
                 if (widget == null) {
-                    logger.warn("Could not create terminal widget: $title")
+                    logger.warn(
+                        "Could not create terminal widget '$title' in IntelliJ version ($ideVersion). " +
+                            "Please report this issue."
+                    )
                     return@runCatching
                 }
 
@@ -94,7 +163,22 @@ object SessionTerminalService {
                             it.parameterCount == 1 &&
                             it.parameterTypes[0] == String::class.java
                     }
-                    executeCommand?.invoke(widget, command)
+                    if (executeCommand == null) {
+                        logger.warn(
+                            "Terminal widget executeCommand method not found in IntelliJ version ($ideVersion). " +
+                                "Please report this issue."
+                        )
+                    } else {
+                        try {
+                            executeCommand.invoke(widget, command)
+                        } catch (e: Exception) {
+                            logger.warn(
+                                "Failed to invoke executeCommand on terminal widget in IntelliJ version ($ideVersion). " +
+                                    "Please report this issue.",
+                                e
+                            )
+                        }
+                    }
                 }
             }.onFailure { err ->
                 logger.warn("Failed to open terminal '$title': ${err.message}", err)

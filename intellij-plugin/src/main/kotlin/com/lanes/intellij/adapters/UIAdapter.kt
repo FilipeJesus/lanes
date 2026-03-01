@@ -7,7 +7,7 @@ import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.lanes.intellij.bridge.QuickPickItem
-import java.util.concurrent.CompletableFuture
+import kotlinx.coroutines.CompletableDeferred
 import javax.swing.Icon
 
 /**
@@ -60,10 +60,10 @@ class UIAdapter(private val project: Project) {
      * @param options Quick pick options (placeholder, title, etc.)
      * @return Selected item or null if cancelled
      */
-    fun showQuickPick(items: List<QuickPickItem>, options: QuickPickOptions? = null): QuickPickItem? {
-        val future = CompletableFuture<QuickPickItem?>()
+    suspend fun showQuickPick(items: List<QuickPickItem>, options: QuickPickOptions? = null): QuickPickItem? {
+        val deferred = CompletableDeferred<QuickPickItem?>()
 
-        ApplicationManager.getApplication().invokeAndWait {
+        ApplicationManager.getApplication().invokeLater {
             val popup = JBPopupFactory.getInstance().createListPopup(
                 object : BaseListPopupStep<QuickPickItem>(
                     options?.title ?: "Select",
@@ -79,7 +79,7 @@ class UIAdapter(private val project: Project) {
 
                     override fun onChosen(selectedValue: QuickPickItem?, finalChoice: Boolean): PopupStep<*>? {
                         if (finalChoice) {
-                            future.complete(selectedValue)
+                            deferred.complete(selectedValue)
                         }
                         return null
                     }
@@ -89,7 +89,7 @@ class UIAdapter(private val project: Project) {
                     }
 
                     override fun canceled() {
-                        future.complete(null)
+                        deferred.complete(null)
                     }
                 }
             )
@@ -97,7 +97,7 @@ class UIAdapter(private val project: Project) {
             popup.showCenteredInCurrentWindow(project)
         }
 
-        return future.get()
+        return deferred.await()
     }
 
     /**
