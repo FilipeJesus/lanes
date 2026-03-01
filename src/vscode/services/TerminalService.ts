@@ -16,15 +16,12 @@ import * as fsPromises from 'fs/promises';
 import { fileExists, ensureDir, writeJson, readJson } from '../../core/services/FileService';
 import { SessionItem, getStatusFilePath, getSessionFilePath } from '../providers/AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../providers/SessionFormProvider';
-import { CodeAgent } from '../../core/codeAgents';
+import { CodeAgent, McpConfig } from '../../core/codeAgents';
 import * as TmuxService from '../../core/services/TmuxService';
 import { startPolling, stopPolling } from './PollingStatusService';
 import { getErrorMessage } from '../../core/utils';
-import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchSetupService';
+import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
 import {
-    getSessionId,
-    getSessionWorkflow,
-    getSessionPermissionMode,
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     getSessionTerminalMode,
@@ -288,63 +285,38 @@ async function openClaudeTerminalTmux(
     await TmuxService.sendCommand(tmuxSessionName, `export CLAUDE_CODE_TASK_LIST_ID='${taskListId}'`);
 
     try {
-        // Get or create the extension settings file with hooks
-        let settingsPath: string | undefined;
-        let mcpConfigPath: string | undefined;
-        let mcpConfigOverrides: string[] | undefined;
-
-        // Determine effective workflow: use provided workflow or restore from session data
-        let effectiveWorkflow = workflow;
-        if (!effectiveWorkflow) {
-            const savedWorkflow = await getSessionWorkflow(worktreePath);
-            if (savedWorkflow) {
-                effectiveWorkflow = savedWorkflow;
+        const launch = await prepareAgentLaunchContext({
+            worktreePath,
+            workflow,
+            permissionMode,
+            codeAgent,
+            repoRoot,
+            onWarning: (message) => console.warn(`Lanes: ${message}`),
+            fallbackMcpConfigFactory: ({ worktreePath: wtPath, workflowPath, repoRoot: effectiveRepoRoot }) => {
+                const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+                const fallback: McpConfig = {
+                    mcpServers: {
+                        'lanes-workflow': {
+                            command: process.versions.electron ? 'node' : process.execPath,
+                            args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
+                        }
+                    }
+                };
+                return fallback;
             }
-        }
+        });
 
-        // Determine effective permission mode: use provided or restore from session data
-        let effectivePermissionMode = permissionMode;
-        if (!effectivePermissionMode) {
-            const savedMode = await getSessionPermissionMode(worktreePath);
-            if (savedMode && isValidPermissionMode(savedMode)) {
-                effectivePermissionMode = savedMode as PermissionMode;
-            }
-        }
-
-        try {
-            const launchContext = await prepareAgentLaunchContext({
-                worktreePath,
-                workflow,
-                permissionMode: effectivePermissionMode,
-                codeAgent,
-                repoRoot
-            });
-            settingsPath = launchContext.settingsPath;
-            mcpConfigPath = launchContext.mcpConfigPath;
-            mcpConfigOverrides = launchContext.mcpConfigOverrides;
-            effectiveWorkflow = launchContext.effectiveWorkflow ?? undefined;
-            const resolvedPermissionMode = launchContext.effectivePermissionMode;
-            if (resolvedPermissionMode && isValidPermissionMode(resolvedPermissionMode)) {
-                effectivePermissionMode = resolvedPermissionMode as PermissionMode;
-            }
-        } catch (err) {
-            console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
-            // Continue without the settings - hooks/MCP won't work but Claude will still run
-        }
-
-        // Auto-start agent - resume if session ID exists, otherwise start fresh
-        const sessionData = await getSessionId(worktreePath, codeAgent);
         let shouldStartFresh = true;
 
-        if (sessionData?.sessionId) {
+        if (launch.sessionData?.sessionId) {
             // Try to resume existing session
             if (codeAgent) {
                 try {
                     // Use CodeAgent to build resume command
-                    const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
-                        settingsPath,
-                        mcpConfigPath,
-                        mcpConfigOverrides
+                    const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                        settingsPath: launch.settingsPath,
+                        mcpConfigPath: launch.mcpConfigPath,
+                        mcpConfigOverrides: launch.mcpConfigOverrides
                     });
                     await TmuxService.sendCommand(tmuxSessionName, resumeCommand);
                     shouldStartFresh = false;
@@ -354,16 +326,16 @@ async function openClaudeTerminalTmux(
                 }
             } else {
                 // Fallback to hardcoded command construction
-                const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
-                const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
-                await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
+                const mcpConfigFlag = launch.mcpConfigPath ? `--mcp-config "${launch.mcpConfigPath}" ` : '';
+                const settingsFlag = launch.settingsPath ? `--settings "${launch.settingsPath}" ` : '';
+                await TmuxService.sendCommand(tmuxSessionName, `claude ${mcpConfigFlag}${settingsFlag}--resume ${launch.sessionData.sessionId}`.trim());
                 shouldStartFresh = false;
             }
         }
 
         if (shouldStartFresh) {
             // Validate permissionMode to prevent command injection from untrusted webview input
-            const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
+            const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
             // Persist permission mode and terminal mode for future session clears/restarts
             await saveSessionPermissionMode(worktreePath, validatedMode);
@@ -372,12 +344,12 @@ async function openClaudeTerminalTmux(
             let combinedPrompt = prompt?.trim() || '';
 
             // For workflow sessions, prepend orchestrator instructions
-            if (effectiveWorkflow && combinedPrompt) {
+            if (launch.effectiveWorkflow && combinedPrompt) {
                 // User provided a prompt - prepend orchestrator instructions
-                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + combinedPrompt;
-            } else if (effectiveWorkflow && skipWorkflowPrompt) {
+                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + combinedPrompt;
+            } else if (launch.effectiveWorkflow && skipWorkflowPrompt) {
                 // Cleared session with workflow - add resume prompt
-                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
+                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
 
 To resume your work:
 1. Call workflow_status to check the current state of the workflow
@@ -385,9 +357,9 @@ To resume your work:
 3. Continue with the next steps in the workflow
 
 Proceed with resuming the workflow from where it left off.`;
-            } else if (effectiveWorkflow) {
+            } else if (launch.effectiveWorkflow) {
                 // New workflow session without user prompt - add start prompt
-                combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
+                combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + 'Start the workflow and follow the steps.';
             } else if (skipWorkflowPrompt) {
                 // Cleared session without a workflow - prompt Claude to check for workflow state
                 combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
@@ -416,9 +388,9 @@ Proceed by calling workflow_status now.`;
                 // Use CodeAgent to build start command (each agent handles prompt formatting)
                 const startCommand = codeAgent.buildStartCommand({
                     permissionMode: validatedMode,
-                    settingsPath,
-                    mcpConfigPath,
-                    mcpConfigOverrides,
+                    settingsPath: launch.settingsPath,
+                    mcpConfigPath: launch.mcpConfigPath,
+                    mcpConfigOverrides: launch.mcpConfigOverrides,
                     prompt: promptFileCommand || combinedPrompt || undefined
                 });
                 await TmuxService.sendCommand(tmuxSessionName, startCommand);
@@ -429,8 +401,8 @@ Proceed by calling workflow_status now.`;
                 }
             } else {
                 // Fallback to hardcoded command construction
-                const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
-                const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+                const mcpConfigFlag = launch.mcpConfigPath ? `--mcp-config "${launch.mcpConfigPath}" ` : '';
+                const settingsFlag = launch.settingsPath ? `--settings "${launch.settingsPath}" ` : '';
                 const permissionFlag = `--permission-mode ${validatedMode} `;
 
                 if (promptFileCommand) {
@@ -558,70 +530,46 @@ export async function openAgentTerminal(
         await trackHooklessTerminal(terminal, worktreePath);
     }
 
-    // C. Get or create the extension settings file with hooks
-    let settingsPath: string | undefined;
-    let mcpConfigPath: string | undefined;
-    let mcpConfigOverrides: string[] | undefined;
-
-    // Determine effective workflow: use provided workflow or restore from session data
-    let effectiveWorkflow = workflow;
-    if (!effectiveWorkflow) {
-        const savedWorkflow = await getSessionWorkflow(worktreePath);
-        if (savedWorkflow) {
-            effectiveWorkflow = savedWorkflow;
+    const launch = await prepareAgentLaunchContext({
+        worktreePath,
+        workflow,
+        permissionMode,
+        codeAgent,
+        repoRoot,
+        onWarning: (message) => console.warn(`Lanes: ${message}`),
+        fallbackMcpConfigFactory: ({ worktreePath: wtPath, workflowPath, repoRoot: effectiveRepoRoot }) => {
+            const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+            const fallback: McpConfig = {
+                mcpServers: {
+                    'lanes-workflow': {
+                        command: process.versions.electron ? 'node' : process.execPath,
+                        args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
+                    }
+                }
+            };
+            return fallback;
         }
-    }
-
-    // Determine effective permission mode: use provided or restore from session data
-    let effectivePermissionMode = permissionMode;
-    if (!effectivePermissionMode) {
-        const savedMode = await getSessionPermissionMode(worktreePath);
-        if (savedMode && isValidPermissionMode(savedMode)) {
-            effectivePermissionMode = savedMode as PermissionMode;
-        }
-    }
-
-    try {
-        const launchContext = await prepareAgentLaunchContext({
-            worktreePath,
-            workflow,
-            permissionMode: effectivePermissionMode,
-            codeAgent,
-            repoRoot
-        });
-        settingsPath = launchContext.settingsPath;
-        mcpConfigPath = launchContext.mcpConfigPath;
-        mcpConfigOverrides = launchContext.mcpConfigOverrides;
-        effectiveWorkflow = launchContext.effectiveWorkflow ?? undefined;
-        const resolvedPermissionMode = launchContext.effectivePermissionMode;
-        if (resolvedPermissionMode && isValidPermissionMode(resolvedPermissionMode)) {
-            effectivePermissionMode = resolvedPermissionMode as PermissionMode;
-        }
-    } catch (err) {
-        console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
-        // Continue without the settings - hooks/MCP won't work but Claude will still run
-    }
+    });
 
     // D. Auto-start agent - resume if session ID exists, otherwise start fresh
-    const sessionData = await getSessionId(worktreePath, codeAgent);
     let shouldStartFresh = true;
 
-    if (sessionData?.sessionId) {
+    if (launch.sessionData?.sessionId) {
         // Try to resume existing session
         if (codeAgent) {
             try {
                 // Use CodeAgent to build resume command
-                const resumeCommand = codeAgent.buildResumeCommand(sessionData.sessionId, {
-                    settingsPath,
-                    mcpConfigPath,
-                    mcpConfigOverrides
+                const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                    settingsPath: launch.settingsPath,
+                    mcpConfigPath: launch.mcpConfigPath,
+                    mcpConfigOverrides: launch.mcpConfigOverrides
                 });
                 terminal.sendText(resumeCommand);
                 shouldStartFresh = false;
 
                 // For hookless agents resuming, start polling if we have a saved logPath
-                if (!codeAgent.supportsHooks() && sessionData.logPath) {
-                    startPolling(terminal, sessionData.logPath, worktreePath);
+                if (!codeAgent.supportsHooks() && launch.sessionData.logPath) {
+                    startPolling(terminal, launch.sessionData.logPath, worktreePath);
                 }
             } catch (err) {
                 // Invalid session ID format - log and start fresh session
@@ -629,9 +577,9 @@ export async function openAgentTerminal(
             }
         } else {
             // Fallback to hardcoded command construction
-            const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
-            const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
-            terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}--resume ${sessionData.sessionId}`.trim());
+            const mcpConfigFlag = launch.mcpConfigPath ? `--mcp-config "${launch.mcpConfigPath}" ` : '';
+            const settingsFlag = launch.settingsPath ? `--settings "${launch.settingsPath}" ` : '';
+            terminal.sendText(`claude ${mcpConfigFlag}${settingsFlag}--resume ${launch.sessionData.sessionId}`.trim());
             shouldStartFresh = false;
         }
     }
@@ -641,7 +589,7 @@ export async function openAgentTerminal(
         const beforeStartTimestamp = new Date();
 
         // Validate permissionMode to prevent command injection from untrusted webview input
-        const validatedMode = isValidPermissionMode(effectivePermissionMode) ? effectivePermissionMode : 'acceptEdits';
+        const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
         // Persist permission mode and terminal mode for future session clears/restarts
         await saveSessionPermissionMode(worktreePath, validatedMode);
@@ -652,12 +600,12 @@ export async function openAgentTerminal(
         // For workflow sessions, prepend orchestrator instructions
         // Note: use effectiveWorkflow (which includes restored workflow from session data)
         // not workflow (the parameter, which may be undefined for cleared sessions)
-        if (effectiveWorkflow && combinedPrompt) {
+        if (launch.effectiveWorkflow && combinedPrompt) {
             // User provided a prompt - prepend orchestrator instructions
-            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + combinedPrompt;
-        } else if (effectiveWorkflow && skipWorkflowPrompt) {
+            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + combinedPrompt;
+        } else if (launch.effectiveWorkflow && skipWorkflowPrompt) {
             // Cleared session with workflow - add resume prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
+            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + `This is a Lanes workflow session that has been cleared.
 
 To resume your work:
 1. Call workflow_status to check the current state of the workflow
@@ -665,9 +613,9 @@ To resume your work:
 3. Continue with the next steps in the workflow
 
 Proceed with resuming the workflow from where it left off.`;
-        } else if (effectiveWorkflow) {
+        } else if (launch.effectiveWorkflow) {
             // New workflow session without user prompt - add start prompt
-            combinedPrompt = getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
+            combinedPrompt = getWorkflowOrchestratorInstructions(launch.effectiveWorkflow) + 'Start the workflow and follow the steps.';
         } else if (skipWorkflowPrompt) {
             // Cleared session without a workflow - prompt Claude to check for workflow state
             combinedPrompt = `This is a Lanes session that has been cleared and restarted with fresh context.
@@ -697,9 +645,9 @@ Proceed by calling workflow_status now.`;
             // Use CodeAgent to build start command (each agent handles prompt formatting)
             const startCommand = codeAgent.buildStartCommand({
                 permissionMode: validatedMode,
-                settingsPath,
-                mcpConfigPath,
-                mcpConfigOverrides,
+                settingsPath: launch.settingsPath,
+                mcpConfigPath: launch.mcpConfigPath,
+                mcpConfigOverrides: launch.mcpConfigOverrides,
                 prompt: promptFileCommand || combinedPrompt || undefined
             });
             terminal.sendText(startCommand);
@@ -710,8 +658,8 @@ Proceed by calling workflow_status now.`;
             }
         } else {
             // Fallback to hardcoded command construction
-            const mcpConfigFlag = mcpConfigPath ? `--mcp-config "${mcpConfigPath}" ` : '';
-            const settingsFlag = settingsPath ? `--settings "${settingsPath}" ` : '';
+            const mcpConfigFlag = launch.mcpConfigPath ? `--mcp-config "${launch.mcpConfigPath}" ` : '';
+            const settingsFlag = launch.settingsPath ? `--settings "${launch.settingsPath}" ` : '';
             const permissionFlag = `--permission-mode ${validatedMode} `;
 
             if (promptFileCommand) {

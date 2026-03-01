@@ -311,7 +311,6 @@ suite('Broken Worktree Repair', () => {
 		if (execGitStub) {
 			execGitStub.restore();
 		}
-
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
