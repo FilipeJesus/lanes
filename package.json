@@ -281,7 +281,7 @@
           "lanes.promptsFolder": {
             "type": "string",
             "default": "",
-            "description": "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
+            "description": "Folder where session starting prompts are stored. Leave empty (default) to use .lanes/prompts/ at the repository root. Set a custom path for an alternative repo-relative location.",
             "order": 2
           },
           "lanes.defaultAgent": {
@@ -326,12 +326,6 @@
       {
         "title": "Lanes: Advanced",
         "properties": {
-          "lanes.useGlobalStorage": {
-            "type": "boolean",
-            "default": true,
-            "description": "Store session tracking files in VS Code's global storage. When enabled, files are stored in VS Code storage. When disabled, files are stored in .lanes/session_management/ at the repository root. Default: enabled",
-            "order": 1
-          },
           "lanes.localSettingsPropagation": {
             "type": "string",
             "enum": [
@@ -346,7 +340,7 @@
             ],
             "default": "copy",
             "description": "How to propagate .claude/settings.local.json to worktrees. Ensures your local Claude Code configuration is available in all sessions.",
-            "order": 2
+            "order": 1
           }
         }
       },

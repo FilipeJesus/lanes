@@ -17,7 +17,6 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     'lanes.defaultAgent': 'claude',
     'lanes.baseBranch': '',
     'lanes.includeUncommittedChanges': true,
-    'lanes.useGlobalStorage': true,
     'lanes.localSettingsPropagation': 'copy',
     'lanes.workflowsEnabled': true,
     'lanes.customWorkflowsFolder': '.lanes/workflows',

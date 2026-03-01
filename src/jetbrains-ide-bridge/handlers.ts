@@ -129,7 +129,6 @@ const VALID_CONFIG_KEYS = [
     'lanes.defaultAgent',
     'lanes.baseBranch',
     'lanes.includeUncommittedChanges',
-    'lanes.useGlobalStorage',
     'lanes.localSettingsPropagation',
     'lanes.workflowsEnabled',
     'lanes.customWorkflowsFolder',

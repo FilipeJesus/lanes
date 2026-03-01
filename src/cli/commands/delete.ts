@@ -45,7 +45,7 @@ export function registerDeleteCommand(program: Command): void {
                 await execGit(['worktree', 'remove', worktreePath, '--force'], repoRoot);
 
                 // Clean up session management files
-                const sessionMgmtDir = path.join(repoRoot, '.lanes', 'session_management', sessionName);
+                const sessionMgmtDir = path.join(repoRoot, '.lanes', 'current-sessions', sessionName);
                 await fsPromises.rm(sessionMgmtDir, { recursive: true, force: true }).catch(() => {});
 
                 console.log(`Session '${sessionName}' deleted.`);

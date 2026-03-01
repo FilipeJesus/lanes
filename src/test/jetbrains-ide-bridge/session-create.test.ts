@@ -22,7 +22,7 @@ suite('Bridge session.create branch behavior', () => {
         const config = new ConfigStore(tempDir);
         await config.initialize();
         initializeHandlers(tempDir, config, new NotificationEmitter());
-        // Override global storage to use tempDir so getPromptsPath uses legacy .lanes/ path
+        // Initialize storage context for prompt path resolution
         initializeGlobalStorageContext('', tempDir, getAgent('claude')!);
 
         execGitStub = sinon.stub(gitService, 'execGit').resolves('');
@@ -106,7 +106,7 @@ suite('Bridge session.create branch behavior', () => {
             prompt: 'Please fix flaky tests.'
         });
 
-        const promptPath = path.join(tempDir, '.lanes', 'feat-prompt.txt');
+        const promptPath = path.join(tempDir, '.lanes', 'prompts', 'feat-prompt.txt');
         assert.strictEqual(fs.readFileSync(promptPath, 'utf-8'), 'Please fix flaky tests.');
 
         sinon.assert.calledWithMatch(

@@ -61,7 +61,6 @@ export async function initCli(): Promise<{ config: CliConfigProvider; repoRoot: 
 
     // Wire up SessionDataService config callbacks
     setConfigCallbacks({
-        getUseGlobalStorage: () => false,  // CLI always uses local storage
         getWorktreesFolder: () => config.get('lanes', 'worktreesFolder', '.worktrees'),
         getPromptsFolder: () => config.get('lanes', 'promptsFolder', ''),
     });

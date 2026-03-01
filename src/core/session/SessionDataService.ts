@@ -13,7 +13,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CodeAgent, DEFAULT_AGENT_NAME, getAgent } from '../codeAgents';
 import { validateWorktreesFolder } from '../validation';
-import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory } from '../services/FileService';
+import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory, atomicWrite } from '../services/FileService';
 import {
     AgentStatusState,
     AgentSessionStatus,
@@ -37,7 +37,6 @@ let globalCodeAgent: CodeAgent | undefined;
 
 // Configuration callbacks - set by the platform adapter (VS Code, CLI, etc.)
 // These allow the core to read current config values without depending on any platform.
-let configGetUseGlobalStorage: () => boolean = () => true;
 let configGetWorktreesFolder: () => string = () => '.worktrees';
 let configGetPromptsFolder: () => string = () => '';
 
@@ -46,11 +45,9 @@ let configGetPromptsFolder: () => string = () => '';
  * Must be called during initialization by the platform adapter.
  */
 export function setConfigCallbacks(callbacks: {
-    getUseGlobalStorage?: () => boolean;
     getWorktreesFolder?: () => string;
     getPromptsFolder?: () => string;
 }): void {
-    if (callbacks.getUseGlobalStorage) { configGetUseGlobalStorage = callbacks.getUseGlobalStorage; }
     if (callbacks.getWorktreesFolder) { configGetWorktreesFolder = callbacks.getWorktreesFolder; }
     if (callbacks.getPromptsFolder) { configGetPromptsFolder = callbacks.getPromptsFolder; }
 }
@@ -66,9 +63,16 @@ export function initializeGlobalStorageContext(storagePath: string, baseRepoPath
     globalStoragePath = storagePath;
     baseRepoPathForStorage = baseRepoPath;
     globalCodeAgent = codeAgent;
+
+    // Ensure .lanes/.gitignore exists so runtime data is never committed
+    if (baseRepoPath) {
+        ensureLanesGitignore(baseRepoPath).catch(err => {
+            console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
+        });
+    }
 }
 
-export function getGlobalStoragePath(): string | undefined {
+function getGlobalStoragePath(): string | undefined {
     return globalStoragePath;
 }
 
@@ -84,7 +88,7 @@ export function getGlobalCodeAgent(): CodeAgent | undefined {
 // Pure utility functions
 // ---------------------------------------------------------------------------
 
-export function getRepoIdentifier(repoPath: string): string {
+function getRepoIdentifier(repoPath: string): string {
     const normalizedPath = path.normalize(repoPath).toLowerCase();
     const hash = crypto.createHash('sha256').update(normalizedPath).digest('hex').substring(0, 8);
     const repoName = path.basename(repoPath).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -93,6 +97,50 @@ export function getRepoIdentifier(repoPath: string): string {
 
 export function getSessionNameFromWorktree(worktreePath: string): string {
     return path.basename(worktreePath);
+}
+
+/**
+ * Get the repo-local settings directory for a session.
+ * Settings files (claude-settings.json, register-artefact.sh, mcp-config.json)
+ * are co-located with session/status files under: <baseRepo>/.lanes/current-sessions/<sessionName>/
+ */
+export function getSettingsDir(worktreePath: string): string {
+    const sessionName = getSessionNameFromWorktree(worktreePath);
+    const baseRepoPath = getBaseRepoPathForStorage() || path.dirname(path.dirname(worktreePath));
+    return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName);
+}
+
+/**
+ * Ensure a .gitignore file exists inside <repoRoot>/.lanes/ so that
+ * runtime directories are never committed.
+ */
+export async function ensureLanesGitignore(repoRoot: string): Promise<void> {
+    const lanesDir = path.join(repoRoot, '.lanes');
+    const gitignorePath = path.join(lanesDir, '.gitignore');
+
+    const entries = [
+        'clear-requests',
+        'current-sessions',
+        'pending-sessions',
+        'prompts',
+    ];
+
+    try {
+        await ensureDir(lanesDir);
+
+        let existing = '';
+        try { existing = await readFile(gitignorePath); } catch { /* file doesn't exist yet */ }
+
+        const existingLines = new Set(existing.split('\n').map(l => l.trim()));
+        const missing = entries.filter(e => !existingLines.has(e));
+        if (missing.length === 0) { return; }
+
+        const suffix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+        const content = existing + suffix + missing.join('\n') + '\n';
+        await atomicWrite(gitignorePath, content);
+    } catch (err) {
+        console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
+    }
 }
 
 /**
@@ -111,41 +159,27 @@ export function getPromptsPath(sessionName: string, repoRoot: string, promptsFol
     if (promptsFolder && promptsFolder.trim()) {
         const trimmedFolder = promptsFolder.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
         if (!trimmedFolder) { /* fall through */ }
-        else if (path.isAbsolute(trimmedFolder)) { console.warn('Lanes: Absolute paths not allowed in promptsFolder. Using global storage.'); }
-        else if (trimmedFolder.includes('..')) { console.warn('Lanes: Invalid promptsFolder path (contains ..). Using global storage.'); }
+        else if (path.isAbsolute(trimmedFolder)) { console.warn('Lanes: Absolute paths not allowed in promptsFolder. Using .lanes/prompts.'); }
+        else if (trimmedFolder.includes('..')) { console.warn('Lanes: Invalid promptsFolder path (contains ..). Using .lanes/prompts.'); }
         else {
             const promptsDir = path.join(repoRoot, trimmedFolder);
             return { path: path.join(promptsDir, `${sessionName}.txt`), needsDir: promptsDir };
         }
     }
-    if (!globalStoragePath || !baseRepoPathForStorage) {
-        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.lanes).');
-        const legacyDir = path.join(repoRoot, '.lanes');
-        return { path: path.join(legacyDir, `${sessionName}.txt`), needsDir: legacyDir };
-    }
-    const repoIdentifier = getRepoIdentifier(baseRepoPathForStorage);
-    const promptsDir = path.join(globalStoragePath, repoIdentifier, 'prompts');
+    // Default: use repo-local .lanes/prompts/ directory
+    const promptsDir = path.join(repoRoot, '.lanes', 'prompts');
     return { path: path.join(promptsDir, `${sessionName}.txt`), needsDir: promptsDir };
 }
 
 /**
  * Build a global storage path for a worktree file.
+ * Used internally by fallback resolvers for backward-compatible reads.
  */
-export function getGlobalStorageFilePath(worktreePath: string, filename: string): string | null {
+function getGlobalStorageFilePath(worktreePath: string, filename: string): string | null {
     if (!globalStoragePath || !baseRepoPathForStorage) { return null; }
     const repoIdentifier = getRepoIdentifier(baseRepoPathForStorage);
     const sessionName = getSessionNameFromWorktree(worktreePath);
     return path.join(globalStoragePath, repoIdentifier, sessionName, filename);
-}
-
-/**
- * Check if global storage is enabled.
- *
- * @param useGlobalStorage - The configured lanes.useGlobalStorage setting value. If not provided, reads from config callback.
- */
-export function isGlobalStorageEnabled(useGlobalStorage?: boolean): boolean {
-    if (useGlobalStorage === undefined) { return configGetUseGlobalStorage(); }
-    return useGlobalStorage;
 }
 
 /**
@@ -167,16 +201,12 @@ export function getWorktreesFolder(worktreesFolderSetting?: string): string {
 
 /**
  * Get the session file path for a worktree.
+ * Always returns the repo-local .lanes/current-sessions/ path (write target).
  *
  * @param worktreePath - Path to the worktree
- * @param useGlobalStorage - Whether global storage is enabled. If not provided, reads from config callback.
  */
-export function getSessionFilePath(worktreePath: string, useGlobalStorage?: boolean): string {
+export function getSessionFilePath(worktreePath: string): string {
     const sessionFileName = globalCodeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
-    if (isGlobalStorageEnabled(useGlobalStorage)) {
-        const globalPath = getGlobalStorageFilePath(worktreePath, sessionFileName);
-        if (globalPath) { return globalPath; }
-    }
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, sessionFileName);
@@ -184,19 +214,47 @@ export function getSessionFilePath(worktreePath: string, useGlobalStorage?: bool
 
 /**
  * Get the status file path for a worktree.
+ * Always returns the repo-local .lanes/current-sessions/ path (write target).
  *
  * @param worktreePath - Path to the worktree
- * @param useGlobalStorage - Whether global storage is enabled. If not provided, reads from config callback.
  */
-export function getStatusFilePath(worktreePath: string, useGlobalStorage?: boolean): string {
+export function getStatusFilePath(worktreePath: string): string {
     const statusFileName = globalCodeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
-    if (isGlobalStorageEnabled(useGlobalStorage)) {
-        const globalPath = getGlobalStorageFilePath(worktreePath, statusFileName);
-        if (globalPath) { return globalPath; }
-    }
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName, statusFileName);
+}
+
+/**
+ * Resolve the session file path for reading, with backward-compatible fallback.
+ * Checks the repo-local path first; if not found, checks the old global storage path.
+ *
+ * @param worktreePath - Path to the worktree
+ * @returns The path where the session file exists, or the repo-local path if neither exists
+ */
+export async function resolveSessionFilePath(worktreePath: string): Promise<string> {
+    const localPath = getSessionFilePath(worktreePath);
+    if (await fileExists(localPath)) { return localPath; }
+    const sessionFileName = globalCodeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
+    const globalPath = getGlobalStorageFilePath(worktreePath, sessionFileName);
+    if (globalPath && await fileExists(globalPath)) { return globalPath; }
+    return localPath;
+}
+
+/**
+ * Resolve the status file path for reading, with backward-compatible fallback.
+ * Checks the repo-local path first; if not found, checks the old global storage path.
+ *
+ * @param worktreePath - Path to the worktree
+ * @returns The path where the status file exists, or the repo-local path if neither exists
+ */
+export async function resolveStatusFilePath(worktreePath: string): Promise<string> {
+    const localPath = getStatusFilePath(worktreePath);
+    if (await fileExists(localPath)) { return localPath; }
+    const statusFileName = globalCodeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
+    const globalPath = getGlobalStorageFilePath(worktreePath, statusFileName);
+    if (globalPath && await fileExists(globalPath)) { return globalPath; }
+    return localPath;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +275,7 @@ export async function saveSessionWorkflow(worktreePath: string, workflow: string
 }
 
 export async function getSessionWorkflow(worktreePath: string): Promise<string | null> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -242,7 +300,7 @@ export async function saveSessionPermissionMode(worktreePath: string, permission
 }
 
 export async function getSessionPermissionMode(worktreePath: string): Promise<string | null> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -267,7 +325,7 @@ export async function saveSessionTerminalMode(worktreePath: string, terminal: 'c
 }
 
 export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
@@ -278,7 +336,7 @@ export async function getSessionTerminalMode(worktreePath: string): Promise<'cod
 }
 
 export async function getSessionChimeEnabled(worktreePath: string): Promise<boolean> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return false; }
@@ -301,7 +359,7 @@ export async function setSessionChimeEnabled(worktreePath: string, enabled: bool
 }
 
 export async function getAgentStatus(worktreePath: string): Promise<AgentSessionStatus | null> {
-    const statusPath = getStatusFilePath(worktreePath);
+    const statusPath = await resolveStatusFilePath(worktreePath);
     try {
         const exists = await fileExists(statusPath);
         if (!exists) { return null; }
@@ -320,7 +378,7 @@ export async function getAgentStatus(worktreePath: string): Promise<AgentSession
 }
 
 export async function getSessionId(worktreePath: string, codeAgent?: CodeAgent): Promise<AgentSessionData | null> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const exists = await fileExists(sessionPath);
         if (!exists) { return null; }
@@ -359,7 +417,7 @@ export async function getSessionId(worktreePath: string, codeAgent?: CodeAgent):
 }
 
 export async function getSessionAgentName(worktreePath: string): Promise<string> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return DEFAULT_AGENT_NAME; }
@@ -371,7 +429,7 @@ export async function getSessionAgentName(worktreePath: string): Promise<string>
 }
 
 export async function clearSessionId(worktreePath: string): Promise<void> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return; }
@@ -389,7 +447,7 @@ export function generateTaskListId(sessionName: string): string {
 }
 
 export async function getTaskListId(worktreePath: string): Promise<string | null> {
-    const sessionPath = getSessionFilePath(worktreePath);
+    const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }

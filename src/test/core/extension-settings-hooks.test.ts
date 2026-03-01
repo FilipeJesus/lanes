@@ -25,17 +25,10 @@ suite('Extension Settings File Hooks', () => {
 		const mockUri = vscode.Uri.file(globalStorageDir);
 		initializeGlobalStorageContext(mockUri, tempDir);
 
-		// Enable global storage for these tests
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
 	});
 
 	// Clean up after each test
 	teardown(async () => {
-		// Reset configuration
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
-
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
@@ -165,9 +158,9 @@ suite('Extension Settings File Hooks', () => {
 			}
 		});
 
-		test('should point to correct global storage paths when useGlobalStorage is enabled', async () => {
+		test('should point to .lanes/current-sessions paths in hooks', async () => {
 			// Arrange
-			const sessionName = 'global-storage-paths';
+			const sessionName = 'session-management-paths';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
 
@@ -175,39 +168,16 @@ suite('Extension Settings File Hooks', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Check that hooks use global storage paths (absolute paths)
-			const stopHook = settings.hooks.Stop[0].hooks[0];
-			assert.ok(
-				path.isAbsolute(stopHook.command.match(/"([^"]+\.claude-status)"/)?.[1] || ''),
-				'Status file path in hooks should be absolute when using global storage'
-			);
-		});
-
-		test('should use .lanes/session_management path when useGlobalStorage is disabled', async () => {
-			// Arrange
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-
-			const sessionName = 'non-global-paths-test';
-			const worktreePath = path.join(worktreesDir, sessionName);
-			fs.mkdirSync(worktreePath, { recursive: true });
-
-			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
-			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-
-			// Assert: Check that hooks use the new fixed .lanes/session_management path
+			// Assert: Check that hooks use .lanes/current-sessions paths (absolute paths)
 			const stopHook = settings.hooks.Stop[0].hooks[0];
 			const statusPath = stopHook.command.match(/"([^"]+\.claude-status)"/)?.[1] || '';
-			// The path should include .lanes/session_management/<sessionName>/
 			assert.ok(
-				statusPath.includes('.lanes/session_management') && statusPath.includes(sessionName),
-				`Status file path should use .lanes/session_management path structure with session name, got: ${statusPath}`
+				statusPath.includes('.lanes/current-sessions') && statusPath.includes(sessionName),
+				`Status file path should use .lanes/current-sessions path structure with session name, got: ${statusPath}`
 			);
-			// The path should be absolute (pointing to the repo root's .lanes/session_management)
 			assert.ok(
 				path.isAbsolute(statusPath),
-				`Status file path should be absolute path to .lanes/session_management, got: ${statusPath}`
+				`Status file path should be absolute, got: ${statusPath}`
 			);
 		});
 	});
@@ -250,12 +220,9 @@ suite('Extension Settings File Hooks', () => {
 			);
 		});
 
-		test('should work with global storage enabled (paths should be absolute)', async () => {
-			// Arrange: Enable global storage (should be default)
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
-
-			const sessionName = 'global-storage-enabled';
+		test('should use absolute .lanes/current-sessions paths in hooks', async () => {
+			// Arrange
+			const sessionName = 'absolute-paths-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
 			fs.mkdirSync(worktreePath, { recursive: true });
 
@@ -263,39 +230,17 @@ suite('Extension Settings File Hooks', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Paths in hooks should be absolute (global storage)
+			// Assert: Paths in hooks should be absolute .lanes/current-sessions paths
 			const stopHook = settings.hooks.Stop[0].hooks[0];
 			const statusPathMatch = stopHook.command.match(/"([^"]+\.claude-status)"/);
 			assert.ok(statusPathMatch, 'Should find status file path in command');
 			assert.ok(
 				path.isAbsolute(statusPathMatch[1]),
-				'Status file path should be absolute when global storage is enabled'
+				'Status file path should be absolute'
 			);
-		});
-
-		test('should work with global storage disabled (paths should be relative)', async () => {
-			// Arrange: Disable global storage
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-
-			const sessionName = 'global-storage-disabled';
-			const worktreePath = path.join(worktreesDir, sessionName);
-			fs.mkdirSync(worktreePath, { recursive: true });
-
-			// Act
-			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
-			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-
-			// Assert: Paths in hooks should be relative
-			const stopHook = settings.hooks.Stop[0].hooks[0];
-			// The path is within double quotes in the echo command, e.g.: echo '...' > ".claude-status"
-			const statusPathMatch = stopHook.command.match(/"([^"]+)"/);
-			assert.ok(statusPathMatch, 'Should find status file path in command');
-			const statusPath = statusPathMatch[1];
-			// When global storage is disabled with default config, the path is just '.claude-status' (relative)
 			assert.ok(
-				!path.isAbsolute(statusPath),
-				`Status file path should be relative when global storage is disabled, got: ${statusPath}`
+				statusPathMatch[1].includes('.lanes/current-sessions'),
+				`Status file path should use .lanes/current-sessions, got: ${statusPathMatch[1]}`
 			);
 		});
 	});

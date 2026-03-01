@@ -558,7 +558,7 @@ object ConfigKeys {
     const val DEFAULT_AGENT = "lanes.defaultAgent"
     const val BASE_BRANCH = "lanes.baseBranch"
     const val INCLUDE_UNCOMMITTED_CHANGES = "lanes.includeUncommittedChanges"
-    const val USE_GLOBAL_STORAGE = "lanes.useGlobalStorage"
+
     const val LOCAL_SETTINGS_PROPAGATION = "lanes.localSettingsPropagation"
     const val WORKFLOWS_ENABLED = "lanes.workflowsEnabled"
     const val CUSTOM_WORKFLOWS_FOLDER = "lanes.customWorkflowsFolder"

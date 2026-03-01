@@ -3,28 +3,27 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as crypto from 'crypto';
 import {
-	getRepoIdentifier,
 	getSessionNameFromWorktree,
-	getGlobalStoragePath,
-	isGlobalStorageEnabled,
 	initializeGlobalStorageContext,
 	getStatusFilePath,
 	getSessionFilePath,
 } from '../../vscode/providers/AgentSessionProvider';
+import {
+	resolveSessionFilePath,
+	resolveStatusFilePath,
+	ensureLanesGitignore,
+} from '../../core/session/SessionDataService';
 
-/**
- * Helper function to get a configuration property from the package.json configuration array.
- * Since configuration is now an array of sections, this function searches all sections
- * for the requested property key.
- */
-function getConfigProperty(config: any[], key: string): any {
-	for (const section of config) {
-		if (section.properties?.[key]) {
-			return section.properties[key];
-		}
-	}
-	return undefined;
+/** Compute the old global storage path for backward-compat fallback tests */
+function computeGlobalStorageFilePath(globalStorageDir: string, baseRepoPath: string, worktreePath: string, filename: string): string {
+	const normalizedPath = path.normalize(baseRepoPath).toLowerCase();
+	const hash = crypto.createHash('sha256').update(normalizedPath).digest('hex').substring(0, 8);
+	const repoName = path.basename(baseRepoPath).replace(/[^a-zA-Z0-9_-]/g, '_');
+	const repoIdentifier = `${repoName}-${hash}`;
+	const sessionName = path.basename(worktreePath);
+	return path.join(globalStorageDir, repoIdentifier, sessionName, filename);
 }
 
 suite('Global Storage Configuration Test Suite', () => {
@@ -38,13 +37,11 @@ suite('Global Storage Configuration Test Suite', () => {
 	});
 
 	teardown(async () => {
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
-	suite('Non-Global Session Management Path', () => {
+	suite('Session Management Paths (always repo-local)', () => {
 
 		let testTempDir: string;
 		let mockGlobalStorageDir: string;
@@ -53,38 +50,34 @@ suite('Global Storage Configuration Test Suite', () => {
 			testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-global-test-'));
 			mockGlobalStorageDir = path.join(os.tmpdir(), 'vscode-mock-global-storage');
 			fs.mkdirSync(mockGlobalStorageDir, { recursive: true });
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
 			const mockUri = vscode.Uri.file(mockGlobalStorageDir);
 			initializeGlobalStorageContext(mockUri, testTempDir);
 		});
 
 		teardown(async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 			fs.rmSync(testTempDir, { recursive: true, force: true });
 			if (fs.existsSync(mockGlobalStorageDir)) {
 				fs.rmSync(mockGlobalStorageDir, { recursive: true, force: true });
 			}
 		});
 
-		test('should return .lanes/session_management path for getStatusFilePath when useGlobalStorage is false', async () => {
+		test('should return .lanes/current-sessions path for getStatusFilePath', async () => {
 			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
 			const result = getStatusFilePath(worktreePath);
 
-			const expectedPath = path.join(testTempDir, '.lanes', 'session_management', 'test-session', '.claude-status');
+			const expectedPath = path.join(testTempDir, '.lanes', 'current-sessions', 'test-session', '.claude-status');
 			assert.strictEqual(result, expectedPath);
 		});
 
-		test('should return .lanes/session_management path for getSessionFilePath when useGlobalStorage is false', async () => {
+		test('should return .lanes/current-sessions path for getSessionFilePath', async () => {
 			const worktreePath = path.join(testTempDir, '.worktrees', 'my-feature');
 			const result = getSessionFilePath(worktreePath);
 
-			const expectedPath = path.join(testTempDir, '.lanes', 'session_management', 'my-feature', '.claude-session');
+			const expectedPath = path.join(testTempDir, '.lanes', 'current-sessions', 'my-feature', '.claude-session');
 			assert.strictEqual(result, expectedPath);
 		});
 
-		test('should create session-specific subdirectories within .lanes/session_management', async () => {
+		test('should create session-specific subdirectories within .lanes/current-sessions', async () => {
 			const session1Path = path.join(testTempDir, '.worktrees', 'session-a');
 			const session2Path = path.join(testTempDir, '.worktrees', 'session-b');
 
@@ -93,78 +86,85 @@ suite('Global Storage Configuration Test Suite', () => {
 
 			assert.ok(status1.includes('session-a'));
 			assert.ok(status2.includes('session-b'));
-			assert.ok(status1.includes('.lanes/session_management'));
-			assert.ok(status2.includes('.lanes/session_management'));
-		});
-
-		test('should fall back to global storage when useGlobalStorage is true', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
-
-			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
-			const result = getStatusFilePath(worktreePath);
-
-			assert.ok(result.startsWith(mockGlobalStorageDir));
+			assert.ok(status1.includes('.lanes/current-sessions'));
+			assert.ok(status2.includes('.lanes/current-sessions'));
 		});
 	});
 
-	suite('getRepoIdentifier', () => {
+	suite('Fallback Resolvers', () => {
 
-		test('should generate unique identifier with repo name and hash', () => {
-			const repoPath = '/path/to/my-project';
-			const result = getRepoIdentifier(repoPath);
+		let testTempDir: string;
+		let mockGlobalStorageDir: string;
 
-			assert.ok(result.startsWith('my-project-'));
-			assert.ok(result.length > 'my-project-'.length);
-			const hashPart = result.substring('my-project-'.length);
-			assert.strictEqual(hashPart.length, 8);
-			assert.ok(/^[a-f0-9]+$/.test(hashPart));
+		setup(async () => {
+			testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fallback-resolver-test-'));
+			mockGlobalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-fallback-global-storage-'));
+			const mockUri = vscode.Uri.file(mockGlobalStorageDir);
+			initializeGlobalStorageContext(mockUri, testTempDir);
 		});
 
-		test('should produce different identifiers for different repos with same name in different locations', () => {
-			const repoPath1 = '/path/to/my-project';
-			const repoPath2 = '/other/location/my-project';
-
-			const result1 = getRepoIdentifier(repoPath1);
-			const result2 = getRepoIdentifier(repoPath2);
-
-			assert.notStrictEqual(result1, result2);
-			assert.ok(result1.startsWith('my-project-'));
-			assert.ok(result2.startsWith('my-project-'));
+		teardown(async () => {
+			fs.rmSync(testTempDir, { recursive: true, force: true });
+			fs.rmSync(mockGlobalStorageDir, { recursive: true, force: true });
 		});
 
-		test('should produce deterministic identifiers for the same repo', () => {
-			const repoPath = '/path/to/my-project';
+		test('should resolve to non-global path when file exists only in non-global location', async () => {
+			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
+			const localPath = getSessionFilePath(worktreePath);
 
-			const result1 = getRepoIdentifier(repoPath);
-			const result2 = getRepoIdentifier(repoPath);
+			// Create the file at the non-global location
+			fs.mkdirSync(path.dirname(localPath), { recursive: true });
+			fs.writeFileSync(localPath, JSON.stringify({ sessionId: 'test-123' }));
 
-			assert.strictEqual(result1, result2);
+			const resolved = await resolveSessionFilePath(worktreePath);
+			assert.strictEqual(resolved, localPath);
 		});
 
-		test('should sanitize special characters in repo name', () => {
-			const repoPath = '/path/to/my project@v1.0';
-			const result = getRepoIdentifier(repoPath);
+		test('should resolve to global path when file exists only in global storage', async () => {
+			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
+			const globalPath = computeGlobalStorageFilePath(mockGlobalStorageDir, testTempDir, worktreePath, '.claude-session');
 
-			assert.ok(result.startsWith('my_project_v1_0-'));
-			assert.ok(!result.includes(' '));
-			assert.ok(!result.includes('@'));
-			assert.ok(!result.includes('.'));
+			// Create the file only at the global storage location
+			fs.mkdirSync(path.dirname(globalPath), { recursive: true });
+			fs.writeFileSync(globalPath, JSON.stringify({ sessionId: 'global-123' }));
+
+			const resolved = await resolveSessionFilePath(worktreePath);
+			assert.strictEqual(resolved, globalPath);
 		});
 
-		test('should normalize paths for cross-platform consistency', () => {
-			const repoPath1 = '/path/to/project';
-			const repoPath2 = '/PATH/TO/PROJECT';
+		test('should prefer non-global path when file exists in both locations', async () => {
+			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
+			const localPath = getSessionFilePath(worktreePath);
+			const globalPath = computeGlobalStorageFilePath(mockGlobalStorageDir, testTempDir, worktreePath, '.claude-session');
 
-			const result1 = getRepoIdentifier(repoPath1);
-			const result2 = getRepoIdentifier(repoPath2);
+			// Create files at both locations
+			fs.mkdirSync(path.dirname(localPath), { recursive: true });
+			fs.writeFileSync(localPath, JSON.stringify({ sessionId: 'local-123' }));
+			fs.mkdirSync(path.dirname(globalPath), { recursive: true });
+			fs.writeFileSync(globalPath, JSON.stringify({ sessionId: 'global-123' }));
 
-			const hash1 = result1.split('-').pop();
-			const hash2 = result2.split('-').pop();
-			assert.strictEqual(hash1, hash2);
+			const resolved = await resolveSessionFilePath(worktreePath);
+			assert.strictEqual(resolved, localPath);
+		});
 
-			assert.ok(result1.toLowerCase().startsWith('project-'));
-			assert.ok(result2.toLowerCase().startsWith('project-'));
+		test('should return non-global path when no file exists anywhere', async () => {
+			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
+			const localPath = getSessionFilePath(worktreePath);
+
+			const resolved = await resolveSessionFilePath(worktreePath);
+			assert.strictEqual(resolved, localPath);
+		});
+
+		test('should resolve status file from global storage fallback', async () => {
+			const worktreePath = path.join(testTempDir, '.worktrees', 'test-session');
+			const globalPath = computeGlobalStorageFilePath(mockGlobalStorageDir, testTempDir, worktreePath, '.claude-status');
+
+			// Create the file only at the global storage location
+			fs.mkdirSync(path.dirname(globalPath), { recursive: true });
+			fs.writeFileSync(globalPath, JSON.stringify({ status: 'working' }));
+
+			const resolved = await resolveStatusFilePath(worktreePath);
+			assert.strictEqual(resolved, globalPath);
 		});
 	});
 
@@ -185,79 +185,55 @@ suite('Global Storage Configuration Test Suite', () => {
 		});
 	});
 
-	suite('getGlobalStoragePath', () => {
+	suite('ensureLanesGitignore', () => {
 
-		test('should return path when global storage context is initialized', () => {
-			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+		test('should create .lanes/.gitignore with all required entries', async () => {
+			const gitignorePath = path.join(tempDir, '.lanes', '.gitignore');
 
-			const worktreePath = path.join(tempDir, '.worktrees', 'my-session');
-			const result = getGlobalStoragePath(worktreePath, '.claude-status');
+			await ensureLanesGitignore(tempDir);
 
-			assert.ok(result);
-			assert.ok(result!.includes('.claude-status'));
+			assert.ok(fs.existsSync(gitignorePath), '.lanes/.gitignore should exist');
+			const content = fs.readFileSync(gitignorePath, 'utf-8');
+			const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+			assert.ok(lines.includes('clear-requests'), 'Should contain clear-requests');
+			assert.ok(lines.includes('current-sessions'), 'Should contain current-sessions');
+			assert.ok(lines.includes('pending-sessions'), 'Should contain pending-sessions');
+			assert.ok(lines.includes('prompts'), 'Should contain prompts');
 		});
 
-		test('should generate correct path structure: globalStorage/repoIdentifier/sessionName/filename', () => {
-			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+		test('should be idempotent (no duplicates on second call)', async () => {
+			await ensureLanesGitignore(tempDir);
+			const first = fs.readFileSync(path.join(tempDir, '.lanes', '.gitignore'), 'utf-8');
 
-			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
+			await ensureLanesGitignore(tempDir);
+			const second = fs.readFileSync(path.join(tempDir, '.lanes', '.gitignore'), 'utf-8');
 
-			const result = getGlobalStoragePath(worktreePath, '.claude-status');
-
-			assert.ok(result);
-
-			const repoIdentifier = getRepoIdentifier(tempDir);
-			const expectedPath = path.join(globalStorageDir, repoIdentifier, 'test-session', '.claude-status');
-			assert.strictEqual(result, expectedPath);
+			assert.strictEqual(first, second, 'Content should be identical after second call');
 		});
 
-		test('should produce different paths for different repos with same session name', () => {
-			const repo1Dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo1-'));
-			const repo2Dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo2-'));
-			const mockUri = vscode.Uri.file(globalStorageDir);
+		test('should preserve existing content and only add missing entries', async () => {
+			const lanesDir = path.join(tempDir, '.lanes');
+			fs.mkdirSync(lanesDir, { recursive: true });
+			fs.writeFileSync(path.join(lanesDir, '.gitignore'), 'custom-entry\ncurrent-sessions\n');
 
-			try {
-				initializeGlobalStorageContext(mockUri, repo1Dir);
-				const path1 = getGlobalStoragePath(
-					path.join(repo1Dir, '.worktrees', 'session-a'),
-					'.claude-status'
-				);
+			await ensureLanesGitignore(tempDir);
 
-				initializeGlobalStorageContext(mockUri, repo2Dir);
-				const path2 = getGlobalStoragePath(
-					path.join(repo2Dir, '.worktrees', 'session-a'),
-					'.claude-status'
-				);
+			const content = fs.readFileSync(path.join(lanesDir, '.gitignore'), 'utf-8');
+			assert.ok(content.includes('custom-entry'), 'Should preserve existing entries');
+			assert.ok(content.includes('current-sessions'), 'Should keep existing matching entry');
+			assert.ok(content.includes('clear-requests'), 'Should add missing entry');
+			assert.ok(content.includes('pending-sessions'), 'Should add missing entry');
+			assert.ok(content.includes('prompts'), 'Should add missing entry');
 
-				assert.ok(path1);
-				assert.ok(path2);
-				assert.notStrictEqual(path1, path2);
-			} finally {
-				fs.rmSync(repo1Dir, { recursive: true, force: true });
-				fs.rmSync(repo2Dir, { recursive: true, force: true });
-			}
-		});
-
-		test('should produce identical paths for same repo and session (deterministic)', () => {
-			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
-			const worktreePath = path.join(tempDir, '.worktrees', 'my-session');
-
-			const path1 = getGlobalStoragePath(worktreePath, '.claude-status');
-			const path2 = getGlobalStoragePath(worktreePath, '.claude-status');
-
-			assert.strictEqual(path1, path2);
+			// current-sessions should appear only once
+			const matches = content.split('\n').filter(l => l.trim() === 'current-sessions');
+			assert.strictEqual(matches.length, 1, 'Should not duplicate existing entries');
 		});
 	});
 
-	suite('Path functions respect useGlobalStorage setting', () => {
+	suite('Path functions always return repo-local paths', () => {
 
-		test('should return global storage path for getStatusFilePath when useGlobalStorage is true', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
-
+		test('should return .lanes/current-sessions path for getStatusFilePath', async () => {
 			const mockUri = vscode.Uri.file(globalStorageDir);
 			initializeGlobalStorageContext(mockUri, tempDir);
 
@@ -265,14 +241,11 @@ suite('Global Storage Configuration Test Suite', () => {
 
 			const result = getStatusFilePath(worktreePath);
 
-			assert.ok(result.startsWith(globalStorageDir));
+			assert.ok(result.includes('.lanes/current-sessions'));
 			assert.ok(result.endsWith('.claude-status'));
 		});
 
-		test('should return global storage path for getSessionFilePath when useGlobalStorage is true', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
-
+		test('should return .lanes/current-sessions path for getSessionFilePath', async () => {
 			const mockUri = vscode.Uri.file(globalStorageDir);
 			initializeGlobalStorageContext(mockUri, tempDir);
 
@@ -280,38 +253,8 @@ suite('Global Storage Configuration Test Suite', () => {
 
 			const result = getSessionFilePath(worktreePath);
 
-			assert.ok(result.startsWith(globalStorageDir));
+			assert.ok(result.includes('.lanes/current-sessions'));
 			assert.ok(result.endsWith('.claude-session'));
-		});
-	});
-
-	suite('isGlobalStorageEnabled', () => {
-
-		test('should return true when useGlobalStorage is not set (default)', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
-
-			const result = isGlobalStorageEnabled();
-
-			assert.strictEqual(result, true);
-		});
-
-		test('should return true when useGlobalStorage is true', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
-
-			const result = isGlobalStorageEnabled();
-
-			assert.strictEqual(result, true);
-		});
-
-		test('should return false when useGlobalStorage is explicitly false', async () => {
-			const config = vscode.workspace.getConfiguration('lanes');
-			await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-
-			const result = isGlobalStorageEnabled();
-
-			assert.strictEqual(result, false);
 		});
 	});
 });
