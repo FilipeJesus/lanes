@@ -61,6 +61,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies and compile bridge
+        run: npm ci && npm run compile
+
       - name: Run IntelliJ plugin tests
         working-directory: intellij-plugin
         run: ./gradlew test
