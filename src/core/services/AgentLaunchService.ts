@@ -11,6 +11,7 @@ import { CodeAgent, McpConfig, McpConfigDelivery } from '../codeAgents';
 import { getSessionId, getSessionPermissionMode, getSessionWorkflow } from '../session/SessionDataService';
 import type { AgentSessionData } from '../session/types';
 import * as SettingsService from './SettingsService';
+import { discoverWorkflows } from '../workflow/discovery';
 import { getErrorMessage } from '../utils';
 
 export interface PrepareAgentLaunchOptions {
@@ -19,6 +20,10 @@ export interface PrepareAgentLaunchOptions {
     permissionMode?: string;
     codeAgent?: CodeAgent;
     repoRoot?: string;
+    /** Root path for discovering built-in workflows (extension or package root). */
+    extensionPath?: string;
+    /** Custom workflows folder relative to repo root (default: '.lanes/workflows'). */
+    customWorkflowsFolder?: string;
     onWarning?: (message: string) => void;
     fallbackMcpConfigFactory?: (params: {
         worktreePath: string;
@@ -40,6 +45,31 @@ function getMcpConfigDelivery(codeAgent?: CodeAgent): McpConfigDelivery {
     return codeAgent?.getMcpConfigDelivery() ?? 'cli';
 }
 
+/**
+ * Resolves a workflow name (e.g. "feature-dev") to its absolute YAML path
+ * by searching in .lanes/workflows and built-in workflows directories.
+ * Returns the input as-is if it's already an absolute .yaml path.
+ */
+async function resolveWorkflowPath(
+    workflow: string,
+    repoRoot: string,
+    extensionPath?: string,
+    customWorkflowsFolder?: string,
+): Promise<string | null> {
+    if (path.isAbsolute(workflow) && workflow.endsWith('.yaml')) {
+        return workflow;
+    }
+
+    const workflows = await discoverWorkflows({
+        extensionPath: extensionPath || repoRoot,
+        workspaceRoot: repoRoot,
+        customWorkflowsFolder: customWorkflowsFolder || '.lanes/workflows',
+    });
+
+    const matched = workflows.find(w => w.name === workflow);
+    return matched?.path ?? null;
+}
+
 export async function prepareAgentLaunchContext(
     options: PrepareAgentLaunchOptions
 ): Promise<PreparedAgentLaunchContext> {
@@ -49,6 +79,8 @@ export async function prepareAgentLaunchContext(
         permissionMode,
         codeAgent,
         repoRoot,
+        extensionPath,
+        customWorkflowsFolder,
         onWarning,
         fallbackMcpConfigFactory,
     } = options;
@@ -56,6 +88,23 @@ export async function prepareAgentLaunchContext(
     let effectiveWorkflow: string | null = workflow || null;
     if (!effectiveWorkflow) {
         effectiveWorkflow = await getSessionWorkflow(worktreePath);
+    }
+
+    // Resolve workflow name to absolute path if needed
+    if (effectiveWorkflow && !path.isAbsolute(effectiveWorkflow)) {
+        const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
+        const resolved = await resolveWorkflowPath(
+            effectiveWorkflow,
+            effectiveRepoRoot,
+            extensionPath,
+            customWorkflowsFolder,
+        );
+        if (resolved) {
+            effectiveWorkflow = resolved;
+        } else {
+            onWarning?.(`Workflow '${effectiveWorkflow}' not found. Run 'lanes workflow list' to see available workflows.`);
+            effectiveWorkflow = null;
+        }
     }
 
     let effectivePermissionMode = permissionMode;

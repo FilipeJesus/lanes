@@ -5,19 +5,22 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { initCli, exitWithError } from '../utils';
+import * as fsPromises from 'fs/promises';
+import { initCli, exitWithError, getPackageRoot } from '../utils';
 import { CliConfigProvider } from '../adapters/CliConfigProvider';
 import { fileExists } from '../../core/services/FileService';
 import { getErrorMessage } from '../../core/utils';
 import {
     getSessionAgentName,
     getOrCreateTaskListId,
+    getPromptsPath,
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     initializeGlobalStorageContext,
 } from '../../core/session/SessionDataService';
 import { validateAndGetAgent } from '../../core/codeAgents';
 import { CodeAgent } from '../../core/codeAgents/CodeAgent';
+import type { McpConfig } from '../../core/codeAgents/CodeAgent';
 import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
 import * as TmuxService from '../../core/services/TmuxService';
 
@@ -50,8 +53,34 @@ export async function execIntoAgent(opts: {
         permissionMode,
         codeAgent,
         repoRoot,
+        extensionPath: getPackageRoot(),
+        customWorkflowsFolder: config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows'),
         onWarning: (message) => console.warn(`Warning: ${message}`),
+        fallbackMcpConfigFactory: ({ worktreePath: wtPath, workflowPath, repoRoot: effectiveRepoRoot }) => {
+            const mcpServerPath = path.join(getPackageRoot(), 'out', 'mcp', 'server.js');
+            const fallback: McpConfig = {
+                mcpServers: {
+                    'lanes-workflow': {
+                        command: process.execPath,
+                        args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
+                    }
+                }
+            };
+            return fallback;
+        },
     });
+
+    // Write prompt to file and use command substitution (avoids terminal buffer issues)
+    let promptArg: string | undefined;
+    if (prompt) {
+        const promptsFolder = config.get('lanes', 'promptsFolder', '');
+        const promptPathInfo = getPromptsPath(sessionName, repoRoot, promptsFolder);
+        if (promptPathInfo) {
+            await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
+            await fsPromises.writeFile(promptPathInfo.path, prompt, 'utf-8');
+            promptArg = `"$(cat "${promptPathInfo.path}")"`;
+        }
+    }
 
     // Build the command
     let command: string;
@@ -72,9 +101,11 @@ export async function execIntoAgent(opts: {
             settingsPath: launch.settingsPath,
             mcpConfigPath: launch.mcpConfigPath,
             mcpConfigOverrides: launch.mcpConfigOverrides,
-            prompt: prompt || undefined,
+            prompt: promptArg || undefined,
         });
     }
+
+    console.log(`> ${command}`);
 
     // Set up environment
     const env: Record<string, string> = {
