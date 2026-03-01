@@ -158,7 +158,7 @@ suite('Extension Settings File Hooks', () => {
 			}
 		});
 
-		test('should point to .lanes/session_management paths in hooks', async () => {
+		test('should point to .lanes/current-sessions paths in hooks', async () => {
 			// Arrange
 			const sessionName = 'session-management-paths';
 			const worktreePath = path.join(worktreesDir, sessionName);
@@ -168,12 +168,12 @@ suite('Extension Settings File Hooks', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Check that hooks use .lanes/session_management paths (absolute paths)
+			// Assert: Check that hooks use .lanes/current-sessions paths (absolute paths)
 			const stopHook = settings.hooks.Stop[0].hooks[0];
 			const statusPath = stopHook.command.match(/"([^"]+\.claude-status)"/)?.[1] || '';
 			assert.ok(
-				statusPath.includes('.lanes/session_management') && statusPath.includes(sessionName),
-				`Status file path should use .lanes/session_management path structure with session name, got: ${statusPath}`
+				statusPath.includes('.lanes/current-sessions') && statusPath.includes(sessionName),
+				`Status file path should use .lanes/current-sessions path structure with session name, got: ${statusPath}`
 			);
 			assert.ok(
 				path.isAbsolute(statusPath),
@@ -220,7 +220,7 @@ suite('Extension Settings File Hooks', () => {
 			);
 		});
 
-		test('should use absolute .lanes/session_management paths in hooks', async () => {
+		test('should use absolute .lanes/current-sessions paths in hooks', async () => {
 			// Arrange
 			const sessionName = 'absolute-paths-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
@@ -230,7 +230,7 @@ suite('Extension Settings File Hooks', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-			// Assert: Paths in hooks should be absolute .lanes/session_management paths
+			// Assert: Paths in hooks should be absolute .lanes/current-sessions paths
 			const stopHook = settings.hooks.Stop[0].hooks[0];
 			const statusPathMatch = stopHook.command.match(/"([^"]+\.claude-status)"/);
 			assert.ok(statusPathMatch, 'Should find status file path in command');
@@ -239,8 +239,8 @@ suite('Extension Settings File Hooks', () => {
 				'Status file path should be absolute'
 			);
 			assert.ok(
-				statusPathMatch[1].includes('.lanes/session_management'),
-				`Status file path should use .lanes/session_management, got: ${statusPathMatch[1]}`
+				statusPathMatch[1].includes('.lanes/current-sessions'),
+				`Status file path should use .lanes/current-sessions, got: ${statusPathMatch[1]}`
 			);
 		});
 	});

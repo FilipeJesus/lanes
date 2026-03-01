@@ -24,8 +24,8 @@ export {
 } from '../../core/session/types';
 
 export {
-    getRepoIdentifier,
     getSessionNameFromWorktree,
+    getSettingsDir,
     getGlobalCodeAgent,
     getBaseRepoPathForStorage,
     saveSessionWorkflow,
@@ -79,24 +79,6 @@ export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoP
         getWorktreesFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('worktreesFolder', '.worktrees'),
         getPromptsFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('promptsFolder', ''),
     });
-}
-
-/**
- * Get the global storage URI.
- * Returns the path as a vscode.Uri for backward compatibility.
- */
-export function getGlobalStorageUri(): vscode.Uri | undefined {
-    const storagePath = SessionDataService.getGlobalStoragePath();
-    if (!storagePath) { return undefined; }
-    return vscode.Uri.file(storagePath);
-}
-
-/**
- * Get the global storage path for a worktree file.
- * Maintains backward-compatible name (was getGlobalStoragePath in old code).
- */
-export function getGlobalStoragePath(worktreePath: string, filename: string): string | null {
-    return SessionDataService.getGlobalStorageFilePath(worktreePath, filename);
 }
 
 /**

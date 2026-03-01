@@ -65,7 +65,7 @@ export function initializeGlobalStorageContext(storagePath: string, baseRepoPath
     globalCodeAgent = codeAgent;
 }
 
-export function getGlobalStoragePath(): string | undefined {
+function getGlobalStoragePath(): string | undefined {
     return globalStoragePath;
 }
 
@@ -81,7 +81,7 @@ export function getGlobalCodeAgent(): CodeAgent | undefined {
 // Pure utility functions
 // ---------------------------------------------------------------------------
 
-export function getRepoIdentifier(repoPath: string): string {
+function getRepoIdentifier(repoPath: string): string {
     const normalizedPath = path.normalize(repoPath).toLowerCase();
     const hash = crypto.createHash('sha256').update(normalizedPath).digest('hex').substring(0, 8);
     const repoName = path.basename(repoPath).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -90,6 +90,17 @@ export function getRepoIdentifier(repoPath: string): string {
 
 export function getSessionNameFromWorktree(worktreePath: string): string {
     return path.basename(worktreePath);
+}
+
+/**
+ * Get the repo-local settings directory for a session.
+ * Settings files (claude-settings.json, register-artefact.sh, mcp-config.json)
+ * are co-located with session/status files under: <baseRepo>/.lanes/current-sessions/<sessionName>/
+ */
+export function getSettingsDir(worktreePath: string): string {
+    const sessionName = getSessionNameFromWorktree(worktreePath);
+    const baseRepoPath = getBaseRepoPathForStorage() || path.dirname(path.dirname(worktreePath));
+    return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName);
 }
 
 /**
@@ -122,8 +133,9 @@ export function getPromptsPath(sessionName: string, repoRoot: string, promptsFol
 
 /**
  * Build a global storage path for a worktree file.
+ * Used internally by fallback resolvers for backward-compatible reads.
  */
-export function getGlobalStorageFilePath(worktreePath: string, filename: string): string | null {
+function getGlobalStorageFilePath(worktreePath: string, filename: string): string | null {
     if (!globalStoragePath || !baseRepoPathForStorage) { return null; }
     const repoIdentifier = getRepoIdentifier(baseRepoPathForStorage);
     const sessionName = getSessionNameFromWorktree(worktreePath);
@@ -149,7 +161,7 @@ export function getWorktreesFolder(worktreesFolderSetting?: string): string {
 
 /**
  * Get the session file path for a worktree.
- * Always returns the repo-local .lanes/session_management/ path (write target).
+ * Always returns the repo-local .lanes/current-sessions/ path (write target).
  *
  * @param worktreePath - Path to the worktree
  */
@@ -162,7 +174,7 @@ export function getSessionFilePath(worktreePath: string): string {
 
 /**
  * Get the status file path for a worktree.
- * Always returns the repo-local .lanes/session_management/ path (write target).
+ * Always returns the repo-local .lanes/current-sessions/ path (write target).
  *
  * @param worktreePath - Path to the worktree
  */

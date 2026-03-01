@@ -16,7 +16,7 @@ import { ensureDir } from '../core/services/FileService';
 import type { ServiceContainer } from '../types/serviceContainer';
 import { getStatusWatchPattern, getSessionWatchPattern } from '../core/services/SettingsService';
 import { checkPendingSessions, checkClearRequests, getPendingSessionsDir } from './services/SessionProcessService';
-import { getRepoIdentifier, getWorktreesFolder, DEFAULTS } from './providers/AgentSessionProvider';
+import { getWorktreesFolder } from './providers/AgentSessionProvider';
 import { getPromptsDir } from './providers/PreviousSessionProvider';
 
 /**
@@ -68,45 +68,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 3. Watch global storage directory for backward compatibility
-    // ============================================
-    if (baseRepoPath) {
-        const repoIdentifier = getRepoIdentifier(baseRepoPath);
-        const globalStoragePath = path.join(context.globalStorageUri.fsPath, repoIdentifier);
-
-        // Ensure the global storage directory exists
-        ensureDir(globalStoragePath).catch(err => {
-            console.warn('Lanes: Failed to create global storage directory:', err);
-        });
-
-        const statusFileName = codeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
-        const sessionFileName = codeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
-
-        const globalStorageWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/' + statusFileName)
-        );
-
-        // Refresh on any status file change
-        globalStorageWatcher.onDidChange(() => sessionProvider.refresh());
-        globalStorageWatcher.onDidCreate(() => sessionProvider.refresh());
-        globalStorageWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(globalStorageWatcher);
-
-        // Also watch for session file in global storage
-        const globalSessionWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(globalStoragePath, '**/' + sessionFileName)
-        );
-
-        globalSessionWatcher.onDidChange(() => sessionProvider.refresh());
-        globalSessionWatcher.onDidCreate(() => sessionProvider.refresh());
-        globalSessionWatcher.onDidDelete(() => sessionProvider.refresh());
-
-        context.subscriptions.push(globalSessionWatcher);
-    }
-
-    // ============================================
-    // 4. Watch for changes to the prompts folder
+    // 3. Watch for changes to the prompts folder
     // ============================================
     if (watchPath) {
         const promptsDirPath = getPromptsDir(watchPath);
@@ -124,7 +86,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 5. Watch for changes to custom workflows folder
+    // 4. Watch for changes to custom workflows folder
     // ============================================
     if (workspaceRoot) {
         const config = vscode.workspace.getConfiguration('lanes');
@@ -143,7 +105,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 6. Watch for worktree folder changes
+    // 5. Watch for worktree folder changes
     // ============================================
     if (watchPath) {
         const worktreesFolder = getWorktreesFolder();
@@ -165,7 +127,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 7. Watch for custom workflows folder changes (duplicate watcher for workflowsProvider)
+    // 6. Watch for custom workflows folder changes (duplicate watcher for workflowsProvider)
     // ============================================
     if (watchPath) {
         const customWorkflowsFolder = vscode.workspace.getConfiguration('lanes').get<string>('customWorkflowsFolder', '.lanes/workflows');
@@ -181,7 +143,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 8. Watch for pending session requests from MCP
+    // 7. Watch for pending session requests from MCP
     // ============================================
     if (baseRepoPath) {
         const pendingSessionsDir = getPendingSessionsDir(baseRepoPath);
@@ -211,7 +173,7 @@ export function registerWatchers(
     }
 
     // ============================================
-    // 9. Watch for session clear requests from MCP
+    // 8. Watch for session clear requests from MCP
     // ============================================
     if (baseRepoPath) {
         const clearRequestsDir = path.join(baseRepoPath, '.lanes', 'clear-requests');

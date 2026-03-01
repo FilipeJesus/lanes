@@ -15,7 +15,7 @@ import {
     getPromptsPath,
     getBaseRepoPathForStorage,
     getSessionNameFromWorktree,
-    getRepoIdentifier,
+    getSettingsDir,
     getSessionWorkflow,
     saveSessionWorkflow,
     getStatusFilePath,
@@ -23,7 +23,6 @@ import {
     getWorktreesFolder,
     getGlobalCodeAgent,
     DEFAULTS,
-    getGlobalStoragePath as getCoreGlobalStoragePath
 } from '../session/SessionDataService';
 
 /**
@@ -91,24 +90,24 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
 
 /**
  * Get the glob pattern for watching status files.
- * Always watches .lanes/session_management with wildcard subdirectories.
+ * Always watches .lanes/current-sessions with wildcard subdirectories.
  * Uses CodeAgent method to determine the status file name, falling back to DEFAULTS.
  * @returns Glob pattern for watching status files
  */
 export function getStatusWatchPattern(): string {
     const statusFileName = getGlobalCodeAgent()?.getStatusFileName() || DEFAULTS.statusFileName;
-    return '.lanes/session_management/**/*/' + statusFileName;
+    return '.lanes/current-sessions/**/*/' + statusFileName;
 }
 
 /**
  * Get the glob pattern for watching session files.
- * Always watches .lanes/session_management with wildcard subdirectories.
+ * Always watches .lanes/current-sessions with wildcard subdirectories.
  * Uses CodeAgent method to determine the session file name, falling back to DEFAULTS.
  * @returns Glob pattern for watching session files
  */
 export function getSessionWatchPattern(): string {
     const sessionFileName = getGlobalCodeAgent()?.getSessionFileName() || DEFAULTS.sessionFileName;
-    return '.lanes/session_management/**/*/' + sessionFileName;
+    return '.lanes/current-sessions/**/*/' + sessionFileName;
 }
 
 /**
@@ -182,20 +181,18 @@ export async function getOrCreateExtensionSettingsFile(
         }
     }
 
-    const globalStoragePath = getCoreGlobalStoragePath();
     const baseRepoPath = getBaseRepoPathForStorage();
 
-    if (!globalStoragePath || !baseRepoPath) {
-        throw new Error('Global storage not initialized. Cannot create extension settings file.');
+    if (!baseRepoPath) {
+        throw new Error('Base repo path not initialized. Cannot create extension settings file.');
     }
 
-    const repoIdentifier = getRepoIdentifier(baseRepoPath);
-    const globalSettingsDir = path.join(globalStoragePath, repoIdentifier, sessionName);
+    const repoLocalSettingsDir = getSettingsDir(worktreePath);
 
     // Determine settings file location:
     // Agents that load settings from well-known project paths (e.g., Cortex Code)
     // need the file written to their project settings directory.
-    // Others use global storage and pass the path via CLI flag.
+    // Others use repo-local .lanes/current-sessions/<sessionName>/ and pass the path via CLI flag.
     const projectSettingsPath = codeAgent?.getProjectSettingsPath(worktreePath);
     let settingsDir: string;
     let settingsFilePath: string;
@@ -203,22 +200,20 @@ export async function getOrCreateExtensionSettingsFile(
         settingsFilePath = projectSettingsPath;
         settingsDir = path.dirname(settingsFilePath);
     } else {
-        settingsDir = globalSettingsDir;
+        settingsDir = repoLocalSettingsDir;
         const settingsFileName = codeAgent ? codeAgent.getSettingsFileName() : 'claude-settings.json';
         settingsFilePath = path.join(settingsDir, settingsFileName);
     }
 
     // Ensure directories exist
     await fsPromises.mkdir(settingsDir, { recursive: true });
-    if (settingsDir !== globalSettingsDir) {
-        await fsPromises.mkdir(globalSettingsDir, { recursive: true });
-    }
 
     // Generate the artefact registration hook script only for agents that support hooks
-    // Hook script always goes to global storage (referenced by absolute path in hooks)
+    // Hook script goes to repo-local settings dir (referenced by absolute path in hooks)
     let hookScriptPath: string | undefined;
     if (!codeAgent || codeAgent.supportsHooks()) {
-        hookScriptPath = path.join(globalSettingsDir, 'register-artefact.sh');
+        await fsPromises.mkdir(repoLocalSettingsDir, { recursive: true });
+        hookScriptPath = path.join(repoLocalSettingsDir, 'register-artefact.sh');
         const hookScriptContent = `#!/bin/bash
 
 # Read hook input from stdin

@@ -21,7 +21,7 @@ import {
     getSessionChimeEnabled,
     setSessionChimeEnabled,
     clearSessionId,
-    getGlobalStoragePath,
+    getSettingsDir,
     getWorktreesFolder,
     getSessionTerminalMode,
     getSessionAgentName
@@ -191,16 +191,12 @@ export function registerSessionCommands(
                 await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
             }
 
-            // Clean up global storage files (backward compatibility)
+            // Clean up repo-local settings files
             {
-                const statusFileName = codeAgent ? codeAgent.getStatusFileName() : '.claude-status';
-                const globalStoragePath = getGlobalStoragePath(item.worktreePath, statusFileName);
-                if (globalStoragePath) {
-                    const sessionStorageDir = path.dirname(globalStoragePath);
-                    await fsPromises.rm(sessionStorageDir, { recursive: true, force: true }).catch(() => {
-                        // Ignore errors - files may not exist
-                    });
-                }
+                const settingsDir = getSettingsDir(item.worktreePath);
+                await fsPromises.rm(settingsDir, { recursive: true, force: true }).catch(() => {
+                    // Ignore errors - files may not exist
+                });
             }
 
             // Clean up pin state for the deleted session

@@ -243,8 +243,8 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'extra-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
-				// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
-				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'extra-fields-test');
+				// With non-global storage and global storage context initialized, files are in .lanes/current-sessions/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'current-sessions', 'extra-fields-test');
 				fs.mkdirSync(statusDir, { recursive: true });
 
 				const statusWithExtras = {
@@ -271,8 +271,8 @@ suite('Edge Cases Test Suite', () => {
 				const sessionDir = path.join(worktreesDir, 'null-fields-test');
 				fs.mkdirSync(sessionDir, { recursive: true });
 
-				// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
-				const statusDir = path.join(tempDir, '.lanes', 'session_management', 'null-fields-test');
+				// With non-global storage and global storage context initialized, files are in .lanes/current-sessions/<sessionName>/
+				const statusDir = path.join(tempDir, '.lanes', 'current-sessions', 'null-fields-test');
 				fs.mkdirSync(statusDir, { recursive: true });
 
 				const statusWithNulls = {
@@ -327,8 +327,8 @@ suite('Edge Cases Test Suite', () => {
 				for (let i = 0; i < statuses.length; i++) {
 					const sessionDir = path.join(worktreesDir, `status-concurrent-${i}`);
 					fs.mkdirSync(sessionDir, { recursive: true });
-					// With non-global storage and global storage context initialized, files are in .lanes/session_management/<sessionName>/
-					const statusDir = path.join(tempDir, '.lanes', 'session_management', `status-concurrent-${i}`);
+					// With non-global storage and global storage context initialized, files are in .lanes/current-sessions/<sessionName>/
+					const statusDir = path.join(tempDir, '.lanes', 'current-sessions', `status-concurrent-${i}`);
 					fs.mkdirSync(statusDir, { recursive: true });
 					fs.writeFileSync(
 						path.join(statusDir, '.claude-status'),

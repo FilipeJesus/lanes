@@ -5,7 +5,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import {
 	initializeGlobalStorageContext,
-	getRepoIdentifier,
 } from '../../vscode/providers/AgentSessionProvider';
 import { getOrCreateExtensionSettingsFile } from '../../core/services/SettingsService';
 
@@ -36,7 +35,7 @@ suite('Extension Settings File Location', () => {
 
 	suite('Settings File Location', () => {
 
-		test('should create settings file at correct global storage path', async () => {
+		test('should create settings file at correct repo-local path', async () => {
 			// Arrange
 			const sessionName = 'test-session';
 			const worktreePath = path.join(worktreesDir, sessionName);
@@ -46,9 +45,8 @@ suite('Extension Settings File Location', () => {
 			const settingsPath = await getOrCreateExtensionSettingsFile(worktreePath);
 
 			// Assert
-			const repoIdentifier = getRepoIdentifier(tempDir);
-			const expectedPath = path.join(globalStorageDir, repoIdentifier, sessionName, 'claude-settings.json');
-			assert.strictEqual(settingsPath, expectedPath, 'Settings file should be at globalStorageUri/<repo-identifier>/<session-name>/claude-settings.json');
+			const expectedPath = path.join(tempDir, '.lanes', 'current-sessions', sessionName, 'claude-settings.json');
+			assert.strictEqual(settingsPath, expectedPath, 'Settings file should be at <repo>/.lanes/current-sessions/<session-name>/claude-settings.json');
 		});
 
 		test('should return absolute path to the settings file', async () => {
@@ -184,7 +182,7 @@ suite('Extension Settings File Location', () => {
 			// If .claude doesn't exist, that's also fine
 		});
 
-		test('settings file should be created in extension global storage, not worktree', async () => {
+		test('settings file should be created in repo-local .lanes/current-sessions/, not worktree', async () => {
 			// Arrange
 			const sessionName = 'storage-location-test';
 			const worktreePath = path.join(worktreesDir, sessionName);
@@ -195,8 +193,12 @@ suite('Extension Settings File Location', () => {
 
 			// Assert
 			assert.ok(
-				settingsPath.startsWith(globalStorageDir),
-				'Settings file should be in global storage directory'
+				settingsPath.startsWith(tempDir),
+				'Settings file should be under the repo root'
+			);
+			assert.ok(
+				settingsPath.includes('.lanes/current-sessions/'),
+				'Settings file should be in .lanes/current-sessions/ directory'
 			);
 			assert.ok(
 				!settingsPath.startsWith(worktreePath),

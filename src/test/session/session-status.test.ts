@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getAgentStatus, initializeGlobalStorageContext, getRepoIdentifier } from '../../vscode/providers/AgentSessionProvider';
+import { getAgentStatus, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
 
 suite('Session Status', () => {
 
@@ -21,11 +21,10 @@ suite('Session Status', () => {
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
-	// Helper function to create status file in the correct location (global storage)
+	// Helper function to create status file in the correct location (.lanes/current-sessions/)
 	function createStatusFile(worktreePath: string, statusData: { status: string; timestamp?: string; message?: string }): void {
 		const sessionName = path.basename(worktreePath);
-		const repoIdentifier = getRepoIdentifier(tempDir);
-		const statusDir = path.join(globalStorageDir, repoIdentifier, sessionName);
+		const statusDir = path.join(tempDir, '.lanes', 'current-sessions', sessionName);
 		fs.mkdirSync(statusDir, { recursive: true });
 		fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 	}
@@ -71,7 +70,7 @@ suite('Session Status', () => {
 		test('should return null for invalid JSON in .claude-status', async () => {
 			// Arrange: Create a .claude-status file with invalid JSON
 			const sessionName = path.basename(tempDir);
-			const statusDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			const statusDir = path.join(tempDir, '.lanes', 'current-sessions', sessionName);
 			fs.mkdirSync(statusDir, { recursive: true });
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), 'not valid json {{{');
 
@@ -86,7 +85,7 @@ suite('Session Status', () => {
 			// Arrange: Create a .claude-status file with invalid status value
 			const statusData = { status: 'invalid' };
 			const sessionName = path.basename(tempDir);
-			const statusDir = path.join(globalStorageDir, getRepoIdentifier(tempDir), sessionName);
+			const statusDir = path.join(tempDir, '.lanes', 'current-sessions', sessionName);
 			fs.mkdirSync(statusDir, { recursive: true });
 			fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
 
