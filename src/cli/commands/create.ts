@@ -4,20 +4,16 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import * as fsPromises from 'fs/promises';
-import { initCli, exitWithError, getBranchesInWorktrees } from '../utils';
-import { execGit } from '../../core/gitService';
-import { fileExists, ensureDir, writeJson } from '../../core/services/FileService';
+import { initCli, exitWithError } from '../utils';
 import { validateSessionName } from '../../core/validation';
 import { validateBranchName, sanitizeSessionName, getErrorMessage } from '../../core/utils';
 import { validateAndGetAgent, getAvailableAgents } from '../../core/codeAgents';
-import { propagateLocalSettings, LocalSettingsPropagationMode } from '../../core/localSettings';
-import * as BrokenWorktreeService from '../../core/services/BrokenWorktreeService';
+import { LocalSettingsPropagationMode } from '../../core/localSettings';
 import {
-    getSessionFilePath,
     saveSessionWorkflow,
     initializeGlobalStorageContext,
 } from '../../core/session/SessionDataService';
+import { createSessionWorktree } from '../../core/services/SessionCreationService';
 import { execIntoAgent } from './open';
 
 export function registerCreateCommand(program: Command): void {
@@ -69,85 +65,18 @@ export function registerCreateCommand(program: Command): void {
                     exitWithError(branchValidation.error || 'Invalid branch name.');
                 }
 
-                const worktreePath = path.join(repoRoot, worktreesFolder, sanitizedName);
+                // Create worktree via core service
+                console.log(`Creating session '${sanitizedName}'...`);
+                const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
 
-                // Ensure worktrees directory exists
-                await fsPromises.mkdir(path.join(repoRoot, worktreesFolder), { recursive: true });
-
-                // Check if branch already exists
-                const branchAlreadyExists = await BrokenWorktreeService.branchExists(repoRoot, sanitizedName);
-
-                if (branchAlreadyExists) {
-                    const branchesInUse = await getBranchesInWorktrees(repoRoot);
-                    if (branchesInUse.has(sanitizedName)) {
-                        exitWithError(
-                            `Branch '${sanitizedName}' is already checked out in another worktree. ` +
-                            `Git does not allow the same branch in multiple worktrees.`
-                        );
-                    }
-                    // Use existing branch
-                    console.log(`Using existing branch '${sanitizedName}'...`);
-                    await execGit(['worktree', 'add', worktreePath, sanitizedName], repoRoot);
-                } else {
-                    // Create new branch
-                    const sourceBranch = options.branch.trim();
-                    if (sourceBranch) {
-                        const sourceValidation = validateBranchName(sourceBranch);
-                        if (!sourceValidation.valid) {
-                            exitWithError(sourceValidation.error || 'Invalid source branch name.');
-                        }
-
-                        // Fetch from remote
-                        let remote = 'origin';
-                        let branchName = sourceBranch;
-                        if (sourceBranch.includes('/')) {
-                            const parts = sourceBranch.split('/');
-                            remote = parts[0];
-                            branchName = parts.slice(1).join('/');
-                        }
-
-                        try {
-                            await execGit(['fetch', remote, branchName], repoRoot);
-                        } catch {
-                            console.warn(`Warning: Could not fetch '${sourceBranch}'. Using local data.`);
-                        }
-
-                        // Verify source exists
-                        const sourceExists = await BrokenWorktreeService.branchExists(repoRoot, sourceBranch);
-                        let remoteExists = false;
-                        if (!sourceExists) {
-                            try {
-                                await execGit(['show-ref', '--verify', '--quiet', `refs/remotes/${sourceBranch}`], repoRoot);
-                                remoteExists = true;
-                            } catch { /* not found */ }
-                        }
-
-                        if (!sourceExists && !remoteExists) {
-                            exitWithError(`Source branch '${sourceBranch}' does not exist.`);
-                        }
-
-                        console.log(`Creating session '${sanitizedName}' from '${sourceBranch}'...`);
-                        await execGit(['worktree', 'add', worktreePath, '-b', sanitizedName, sourceBranch], repoRoot);
-                    } else {
-                        console.log(`Creating session '${sanitizedName}'...`);
-                        await execGit(['worktree', 'add', worktreePath, '-b', sanitizedName], repoRoot);
-                    }
-                }
-
-                // Propagate local settings
-                try {
-                    const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
-                    await propagateLocalSettings(repoRoot, worktreePath, propagationMode, codeAgent);
-                } catch (err) {
-                    console.warn(`Warning: Failed to propagate local settings: ${getErrorMessage(err)}`);
-                }
-
-                // Seed session file
-                const sessionFilePath = getSessionFilePath(worktreePath);
-                await ensureDir(path.dirname(sessionFilePath));
-                await writeJson(sessionFilePath, {
-                    agentName: codeAgent.name,
-                    timestamp: new Date().toISOString(),
+                const { worktreePath } = await createSessionWorktree({
+                    repoRoot,
+                    sessionName: sanitizedName,
+                    sourceBranch: options.branch,
+                    worktreesFolder,
+                    codeAgent,
+                    localSettingsPropagation: propagationMode,
+                    onWarning: (msg) => console.warn(`Warning: ${msg}`),
                 });
 
                 // Save workflow if specified

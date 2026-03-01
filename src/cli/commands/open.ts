@@ -5,7 +5,6 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import * as fsPromises from 'fs/promises';
 import { initCli, exitWithError, getPackageRoot } from '../utils';
 import { CliConfigProvider } from '../adapters/CliConfigProvider';
 import { fileExists } from '../../core/services/FileService';
@@ -13,11 +12,11 @@ import { getErrorMessage } from '../../core/utils';
 import {
     getSessionAgentName,
     getOrCreateTaskListId,
-    getPromptsPath,
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     initializeGlobalStorageContext,
 } from '../../core/session/SessionDataService';
+import { writePromptFile } from '../../core/services/PromptService';
 import { validateAndGetAgent } from '../../core/codeAgents';
 import { CodeAgent } from '../../core/codeAgents/CodeAgent';
 import type { McpConfig } from '../../core/codeAgents/CodeAgent';
@@ -74,12 +73,8 @@ export async function execIntoAgent(opts: {
     let promptArg: string | undefined;
     if (prompt) {
         const promptsFolder = config.get('lanes', 'promptsFolder', '');
-        const promptPathInfo = getPromptsPath(sessionName, repoRoot, promptsFolder);
-        if (promptPathInfo) {
-            await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
-            await fsPromises.writeFile(promptPathInfo.path, prompt, 'utf-8');
-            promptArg = `"$(cat "${promptPathInfo.path}")"`;
-        }
+        const result = await writePromptFile(prompt, sessionName, repoRoot, promptsFolder);
+        promptArg = result?.commandArg;
     }
 
     // Build the command
@@ -122,29 +117,19 @@ export async function execIntoAgent(opts: {
             exitWithError('Tmux is not installed. Install tmux or omit --tmux.');
         }
 
-        const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
-        const tmuxSessionExists = await TmuxService.sessionExists(tmuxSessionName);
+        const result = await TmuxService.launchInTmux({
+            sessionName,
+            worktreePath,
+            command,
+            env: { CLAUDE_CODE_TASK_LIST_ID: taskListId },
+        });
 
-        if (tmuxSessionExists) {
-            // Attach to existing session
-            execSync(`tmux attach-session -t ${tmuxSessionName}`, {
-                cwd: worktreePath,
-                stdio: 'inherit',
-                env,
-            });
-        } else {
-            // Create new tmux session and send the agent command
-            await TmuxService.createSession(tmuxSessionName, worktreePath);
-            await TmuxService.sendCommand(tmuxSessionName, `export CLAUDE_CODE_TASK_LIST_ID='${taskListId}'`);
-            await TmuxService.sendCommand(tmuxSessionName, command);
-
-            // Attach to the session
-            execSync(`tmux attach-session -t ${tmuxSessionName}`, {
-                cwd: worktreePath,
-                stdio: 'inherit',
-                env,
-            });
-        }
+        // Attach to the tmux session
+        execSync(result.attachCommand, {
+            cwd: worktreePath,
+            stdio: 'inherit',
+            env,
+        });
     } else {
         // Default mode: exec into the agent process directly
         try {
