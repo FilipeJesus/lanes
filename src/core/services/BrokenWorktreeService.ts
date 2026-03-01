@@ -120,6 +120,31 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
 }
 
 /**
+ * Get a set of branch names that are currently checked out in worktrees.
+ * Parses the output of `git worktree list --porcelain`.
+ * @param cwd The working directory (git repo root)
+ * @returns A Set of branch names currently in use by worktrees
+ */
+export async function getBranchesInWorktrees(cwd: string): Promise<Set<string>> {
+    const branches = new Set<string>();
+    try {
+        const output = await execGit(['worktree', 'list', '--porcelain'], cwd);
+        const lines = output.split('\n');
+        for (const line of lines) {
+            if (line.startsWith('branch refs/heads/')) {
+                const branchName = line.replace('branch refs/heads/', '').trim();
+                if (branchName) {
+                    branches.add(branchName);
+                }
+            }
+        }
+    } catch {
+        // Return empty set for graceful degradation
+    }
+    return branches;
+}
+
+/**
  * Check if a branch exists in the git repository.
  * @param cwd The working directory (git repo root)
  * @param branchName The name of the branch to check
