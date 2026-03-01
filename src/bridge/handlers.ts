@@ -18,6 +18,7 @@ import {
     getSessionFilePath,
     getAgentStatus,
     getSessionId,
+    getPromptsPath,
     clearSessionId,
     getSessionNameFromWorktree,
     getWorktreesFolder,
@@ -30,13 +31,13 @@ import * as TmuxService from '../core/services/TmuxService';
 import * as DiffService from '../core/services/DiffService';
 import * as BrokenWorktreeService from '../core/services/BrokenWorktreeService';
 import { discoverWorkflows } from '../core/workflow/discovery';
-import { validateWorkflow } from '../core/services/WorkflowService';
+import { getWorkflowOrchestratorInstructions, validateWorkflow } from '../core/services/WorkflowService';
 import { getAgent, getAvailableAgents } from '../core/codeAgents';
 import { ConfigStore } from './config';
 import { NotificationEmitter } from './notifications';
 import { FileWatchManager } from './fileWatcher';
 import { readJson } from '../core/services/FileService';
-import { GitError } from '../core/errors';
+import { buildAgentLaunchCommand, prepareAgentLaunchContext } from '../core/services/AgentLaunchSetupService';
 
 // =============================================================================
 // Input Validation
@@ -90,11 +91,101 @@ function validateWatchPath(watchPath: string): void {
     }
 }
 
+function validateWatchPattern(pattern: string): void {
+    if (!pattern || typeof pattern !== 'string') {
+        throw new Error('Watch pattern is required');
+    }
+    if (path.isAbsolute(pattern) || pattern.split(/[\\/]/).includes('..')) {
+        throw new Error('Watch pattern must be relative and must not traverse parent directories');
+    }
+}
+
+const VALID_CONFIG_KEYS = new Set([
+    'lanes.worktreesFolder',
+    'lanes.promptsFolder',
+    'lanes.defaultAgent',
+    'lanes.baseBranch',
+    'lanes.includeUncommittedChanges',
+    'lanes.useGlobalStorage',
+    'lanes.localSettingsPropagation',
+    'lanes.workflowsEnabled',
+    'lanes.customWorkflowsFolder',
+    'lanes.chimeSound',
+    'lanes.polling.quietThresholdMs',
+    'lanes.terminalMode'
+]);
+
 // Global handler context
 let workspaceRoot: string;
 let configStore: ConfigStore;
 let notificationEmitter: NotificationEmitter;
 let fileWatchManager: FileWatchManager;
+
+function isSessionActive(status: { status?: string } | null | undefined): boolean {
+    const state = status?.status;
+    return state === 'active' || state === 'working' || state === 'waiting_for_user';
+}
+
+function normalizeTerminalMode(mode: string | undefined): string {
+    if (mode === 'code') {
+        // Backward compatibility for older IntelliJ values.
+        return 'vscode';
+    }
+    return mode ?? 'vscode';
+}
+
+function buildCreateSessionPrompt(
+    prompt: string | undefined,
+    effectiveWorkflow: string | null
+): string | undefined {
+    const trimmed = prompt?.trim() ?? '';
+    if (effectiveWorkflow && trimmed) {
+        return getWorkflowOrchestratorInstructions(effectiveWorkflow) + trimmed;
+    }
+    if (effectiveWorkflow) {
+        return getWorkflowOrchestratorInstructions(effectiveWorkflow) + 'Start the workflow and follow the steps.';
+    }
+    return trimmed || undefined;
+}
+
+async function resolveExtensionPath(): Promise<string> {
+    const candidates = [
+        path.join(__dirname, '..', '..'), // dev layout: out/bridge -> repo root
+        path.join(__dirname, '..')        // packaged layout: <plugin>/bridge -> <plugin>
+    ];
+
+    for (const candidate of candidates) {
+        try {
+            await fs.access(path.join(candidate, 'workflows'));
+            return candidate;
+        } catch {
+            // Continue to next candidate.
+        }
+    }
+
+    return candidates[0];
+}
+
+async function resolveWorkflowPath(workflowNameOrPath: string): Promise<string | null> {
+    if (path.isAbsolute(workflowNameOrPath) && workflowNameOrPath.endsWith('.yaml')) {
+        const resolved = path.resolve(workflowNameOrPath);
+        const resolvedWorkspace = path.resolve(workspaceRoot);
+        if (!resolved.startsWith(resolvedWorkspace + path.sep) && resolved !== resolvedWorkspace) {
+            throw new Error('Workflow path must be within the workspace root');
+        }
+        return workflowNameOrPath;
+    }
+
+    const customWorkflowsFolder = configStore.get('lanes.customWorkflowsFolder') as string ?? '.lanes/workflows';
+    const extensionPath = await resolveExtensionPath();
+    const workflows = await discoverWorkflows({
+        extensionPath,
+        workspaceRoot,
+        customWorkflowsFolder
+    });
+    const matched = workflows.find(w => w.name === workflowNameOrPath);
+    return matched?.path ?? null;
+}
 
 /**
  * Initialize handlers with context.
@@ -121,104 +212,46 @@ export function disposeHandlers(): void {
     }
 }
 
+const methodHandlers: Record<string, (params: Record<string, unknown>) => Promise<unknown>> = {
+    'session.list': handleSessionList,
+    'session.create': handleSessionCreate,
+    'session.delete': handleSessionDelete,
+    'session.clear': handleSessionClear,
+    'session.getStatus': handleSessionGetStatus,
+    'session.open': handleSessionOpen,
+    'session.pin': handleSessionPin,
+    'session.unpin': handleSessionUnpin,
+    'git.listBranches': handleGitListBranches,
+    'git.getDiff': handleGitGetDiff,
+    'git.getDiffFiles': handleGitGetDiffFiles,
+    'git.getWorktreeInfo': handleGitGetWorktreeInfo,
+    'git.repairWorktrees': handleGitRepairWorktrees,
+    'workflow.list': handleWorkflowList,
+    'workflow.validate': handleWorkflowValidate,
+    'workflow.create': handleWorkflowCreate,
+    'workflow.getState': handleWorkflowGetState,
+    'agent.list': handleAgentList,
+    'agent.getConfig': handleAgentGetConfig,
+    'config.get': handleConfigGet,
+    'config.set': handleConfigSet,
+    'config.getAll': handleConfigGetAll,
+    'terminal.create': handleTerminalCreate,
+    'terminal.send': handleTerminalSend,
+    'terminal.list': handleTerminalList,
+    'fileWatcher.watch': handleFileWatcherWatch,
+    'fileWatcher.unwatch': handleFileWatcherUnwatch,
+};
+
 /**
  * Main request dispatcher.
  * Routes method names to handler functions.
  */
 export async function handleRequest(method: string, params: Record<string, unknown>): Promise<unknown> {
-    // Session handlers
-    if (method === 'session.list') {
-        return handleSessionList(params);
+    const handler = methodHandlers[method];
+    if (!handler) {
+        throw new Error(`Method not found: ${method}`);
     }
-    if (method === 'session.create') {
-        return handleSessionCreate(params);
-    }
-    if (method === 'session.delete') {
-        return handleSessionDelete(params);
-    }
-    if (method === 'session.clear') {
-        return handleSessionClear(params);
-    }
-    if (method === 'session.getStatus') {
-        return handleSessionGetStatus(params);
-    }
-    if (method === 'session.open') {
-        return handleSessionOpen(params);
-    }
-    if (method === 'session.pin') {
-        return handleSessionPin(params);
-    }
-    if (method === 'session.unpin') {
-        return handleSessionUnpin(params);
-    }
-
-    // Git handlers
-    if (method === 'git.listBranches') {
-        return handleGitListBranches(params);
-    }
-    if (method === 'git.getDiff') {
-        return handleGitGetDiff(params);
-    }
-    if (method === 'git.getWorktreeInfo') {
-        return handleGitGetWorktreeInfo(params);
-    }
-    if (method === 'git.repairWorktrees') {
-        return handleGitRepairWorktrees(params);
-    }
-
-    // Workflow handlers
-    if (method === 'workflow.list') {
-        return handleWorkflowList(params);
-    }
-    if (method === 'workflow.validate') {
-        return handleWorkflowValidate(params);
-    }
-    if (method === 'workflow.create') {
-        return handleWorkflowCreate(params);
-    }
-    if (method === 'workflow.getState') {
-        return handleWorkflowGetState(params);
-    }
-
-    // Agent handlers
-    if (method === 'agent.list') {
-        return handleAgentList(params);
-    }
-    if (method === 'agent.getConfig') {
-        return handleAgentGetConfig(params);
-    }
-
-    // Config handlers
-    if (method === 'config.get') {
-        return handleConfigGet(params);
-    }
-    if (method === 'config.set') {
-        return handleConfigSet(params);
-    }
-    if (method === 'config.getAll') {
-        return handleConfigGetAll(params);
-    }
-
-    // Terminal handlers
-    if (method === 'terminal.create') {
-        return handleTerminalCreate(params);
-    }
-    if (method === 'terminal.send') {
-        return handleTerminalSend(params);
-    }
-    if (method === 'terminal.list') {
-        return handleTerminalList(params);
-    }
-
-    // File watcher handlers
-    if (method === 'fileWatcher.watch') {
-        return handleFileWatcherWatch(params);
-    }
-    if (method === 'fileWatcher.unwatch') {
-        return handleFileWatcherUnwatch(params);
-    }
-
-    throw new Error(`Method not found: ${method}`);
+    return handler(params);
 }
 
 // =============================================================================
@@ -260,6 +293,10 @@ async function handleSessionList(params: Record<string, unknown>): Promise<unkno
             // For now, we don't have pin state persisted - always false
             const isPinned = false;
 
+            if (!includeInactive && !isSessionActive(status as { status?: string } | null)) {
+                continue;
+            }
+
             sessions.push({
                 name: sessionName,
                 worktreePath,
@@ -270,9 +307,12 @@ async function handleSessionList(params: Record<string, unknown>): Promise<unkno
                 isPinned
             });
         }
-    } catch (err) {
-        // Worktrees directory doesn't exist or can't be read
-        // Return empty list
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+            // Worktrees directory doesn't exist - return empty list
+        } else {
+            throw err;
+        }
     }
 
     return { sessions };
@@ -296,71 +336,116 @@ async function handleSessionCreate(params: Record<string, unknown>): Promise<unk
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, name);
 
-    // Create worktree - if branch is empty, create a new branch based on HEAD
+    // Create worktree on a session-specific branch.
+    // - If branch is provided, treat it as the source/base branch and create `name` from it.
+    // - If branch is empty, create `name` from current HEAD.
+    // - If branch equals name, reuse that existing branch in a new worktree.
     const worktreeArgs = ['worktree', 'add'];
     if (branch) {
-        worktreeArgs.push(worktreePath, branch);
+        if (branch === name) {
+            worktreeArgs.push(worktreePath, branch);
+        } else {
+            worktreeArgs.push('-b', name, worktreePath, branch);
+        }
     } else {
-        // Create new branch with session name from current HEAD
         worktreeArgs.push('-b', name, worktreePath);
     }
     await execGit(worktreeArgs, workspaceRoot);
 
-    // Initialize session file
-    const sessionFilePath = getSessionFilePath(worktreePath);
-    const sessionId = `session-${Date.now()}`;
-    await fs.mkdir(path.dirname(sessionFilePath), { recursive: true });
-    await fs.writeFile(
-        sessionFilePath,
-        JSON.stringify({
-            sessionId,
-            timestamp: new Date().toISOString(),
-            agentName: agent ?? 'claude',
-            workflow: workflow ?? undefined,
-            permissionMode: permissionMode ?? undefined
-        }, null, 2),
-        'utf-8'
-    );
-
-    // Save workflow if provided
-    if (workflow) {
-        await saveSessionWorkflow(worktreePath, workflow);
-    }
-
-    // Save permission mode if provided
-    if (permissionMode) {
-        await saveSessionPermissionMode(worktreePath, permissionMode);
-    }
-
-    // Create tmux terminal
-    const terminalMode = configStore.get('lanes.terminalMode') as string ?? 'vscode';
-    if (TmuxService.isTmuxMode(terminalMode)) {
-        const tmuxInstalled = await TmuxService.isTmuxInstalled();
-        if (tmuxInstalled) {
-            const sanitizedName = TmuxService.sanitizeTmuxSessionName(name);
-            await TmuxService.createSession(sanitizedName, worktreePath);
-            await saveSessionTerminalMode(worktreePath, 'tmux');
+    try {
+        const launchContext = await prepareAgentLaunchContext({
+            worktreePath,
+            workflow: workflow ?? null,
+            permissionMode,
+            agentName: agent,
+            defaultAgentName: configStore.get('lanes.defaultAgent') as string ?? 'claude',
+            repoRoot: workspaceRoot,
+            workflowResolver: resolveWorkflowPath
+        });
+        const startPrompt = buildCreateSessionPrompt(prompt, launchContext.effectiveWorkflow);
+        let launchPrompt = startPrompt;
+        if (startPrompt) {
+            const promptsFolder = configStore.get('lanes.promptsFolder') as string ?? '';
+            const promptPathInfo = getPromptsPath(name, workspaceRoot, promptsFolder);
+            if (promptPathInfo) {
+                await fs.mkdir(promptPathInfo.needsDir, { recursive: true });
+                await fs.writeFile(promptPathInfo.path, startPrompt, 'utf-8');
+                // Use command substitution to avoid terminal issues with multiline prompts.
+                const escapedPromptPath = promptPathInfo.path.replace(/"/g, '\\"');
+                launchPrompt = `"$(cat "${escapedPromptPath}")"`;
+            }
         }
+        const launch = await buildAgentLaunchCommand(launchContext, {
+            preferResume: false,
+            prompt: launchPrompt
+        });
+
+        // Initialize session file
+        const sessionFilePath = getSessionFilePath(worktreePath);
+        const sessionId = `session-${Date.now()}`;
+        await fs.mkdir(path.dirname(sessionFilePath), { recursive: true });
+        await fs.writeFile(
+            sessionFilePath,
+            JSON.stringify({
+                sessionId,
+                timestamp: new Date().toISOString(),
+                agentName: launchContext.codeAgent.name,
+                workflow: launchContext.effectiveWorkflow ?? undefined,
+                permissionMode: permissionMode ?? undefined
+            }, null, 2),
+            'utf-8'
+        );
+
+        // Save workflow if provided
+        if (launchContext.effectiveWorkflow) {
+            await saveSessionWorkflow(worktreePath, launchContext.effectiveWorkflow);
+        }
+
+        // Save permission mode if provided
+        if (permissionMode) {
+            await saveSessionPermissionMode(worktreePath, permissionMode);
+        }
+
+        // Create tmux terminal
+        const terminalMode = normalizeTerminalMode(configStore.get('lanes.terminalMode') as string | undefined);
+        let command = launch.command;
+        if (TmuxService.isTmuxMode(terminalMode)) {
+            const tmuxInstalled = await TmuxService.isTmuxInstalled();
+            if (tmuxInstalled) {
+                const sanitizedName = TmuxService.sanitizeTmuxSessionName(name);
+                await TmuxService.createSession(sanitizedName, worktreePath);
+                await TmuxService.sendCommand(sanitizedName, launch.command);
+                await saveSessionTerminalMode(worktreePath, 'tmux');
+                command = `tmux attach-session -t ${sanitizedName}`;
+            }
+        } else {
+            await saveSessionTerminalMode(worktreePath, 'vscode');
+        }
+
+        // Emit notification
+        notificationEmitter.sessionCreated(name, worktreePath);
+
+        return {
+            sessionName: name,
+            worktreePath,
+            sessionId,
+            command
+        };
+    } catch (err) {
+        // Clean up the worktree on partial failure
+        try {
+            await execGit(['worktree', 'remove', worktreePath, '--force'], workspaceRoot);
+        } catch {
+            // Best effort cleanup
+        }
+        throw err;
     }
-
-    // Emit notification
-    notificationEmitter.sessionCreated(name, worktreePath);
-
-    return {
-        sessionName: name,
-        worktreePath,
-        sessionId
-    };
 }
 
 async function handleSessionDelete(params: Record<string, unknown>): Promise<unknown> {
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
     const deleteWorktree = params.deleteWorktree as boolean ?? true;
-
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
 
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
@@ -384,10 +469,6 @@ async function handleSessionClear(params: Record<string, unknown>): Promise<unkn
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
 
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
-
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
 
@@ -400,10 +481,6 @@ async function handleSessionGetStatus(params: Record<string, unknown>): Promise<
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
 
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
-
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
 
@@ -413,10 +490,42 @@ async function handleSessionGetStatus(params: Record<string, unknown>): Promise<
     return { status, workflowStatus };
 }
 
-async function handleSessionOpen(_params: Record<string, unknown>): Promise<unknown> {
-    // For IntelliJ, the actual terminal/session opening is handled on the Kotlin side
-    // This is just a success acknowledgment
-    return { success: true };
+async function handleSessionOpen(params: Record<string, unknown>): Promise<unknown> {
+    const sessionName = params.sessionName as string;
+    validateSessionName(sessionName);
+
+    const worktreesFolder = getWorktreesFolder();
+    const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
+
+    const launchContext = await prepareAgentLaunchContext({
+        worktreePath,
+        workflow: null,
+        permissionMode: undefined,
+        defaultAgentName: configStore.get('lanes.defaultAgent') as string ?? 'claude',
+        repoRoot: workspaceRoot,
+        workflowResolver: resolveWorkflowPath
+    });
+    const launch = await buildAgentLaunchCommand(launchContext);
+
+    let command = launch.command;
+    const terminalMode = normalizeTerminalMode(configStore.get('lanes.terminalMode') as string | undefined);
+    if (TmuxService.isTmuxMode(terminalMode)) {
+        const tmuxInstalled = await TmuxService.isTmuxInstalled();
+        if (tmuxInstalled) {
+            const sanitizedName = TmuxService.sanitizeTmuxSessionName(sessionName);
+            if (!await TmuxService.sessionExists(sanitizedName)) {
+                await TmuxService.createSession(sanitizedName, worktreePath);
+                await TmuxService.sendCommand(sanitizedName, launch.command);
+            }
+            command = `tmux attach-session -t ${sanitizedName}`;
+        }
+    }
+
+    return {
+        success: true,
+        worktreePath,
+        command
+    };
 }
 
 async function handleSessionPin(_params: Record<string, unknown>): Promise<unknown> {
@@ -463,10 +572,6 @@ async function handleGitGetDiff(params: Record<string, unknown>): Promise<unknow
     validateSessionName(sessionName);
     const includeUncommitted = params.includeUncommitted as boolean ?? true;
 
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
-
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
 
@@ -484,13 +589,31 @@ async function handleGitGetDiff(params: Record<string, unknown>): Promise<unknow
     return { diff };
 }
 
+async function handleGitGetDiffFiles(params: Record<string, unknown>): Promise<unknown> {
+    const sessionName = params.sessionName as string;
+    validateSessionName(sessionName);
+    const includeUncommitted = params.includeUncommitted as boolean ?? true;
+
+    const worktreesFolder = getWorktreesFolder();
+    const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
+
+    const baseBranch = configStore.get('lanes.baseBranch') as string ?? '';
+    const resolvedBaseBranch = await DiffService.getBaseBranch(worktreePath, baseBranch);
+
+    const warnedBranches = new Set<string>();
+    const files = await DiffService.generateDiffFiles(
+        worktreePath,
+        resolvedBaseBranch,
+        warnedBranches,
+        { includeUncommitted }
+    );
+
+    return { files };
+}
+
 async function handleGitGetWorktreeInfo(params: Record<string, unknown>): Promise<unknown> {
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
-
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
 
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
@@ -520,6 +643,17 @@ async function handleGitGetWorktreeInfo(params: Record<string, unknown>): Promis
                 }
             };
         }
+    }
+
+    // Check the last accumulated entry (no trailing empty line in porcelain output)
+    if (currentPath === worktreePath) {
+        return {
+            worktree: {
+                path: currentPath,
+                branch: currentBranch,
+                commit: currentCommit
+            }
+        };
     }
 
     return { worktree: null };
@@ -565,10 +699,7 @@ async function handleGitRepairWorktrees(params: Record<string, unknown>): Promis
 async function handleWorkflowList(params: Record<string, unknown>): Promise<unknown> {
     const includeBuiltin = params.includeBuiltin as boolean ?? true;
     const includeCustom = params.includeCustom as boolean ?? true;
-
-    // For IntelliJ, we need to provide extensionPath
-    // Since we're in compiled code at out/bridge/, extension root is two levels up
-    const extensionPath = path.join(__dirname, '..', '..');
+    const extensionPath = await resolveExtensionPath();
 
     const allWorkflows = await discoverWorkflows({
         extensionPath,
@@ -604,7 +735,16 @@ async function handleWorkflowValidate(params: Record<string, unknown>): Promise<
         throw new Error('Missing required parameter: workflowPath');
     }
 
-    const extensionPath = path.join(__dirname, '..', '..');
+    // Validate path is within workspace
+    if (path.isAbsolute(workflowPath)) {
+        const resolved = path.resolve(workflowPath);
+        const resolvedWorkspace = path.resolve(workspaceRoot);
+        if (!resolved.startsWith(resolvedWorkspace + path.sep) && resolved !== resolvedWorkspace) {
+            throw new Error('Workflow path must be within the workspace root');
+        }
+    }
+
+    const extensionPath = await resolveExtensionPath();
     const result = await validateWorkflow(workflowPath, extensionPath, workspaceRoot);
 
     return {
@@ -635,10 +775,6 @@ async function handleWorkflowCreate(params: Record<string, unknown>): Promise<un
 async function handleWorkflowGetState(params: Record<string, unknown>): Promise<unknown> {
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
-
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
 
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
@@ -733,6 +869,10 @@ async function handleConfigSet(params: Record<string, unknown>): Promise<unknown
         throw new Error('Missing required parameters: key and value');
     }
 
+    if (!VALID_CONFIG_KEYS.has(key)) {
+        throw new Error(`Unknown configuration key: ${key}`);
+    }
+
     await configStore.set(key, value);
     return { success: true };
 }
@@ -751,10 +891,6 @@ async function handleTerminalCreate(params: Record<string, unknown>): Promise<un
     const sessionName = params.sessionName as string;
     validateSessionName(sessionName);
     const command = params.command as string | undefined;
-
-    if (!sessionName) {
-        throw new Error('Missing required parameter: sessionName');
-    }
 
     const worktreesFolder = getWorktreesFolder();
     const worktreePath = path.join(workspaceRoot, worktreesFolder, sessionName);
@@ -802,7 +938,8 @@ async function handleFileWatcherWatch(params: Record<string, unknown>): Promise<
     if (!basePath || !pattern) {
         throw new Error('Missing required parameters: basePath and pattern');
     }
-    validateWatchPath(path.join(basePath, pattern));
+    validateWatchPath(basePath);
+    validateWatchPattern(pattern);
 
     const watchId = fileWatchManager.watch(basePath, pattern);
     return { watchId };
@@ -815,6 +952,6 @@ async function handleFileWatcherUnwatch(params: Record<string, unknown>): Promis
         throw new Error('Missing required parameter: watchId');
     }
 
-    const success = fileWatchManager.unwatch(watchId);
+    const success = await fileWatchManager.unwatch(watchId);
     return { success };
 }

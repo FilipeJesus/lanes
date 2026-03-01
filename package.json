@@ -460,6 +460,7 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "chokidar": "^4.0.3",
     "yaml": "^2.8.2"
   },
   "overrides": {

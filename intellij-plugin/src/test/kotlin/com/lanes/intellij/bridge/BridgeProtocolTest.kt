@@ -87,6 +87,13 @@ class BridgeProtocolTest {
     }
 
     @Test
+    fun `test TerminalMode backward compatibility mapping`() {
+        assertEquals(TerminalMode.VSCODE, TerminalMode.fromString("vscode"))
+        assertEquals(TerminalMode.VSCODE, TerminalMode.fromString("code"))
+        assertEquals(TerminalMode.TMUX, TerminalMode.fromString("tmux"))
+    }
+
+    @Test
     fun `test SessionCreateParams deserialization`() {
         val json = """
             {
@@ -145,6 +152,7 @@ class BridgeProtocolTest {
         // Git methods
         assertEquals("git.listBranches", GitMethods.LIST_BRANCHES)
         assertEquals("git.getDiff", GitMethods.GET_DIFF)
+        assertEquals("git.getDiffFiles", GitMethods.GET_DIFF_FILES)
 
         // Workflow methods
         assertEquals("workflow.list", WorkflowMethods.LIST)

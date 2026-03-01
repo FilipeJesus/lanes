@@ -2,6 +2,7 @@ package com.lanes.intellij.ui
 
 import com.intellij.openapi.actionSystem.DataKey
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -13,7 +14,7 @@ import com.intellij.ui.content.ContentFactory
  *
  * Creates a tool window with the SessionsTreePanel that displays all sessions.
  */
-class LanesToolWindowFactory : ToolWindowFactory {
+class LanesToolWindowFactory : ToolWindowFactory, DumbAware {
 
     private val logger = Logger.getInstance(LanesToolWindowFactory::class.java)
 

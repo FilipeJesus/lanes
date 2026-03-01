@@ -15,6 +15,7 @@
  */
 
 import * as readline from 'readline';
+import * as path from 'path';
 import { initializeGitPath } from '../core/gitService';
 import { initializeGlobalStorageContext, setConfigCallbacks } from '../core/session/SessionDataService';
 import { getAgent } from '../core/codeAgents';
@@ -49,7 +50,7 @@ interface JsonRpcRequest {
 
 interface JsonRpcResponse {
     jsonrpc: string;
-    id: number;
+    id: number | null;
     result?: unknown;
     error?: JsonRpcError;
 }
@@ -65,6 +66,21 @@ let workspaceRoot: string | undefined;
 let configStore: ConfigStore | undefined;
 let notificationEmitter: NotificationEmitter | undefined;
 let initialized = false;
+
+/**
+ * Keep stdout reserved for JSON-RPC messages only.
+ * Any incidental logs from shared modules are redirected to stderr.
+ */
+function redirectConsoleToStderr(): void {
+    const writeToStderr = (...args: unknown[]) => {
+        const message = args.map((arg) => String(arg)).join(' ');
+        process.stderr.write(`${message}\n`);
+    };
+
+    console.log = writeToStderr;
+    console.info = writeToStderr;
+    console.warn = writeToStderr;
+}
 
 /**
  * Parse CLI arguments
@@ -103,7 +119,7 @@ function sendResponse(response: JsonRpcResponse): void {
 function sendError(id: number | null, code: number, message: string, data?: unknown): void {
     sendResponse({
         jsonrpc: '2.0',
-        id: id ?? 0,
+        id,
         error: { code, message, data }
     });
 }
@@ -155,8 +171,11 @@ async function handleInitialize(id: number, params: Record<string, unknown>): Pr
         if (!codeAgent) {
             log(`Warning: Could not initialize code agent '${defaultAgent}', using 'claude' as fallback`);
         }
+        // IntelliJ stores session tracking in a repo-local hidden directory
+        // to avoid cluttering the repository root.
+        const intellijStorageRoot = path.join(workspaceRoot, '.lanes', 'current-sessions');
         initializeGlobalStorageContext(
-            workspaceRoot, // Use workspace root for storage
+            intellijStorageRoot,
             workspaceRoot,
             codeAgent ?? getAgent('claude')!
         );
@@ -249,12 +268,6 @@ async function processRequest(request: JsonRpcRequest): Promise<void> {
             code = ErrorCodes.GIT_ERROR;
         } else if (err instanceof ValidationError) {
             code = ErrorCodes.VALIDATION_ERROR;
-        } else if (message.includes('not found') || message.includes('does not exist')) {
-            code = ErrorCodes.SESSION_NOT_FOUND;
-        } else if (message.includes('workflow')) {
-            code = ErrorCodes.WORKFLOW_ERROR;
-        } else if (message.includes('agent') || message.includes('CLI')) {
-            code = ErrorCodes.AGENT_NOT_AVAILABLE;
         }
 
         log(`Error handling ${method}: ${message}`);
@@ -266,6 +279,8 @@ async function processRequest(request: JsonRpcRequest): Promise<void> {
  * Main server loop
  */
 async function main(): Promise<void> {
+    redirectConsoleToStderr();
+
     // Parse CLI arguments
     const args = parseArgs();
     if (!args.workspaceRoot) {

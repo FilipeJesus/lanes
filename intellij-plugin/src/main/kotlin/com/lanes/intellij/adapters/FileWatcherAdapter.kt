@@ -11,6 +11,11 @@ import com.lanes.intellij.bridge.FileWatcherUnwatchResult
 import com.lanes.intellij.bridge.FileWatcherWatchParams
 import com.lanes.intellij.bridge.FileWatcherWatchResult
 import com.lanes.intellij.bridge.NotificationMethods
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -51,6 +56,7 @@ class FileWatchHandle(
 ) : Disposable {
 
     private val logger = Logger.getInstance(FileWatchHandle::class.java)
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val changeHandlers = CopyOnWriteArrayList<() -> Unit>()
     private val createHandlers = CopyOnWriteArrayList<(String) -> Unit>()
     private val deleteHandlers = CopyOnWriteArrayList<() -> Unit>()
@@ -115,24 +121,27 @@ class FileWatchHandle(
     /**
      * Dispose the file watch.
      * Unregisters notification listener and clears handlers.
-     * The unwatch bridge request is best-effort (fire-and-forget).
+     * The unwatch bridge request is best-effort.
      */
     override fun dispose() {
-        // Unregister notification listener
         notificationDisposable?.dispose()
-
-        // Best-effort unwatch — don't block on bridge response during disposal.
-        // The bridge will clean up watchers when the process exits anyway.
-        try {
-            // Note: We can't call suspend functions from dispose().
-            // The bridge server will clean up watches when the session ends.
-            logger.debug("Disposing file watch: $watchId")
-        } catch (e: Exception) {
-            // Ignore errors during disposal
-        }
 
         changeHandlers.clear()
         createHandlers.clear()
         deleteHandlers.clear()
+
+        scope.launch {
+            try {
+                client.request(
+                    FileWatcherMethods.UNWATCH,
+                    FileWatcherUnwatchParams(watchId),
+                    FileWatcherUnwatchResult::class.java
+                )
+            } catch (e: Exception) {
+                logger.debug("Failed to unwatch bridge watch id: $watchId", e)
+            }
+        }.invokeOnCompletion {
+            scope.cancel()
+        }
     }
 }

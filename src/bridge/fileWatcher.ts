@@ -1,21 +1,32 @@
 /**
  * File Watcher - Manages file system watches for the bridge
  *
- * Uses Node.js fs.watch to monitor file changes and emit notifications.
+ * Uses chokidar to monitor file changes and emit notifications.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as chokidar from 'chokidar';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const picomatch = require('picomatch') as (pattern: string) => (input: string) => boolean;
 import { NotificationEmitter } from './notifications';
 
 /**
  * FileWatchManager manages file system watches.
  */
-export class FileWatchManager {
-    private watchers = new Map<string, fs.FSWatcher>();
-    private nextWatchId = 1;
+export interface FileWatchOptions {
+    usePolling?: boolean;
+}
 
-    constructor(private notificationEmitter: NotificationEmitter) {}
+export class FileWatchManager {
+    private watchers = new Map<string, chokidar.FSWatcher>();
+    private readyPromises = new Map<string, Promise<void>>();
+    private nextWatchId = 1;
+    private options: FileWatchOptions;
+
+    constructor(private notificationEmitter: NotificationEmitter, options?: FileWatchOptions) {
+        this.options = options ?? {};
+    }
 
     /**
      * Create a new file system watch.
@@ -23,54 +34,69 @@ export class FileWatchManager {
      */
     watch(basePath: string, pattern: string): string {
         const watchId = `watch-${this.nextWatchId++}`;
-
-        // For simplicity, we'll watch the directory and filter by pattern
-        // In a production implementation, you'd use a library like chokidar for glob support
-        const fullPath = path.join(basePath, pattern);
-        const watchPath = path.dirname(fullPath);
+        const resolvedBasePath = path.resolve(basePath);
+        const isMatch = picomatch(pattern);
 
         try {
-            const watcher = fs.watch(watchPath, { recursive: true }, (eventType, filename) => {
-                if (!filename) {
-                    return;
-                }
+            // Watch the directory and filter events by pattern.
+            // Chokidar v4 doesn't detect newly created files when given a glob with cwd.
+            const watcherOptions: chokidar.ChokidarOptions = {
+                ignoreInitial: true,
+                persistent: true,
+                ignored: (filePath: string, stats?: fs.Stats) => {
+                    // Don't ignore directories (need to traverse into them)
+                    if (!stats || stats.isDirectory()) { return false; }
+                    const relativePath = path.relative(resolvedBasePath, filePath);
+                    return !isMatch(relativePath);
+                },
+            };
+            if (this.options.usePolling) {
+                watcherOptions.usePolling = true;
+                watcherOptions.interval = 100;
+            }
+            const watcher = chokidar.watch(resolvedBasePath, watcherOptions);
 
-                const filePath = path.join(watchPath, filename);
-
-                // Map fs.watch event types to our protocol
-                let ourEventType: 'created' | 'changed' | 'deleted';
-                if (eventType === 'rename') {
-                    // Check if file exists to determine created vs deleted
-                    try {
-                        fs.accessSync(filePath);
-                        ourEventType = 'created';
-                    } catch {
-                        ourEventType = 'deleted';
-                    }
-                } else {
-                    ourEventType = 'changed';
-                }
-
-                this.notificationEmitter.fileChanged(filePath, ourEventType);
+            watcher.on('add', filePath => {
+                this.notificationEmitter.fileChanged(filePath, 'created');
+            });
+            watcher.on('change', filePath => {
+                this.notificationEmitter.fileChanged(filePath, 'changed');
+            });
+            watcher.on('unlink', filePath => {
+                this.notificationEmitter.fileChanged(filePath, 'deleted');
+            });
+            watcher.on('error', err => {
+                const message = err instanceof Error ? err.message : String(err);
+                process.stderr.write(`[Bridge] File watcher error (${watchId}): ${message}\n`);
             });
 
             this.watchers.set(watchId, watcher);
+            this.readyPromises.set(watchId, new Promise<void>(resolve => {
+                watcher.on('ready', resolve);
+            }));
             return watchId;
         } catch (err) {
-            throw new Error(`Failed to watch ${watchPath}: ${err instanceof Error ? err.message : String(err)}`);
+            throw new Error(`Failed to watch ${resolvedBasePath} (${pattern}): ${err instanceof Error ? err.message : String(err)}`);
         }
+    }
+
+    /**
+     * Wait for a watcher to finish its initial scan.
+     */
+    async waitForReady(watchId: string): Promise<void> {
+        await this.readyPromises.get(watchId);
     }
 
     /**
      * Remove a file system watch.
      */
-    unwatch(watchId: string): boolean {
+    async unwatch(watchId: string): Promise<boolean> {
         const watcher = this.watchers.get(watchId);
         if (!watcher) {
             return false;
         }
 
-        watcher.close();
+        await watcher.close();
         this.watchers.delete(watchId);
         return true;
     }
@@ -80,7 +106,7 @@ export class FileWatchManager {
      */
     dispose(): void {
         for (const watcher of this.watchers.values()) {
-            watcher.close();
+            void watcher.close();
         }
         this.watchers.clear();
     }

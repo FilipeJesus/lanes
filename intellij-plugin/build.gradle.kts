@@ -21,6 +21,7 @@ dependencies {
             providers.gradleProperty("platformVersion")
         )
         bundledPlugin("Git4Idea")
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         pluginVerifier()
         zipSigner()
         instrumentationTools()
@@ -29,11 +30,12 @@ dependencies {
     // JSON serialization
     implementation("com.google.code.gson:gson:2.11.0")
 
-    // Coroutines Swing dispatcher (required for Dispatchers.Main on JVM/Swing)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
-
     // Testing
+    testImplementation("junit:junit:4.13.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.0")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.10.0")
 }
 
 kotlin {
@@ -91,6 +93,36 @@ tasks {
         from("${projectDir}/../out/core") {
             include("**/*.js")
             into("${rootProject.name}/core")
+        }
+
+        // Copy compiled MCP server modules used by workflow integrations.
+        from("${projectDir}/../out/mcp") {
+            include("**/*.js")
+            into("${rootProject.name}/mcp")
+        }
+
+        // Copy built-in workflow templates used by workflow.list(includeBuiltin=true).
+        from("${projectDir}/../workflows") {
+            include("**/*.yaml")
+            into("${rootProject.name}/workflows")
+        }
+
+        // Bundle Node.js runtime dependencies required by bridge/core at runtime.
+        // These are regular npm dependencies imported from compiled JS.
+        from("${projectDir}/../node_modules/yaml") {
+            into("${rootProject.name}/node_modules/yaml")
+        }
+        from("${projectDir}/../node_modules/@iarna/toml") {
+            into("${rootProject.name}/node_modules/@iarna/toml")
+        }
+        from("${projectDir}/../node_modules/@modelcontextprotocol/sdk") {
+            into("${rootProject.name}/node_modules/@modelcontextprotocol/sdk")
+        }
+        from("${projectDir}/../node_modules/chokidar") {
+            into("${rootProject.name}/node_modules/chokidar")
+        }
+        from("${projectDir}/../node_modules/readdirp") {
+            into("${rootProject.name}/node_modules/readdirp")
         }
     }
 }

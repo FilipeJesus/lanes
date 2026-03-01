@@ -16,11 +16,11 @@ import * as fsPromises from 'fs/promises';
 import { fileExists, ensureDir, writeJson, readJson } from '../../core/services/FileService';
 import { SessionItem, getStatusFilePath, getSessionFilePath } from '../providers/AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../providers/SessionFormProvider';
-import { CodeAgent, McpConfig, McpConfigDelivery } from '../../core/codeAgents';
-import * as SettingsService from '../../core/services/SettingsService';
+import { CodeAgent } from '../../core/codeAgents';
 import * as TmuxService from '../../core/services/TmuxService';
 import { startPolling, stopPolling } from './PollingStatusService';
 import { getErrorMessage } from '../../core/utils';
+import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchSetupService';
 import {
     getSessionId,
     getSessionWorkflow,
@@ -38,10 +38,6 @@ const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed befor
 // Track hookless agent terminals for lifecycle-based status updates
 // Maps terminal instances to their worktree paths for status file management
 const hooklessTerminals = new Map<vscode.Terminal, string>();
-
-function getMcpConfigDelivery(codeAgent?: CodeAgent): McpConfigDelivery {
-    return codeAgent?.getMcpConfigDelivery() ?? 'cli';
-}
 
 /**
  * Register terminal lifecycle tracking for hookless agents.
@@ -316,67 +312,24 @@ async function openClaudeTerminalTmux(
         }
 
         try {
-            let mcpConfigForSettings = undefined;
-            let mcpConfigDelivery: McpConfigDelivery | undefined;
-            let mcpConfig: McpConfig | null = null;
-
-            // If workflow is active (provided or restored), compute MCP config early
-            if (effectiveWorkflow) {
-                const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
-                if (codeAgent && codeAgent.supportsMcp()) {
-                    mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
-                    mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
-                    if (mcpConfig && mcpConfigDelivery === 'settings') {
-                        mcpConfigForSettings = mcpConfig;
-                    }
-                }
-            }
-
-            settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent, mcpConfigForSettings);
-
-            // If workflow is active (provided or restored), add MCP config flag separately
-            if (effectiveWorkflow) {
-                // Determine the repo root for MCP server (needed for pending sessions directory)
-                const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
-
-                // Use CodeAgent to get MCP config if available and supported
-                if (codeAgent && codeAgent.supportsMcp()) {
-                    if (!mcpConfig) {
-                        mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
-                    }
-                    if (mcpConfig) {
-                        if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
-                            mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);
-                        } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
-                            // Write MCP config to a file
-                            mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                            await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
-                        }
-                    }
-                } else {
-                    // Fallback to hardcoded Claude-specific MCP config
-                    const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-                    const mcpConfigFallback = {
-                        mcpServers: {
-                            'lanes-workflow': {
-                                command: process.versions.electron ? 'node' : process.execPath,
-                                args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
-                            }
-                        }
-                    };
-                    mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfigFallback, null, 2), 'utf-8');
-                }
+            const launchContext = await prepareAgentLaunchContext({
+                worktreePath,
+                workflow,
+                permissionMode: effectivePermissionMode,
+                codeAgent,
+                repoRoot
+            });
+            settingsPath = launchContext.settingsPath;
+            mcpConfigPath = launchContext.mcpConfigPath;
+            mcpConfigOverrides = launchContext.mcpConfigOverrides;
+            effectiveWorkflow = launchContext.effectiveWorkflow ?? undefined;
+            const resolvedPermissionMode = launchContext.effectivePermissionMode;
+            if (resolvedPermissionMode && isValidPermissionMode(resolvedPermissionMode)) {
+                effectivePermissionMode = resolvedPermissionMode as PermissionMode;
             }
         } catch (err) {
             console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
             // Continue without the settings - hooks/MCP won't work but Claude will still run
-        }
-
-        // For agents that load settings from well-known project paths (e.g., Cortex Code),
-        // don't pass the settings path via CLI flag - the agent loads it automatically.
-        if (codeAgent?.getProjectSettingsPath(worktreePath)) {
-            settingsPath = undefined;
         }
 
         // Auto-start agent - resume if session ID exists, otherwise start fresh
@@ -629,69 +582,24 @@ export async function openAgentTerminal(
     }
 
     try {
-        let mcpConfigForSettings = undefined;
-        let mcpConfigDelivery: McpConfigDelivery | undefined;
-        let mcpConfig: McpConfig | null = null;
-
-        if (effectiveWorkflow) {
-            const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
-            if (codeAgent && codeAgent.supportsMcp()) {
-                mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
-                mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
-                if (mcpConfig && mcpConfigDelivery === 'settings') {
-                    mcpConfigForSettings = mcpConfig;
-                }
-            }
-        }
-
-        settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(worktreePath, workflow, codeAgent, mcpConfigForSettings);
-
-        // If workflow is active (provided or restored), add MCP config flag separately
-        // (--settings only loads hooks, not mcpServers)
-        // effectiveWorkflow is now the full path to the workflow YAML file
-        if (effectiveWorkflow) {
-            // Determine the repo root for MCP server (needed for pending sessions directory)
-            const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
-
-            // Use CodeAgent to get MCP config if available and supported
-            if (codeAgent && codeAgent.supportsMcp()) {
-                if (!mcpConfig) {
-                    mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
-                }
-                if (mcpConfig) {
-                    if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli-overrides') {
-                        mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);
-                    } else if ((mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent)) === 'cli') {
-                        // Write MCP config to a file (inline JSON escaping is problematic)
-                        mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                        await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
-                    }
-                }
-            } else {
-                // Fallback to hardcoded Claude-specific MCP config
-                const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-                // MCP config file must have mcpServers as root key (same format as .mcp.json)
-                const mcpConfigFallback = {
-                    mcpServers: {
-                        'lanes-workflow': {
-                            command: process.versions.electron ? 'node' : process.execPath,
-                            args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', effectiveWorkflow, '--repo-root', effectiveRepoRoot]
-                        }
-                    }
-                };
-                mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfigFallback, null, 2), 'utf-8');
-            }
+        const launchContext = await prepareAgentLaunchContext({
+            worktreePath,
+            workflow,
+            permissionMode: effectivePermissionMode,
+            codeAgent,
+            repoRoot
+        });
+        settingsPath = launchContext.settingsPath;
+        mcpConfigPath = launchContext.mcpConfigPath;
+        mcpConfigOverrides = launchContext.mcpConfigOverrides;
+        effectiveWorkflow = launchContext.effectiveWorkflow ?? undefined;
+        const resolvedPermissionMode = launchContext.effectivePermissionMode;
+        if (resolvedPermissionMode && isValidPermissionMode(resolvedPermissionMode)) {
+            effectivePermissionMode = resolvedPermissionMode as PermissionMode;
         }
     } catch (err) {
         console.warn('Lanes: Failed to create extension settings file:', getErrorMessage(err));
         // Continue without the settings - hooks/MCP won't work but Claude will still run
-    }
-
-    // For agents that load settings from well-known project paths (e.g., Cortex Code),
-    // don't pass the settings path via CLI flag - the agent loads it automatically.
-    if (codeAgent?.getProjectSettingsPath(worktreePath)) {
-        settingsPath = undefined;
     }
 
     // D. Auto-start agent - resume if session ID exists, otherwise start fresh

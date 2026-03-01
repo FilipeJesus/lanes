@@ -51,11 +51,11 @@
         <toolWindow
             id="Lanes"
             anchor="right"
-            icon="AllIcons.General.Information"
+            icon="/icons/lanes.svg"
             factoryClass="com.lanes.intellij.ui.LanesToolWindowFactory"/>
 
         <!-- Settings/Preferences page -->
-        <applicationConfigurable
+        <projectConfigurable
             parentId="tools"
             instance="com.lanes.intellij.settings.LanesSettingsConfigurable"
             id="com.lanes.intellij.settings.LanesSettingsConfigurable"

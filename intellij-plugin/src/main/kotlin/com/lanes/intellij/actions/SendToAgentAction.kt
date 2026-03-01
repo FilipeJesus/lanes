@@ -39,10 +39,10 @@ class SendToAgentAction : AnAction(
             return
         }
 
-        CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
+        val bridgeManager = ApplicationManager.getApplication()
+            .getService(BridgeProcessManager::class.java)
+        bridgeManager.scope.launch {
             try {
-                val bridgeManager = ApplicationManager.getApplication()
-                    .getService(BridgeProcessManager::class.java)
                 val workspaceRoot = project.basePath ?: return@launch
 
                 val client = withContext(Dispatchers.IO) {

@@ -4,7 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.Configurable
-import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.JBCheckBox
@@ -30,7 +30,7 @@ import javax.swing.JComponent
  *
  * Reads/writes config via ConfigAdapter (through the bridge).
  */
-class LanesSettingsConfigurable : Configurable {
+class LanesSettingsConfigurable(private val project: Project) : Configurable {
 
     private val logger = Logger.getInstance(LanesSettingsConfigurable::class.java)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -39,7 +39,7 @@ class LanesSettingsConfigurable : Configurable {
     private val promptsFolderField = TextFieldWithBrowseButton()
     private val defaultAgentField = JBTextField()
     private val useGlobalStorageCheckBox = JBCheckBox("Use global storage for sessions")
-    private val terminalModeComboBox = ComboBox<String>(arrayOf("code", "tmux"))
+    private val terminalModeComboBox = ComboBox<String>(arrayOf("vscode", "tmux"))
     private val localSettingsPropagationComboBox = ComboBox<String>(arrayOf("copy", "symlink", "disabled"))
 
     private var isModified = false
@@ -117,45 +117,46 @@ class LanesSettingsConfigurable : Configurable {
         return isModified
     }
 
-    /**
-     * Apply settings synchronously via runBlocking.
-     * This is acceptable here because Configurable.apply() is called from a modal
-     * settings dialog context, not from general EDT code.
-     */
     override fun apply() {
-        runBlocking {
+        val worktrees = worktreesFolderField.text
+        val prompts = promptsFolderField.text
+        val agent = defaultAgentField.text
+        val globalStorage = useGlobalStorageCheckBox.isSelected
+        val terminal = terminalModeComboBox.selectedItem as String
+        val propagation = localSettingsPropagationComboBox.selectedItem as String
+
+        scope.launch {
             try {
-                val adapter = getConfigAdapter() ?: return@runBlocking
+                val adapter = getConfigAdapter() ?: return@launch
 
-                adapter.set("lanes", "worktreesFolder", worktreesFolderField.text)
-                adapter.set("lanes", "promptsFolder", promptsFolderField.text)
-                adapter.set("lanes", "defaultAgent", defaultAgentField.text)
-                adapter.set("lanes", "useGlobalStorage", useGlobalStorageCheckBox.isSelected)
-                adapter.set("lanes", "terminalMode", terminalModeComboBox.selectedItem as String)
-                adapter.set("lanes", "localSettingsPropagation", localSettingsPropagationComboBox.selectedItem as String)
+                adapter.set("lanes", "worktreesFolder", worktrees)
+                adapter.set("lanes", "promptsFolder", prompts)
+                adapter.set("lanes", "defaultAgent", agent)
+                adapter.set("lanes", "useGlobalStorage", globalStorage)
+                adapter.set("lanes", "terminalMode", terminal)
+                adapter.set("lanes", "localSettingsPropagation", propagation)
 
-                isModified = false
                 logger.info("Settings saved successfully")
             } catch (e: Exception) {
                 logger.error("Failed to save settings", e)
             }
         }
+        isModified = false
     }
 
-    /**
-     * Reset settings synchronously via runBlocking.
-     * Same rationale as apply() - called from modal settings dialog context.
-     */
     override fun reset() {
-        runBlocking {
+        scope.launch {
             try {
-                val adapter = getConfigAdapter() ?: return@runBlocking
+                val adapter = getConfigAdapter() ?: return@launch
 
                 val worktreesFolder = adapter.get("lanes", "worktreesFolder", ".worktrees")
                 val promptsFolder = adapter.get("lanes", "promptsFolder", "")
                 val defaultAgent = adapter.get("lanes", "defaultAgent", "claude")
                 val useGlobalStorage = adapter.get("lanes", "useGlobalStorage", false)
-                val terminalMode = adapter.get("lanes", "terminalMode", "code")
+                var terminalMode = adapter.get("lanes", "terminalMode", "vscode")
+                if (terminalMode == "code") {
+                    terminalMode = "vscode"
+                }
                 val localSettingsPropagation = adapter.get("lanes", "localSettingsPropagation", "copy")
 
                 ApplicationManager.getApplication().invokeLater {
@@ -167,7 +168,6 @@ class LanesSettingsConfigurable : Configurable {
                     localSettingsPropagationComboBox.selectedItem = localSettingsPropagation
                     isModified = false
                 }
-
             } catch (e: Exception) {
                 logger.error("Failed to load settings", e)
             }
@@ -178,12 +178,6 @@ class LanesSettingsConfigurable : Configurable {
      * Get a fresh ConfigAdapter each time to avoid stale BridgeClient references.
      */
     private suspend fun getConfigAdapter(): ConfigAdapter? {
-        val project = ProjectManager.getInstance().openProjects.firstOrNull()
-        if (project == null) {
-            logger.warn("No open project, cannot access bridge")
-            return null
-        }
-
         val workspaceRoot = project.basePath ?: return null
 
         val bridgeManager = ApplicationManager.getApplication().getService(BridgeProcessManager::class.java)

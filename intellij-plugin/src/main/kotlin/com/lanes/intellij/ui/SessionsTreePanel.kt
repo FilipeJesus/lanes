@@ -8,26 +8,31 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import com.lanes.intellij.bridge.*
 import com.lanes.intellij.services.BridgeProcessManager
+import com.lanes.intellij.services.SessionDiffService
+import com.lanes.intellij.services.SessionTerminalService
 import kotlinx.coroutines.*
 import java.awt.BorderLayout
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.*
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeCellRenderer
 import javax.swing.tree.DefaultTreeModel
 
 /**
- * Tree panel displaying all Claude Code sessions grouped by status.
+ * Tree panel displaying all Claude Code sessions.
  *
  * Features:
- * - Sessions grouped under "Active" and "Stopped" nodes
+ * - Sessions with worktrees shown in a single list
  * - Custom cell renderer with status icons
- * - Right-click context menu (resume, stop, delete, open worktree)
+ * - Right-click context menu (resume, delete, open worktree)
  * - Auto-refresh on bridge notifications
  * - Toolbar with New Session and Refresh actions
  */
@@ -37,23 +42,22 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val rootNode = DefaultMutableTreeNode("Sessions")
-    private val activeNode = DefaultMutableTreeNode("Active")
-    private val stoppedNode = DefaultMutableTreeNode("Stopped")
+    private val sessionsNode = DefaultMutableTreeNode("Sessions")
     private val treeModel = DefaultTreeModel(rootNode)
     private val tree = Tree(treeModel)
 
-    private val notificationDisposables = mutableListOf<Disposable>()
+    private val refreshInProgress = AtomicBoolean(false)
+    private var pollingJob: Job? = null
 
     init {
         setupTree()
         setupToolbar()
         loadSessions()
-        setupNotifications()
+        startStatusPolling()
     }
 
     private fun setupTree() {
-        rootNode.add(activeNode)
-        rootNode.add(stoppedNode)
+        rootNode.add(sessionsNode)
 
         tree.isRootVisible = false
         tree.showsRootHandles = true
@@ -83,7 +87,7 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
                         val node = path.lastPathComponent as? DefaultMutableTreeNode
                         val sessionInfo = node?.userObject as? SessionInfo
                         if (sessionInfo != null) {
-                            openWorktree(sessionInfo)
+                            resumeSession(sessionInfo)
                         }
                     }
                 }
@@ -110,6 +114,11 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
                     showCreateSessionDialog()
                 }
             })
+            add(object : AnAction("Add Workflow", "Create a workflow from a template", AllIcons.FileTypes.Text) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    showCreateWorkflowDialog()
+                }
+            })
             add(object : AnAction("Refresh", "Refresh sessions list", AllIcons.Actions.Refresh) {
                 override fun actionPerformed(e: AnActionEvent) {
                     loadSessions()
@@ -120,25 +129,6 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
 
     private fun showContextMenu(comp: java.awt.Component, x: Int, y: Int, sessionInfo: SessionInfo) {
         val actionGroup = DefaultActionGroup()
-
-        val isActive = sessionInfo.status?.statusEnum() == AgentStatusState.ACTIVE ||
-                       sessionInfo.status?.statusEnum() == AgentStatusState.WORKING
-
-        if (!isActive) {
-            actionGroup.add(object : AnAction("Resume Session") {
-                override fun actionPerformed(e: AnActionEvent) {
-                    resumeSession(sessionInfo)
-                }
-            })
-        }
-
-        if (isActive) {
-            actionGroup.add(object : AnAction("Stop Session") {
-                override fun actionPerformed(e: AnActionEvent) {
-                    stopSession(sessionInfo)
-                }
-            })
-        }
 
         actionGroup.add(object : AnAction("Delete Session") {
             override fun actionPerformed(e: AnActionEvent) {
@@ -159,20 +149,11 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
                 showDiff(sessionInfo)
             }
         })
-
-        if (sessionInfo.isPinned) {
-            actionGroup.add(object : AnAction("Unpin Session") {
-                override fun actionPerformed(e: AnActionEvent) {
-                    unpinSession(sessionInfo)
-                }
-            })
-        } else {
-            actionGroup.add(object : AnAction("Pin Session") {
-                override fun actionPerformed(e: AnActionEvent) {
-                    pinSession(sessionInfo)
-                }
-            })
-        }
+        actionGroup.add(object : AnAction("Open Workflow State") {
+            override fun actionPerformed(e: AnActionEvent) {
+                openWorkflowState(sessionInfo)
+            }
+        })
 
         val popupMenu = ActionManager.getInstance().createActionPopupMenu("LanesSessionContext", actionGroup)
         popupMenu.component.show(comp, x, y)
@@ -180,6 +161,9 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
 
     private fun loadSessions() {
         scope.launch {
+            if (!refreshInProgress.compareAndSet(false, true)) {
+                return@launch
+            }
             try {
                 val bridgeManager = ApplicationManager.getApplication().getService(BridgeProcessManager::class.java)
                 val workspaceRoot = project.basePath ?: return@launch
@@ -204,6 +188,17 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
             } catch (e: Exception) {
                 logger.error("Failed to load sessions", e)
                 showError("Failed to load sessions: ${e.message}")
+            } finally {
+                refreshInProgress.set(false)
+            }
+        }
+    }
+
+    private fun startStatusPolling() {
+        pollingJob = scope.launch {
+            while (isActive) {
+                delay(10_000)
+                loadSessions()
             }
         }
     }
@@ -213,26 +208,33 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
      * Must be called on EDT.
      */
     private fun rebuildTree(sessions: List<SessionInfo>) {
-        activeNode.removeAllChildren()
-        stoppedNode.removeAllChildren()
+        val selectedName = (tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode)
+            ?.userObject?.let { (it as? SessionInfo)?.name }
+
+        sessionsNode.removeAllChildren()
 
         for (session in sessions) {
-            val node = DefaultMutableTreeNode(session)
-            val isActive = session.status?.statusEnum()?.let {
-                it == AgentStatusState.ACTIVE ||
-                it == AgentStatusState.WORKING ||
-                it == AgentStatusState.WAITING_FOR_USER
-            } ?: false
-
-            if (isActive) {
-                activeNode.add(node)
+            // In IntelliJ we surface sessions by worktree presence; status is icon-only.
+            if (session.worktreePath.isNotBlank()) {
+                sessionsNode.add(DefaultMutableTreeNode(session))
             } else {
-                stoppedNode.add(node)
+                logger.debug("Skipping session without worktree path: ${session.name}")
             }
         }
 
         treeModel.reload()
         expandAll()
+
+        // Restore selection
+        if (selectedName != null) {
+            for (i in 0 until sessionsNode.childCount) {
+                val child = sessionsNode.getChildAt(i) as? DefaultMutableTreeNode
+                if ((child?.userObject as? SessionInfo)?.name == selectedName) {
+                    tree.selectionPath = javax.swing.tree.TreePath(child.path)
+                    break
+                }
+            }
+        }
     }
 
     private fun expandAll() {
@@ -243,39 +245,6 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
         }
     }
 
-    private fun setupNotifications() {
-        scope.launch {
-            try {
-                val bridgeManager = ApplicationManager.getApplication().getService(BridgeProcessManager::class.java)
-                val workspaceRoot = project.basePath ?: return@launch
-
-                val client = withContext(Dispatchers.IO) {
-                    bridgeManager.getClient(workspaceRoot)
-                }
-
-                notificationDisposables.add(
-                    client.onNotification(NotificationMethods.SESSION_CREATED) { _ ->
-                        loadSessions()
-                    }
-                )
-
-                notificationDisposables.add(
-                    client.onNotification(NotificationMethods.SESSION_DELETED) { _ ->
-                        loadSessions()
-                    }
-                )
-
-                notificationDisposables.add(
-                    client.onNotification(NotificationMethods.SESSION_STATUS_CHANGED) { _ ->
-                        loadSessions()
-                    }
-                )
-            } catch (e: Exception) {
-                logger.error("Failed to setup notifications", e)
-            }
-        }
-    }
-
     private fun showCreateSessionDialog() {
         val dialog = CreateSessionDialog(project)
         if (dialog.showAndGet()) {
@@ -283,12 +252,17 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
         }
     }
 
+    private fun showCreateWorkflowDialog() {
+        val dialog = CreateWorkflowDialog(project)
+        dialog.show()
+    }
+
     private fun resumeSession(sessionInfo: SessionInfo) {
         scope.launch {
             try {
                 val client = getClient() ?: return@launch
 
-                withContext(Dispatchers.IO) {
+                val openResult = withContext(Dispatchers.IO) {
                     client.request(
                         SessionMethods.OPEN,
                         SessionOpenParams(sessionInfo.name),
@@ -296,17 +270,19 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
                     )
                 }
 
+                SessionTerminalService.openSessionTerminal(
+                    project = project,
+                    sessionName = sessionInfo.name,
+                    worktreePath = openResult.worktreePath ?: sessionInfo.worktreePath,
+                    command = openResult.command
+                )
+
                 loadSessions()
             } catch (e: Exception) {
                 logger.error("Failed to resume session", e)
                 showError("Failed to resume session: ${e.message}")
             }
         }
-    }
-
-    @Suppress("UNUSED_PARAMETER")
-    private fun stopSession(sessionInfo: SessionInfo) {
-        showInfo("To stop a session, close the agent terminal or send a stop command to the agent.")
     }
 
     private fun deleteSession(sessionInfo: SessionInfo) {
@@ -342,10 +318,37 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
     private fun openWorktree(sessionInfo: SessionInfo) {
         val worktreeFile = File(sessionInfo.worktreePath)
         if (worktreeFile.exists()) {
-            // TODO: Open the worktree in a new IDE window or file browser
-            showInfo("Worktree path: ${sessionInfo.worktreePath}")
+            SessionTerminalService.openWorktreeTerminal(
+                project = project,
+                sessionName = sessionInfo.name,
+                worktreePath = sessionInfo.worktreePath
+            )
         } else {
             showError("Worktree directory does not exist: ${sessionInfo.worktreePath}")
+        }
+    }
+
+    private fun openWorkflowState(sessionInfo: SessionInfo) {
+        val worktreeFile = File(sessionInfo.worktreePath)
+        if (!worktreeFile.exists()) {
+            showError("Worktree path does not exist: ${sessionInfo.worktreePath}")
+            return
+        }
+
+        val workflowStateFile = File(worktreeFile, "workflow-state.json")
+        if (!workflowStateFile.exists()) {
+            showInfo("No active workflow for session '${sessionInfo.name}'. The workflow state file is created when a workflow is started.")
+            return
+        }
+
+        ApplicationManager.getApplication().invokeLater {
+            val normalized = workflowStateFile.absolutePath.replace('\\', '/')
+            val vFile = LocalFileSystem.getInstance().refreshAndFindFileByPath(normalized)
+            if (vFile == null) {
+                showError("Failed to open workflow state: ${workflowStateFile.absolutePath}")
+                return@invokeLater
+            }
+            FileEditorManager.getInstance(project).openFile(vFile, true)
         }
     }
 
@@ -356,28 +359,14 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
 
                 val result = withContext(Dispatchers.IO) {
                     client.request(
-                        GitMethods.GET_DIFF,
-                        GitGetDiffParams(sessionInfo.name, includeUncommitted = true),
-                        GitGetDiffResult::class.java
+                        GitMethods.GET_DIFF_FILES,
+                        GitGetDiffFilesParams(sessionInfo.name, includeUncommitted = true),
+                        GitGetDiffFilesResult::class.java
                     )
                 }
 
-                if (result.diff.isBlank()) {
-                    showInfo("No changes in session '${sessionInfo.name}'")
-                } else {
-                    val truncatedDiff = if (result.diff.length > 1000) {
-                        result.diff.substring(0, 1000) + "\n...(truncated)"
-                    } else {
-                        result.diff
-                    }
-                    ApplicationManager.getApplication().invokeLater {
-                        Messages.showMessageDialog(
-                            project,
-                            truncatedDiff,
-                            "Diff for ${sessionInfo.name}",
-                            Messages.getInformationIcon()
-                        )
-                    }
+                ApplicationManager.getApplication().invokeLater {
+                    SessionDiffService.showSessionDiff(project, sessionInfo.name, result.files)
                 }
             } catch (e: Exception) {
                 logger.error("Failed to get diff", e)
@@ -449,9 +438,9 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
     }
 
     override fun dispose() {
+        pollingJob?.cancel()
+        pollingJob = null
         scope.cancel()
-        notificationDisposables.forEach { it.dispose() }
-        notificationDisposables.clear()
     }
 
     override fun getData(dataId: String): Any? {
@@ -499,7 +488,7 @@ private class SessionTreeCellRenderer : DefaultTreeCellRenderer() {
                 AgentStatusState.ACTIVE, AgentStatusState.WORKING -> AllIcons.RunConfigurations.TestState.Run
                 AgentStatusState.WAITING_FOR_USER -> AllIcons.RunConfigurations.TestState.Yellow2
                 AgentStatusState.ERROR -> AllIcons.RunConfigurations.TestState.Red2
-                else -> AllIcons.RunConfigurations.TestState.Run_run
+                else -> AllIcons.General.Information
             }
 
             val statusText = sessionInfo.status?.status ?: "unknown"
@@ -510,7 +499,7 @@ private class SessionTreeCellRenderer : DefaultTreeCellRenderer() {
             text = "${sessionInfo.name}$pinText - $branchText [$statusText]" +
                    if (workflowText.isNotEmpty()) " - $workflowText" else ""
         } else if (node != null) {
-            // Group nodes (Active/Stopped)
+            // Group node
             icon = AllIcons.Nodes.Folder
         }
 

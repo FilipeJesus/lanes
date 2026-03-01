@@ -60,6 +60,7 @@ class BridgeClient(
     private var isInitialized = false
 
     private val isRestarting = AtomicBoolean(false)
+    private val restartAttempts = AtomicInteger(0)
 
     /**
      * Start the bridge process and initialize the connection.
@@ -289,7 +290,11 @@ class BridgeClient(
                         else -> logger.warn("Unknown message format: $line")
                     }
                 } catch (e: JsonSyntaxException) {
-                    logger.error("Failed to parse JSON: $line", e)
+                    if (line.trimStart().startsWith("{")) {
+                        logger.warn("Ignoring malformed bridge JSON line: $line", e)
+                    } else {
+                        logger.info("Ignoring non-JSON bridge stdout line: $line")
+                    }
                 }
             }
         } catch (e: IOException) {
@@ -420,6 +425,7 @@ class BridgeClient(
     /**
      * Handle process crash.
      * Uses AtomicBoolean guard to prevent concurrent restart attempts.
+     * Applies exponential backoff and limits restart attempts.
      */
     private fun handleCrash() {
         // Complete all pending requests with exception
@@ -431,7 +437,12 @@ class BridgeClient(
 
         cleanup()
 
-        // Attempt restart after delay, guarded against concurrent restarts
+        val attempt = restartAttempts.incrementAndGet()
+        if (attempt > MAX_RESTART_ATTEMPTS) {
+            logger.error("Bridge crashed $MAX_RESTART_ATTEMPTS times, giving up on auto-restart")
+            return
+        }
+
         if (!isRestarting.compareAndSet(false, true)) {
             logger.warn("Restart already in progress, skipping")
             return
@@ -439,11 +450,13 @@ class BridgeClient(
 
         scope.launch {
             try {
-                delay(5000)
+                val backoffMs = minOf(5000L * (1L shl (attempt - 1)), 60_000L)
+                delay(backoffMs)
                 if (!isDisposed) {
-                    logger.info("Attempting to restart bridge process")
+                    logger.info("Attempting to restart bridge process (attempt $attempt/$MAX_RESTART_ATTEMPTS)")
                     try {
                         start()
+                        restartAttempts.set(0)
                     } catch (e: Exception) {
                         logger.error("Failed to restart bridge process", e)
                     }
@@ -452,6 +465,10 @@ class BridgeClient(
                 isRestarting.set(false)
             }
         }
+    }
+
+    companion object {
+        private const val MAX_RESTART_ATTEMPTS = 5
     }
 
     /**

@@ -108,11 +108,14 @@ enum class AgentStatusState(val value: String) {
  * Terminal mode options
  */
 enum class TerminalMode(val value: String) {
-    CODE("code"),
+    VSCODE("vscode"),
     TMUX("tmux");
 
     companion object {
         fun fromString(value: String): TerminalMode? {
+            if (value == "code") {
+                return VSCODE
+            }
             return entries.find { it.value == value }
         }
     }
@@ -129,7 +132,7 @@ data class AgentSessionData(
     val agentName: String? = null,
     val isChimeEnabled: Boolean? = null,
     val taskListId: String? = null,
-    val terminal: String? = null, // "code" or "tmux"
+    val terminal: String? = null, // "vscode" or "tmux"
     val logPath: String? = null
 )
 
@@ -294,7 +297,8 @@ data class SessionCreateParams(
 data class SessionCreateResult(
     val sessionName: String,
     val worktreePath: String,
-    val sessionId: String
+    val sessionId: String,
+    val command: String? = null
 )
 
 /**
@@ -340,7 +344,9 @@ data class SessionOpenParams(
 )
 
 data class SessionOpenResult(
-    val success: Boolean
+    val success: Boolean,
+    val worktreePath: String? = null,
+    val command: String? = null
 )
 
 /**
@@ -372,6 +378,7 @@ data class SessionUnpinResult(
 object GitMethods {
     const val LIST_BRANCHES = "git.listBranches"
     const val GET_DIFF = "git.getDiff"
+    const val GET_DIFF_FILES = "git.getDiffFiles"
     const val GET_WORKTREE_INFO = "git.getWorktreeInfo"
     const val REPAIR_WORKTREES = "git.repairWorktrees"
 }
@@ -397,6 +404,27 @@ data class GitGetDiffParams(
 
 data class GitGetDiffResult(
     val diff: String
+)
+
+/**
+ * git.getDiffFiles - Get structured file diffs for a session vs base branch
+ */
+data class GitGetDiffFilesParams(
+    val sessionName: String,
+    val includeUncommitted: Boolean = true
+)
+
+data class GitDiffFile(
+    val path: String,
+    val status: String,
+    val previousPath: String? = null,
+    val beforeContent: String? = null,
+    val afterContent: String? = null,
+    val isBinary: Boolean? = null
+)
+
+data class GitGetDiffFilesResult(
+    val files: List<GitDiffFile>
 )
 
 /**

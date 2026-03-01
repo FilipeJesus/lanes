@@ -76,7 +76,11 @@ export class ConfigStore {
         if (!this.initialized) {
             throw new Error('ConfigStore not initialized');
         }
-        return this.config[key] ?? DEFAULT_CONFIG[key];
+        const value = this.config[key] ?? DEFAULT_CONFIG[key];
+        if (key === 'lanes.terminalMode' && value === 'code') {
+            return 'vscode';
+        }
+        return value;
     }
 
     /**
@@ -86,7 +90,7 @@ export class ConfigStore {
         if (!this.initialized) {
             throw new Error('ConfigStore not initialized');
         }
-        this.config[key] = value;
+        this.config[key] = (key === 'lanes.terminalMode' && value === 'code') ? 'vscode' : value;
         await this.save();
     }
 
