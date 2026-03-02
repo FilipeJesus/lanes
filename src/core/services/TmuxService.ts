@@ -172,3 +172,95 @@ export async function killSession(name: string): Promise<void> {
 		// Ignore errors (session might not exist)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// High-level launch helper
+// ---------------------------------------------------------------------------
+
+export interface TmuxLaunchOptions {
+	/** Raw session name (will be sanitized). */
+	sessionName: string;
+	/** Working directory for the tmux session. */
+	worktreePath: string;
+	/** Shell command to run inside the tmux session (only used if session is new). */
+	command: string;
+	/** Environment variables to export in the tmux session. */
+	env?: Record<string, string>;
+}
+
+export interface TmuxLaunchResult {
+	/** Sanitized tmux session name. */
+	tmuxSessionName: string;
+	/** Command to attach to the tmux session. */
+	attachCommand: string;
+	/** True if the session already existed (reattached). */
+	wasExisting: boolean;
+}
+
+/**
+ * Create or reattach to a tmux session and send a command.
+ *
+ * If the session already exists, returns attach info without sending the command
+ * (assumes the existing session is already running the agent).
+ *
+ * If the session does not exist, creates it, exports env vars, sends the command,
+ * and returns attach info.
+ */
+export async function launchInTmux(options: TmuxLaunchOptions): Promise<TmuxLaunchResult> {
+	const tmuxSessionName = sanitizeTmuxSessionName(options.sessionName);
+	const existing = await sessionExists(tmuxSessionName);
+
+	if (existing) {
+		return {
+			tmuxSessionName,
+			attachCommand: `tmux attach-session -t "${tmuxSessionName}"`,
+			wasExisting: true,
+		};
+	}
+
+	// Create new session
+	await createSession(tmuxSessionName, options.worktreePath);
+
+	// Export env vars via send-keys (set-environment only affects new windows/panes)
+	if (options.env) {
+		for (const [key, value] of Object.entries(options.env)) {
+			if (!ENV_KEY_PATTERN.test(key)) {
+				throw new Error(`Invalid environment variable name: ${key}`);
+			}
+			await sendCommand(tmuxSessionName, `export ${key}='${value}'`);
+		}
+	}
+
+	// Send the agent command
+	await sendCommand(tmuxSessionName, options.command);
+
+	return {
+		tmuxSessionName,
+		attachCommand: `tmux attach-session -t "${tmuxSessionName}"`,
+		wasExisting: false,
+	};
+}
+
+/**
+ * List all active tmux sessions.
+ * Returns an empty array if tmux is not running or no sessions exist.
+ *
+ * @returns Array of session names
+ */
+export async function listSessions(): Promise<string[]> {
+	try {
+		const { stdout } = await execFileAsync(
+			'tmux',
+			['list-sessions', '-F', '#{session_name}'],
+			{ timeout: TMUX_EXEC_TIMEOUT_MS }
+		);
+		return stdout
+			.trim()
+			.split('\n')
+			.map(s => s.trim())
+			.filter(s => s.length > 0);
+	} catch {
+		// tmux not running or no sessions exist
+		return [];
+	}
+}

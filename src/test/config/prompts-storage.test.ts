@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getPromptsPath, getRepoIdentifier, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
+import { getPromptsPath, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
 
 /**
  * Helper function to get a configuration property from the package.json configuration array.
@@ -34,9 +34,9 @@ suite('Prompts Storage Test Suite', () => {
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
 
-	suite('Default: Global Storage (empty promptsFolder setting)', () => {
+	suite('Default: Repo-Local Storage (empty promptsFolder setting)', () => {
 
-		test('should return global storage path when promptsFolder setting is empty (default)', async () => {
+		test('should return .lanes/prompts path when promptsFolder setting is empty (default)', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
@@ -48,17 +48,15 @@ suite('Prompts Storage Test Suite', () => {
 			const result = getPromptsPath(sessionName, tempDir);
 
 			assert.ok(result);
-			assert.ok(result!.path.startsWith(globalStorageDir));
 
-			const repoIdentifier = getRepoIdentifier(tempDir);
-			const expectedDir = path.join(globalStorageDir, repoIdentifier, 'prompts');
+			const expectedDir = path.join(tempDir, '.lanes', 'prompts');
 			const expectedPath = path.join(expectedDir, `${sessionName}.txt`);
 
 			assert.strictEqual(result!.path, expectedPath);
 			assert.strictEqual(result!.needsDir, expectedDir);
 		});
 
-		test('should use global storage structure: globalStorageUri/<repoIdentifier>/prompts/<sessionName>.txt', async () => {
+		test('should use repo-local structure: <repoRoot>/.lanes/prompts/<sessionName>.txt', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
@@ -70,9 +68,7 @@ suite('Prompts Storage Test Suite', () => {
 			const result = getPromptsPath(sessionName, tempDir);
 
 			assert.ok(result);
-
-			const repoIdentifier = getRepoIdentifier(tempDir);
-			assert.ok(result!.path.includes(repoIdentifier));
+			assert.ok(result!.path.includes('.lanes'));
 			assert.ok(result!.path.includes('prompts'));
 			assert.ok(result!.path.endsWith(`${sessionName}.txt`));
 		});
@@ -192,7 +188,7 @@ suite('Prompts Storage Test Suite', () => {
 			assert.strictEqual(result, null);
 		});
 
-		test('should fall back to global storage when promptsFolder contains path traversal (..)', async () => {
+		test('should fall back to .lanes/prompts when promptsFolder contains path traversal (..)', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('promptsFolder', '../../../etc/passwd', vscode.ConfigurationTarget.Global);
 
@@ -204,7 +200,8 @@ suite('Prompts Storage Test Suite', () => {
 			const result = getPromptsPath(sessionName, tempDir);
 
 			assert.ok(result);
-			assert.ok(result!.path.startsWith(globalStorageDir));
+			// Should fall back to .lanes/prompts, not the traversal path
+			assert.ok(result!.path.includes('.lanes'));
 			assert.ok(!result!.path.includes('etc'));
 		});
 
@@ -228,7 +225,7 @@ suite('Prompts Storage Test Suite', () => {
 			assert.ok(!result!.path.startsWith(globalStorageDir));
 		});
 
-		test('should fall back to global storage for Windows absolute path on any platform', async () => {
+		test('should fall back to .lanes/prompts for Windows absolute path on any platform', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('promptsFolder', 'C:\\Windows\\System32', vscode.ConfigurationTarget.Global);
 
@@ -254,13 +251,14 @@ suite('Prompts Storage Test Suite', () => {
 			const result = getPromptsPath(sessionName, tempDir);
 
 			assert.ok(result);
-			assert.ok(result!.path.startsWith(globalStorageDir));
+			// Should fall back to .lanes/prompts, not the traversal path
+			assert.ok(result!.path.includes('.lanes'));
 		});
 	});
 
 	suite('Fallback: Global Storage Not Initialized', () => {
 
-		test('should fall back to legacy .lanes when global storage is not initialized', async () => {
+		test('should fall back to .lanes/prompts when global storage is not initialized', async () => {
 			const config = vscode.workspace.getConfiguration('lanes');
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
@@ -269,26 +267,26 @@ suite('Prompts Storage Test Suite', () => {
 			try {
 				const sessionName = 'test-session';
 
-				const legacyDir = path.join(uninitializedRepoDir, '.lanes');
-				const legacyPath = path.join(legacyDir, `${sessionName}.txt`);
+				const expectedDir = path.join(uninitializedRepoDir, '.lanes', 'prompts');
+				const expectedPath = path.join(expectedDir, `${sessionName}.txt`);
 
-				assert.ok(legacyPath.endsWith(`${sessionName}.txt`));
-				assert.ok(legacyPath.includes('.lanes'));
+				assert.ok(expectedPath.endsWith(`${sessionName}.txt`));
+				assert.ok(expectedPath.includes('.lanes'));
 			} finally {
 				fs.rmSync(uninitializedRepoDir, { recursive: true, force: true });
 			}
 		});
 
-		test('should return legacy path structure: <repoRoot>/.lanes/<sessionName>.txt', async () => {
+		test('should return .lanes/prompts path structure: <repoRoot>/.lanes/prompts/<sessionName>.txt', async () => {
 			const repoRoot = '/example/repo';
 			const sessionName = 'my-session';
 
-			const expectedLegacyDir = path.join(repoRoot, '.lanes');
-			const expectedLegacyPath = path.join(expectedLegacyDir, `${sessionName}.txt`);
+			const expectedDir = path.join(repoRoot, '.lanes', 'prompts');
+			const expectedPath = path.join(expectedDir, `${sessionName}.txt`);
 
 			assert.strictEqual(
-				expectedLegacyPath,
-				path.join(repoRoot, '.lanes', 'my-session.txt')
+				expectedPath,
+				path.join(repoRoot, '.lanes', 'prompts', 'my-session.txt')
 			);
 		});
 	});
@@ -306,7 +304,7 @@ suite('Prompts Storage Test Suite', () => {
 			assert.strictEqual(promptsFolderConfig.default, '');
 		});
 
-		test('should verify promptsFolder description mentions global storage as default', () => {
+		test('should verify promptsFolder description mentions .lanes/prompts as default', () => {
 			const packageJsonPath = path.join(__dirname, '..', '..', '..', 'package.json');
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
@@ -314,7 +312,7 @@ suite('Prompts Storage Test Suite', () => {
 
 			assert.ok(promptsFolderConfig.description);
 			assert.ok(
-				promptsFolderConfig.description.toLowerCase().includes('global storage')
+				promptsFolderConfig.description.toLowerCase().includes('.lanes/prompts')
 			);
 		});
 	});

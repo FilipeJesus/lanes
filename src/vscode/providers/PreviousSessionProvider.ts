@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorktreesFolder, getGlobalStorageUri, getRepoIdentifier, getBaseRepoPathForStorage } from './AgentSessionProvider';
+import { getWorktreesFolder } from './AgentSessionProvider';
 import { fileExists, readDir, isDirectory, isFile } from '../../core/services/FileService';
 
 /**
@@ -22,17 +22,17 @@ export function getPromptsDir(repoRoot: string): string | null {
 
         // Security: Reject empty result after normalization
         if (!trimmedFolder) {
-            // Fall through to global storage
+            // Fall through to default
         }
         // Security: Reject absolute paths
         else if (path.isAbsolute(trimmedFolder)) {
-            console.warn('Lanes: Absolute paths not allowed in promptsFolder. Using global storage.');
-            // Fall through to global storage
+            console.warn('Lanes: Absolute paths not allowed in promptsFolder. Using .lanes/prompts.');
+            // Fall through to default
         }
         // Security: Reject parent directory traversal
         else if (trimmedFolder.includes('..')) {
-            console.warn('Lanes: Invalid promptsFolder path (contains ..). Using global storage.');
-            // Fall through to global storage
+            console.warn('Lanes: Invalid promptsFolder path (contains ..). Using .lanes/prompts.');
+            // Fall through to default
         }
         else {
             // Valid user-specified path - use repo-relative storage
@@ -40,18 +40,8 @@ export function getPromptsDir(repoRoot: string): string | null {
         }
     }
 
-    // Default: Use global storage
-    const globalStorageUri = getGlobalStorageUri();
-    const baseRepoPath = getBaseRepoPathForStorage();
-
-    if (!globalStorageUri || !baseRepoPath) {
-        // Global storage not initialized - fall back to legacy default
-        console.warn('Lanes: Global storage not initialized. Using legacy prompts location (.lanes).');
-        return path.join(repoRoot, '.lanes');
-    }
-
-    const repoIdentifier = getRepoIdentifier(baseRepoPath);
-    return path.join(globalStorageUri.fsPath, repoIdentifier, 'prompts');
+    // Default: Use repo-local .lanes/prompts/ directory
+    return path.join(repoRoot, '.lanes', 'prompts');
 }
 
 /**

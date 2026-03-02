@@ -92,7 +92,6 @@ suite('Package.json Configuration Test Suite', () => {
 			assert.ok(advancedSection);
 
 			const expectedSettings = [
-				'lanes.useGlobalStorage',
 				'lanes.localSettingsPropagation'
 			];
 
@@ -102,9 +101,9 @@ suite('Package.json Configuration Test Suite', () => {
 
 			assert.ok(!advancedSection.properties?.['lanes.claudeSessionPath']);
 			assert.ok(!advancedSection.properties?.['lanes.claudeStatusPath']);
+			assert.ok(!advancedSection.properties?.['lanes.useGlobalStorage']);
 
-			assert.strictEqual(advancedSection.properties['lanes.useGlobalStorage'].order, 1);
-			assert.strictEqual(advancedSection.properties['lanes.localSettingsPropagation'].order, 2);
+			assert.strictEqual(advancedSection.properties['lanes.localSettingsPropagation'].order, 1);
 		});
 	});
 
@@ -215,9 +214,6 @@ suite('Package.json Configuration Test Suite', () => {
 
 			const includeUncommittedChanges = getConfigProperty(config, 'lanes.includeUncommittedChanges');
 			assert.strictEqual(includeUncommittedChanges.default, true);
-
-			const useGlobalStorage = getConfigProperty(config, 'lanes.useGlobalStorage');
-			assert.strictEqual(useGlobalStorage.default, true);
 		});
 	});
 
@@ -226,10 +222,9 @@ suite('Package.json Configuration Test Suite', () => {
 		test('should verify settings have user-friendly descriptions', () => {
 			const expectedDescriptions: { [key: string]: string } = {
 				'lanes.worktreesFolder': 'Folder name where session worktrees are created (relative to repository root). Default: .worktrees',
-				'lanes.promptsFolder': "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
+				'lanes.promptsFolder': "Folder where session starting prompts are stored. Leave empty (default) to use .lanes/prompts/ at the repository root. Set a custom path for an alternative repo-relative location.",
 				'lanes.baseBranch': 'Branch to compare against when viewing changes. Leave empty for auto-detection (tries origin/main, origin/master, main, master)',
 				'lanes.includeUncommittedChanges': 'Show uncommitted changes (staged and unstaged) when viewing session changes. Default: enabled',
-				'lanes.useGlobalStorage': "Store session tracking files in VS Code's global storage. When enabled, files are stored in VS Code storage. When disabled, files are stored in .lanes/session_management/ at the repository root. Default: enabled"
 			};
 
 			for (const [key, expectedDescription] of Object.entries(expectedDescriptions)) {
@@ -237,17 +232,6 @@ suite('Package.json Configuration Test Suite', () => {
 				assert.ok(setting);
 				assert.strictEqual(setting.description, expectedDescription);
 			}
-		});
-
-		test('should verify useGlobalStorage has a meaningful description', () => {
-			const globalStorageConfig = getConfigProperty(config, 'lanes.useGlobalStorage');
-
-			assert.ok(globalStorageConfig.description);
-			assert.ok(globalStorageConfig.description.length > 20);
-			assert.ok(
-				globalStorageConfig.description.toLowerCase().includes('global storage') ||
-				globalStorageConfig.description.toLowerCase().includes('worktree')
-			);
 		});
 	});
 });

@@ -25,17 +25,10 @@ suite('Extension Settings Workflow Configuration', () => {
 		const mockUri = vscode.Uri.file(globalStorageDir);
 		initializeGlobalStorageContext(mockUri, tempDir);
 
-		// Enable global storage for these tests
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', true, vscode.ConfigurationTarget.Global);
 	});
 
 	// Clean up after each test
 	teardown(async () => {
-		// Reset configuration
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
-
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});

@@ -37,6 +37,9 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.bundle.js",
+  "bin": {
+    "lanes": "./out/cli.js"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -278,7 +281,7 @@
           "lanes.promptsFolder": {
             "type": "string",
             "default": "",
-            "description": "Folder where session starting prompts are stored. Leave empty (default) to use VS Code's global storage (keeps repo clean). Set a path like '.lanes' for repo-relative storage.",
+            "description": "Folder where session starting prompts are stored. Leave empty (default) to use .lanes/prompts/ at the repository root. Set a custom path for an alternative repo-relative location.",
             "order": 2
           },
           "lanes.defaultAgent": {
@@ -323,12 +326,6 @@
       {
         "title": "Lanes: Advanced",
         "properties": {
-          "lanes.useGlobalStorage": {
-            "type": "boolean",
-            "default": true,
-            "description": "Store session tracking files in VS Code's global storage. When enabled, files are stored in VS Code storage. When disabled, files are stored in .lanes/session_management/ at the repository root. Default: enabled",
-            "order": 1
-          },
           "lanes.localSettingsPropagation": {
             "type": "string",
             "enum": [
@@ -343,7 +340,7 @@
             ],
             "default": "copy",
             "description": "How to propagate .claude/settings.local.json to worktrees. Ensures your local Claude Code configuration is available in all sessions.",
-            "order": 2
+            "order": 1
           }
         }
       },
@@ -423,9 +420,10 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp",
+    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli",
     "bundle:extension": "node scripts/bundle-extension.mjs",
     "bundle:mcp": "node scripts/bundle-mcp.mjs",
+    "bundle:cli": "node scripts/bundle-cli.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -442,6 +440,7 @@
     "@commitlint/config-conventional": "^20.4.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/picomatch": "^4.0.2",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.11",
@@ -460,6 +459,9 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.3",
+    "picomatch": "^4.0.2",
     "yaml": "^2.8.2"
   },
   "overrides": {

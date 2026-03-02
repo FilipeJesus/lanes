@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import sinon from 'sinon';
-import * as gitService from '../gitService';
+import * as coreGitService from '../core/gitService';
 import { detectBrokenWorktrees, repairWorktree } from '../core/services/BrokenWorktreeService';
 import type { BrokenWorktree } from '../core/services/BrokenWorktreeService';
 
@@ -19,16 +19,10 @@ suite('Broken Worktree Detection', () => {
 		worktreesDir = path.join(tempDir, '.worktrees');
 		fs.mkdirSync(worktreesDir, { recursive: true });
 
-		// Disable global storage for these tests since we're testing worktree-based file paths
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
 	});
 
 	// Clean up after each test
 	teardown(async () => {
-		// Reset useGlobalStorage to default
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
@@ -189,7 +183,7 @@ suite('Broken Worktree Repair', () => {
 	let worktreesDir: string;
 	let isRealGitRepo: boolean = false;
 	let execGitStub: sinon.SinonStub;
-	let originalExecGit: typeof gitService.execGit;
+	let originalExecGit: typeof coreGitService.execGit;
 	let branchesThatExist: Set<string> = new Set();
 	let repairedWorktrees: Array<{ worktreePath: string; branch: string }> = [];
 	let savedGitDir: string | undefined;
@@ -214,16 +208,12 @@ suite('Broken Worktree Repair', () => {
 		delete process.env.GIT_WORK_TREE;
 		delete process.env.GIT_INDEX_FILE;
 
-		// Disable global storage for these tests
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', false, vscode.ConfigurationTarget.Global);
-
 		// Reset test state
 		branchesThatExist = new Set();
 		repairedWorktrees = [];
 
 		// Save original execGit before stubbing
-		originalExecGit = gitService.execGit.bind(gitService);
+		originalExecGit = coreGitService.execGit.bind(coreGitService);
 
 		// Try to initialize a real git repository for integration tests
 		try {
@@ -243,10 +233,10 @@ suite('Broken Worktree Repair', () => {
 		}
 
 		// Set up git stubs for mocking AFTER real git repo is created
-		execGitStub = sinon.stub(gitService, 'execGit');
+		execGitStub = sinon.stub(coreGitService, 'execGit');
 
 		// Configure stub behavior for different git commands
-		execGitStub.callsFake(async (args: string[], cwd: string, options?: gitService.ExecGitOptions) => {
+		execGitStub.callsFake(async (args: string[], cwd: string, options?: coreGitService.ExecGitOptions) => {
 			// Mock branch existence check (git show-ref --verify --quiet)
 			if (args.includes('show-ref') && args.includes('--verify') && args.includes('--quiet')) {
 				const branchArg = args.find(a => a.startsWith('refs/heads/'));
@@ -303,15 +293,10 @@ suite('Broken Worktree Repair', () => {
 			process.env.GIT_INDEX_FILE = savedGitIndexFile;
 		}
 
-		// Reset useGlobalStorage to default
-		const config = vscode.workspace.getConfiguration('lanes');
-		await config.update('useGlobalStorage', undefined, vscode.ConfigurationTarget.Global);
-
 		// Restore stubs
 		if (execGitStub) {
 			execGitStub.restore();
 		}
-
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 

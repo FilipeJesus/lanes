@@ -28,9 +28,10 @@ export const DEFAULTS = {
 };
 
 /**
- * Fixed path for non-global session storage (relative to repo root)
+ * Fixed path for repo-local session storage (relative to repo root).
+ * All per-session data lives under: <repo>/.lanes/current-sessions/<sessionName>/
  */
-export const NON_GLOBAL_SESSION_PATH = '.lanes/session_management';
+export const NON_GLOBAL_SESSION_PATH = '.lanes/current-sessions';
 
 export interface AgentSessionData {
     sessionId: string;
