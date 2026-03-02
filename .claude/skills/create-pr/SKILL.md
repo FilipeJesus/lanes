@@ -37,7 +37,6 @@ Before creating a PR, ensure:
    - Format: `type(scope): description`
    - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
    - Examples: `feat: add tmux terminal backend`, `fix(sessions): prevent duplicate worktree creation`
-   - Breaking changes: include `BREAKING CHANGE:` in body or use `!` suffix (e.g., `feat!: rename session API`)
 
 4. **Push to remote**
    - Push the current branch to the fork/remote

@@ -179,6 +179,7 @@ suite('Package.json Configuration Test Suite', () => {
 		});
 	});
 
+
 	suite('Terminal Section', () => {
 
 		test('should verify Terminal section contains correct settings', () => {
