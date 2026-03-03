@@ -4,7 +4,7 @@
  */
 import * as esbuild from 'esbuild';
 import * as path from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, chmodSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +31,7 @@ async function bundle() {
         js: '#!/usr/bin/env node',
       },
     });
+    chmodSync(path.join(projectRoot, 'out/cli.js'), 0o755);
     console.log('CLI bundled successfully');
   } catch (error) {
     console.error('Failed to bundle CLI:', error);
