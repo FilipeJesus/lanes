@@ -11,6 +11,7 @@ Run multiple AI coding sessions in parallel — Claude Code, Codex CLI, and Gemi
 - **Tmux terminal backend**: Persistent tmux sessions via `lanes.terminalMode` setting
 - **One-click cleanup**: Delete the worktree when done, keep the branch for merging
 - **Workflow guides**: Optional structured workflows guide agents through plan → implement → test → review phases
+- **Cross-platform**: Also available for [JetBrains IDEs](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin) (beta) and as a [standalone CLI](https://github.com/FilipeJesus/lanes/tree/main/src/cli)
 
 Visit [www.lanes.pro](https://lanes.pro) to learn more about Lanes.
 
@@ -38,6 +39,11 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 ## Docs
 
 See our [documentation](https://github.com/FilipeJesus/lanes/blob/main/README.md) for more information on using Lanes.
+
+## Also Available On
+
+- **JetBrains IDEs** (Beta) — IntelliJ IDEA, WebStorm, PyCharm, GoLand, and more. [Build from source](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin).
+- **Standalone CLI** — Manage sessions from the terminal without an IDE. [Build from source](https://github.com/FilipeJesus/lanes/tree/main/src/cli).
 
 ## Using with Dev Containers
 
