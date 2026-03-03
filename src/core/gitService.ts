@@ -19,7 +19,6 @@ let gitPath: string = 'git';
  */
 export function initializeGitPath(resolvedPath: string): void {
     gitPath = resolvedPath;
-    console.log(`Lanes: Git path initialized: ${gitPath}`);
 }
 
 /**
