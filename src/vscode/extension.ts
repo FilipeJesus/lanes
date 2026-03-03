@@ -46,6 +46,7 @@ import { registerWatchers } from './watchers';
 import { validateWorkflow as validateWorkflowService } from '../core/services/WorkflowService';
 import { createSession } from './services/SessionService';
 import { openAgentTerminal } from './services/TerminalService';
+import { VscodeConfigProvider } from './adapters/VscodeConfigProvider';
 
 /**
  * Activate the extension.
@@ -90,6 +91,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (isInWorktree) {
         console.log(`Running in worktree. Base repo: ${baseRepoPath}`);
     }
+
+    // Initialize the unified settings bridge.
+    // This ensures VS Code settings changes are written to .lanes/settings.yaml
+    // so that CLI and JetBrains adapters see the same configuration.
+    const configProvider = new VscodeConfigProvider();
+    if (baseRepoPath) {
+        try {
+            await configProvider.initialize(baseRepoPath);
+        } catch (err) {
+            console.error('Lanes: Failed to initialize settings bridge:', getErrorMessage(err));
+        }
+    }
+    context.subscriptions.push({ dispose: () => configProvider.dispose() });
 
     // Check for and offer to repair broken worktrees (e.g., after container rebuild)
     if (baseRepoPath) {
@@ -152,7 +166,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize global storage context for session file storage
     // This must be done before creating the session provider
-    initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath, codeAgent, context);
+    initializeGlobalStorageContext(context.globalStorageUri, baseRepoPath, codeAgent, context, configProvider);
     console.log(`Global storage initialized at: ${context.globalStorageUri.fsPath}`);
 
     // Initialize Tree Data Provider with the base repo path

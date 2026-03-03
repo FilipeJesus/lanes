@@ -10,6 +10,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CodeAgent } from '../../core/codeAgents';
+import type { IConfigProvider } from '../../core/interfaces/IConfigProvider';
 import { fileExists, readDir, isDirectory } from '../../core/services/FileService';
 
 // Re-export everything from core session module
@@ -71,14 +72,22 @@ let globalExtensionContext: vscode.ExtensionContext | undefined;
  * Initialize the global storage context.
  * VS Code-aware wrapper that accepts vscode.Uri and delegates to core.
  */
-export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string, codeAgent?: CodeAgent, context?: vscode.ExtensionContext): void {
+export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string, codeAgent?: CodeAgent, context?: vscode.ExtensionContext, configProvider?: IConfigProvider): void {
     globalExtensionContext = context;
     SessionDataService.initializeGlobalStorageContext(storageUri.fsPath, baseRepoPath, codeAgent);
-    // Wire VS Code config reads into the core service
-    SessionDataService.setConfigCallbacks({
-        getWorktreesFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('worktreesFolder', '.worktrees'),
-        getPromptsFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('promptsFolder', ''),
-    });
+    // Wire config reads into the core service — prefer unified config provider
+    // when available, otherwise fall back to direct VS Code reads.
+    if (configProvider) {
+        SessionDataService.setConfigCallbacks({
+            getWorktreesFolder: () => configProvider.get<string>('lanes', 'worktreesFolder', '.worktrees'),
+            getPromptsFolder: () => configProvider.get<string>('lanes', 'promptsFolder', ''),
+        });
+    } else {
+        SessionDataService.setConfigCallbacks({
+            getWorktreesFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('worktreesFolder', '.worktrees'),
+            getPromptsFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('promptsFolder', ''),
+        });
+    }
 }
 
 /**
