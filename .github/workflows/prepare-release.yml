@@ -49,7 +49,7 @@ jobs:
           echo "Bumped to $NEW_VERSION"
 
       - name: Generate changelog
-        run: npx conventional-changelog -p conventionalcommits -i CHANGELOG.md -s
+        run: npx conventional-changelog -p conventionalcommits -i CHANGELOG.md
 
       - name: Create release branch and PR
         env:
