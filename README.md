@@ -112,7 +112,8 @@ Or use the local install script: `./scripts/install-local.sh`
 
 ```bash
 git clone https://github.com/FilipeJesus/lanes.git
-cd lanes/jetbrains-ide-plugin
+cd lanes && npm install && npm run compile
+cd jetbrains-ide-plugin
 ./gradlew buildPlugin
 # Install the plugin from jetbrains-ide-plugin/build/distributions/
 ```
