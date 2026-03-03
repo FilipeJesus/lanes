@@ -7,8 +7,21 @@
                                     <h2 class="text-3xl font-bold text-ink">Create a New Session</h2>
                                 </div>
                                 <p class="text-ink-muted mb-6">
-                                    Creating a new session in Lanes is straightforward. Each session is isolated and runs in its own Git worktree, giving Claude Code a clean workspace to work in without affecting your main codebase.
+                                    Creating a new session in Lanes is straightforward. Each session is isolated and runs in its own Git worktree, giving your coding agent a clean workspace without affecting your main codebase.
                                 </p>
+
+                                <!-- Multi-platform note -->
+                                <div class="bg-accent-dim border border-accent/20 rounded-lg p-4 mb-8">
+                                    <div class="flex gap-2">
+                                        <svg class="w-5 h-5 text-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        <div>
+                                            <p class="text-sm text-accent font-medium">Multi-Platform</p>
+                                            <p class="text-sm text-accent mt-1">
+                                                This guide covers session creation in VS Code. The same workflow applies to the <a href="#jetbrains-plugin" class="underline">JetBrains plugin</a> (via the Lanes tool window) and the <a href="#cli-reference" class="underline">CLI</a> (via <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">lanes create</code>).
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div class="space-y-8">
                                     <!-- Step 1: Prerequisites -->
@@ -18,25 +31,25 @@
                                             Make sure you have:
                                         </p>
                                         <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
-                                            <li>Opened a folder or workspace in VS Code</li>
+                                            <li>Lanes installed on your platform (see <a href="#installation" class="text-accent hover:underline">Installation</a>)</li>
                                             <li>A Git repository initialized (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">git init</code> if needed)</li>
-                                            <li>Claude Code installed globally (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @anthropic-ai/claude-code</code>)</li>
-                                            <li>Logged into Claude (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">claude login</code>)</li>
+                                            <li>At least one coding agent installed (Claude Code, Codex CLI, Gemini CLI, etc.)</li>
                                             <li><code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">jq</code> installed for status tracking (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">brew install jq</code> on macOS or <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">apt install jq</code> on Linux)</li>
-                                            <li><em>Optional:</em> Codex CLI installed (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @openai/codex</code>) for OpenAI agent support</li>
                                         </ul>
                                         <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-3">
                                             <p class="text-xs text-amber-600 dark:text-amber-400">
-                                                <strong>Note:</strong> Lanes currently supports macOS and Linux. Windows is not yet supported (WSL may work).
+                                                <strong>Note:</strong> Lanes supports macOS and Linux. Windows is not yet supported (WSL may work).
                                             </p>
                                         </div>
                                     </div>
 
                                     <!-- Step 2: Open Lanes Sidebar -->
                                     <div>
-                                        <h3 class="text-xl font-bold text-ink mb-3">Step 1: Open the Lanes Sidebar</h3>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Step 1: Open the Lanes Panel</h3>
                                         <p class="text-ink-muted mb-3">
-                                            Click the Lanes icon in the VS Code activity bar (the vertical bar on the far left) to open the Lanes panel. You'll see the session creation form at the top.
+                                            <strong>VS Code:</strong> Click the Lanes icon in the activity bar (the vertical bar on the far left).<br>
+                                            <strong>JetBrains:</strong> Open the Lanes tool window from the right sidebar or via View &rarr; Tool Windows &rarr; Lanes.<br>
+                                            <strong>CLI:</strong> Run <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">lanes create &lt;name&gt;</code> to skip straight to session creation.
                                         </p>
                                         <div class="bg-accent-dim border border-accent/20 rounded-lg p-4 mt-3">
                                             <div class="flex gap-2">

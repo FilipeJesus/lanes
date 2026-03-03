@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentation - Lanes</title>
-    <meta name="description" content="Complete documentation for Lanes - Learn how to manage multiple AI coding sessions (Claude Code, Codex CLI) in VS Code using Git worktrees.">
+    <meta name="description" content="Complete documentation for Lanes - Learn how to manage multiple AI coding sessions across VS Code, JetBrains IDEs, and the terminal using Git worktrees.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
 
     <!-- Fonts -->
@@ -243,9 +243,20 @@
                 <!-- Sidebar Navigation -->
                 <aside class="hidden lg:block lg:col-span-3 docs-sidebar">
                     <div class="bg-surface-1 rounded-xl border border-border p-4">
+                        <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Getting Started</h3>
+                        <nav class="space-y-1 mb-6">
+                            <button data-section="installation" class="sidebar-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                <span>Installation</span>
+                            </button>
+                            <button data-section="platform-comparison" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                                <span>Platform Comparison</span>
+                            </button>
+                        </nav>
                         <h3 class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-3">Sessions</h3>
                         <nav class="space-y-1">
-                            <button data-section="create-session" class="sidebar-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                            <button data-section="create-session" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span>Create a New Session</span>
                             </button>
@@ -282,6 +293,14 @@
                                 <button data-section="local-settings" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                     <span>Local Settings</span>
+                                </button>
+                                <button data-section="cli-reference" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>CLI Reference</span>
+                                </button>
+                                <button data-section="jetbrains-plugin" class="sidebar-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                    <span>JetBrains IDE Plugin</span>
                                 </button>
                             </nav>
                         </div>
@@ -325,14 +344,27 @@
                 <!-- Mobile Navigation (collapsible) -->
                 <div class="lg:hidden mb-8">
                     <button id="mobile-nav-toggle" class="w-full bg-surface-1 rounded-xl border border-border p-4 flex items-center justify-between text-ink font-medium">
-                        <span id="mobile-nav-current">Create a New Session</span>
+                        <span id="mobile-nav-current">Installation</span>
                         <svg class="w-5 h-5 transition-transform" id="mobile-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     <nav id="mobile-nav" class="hidden mt-2 bg-surface-1 rounded-xl border border-border p-4">
                         <!-- Getting Started -->
+                        <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Getting Started</p>
+                        <div class="space-y-1 mb-4">
+                            <button data-section="installation" class="mobile-nav-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                <span>Installation</span>
+                            </button>
+                            <button data-section="platform-comparison" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                                <span>Platform Comparison</span>
+                            </button>
+                        </div>
+                        <!-- Documentation -->
+                        <div class="border-t border-border pt-3">
                         <p class="text-xs font-bold text-ink-faint uppercase tracking-wide font-mono mb-2 px-3">Documentation</p>
                         <div class="space-y-1 mb-4">
-                            <button data-section="create-session" class="mobile-nav-link active w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                            <button data-section="create-session" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span>Create a New Session</span>
                             </button>
@@ -348,6 +380,7 @@
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                 <span>Reviewing Changes</span>
                             </button>
+                        </div>
                         </div>
                         <!-- Features -->
                         <div class="border-t border-border pt-3">
@@ -368,6 +401,14 @@
                                 <button data-section="local-settings" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
                                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                     <span>Local Settings</span>
+                                </button>
+                                <button data-section="cli-reference" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>CLI Reference</span>
+                                </button>
+                                <button data-section="jetbrains-plugin" class="mobile-nav-link w-full flex items-center gap-3 py-2 px-3 text-sm text-left rounded-lg">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                    <span>JetBrains IDE Plugin</span>
                                 </button>
                             </div>
                         </div>
@@ -418,7 +459,145 @@
                             </p>
                         </div>
 
-                                                <section id="create-session" class="doc-section mb-16 scroll-mt-24">
+                        <section id="installation" class="doc-section mb-16 scroll-mt-24">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Installation</h2>
+                                </div>
+                                <p class="text-ink-muted mb-8">
+                                    Lanes is available for VS Code, JetBrains IDEs, and as a standalone CLI. Choose your preferred platform below.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- VS Code -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3 flex items-center gap-2">
+                                            VS Code
+                                            <span class="text-[10px] uppercase tracking-widest font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Stable</span>
+                                        </h3>
+                                        <p class="text-ink-muted mb-3">Install from the VS Code Marketplace or Open VSX Registry.</p>
+                                        <div class="flex flex-wrap gap-3 mb-4">
+                                            <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes" class="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/20 transition-colors">VS Code Marketplace</a>
+                                            <a href="https://open-vsx.org/extension/FilipeMarquesJesus/lanes" class="inline-flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-sm font-medium text-ink-muted hover:text-ink transition-colors">Open VSX</a>
+                                        </div>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <p class="text-sm text-ink-muted mb-2"><strong class="text-ink">From source:</strong></p>
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> git clone https://github.com/FilipeJesus/lanes.git<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> cd lanes &amp;&amp; npm install<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> npm run compile &amp;&amp; npx vsce package<br>
+                                                <span class="text-ink-faint"># Install the .vsix via "Extensions: Install from VSIX..."</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- JetBrains -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3 flex items-center gap-2">
+                                            JetBrains IDEs
+                                            <span class="text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Beta</span>
+                                        </h3>
+                                        <p class="text-ink-muted mb-3">Supports IntelliJ IDEA, WebStorm, PyCharm, GoLand, and other JetBrains 2024.1+ IDEs. Currently available from source only.</p>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> git clone https://github.com/FilipeJesus/lanes.git<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> cd lanes/jetbrains-ide-plugin<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> ./gradlew buildPlugin<br>
+                                                <span class="text-ink-faint"># Install from jetbrains-ide-plugin/build/distributions/</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- CLI -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3 flex items-center gap-2">
+                                            Standalone CLI
+                                            <span class="text-[10px] uppercase tracking-widest font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Stable</span>
+                                        </h3>
+                                        <p class="text-ink-muted mb-3">Manage sessions directly from the terminal. No IDE required.</p>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> git clone https://github.com/FilipeJesus/lanes.git<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> cd lanes &amp;&amp; npm install &amp;&amp; npm run compile<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> npm link<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes --help
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Prerequisites -->
+                                    <div class="bg-surface-1 border border-border rounded-xl p-6">
+                                        <h3 class="text-xl font-bold text-ink mb-3">Prerequisites (All Platforms)</h3>
+                                        <ul class="list-disc list-inside text-ink-muted space-y-2 ml-4">
+                                            <li>A Git repository (<code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">git init</code> if needed)</li>
+                                            <li>At least one coding agent installed:
+                                                <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                                                    <li><a href="https://claude.com/claude-code" class="text-accent hover:underline">Claude Code</a> — <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @anthropic-ai/claude-code</code></li>
+                                                    <li><a href="https://github.com/openai/codex" class="text-accent hover:underline">Codex CLI</a> (optional) — <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @openai/codex</code></li>
+                                                    <li><a href="https://geminicli.com" class="text-accent hover:underline">Gemini CLI</a> (optional) — <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">npm install -g @google/gemini-cli</code></li>
+                                                </ul>
+                                            </li>
+                                            <li><code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono text-ink-muted">jq</code> installed for status tracking</li>
+                                        </ul>
+                                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-4">
+                                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                                <strong>Note:</strong> Lanes supports macOS and Linux. Windows is not yet supported (WSL may work).
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="platform-comparison" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">Platform Comparison</h2>
+                                </div>
+                                <p class="text-ink-muted mb-8">
+                                    Compare features across all supported platforms. VS Code has the most complete feature set, while the JetBrains plugin and CLI cover the core session management workflow.
+                                </p>
+
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-border">
+                                                <th class="text-left py-3 px-4 text-ink font-bold">Feature</th>
+                                                <th class="text-center py-3 px-4 text-ink font-bold">VS Code</th>
+                                                <th class="text-center py-3 px-4 text-ink font-bold">JetBrains <span class="text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Beta</span></th>
+                                                <th class="text-center py-3 px-4 text-ink font-bold">CLI</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="text-ink-muted">
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Create / list / delete / open sessions</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Clear sessions</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Pin/protect sessions</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">View git diff</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Repair broken worktrees</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Claude Code / Codex / Gemini / Cortex / OpenCode</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Workflow templates (built-in + custom)</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">MCP-based workflows</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Integrated terminal</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">N/A</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Tmux backend</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">File attachments</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Search in worktree</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Chime notifications</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Session insights</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-ink-faint">&mdash;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr class="border-b border-border/50"><td class="py-2.5 px-4">Status hooks</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                            <tr><td class="py-2.5 px-4">Local settings propagation</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td><td class="text-center py-2.5 px-4 text-emerald-600 dark:text-emerald-400">&#10003;</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="create-session" class="doc-section mb-16 scroll-mt-24 hidden">
                             <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
                                 <div class="flex items-center gap-4 mb-6">
                                     <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -3426,6 +3605,150 @@
                             </div>
                         </section>
 
+                        <section id="cli-reference" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink">CLI Reference</h2>
+                                </div>
+                                <p class="text-ink-muted mb-8">
+                                    The Lanes CLI lets you manage sessions directly from the terminal without an IDE. All core session operations are available as commands.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Installation -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Installation</h3>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> git clone https://github.com/FilipeJesus/lanes.git<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> cd lanes &amp;&amp; npm install &amp;&amp; npm run compile<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> npm link<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes --help
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Commands -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Commands</h3>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-sm">
+                                                <thead>
+                                                    <tr class="border-b border-border">
+                                                        <th class="text-left py-3 px-4 text-ink font-bold">Command</th>
+                                                        <th class="text-left py-3 px-4 text-ink font-bold">Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="text-ink-muted">
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes create &lt;name&gt;</code></td><td class="py-2.5 px-4">Create a new isolated session</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes list</code></td><td class="py-2.5 px-4">List all sessions</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes open &lt;name&gt;</code></td><td class="py-2.5 px-4">Open/resume a session</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes delete &lt;name&gt;</code></td><td class="py-2.5 px-4">Delete a session's worktree</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes clear &lt;name&gt;</code></td><td class="py-2.5 px-4">Reset session state, preserve worktree</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes diff &lt;name&gt;</code></td><td class="py-2.5 px-4">Show git diff for a session</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes repair</code></td><td class="py-2.5 px-4">Fix broken worktrees</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes insights &lt;name&gt;</code></td><td class="py-2.5 px-4">Show session insights</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes pin &lt;name&gt;</code></td><td class="py-2.5 px-4">Pin/protect a session</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes unpin &lt;name&gt;</code></td><td class="py-2.5 px-4">Unpin a session</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes status</code></td><td class="py-2.5 px-4">Show status of all sessions</td></tr>
+                                                    <tr class="border-b border-border/50"><td class="py-2.5 px-4 font-mono text-xs"><code>lanes workflow &lt;name&gt;</code></td><td class="py-2.5 px-4">Run a workflow template</td></tr>
+                                                    <tr><td class="py-2.5 px-4 font-mono text-xs"><code>lanes config</code></td><td class="py-2.5 px-4">View/edit configuration</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- Examples -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Example Workflow</h3>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-ink-faint"># Create a session with a prompt</span><br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes create fix-login-bug --prompt "Fix the login timeout issue"<br><br>
+                                                <span class="text-ink-faint"># Check session status</span><br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes status<br><br>
+                                                <span class="text-ink-faint"># Review changes</span><br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes diff fix-login-bug<br><br>
+                                                <span class="text-ink-faint"># Clean up when done</span><br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> lanes delete fix-login-bug
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="jetbrains-plugin" class="doc-section mb-16 scroll-mt-24 hidden">
+                            <div class="bg-surface-0 rounded-xl border border-border p-6 sm:p-8">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-ink flex items-center gap-3">
+                                        JetBrains IDE Plugin
+                                        <span class="text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Beta</span>
+                                    </h2>
+                                </div>
+                                <p class="text-ink-muted mb-8">
+                                    The JetBrains plugin brings Lanes session management to IntelliJ-based IDEs. It provides a tool window for creating, managing, and switching between isolated coding sessions.
+                                </p>
+
+                                <div class="space-y-8">
+                                    <!-- Supported IDEs -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Supported IDEs</h3>
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">IntelliJ IDEA</div>
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">WebStorm</div>
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">PyCharm</div>
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">GoLand</div>
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">PhpStorm</div>
+                                            <div class="bg-surface-1 rounded-lg p-3 text-sm text-ink-muted">Rider</div>
+                                        </div>
+                                        <p class="text-xs text-ink-faint mt-2">Requires JetBrains IDE version 2024.1 or newer.</p>
+                                    </div>
+
+                                    <!-- Installation -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Installation</h3>
+                                        <p class="text-ink-muted mb-3">The plugin is currently available from source only. It is not yet published to the JetBrains Marketplace.</p>
+                                        <div class="bg-surface-1 rounded-lg p-4">
+                                            <div class="bg-surface-2 rounded-lg p-3 font-mono text-xs sm:text-sm text-ink-muted overflow-x-auto">
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> git clone https://github.com/FilipeJesus/lanes.git<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> cd lanes/jetbrains-ide-plugin<br>
+                                                <span class="text-emerald-600 dark:text-emerald-400">$</span> ./gradlew buildPlugin
+                                            </div>
+                                            <p class="text-xs text-ink-muted mt-3">Then install the plugin ZIP from <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">build/distributions/</code> via Settings &rarr; Plugins &rarr; Install Plugin from Disk.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Usage -->
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Usage</h3>
+                                        <div class="space-y-3 text-ink-muted">
+                                            <p>Open the <strong class="text-ink">Lanes</strong> tool window from the right sidebar or via View &rarr; Tool Windows &rarr; Lanes.</p>
+                                            <p>The tool window provides the same session creation form as VS Code — enter a session name, optional prompt, select your agent, and click Create.</p>
+                                            <p>Sessions appear in the tool window list with real-time status indicators. Click a session to open its terminal.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Limitations -->
+                                    <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                                        <h3 class="text-base font-bold text-amber-600 dark:text-amber-400 mb-2">Beta Limitations</h3>
+                                        <ul class="list-disc list-inside text-sm text-amber-600 dark:text-amber-400 space-y-1">
+                                            <li>File attachments are not yet supported</li>
+                                            <li>Search in worktree is not available (use IDE's built-in search)</li>
+                                            <li>Chime notifications are not yet implemented</li>
+                                            <li>Session insights are not yet available</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
 
                     </div>
                 </div>
@@ -3514,6 +3837,8 @@
 
         // --- Section navigation ---
         const sectionNames = {
+            'installation': 'Installation',
+            'platform-comparison': 'Platform Comparison',
             'create-session': 'Create a New Session',
             'worktrees': 'Understanding Worktrees',
             'permission-modes': 'Permission Modes',
@@ -3526,6 +3851,8 @@
             'workflow-structure': 'Workflow Structure',
             'creating-workflow': 'Creating a Workflow',
             'lanes-mcp': 'Lanes MCP',
+            'cli-reference': 'CLI Reference',
+            'jetbrains-plugin': 'JetBrains IDE Plugin',
             'contributing': 'Contributing'
         };
 

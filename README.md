@@ -6,9 +6,9 @@
 
 # Lanes: AI Project Management
 
-**Manage multiple, isolated AI coding sessions directly inside VS Code.**
+**Manage multiple, isolated AI coding sessions across VS Code, JetBrains IDEs, and the terminal.**
 
-Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, and Gemini CLI out of the box. No more context contamination. No more half-finished files clashing with each other.
+Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
 
 <video src="https://raw.githubusercontent.com/FilipeJesus/lanes/main/media/lanes-demo.mp4#t=4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
@@ -28,6 +28,39 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
 
 Visit [our website](https://lanes.pro) for more information.
+
+---
+
+## Available On
+
+| Platform | Status | Install |
+|----------|--------|---------|
+| **VS Code** | Stable | [Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes) · [Open VSX](https://open-vsx.org/extension/FilipeMarquesJesus/lanes) |
+| **JetBrains IDEs** | Beta | [From source](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin) |
+| **CLI** | Stable | [From source](https://github.com/FilipeJesus/lanes/tree/main/src/cli) |
+
+---
+
+## Feature Comparison
+
+| Feature | VS Code | JetBrains (Beta) | CLI |
+|---------|:-------:|:-----------------:|:---:|
+| Create / list / delete / open sessions | ✓ | ✓ | ✓ |
+| Clear sessions | ✓ | ✓ | ✓ |
+| Pin/protect sessions | ✓ | ✓ | — |
+| View git diff | ✓ | ✓ | ✓ |
+| Repair broken worktrees | ✓ | ✓ | ✓ |
+| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ |
+| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ |
+| MCP-based workflows | ✓ | ✓ | ✓ |
+| Integrated terminal | ✓ | ✓ | N/A |
+| Tmux backend | ✓ | ✓ | ✓ |
+| File attachments | ✓ | — | — |
+| Search in worktree | ✓ | — | — |
+| Chime notifications | ✓ | — | — |
+| Session insights | ✓ | — | ✓ |
+| Status hooks | ✓ | ✓ | ✓ |
+| Local settings propagation | ✓ | ✓ | ✓ |
 
 ---
 
@@ -60,6 +93,8 @@ gemini
 
 ### Install
 
+#### VS Code (Marketplace)
+
 Search for **"Lanes"** in the VS Code Extensions marketplace, or visit the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes).
 
 **From Source:**
@@ -71,24 +106,50 @@ npm run compile && npx vsce package
 # Then install the .vsix via "Extensions: Install from VSIX..."
 ```
 
-**Or use the local install script:**
+Or use the local install script: `./scripts/install-local.sh`
+
+#### JetBrains IDEs (From Source)
 
 ```bash
-./scripts/install-local.sh
+git clone https://github.com/FilipeJesus/lanes.git
+cd lanes/jetbrains-ide-plugin
+./gradlew buildPlugin
+# Install the plugin from jetbrains-ide-plugin/build/distributions/
 ```
 
-This compiles, packages, and installs the extension in one command.
+Supports IntelliJ IDEA, WebStorm, PyCharm, GoLand, and other JetBrains 2024.1+ IDEs.
+
+#### CLI (From Source)
+
+```bash
+git clone https://github.com/FilipeJesus/lanes.git
+cd lanes && npm install && npm run compile
+npm link
+lanes --help
+```
 
 ---
 
 ## Usage
 
-1. Open the **Lanes** sidebar
+### VS Code / JetBrains
+
+1. Open the **Lanes** sidebar (or tool window in JetBrains)
 2. Fill in **Session Name** and optionally a **Starting Prompt**
 3. Click **Create Session**
 4. A terminal opens with Claude running in an isolated worktree
 
 Click any session to resume it. Click the trash icon to delete (branch is preserved for merging).
+
+### CLI
+
+```bash
+lanes create my-feature --prompt "Implement the login page"
+lanes list
+lanes open my-feature
+lanes diff my-feature
+lanes delete my-feature
+```
 
 ---
 
@@ -115,6 +176,24 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 | `Lanes: Repair Broken Worktrees` | Fix broken worktrees after container rebuilds |
 | `Lanes: Setup Status Hooks` | Configure Claude hooks for status indicators |
 
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `lanes create <name>` | Create a new isolated session |
+| `lanes list` | List all sessions |
+| `lanes open <name>` | Open/resume a session |
+| `lanes delete <name>` | Delete a session's worktree |
+| `lanes clear <name>` | Reset session state, preserve worktree |
+| `lanes diff <name>` | Show git diff for a session |
+| `lanes repair` | Fix broken worktrees |
+| `lanes insights <name>` | Show session insights |
+| `lanes pin <name>` | Pin/protect a session |
+| `lanes unpin <name>` | Unpin a session |
+| `lanes status` | Show status of all sessions |
+| `lanes workflow <name>` | Run a workflow template |
+| `lanes config` | View/edit configuration |
+
 ---
 
 ## Advanced
@@ -134,6 +213,8 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 - [x] Tmux terminal backend
 - [x] Local settings propagation to worktrees
 - [x] Additional agent integrations
+- [x] JetBrains IDE plugin (beta)
+- [x] Standalone CLI
 - [ ] Windows support
 - [ ] Multi-repo support
 
@@ -185,11 +266,13 @@ Please ensure your PR:
 | `src/GitChangesPanel.ts` | Git diff viewer panel |
 | `src/gitService.ts` | Git operations (worktrees, branches) |
 | `src/ProjectManagerService.ts` | Project Manager integration |
+| `src/cli/` | Standalone CLI entry point and commands |
 | `src/codeAgents/` | Agent abstraction (CodeAgent, ClaudeCodeAgent, CodexAgent, factory) |
 | `src/services/TmuxService.ts` | Tmux terminal backend |
 | `src/services/TerminalService.ts` | Terminal management abstraction |
 | `src/services/SettingsFormatService.ts` | TOML/JSON settings format handling |
 | `src/localSettings.ts` | Local settings propagation helper |
+| `jetbrains-ide-plugin/` | JetBrains IDE plugin (Kotlin/Gradle) |
 | `src/test/*.test.ts` | Test suite |
 | `package.json` | Extension manifest |
 
