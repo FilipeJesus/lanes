@@ -160,39 +160,31 @@ suite('Agent Factory - CLI Availability Implementation', () => {
         const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
-        assert.ok(source.includes('import { execFile }'), 'Should import execFile from child_process');
-        assert.ok(!source.includes('import { exec }') || source.includes('execFile'), 'Should not import exec, or if it does, should also have execFile');
+        assert.ok(source.includes('import { exec }'), 'Should import exec from child_process');
     });
 
-    test('isCliAvailable implementation uses execFile with args array', () => {
+    test('isCliAvailable uses exec with command -v', () => {
         // Read the factory source to verify implementation
         const fs = require('fs');
         const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
-        // Verify execFile is called with args array, not template literal
-        assert.ok(source.includes("execFile('command'"), 'Should call execFile with command as first arg');
-        assert.ok(source.includes("['-v', cliCommand]"), 'Should pass args as array');
-
-        // Verify the actual function implementation doesn't use template string for command execution
-        // Look for the isCliAvailable function implementation specifically
+        // Look for the isCliAvailable function implementation
         const functionMatch = source.match(/export async function isCliAvailable[\s\S]*?\{[\s\S]*?\n\}/);
         assert.ok(functionMatch, 'Should find isCliAvailable function');
         const functionBody = functionMatch[0];
 
-        // Ensure the function body uses execFile with array args, not exec with template literal
-        assert.ok(!functionBody.includes('exec(`'), 'Function should not use exec with template literal');
-        assert.ok(functionBody.includes('execFile'), 'Function should use execFile');
+        // Ensure the function uses exec with 'command -v' (avoids DEP0190 warning)
+        assert.ok(functionBody.includes('exec('), 'Function should use exec');
+        assert.ok(functionBody.includes('command -v'), 'Function should use command -v');
     });
 
-    test('isCliAvailable uses shell:true not hardcoded shell path', () => {
-        // Read the factory source to verify shell option
+    test('isCliAvailable does not hardcode shell path', () => {
+        // Read the factory source to verify no hardcoded shell path
         const fs = require('fs');
         const factoryPath = getSourcePath('core/codeAgents/factory.ts');
         const source = fs.readFileSync(factoryPath, 'utf-8');
 
-        // Verify shell: true is used, not shell: '/bin/sh'
-        assert.ok(source.includes('shell: true'), 'Should use shell: true');
         assert.ok(!source.includes("shell: '/bin/sh'"), 'Should not hardcode shell path');
     });
 });
