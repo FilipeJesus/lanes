@@ -186,13 +186,16 @@ export class VscodeConfigProvider implements IConfigProvider {
         for (const key of LANES_SETTING_KEYS) {
             const flatKey = `lanes.${key}`;
             const vscodeValue = vsConfig.get<unknown>(key);
-            if (vscodeValue !== undefined && vscodeValue !== UNIFIED_DEFAULTS[flatKey]) {
-                entries.push({ section: 'lanes', key, value: vscodeValue });
+            // Use VS Code value if available, otherwise fall back to unified default.
+            const value = vscodeValue !== undefined
+                ? vscodeValue
+                : UNIFIED_DEFAULTS[flatKey];
+            if (value !== undefined) {
+                entries.push({ section: 'lanes', key, value });
             }
         }
-        if (entries.length > 0) {
-            await this.service.setMany(entries);
-        }
+        // Always write the file so CLI and JetBrains adapters can discover it.
+        await this.service.setMany(entries);
     }
 
     private _fireCallbacksForSection(section: string): void {
