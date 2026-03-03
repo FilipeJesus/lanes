@@ -11,7 +11,7 @@
  * - Singleton lifecycle (one instance per agent type)
  */
 
-import { execFile } from 'child_process';
+import { exec } from 'child_process';
 import { CodeAgent } from './CodeAgent';
 import { ClaudeCodeAgent } from './ClaudeCodeAgent';
 import { CodexAgent } from './CodexAgent';
@@ -107,7 +107,7 @@ export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): {
  */
 export async function isCliAvailable(cliCommand: string): Promise<boolean> {
     return new Promise((resolve) => {
-        execFile('command', ['-v', cliCommand], { shell: true, timeout: 5000 }, (error) => {
+        exec(`command -v ${cliCommand}`, { timeout: 5000 }, (error) => {
             resolve(!error);
         });
     });

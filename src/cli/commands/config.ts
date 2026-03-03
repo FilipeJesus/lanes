@@ -3,10 +3,8 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fsPromises from 'fs/promises';
 import { initCli, exitWithError } from '../utils';
-import { readJson, ensureDir } from '../../core/services/FileService';
+import { UnifiedSettingsService } from '../../core/services/UnifiedSettingsService';
 import { getErrorMessage } from '../../core/utils';
 
 const VALID_KEYS = [
@@ -29,54 +27,59 @@ export function registerConfigCommand(program: Command): void {
         .option('--list', 'List all configuration values')
         .action(async (options) => {
             try {
-                const { config, repoRoot } = await initCli();
-                const configPath = path.join(repoRoot, '.lanes', 'config.json');
+                const { repoRoot } = await initCli();
+
+                // Build a dedicated UnifiedSettingsService for this invocation.
+                const service = new UnifiedSettingsService();
+                await service.migrateIfNeeded(repoRoot);
+                await service.load(repoRoot);
 
                 if (options.list || (!options.key && !options.value)) {
                     // List all config
-                    console.log('Configuration (.lanes/config.json):');
+                    console.log('Configuration (.lanes/settings.yaml):');
                     console.log('');
+                    const all = service.getAll();
                     for (const key of VALID_KEYS) {
-                        const value = config.get('lanes', key, '(default)');
+                        const flatKey = `lanes.${key}`;
+                        const value = all[flatKey] ?? service.get('lanes', key, '(default)');
                         console.log(`  ${key}: ${JSON.stringify(value)}`);
                     }
+                    service.dispose();
                     return;
                 }
 
                 if (!options.key) {
+                    service.dispose();
                     exitWithError('--key is required when setting a value.');
                 }
 
                 if (!VALID_KEYS.includes(options.key)) {
+                    service.dispose();
                     exitWithError(`Unknown key '${options.key}'. Valid keys: ${VALID_KEYS.join(', ')}`);
                 }
 
                 if (options.value === undefined) {
                     // Get single value
-                    const value = config.get('lanes', options.key, null);
+                    const value = service.get('lanes', options.key, null);
                     console.log(JSON.stringify(value));
+                    service.dispose();
                     return;
                 }
 
-                // Set value
-                let existing = await readJson<Record<string, unknown>>(configPath) || {};
+                // Set value — parse boolean and number strings.
                 let parsedValue: unknown = options.value;
-
-                // Parse boolean and number values
-                if (options.value === 'true') {parsedValue = true;}
-                else if (options.value === 'false') {parsedValue = false;}
+                if (options.value === 'true') { parsedValue = true; }
+                else if (options.value === 'false') { parsedValue = false; }
                 else if (!isNaN(Number(options.value)) && options.value.trim() !== '') {
                     parsedValue = Number(options.value);
                 }
 
-                existing[options.key] = parsedValue;
-
-                await ensureDir(path.dirname(configPath));
-                await fsPromises.writeFile(configPath, JSON.stringify(existing, null, 2), 'utf-8');
+                await service.set('lanes', options.key, parsedValue);
+                service.dispose();
 
                 console.log(`Set ${options.key} = ${JSON.stringify(parsedValue)}`);
             } catch (err) {
-                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') { throw err; }
                 exitWithError(getErrorMessage(err));
             }
         });
