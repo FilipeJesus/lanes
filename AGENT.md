@@ -2,68 +2,164 @@
 
 ## Project Overview
 
-Lanes is a VS Code extension that manages isolated Claude Code sessions using Git worktrees. Each session gets its own worktree and dedicated terminal.
+Lanes is a cross-IDE tool for managing isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a JetBrains IDE plugin, and a standalone CLI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
 
-## Key Files
+Supported code agents: Claude Code, Codex (OpenAI), Cortex (Snowflake), Gemini (Google), OpenCode.
 
-| File | Purpose |
-|------|---------|
-| `src/extension.ts` | Main entry point, commands, terminal management |
-| `src/ClaudeSessionProvider.ts` | Tree data provider for the sidebar |
-| `package.json` | Extension manifest (commands, views, menus, keybindings) |
-| `src/test/extension.test.ts` | Test suite |
-| `claude-progress.txt` | Session progress tracking (persisted) |
-| `workflow-state.json` | Workflow state managed by MCP tools (created during workflows) |
-| `tests.json` | **Agent-managed** - Test plan created by coder, implemented by test-engineer |
-| `src/localSettings.ts` | Local settings propagation helper |
+## Directory Structure
 
-## Local Settings Propagation
+```
+src/
+├── core/                     # Platform-agnostic core library
+│   ├── codeAgents/           # Agent implementations (Claude, Codex, Cortex, Gemini, OpenCode) + factory
+│   ├── errors/               # Typed errors (LanesError, GitError, ValidationError)
+│   ├── interfaces/           # Platform abstractions (IConfigProvider, IStorageProvider, etc.)
+│   ├── services/             # Business logic (session creation, agent launch, diff, insights, etc.)
+│   ├── session/              # Session types + SessionDataService
+│   ├── validation/           # Input validation & path sanitization
+│   └── workflow/             # Workflow state machine & YAML template loading
+├── vscode/                   # VS Code extension
+│   ├── adapters/             # Platform adapter implementations
+│   ├── commands/             # Command handlers (session, workflow, repair)
+│   ├── providers/            # Tree views + webviews (sessions, forms, diffs, workflows)
+│   └── services/             # VS Code-specific services (terminal, polling, etc.)
+├── cli/                      # Standalone CLI (`lanes` command, Commander.js)
+│   ├── adapters/             # CLI platform adapters
+│   └── commands/             # list, create, delete, open, diff, insights, etc.
+├── mcp/                      # MCP server (workflow tools, stdio transport)
+├── jetbrains-ide-bridge/     # JetBrains IDE HTTP bridge server
+├── test/                     # Test suite (mirrors source structure)
+└── types/                    # Global TypeScript type definitions
 
-Lanes can automatically propagate your `.claude/settings.local.json` file from your base repository to each worktree. This ensures that your local Claude Code configuration (like environment variables, model settings, etc.) is available in all sessions.
-
-### Configuration
-
-Add to your VS Code settings:
-
-```json
-{
-  "lanes.localSettingsPropagation": "copy" // or "symlink" or "disabled"
-}
+jetbrains-ide-plugin/         # Kotlin JetBrains plugin (separate Gradle build)
+scripts/                      # Build, bundle & install scripts
+docs/                         # Documentation site
 ```
 
-- `copy` (default): Copies the file to each worktree. Works on all platforms.
-- `symlink`: Creates a symbolic link. More efficient but Windows may require developer mode.
-- `disabled`: Does not propagate settings.
+## Architecture
 
-### How It Works
+### Platform Abstraction
 
-When you create a new session (worktree), Lanes checks if `.claude/settings.local.json` exists in your base repository. If it does and propagation is enabled, the file is copied or symlinked to `<worktree>/.claude/settings.local.json`.
+Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, JetBrains) implements the interfaces in `src/core/interfaces/`:
 
-### Example Use Cases
+| Interface | VS Code Adapter | CLI Adapter |
+|-----------|----------------|-------------|
+| `IConfigProvider` | `VscodeConfigProvider` | `CliConfigProvider` |
+| `IStorageProvider` | `VscodeStorageProvider` | `CliStorageProvider` |
+| `IGitPathResolver` | `VscodeGitPathResolver` | `CliGitPathResolver` |
+| `IFileWatcher` | `VscodeFileWatcher` | — |
+| `ITerminalBackend` | `VscodeTerminalBackend` | — |
+| `IUIProvider` | `VscodeUIProvider` | — |
 
-- **Environment variables**: Set custom `ANTHROPIC_DEFAULT_HAIKU_MODEL` for all sessions
-- **Model settings**: Configure default models or permission modes
-- **Custom hooks**: Define hooks that apply to all sessions
+### Storage
+
+Session state is stored locally in the repository at `.lanes/current-sessions/<sessionName>/`. Each session has:
+- `.claude-session` (or agent-specific file) — session data
+- `.claude-status` (or agent-specific file) — session status
+- `workflow-state.json` — workflow state (in the worktree)
+
+### Code Agent System
+
+The `CodeAgent` abstract base class (`src/core/codeAgents/CodeAgent.ts`) defines the contract. Each agent provides its CLI command, session/status file names, settings file locations, and permission modes. Use `factory.ts` to instantiate agents.
+
+### Bundling
+
+Three separate esbuild bundles are produced:
+
+| Bundle | Entry | Output | Purpose |
+|--------|-------|--------|---------|
+| Extension | `src/extension.ts` | `out/extension.bundle.js` | VS Code extension |
+| MCP Server | `src/mcp/server.ts` | `out/mcp/server.js` | Workflow MCP server |
+| CLI | `src/cli/cli.ts` | `out/cli.js` | `lanes` CLI tool |
+
+## Conventions
+
+### Code Style
+
+- **Async I/O only** — Synchronous `fs` methods (`readFileSync`, `existsSync`, etc.) are banned via ESLint and will error. Use `fs/promises` and `async/await`. See `FileService.ts` for helpers.
+- **Test files** are exempt from the sync fs ban.
+- **Naming** — `camelCase` for variables/functions, `PascalCase` for classes/interfaces/types. Interfaces are prefixed with `I` (e.g., `IConfigProvider`).
+- **Imports** — `camelCase` or `PascalCase` only (enforced by ESLint).
+- **Strict TypeScript** — `strict: true` in tsconfig, target ES2022.
+
+### Commit Messages
+
+Enforced via commitlint + husky `commit-msg` hook. Uses [Conventional Commits](https://www.conventionalcommits.org/).
+
+Format: `type(scope): description`
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+Examples:
+- `feat: add tmux terminal backend`
+- `fix(sessions): prevent duplicate worktree creation`
+- `chore: release v1.4.0`
+
+### Pre-commit Hooks
+
+The husky `pre-commit` hook runs compile, lint, and test. All must pass before a commit is accepted.
+
+## Commands
+
+```bash
+# Build
+npm run compile              # TypeScript compile + bundle all three targets
+npm run bundle:extension     # Bundle VS Code extension only
+npm run bundle:mcp           # Bundle MCP server only
+npm run bundle:cli           # Bundle CLI only
+npm run watch                # TypeScript watch mode (no bundling)
+
+# Quality
+npm run lint                 # ESLint
+npm test                     # Full test suite (compile + lint + vscode-test)
+
+# Release
+npm run changelog            # Generate CHANGELOG from commits
+npm run release              # Interactive release
+npm run release:patch        # Patch release
+npm run release:minor        # Minor release
+
+# Local install
+./scripts/install-local-vscode.sh  # Install extension locally
+./scripts/install-local-cli.sh     # Install CLI locally
+./scripts/install-local-idea.sh    # Install JetBrains plugin locally
+
+# Debug
+# Press F5 in VS Code to launch Extension Development Host
+```
+
+### Testing
+
+- **Framework**: Mocha via `@vscode/test-cli` + `@vscode/test-electron`
+- **Mocking**: Sinon for stubs/spies, memfs for virtual file systems
+- **Config**: `.vscode-test.mjs` — runs all `out/test/**/*.test.js` files
+- **Run**: `npm test` (compiles, lints, then runs tests)
+- Test files live in `src/test/` mirroring the source structure
 
 ## Workflow System
 
-Lanes uses a structured workflow system managed by MCP tools. When a workflow is active, tasks are tracked in `workflow-state.json`.
+Lanes uses a structured workflow system managed via MCP tools. Workflow templates are YAML files loaded from `.lanes/workflows/` or a custom folder.
 
-### Starting a Workflow
+### MCP Tools
 
-Use the `workflow_start` MCP tool to initialize a workflow. This creates the `workflow-state.json` file.
+| Tool | Purpose |
+|------|---------|
+| `workflow_start` / `workflow_start_from_path` | Initialize a workflow |
+| `workflow_status` | Get current position and instructions |
+| `workflow_set_tasks` | Define tasks for loop steps |
+| `workflow_advance` | Complete current step, move to next |
+| `workflow_context` | Retrieve outputs from previous steps |
+| `workflow_track_artefacts` | Track file paths produced by steps |
 
-### Task Management
+Workflow state persists to `workflow-state.json` in the worktree and auto-resumes on MCP server restart.
 
-Tasks are managed through MCP workflow tools:
-- `workflow_set_tasks` - Define tasks for the current workflow
-- `workflow_advance` - Complete the current step and move to the next
-- `workflow_status` - Get current workflow position and progress
-- `workflow_context` - Get outputs from previous steps
+## Local Settings Propagation
 
-### Workflow State Persistence
+When creating a session, Lanes can propagate `.claude/settings.local.json` from the base repo to each worktree:
 
-Workflow state is automatically persisted to `workflow-state.json` in the worktree. If the MCP server restarts, calling `workflow_status` will automatically resume from the persisted state. You do not need to call `workflow_start` again.
+```json
+{ "lanes.localSettingsPropagation": "copy" }  // "copy" | "symlink" | "disabled"
+```
 
 ## Agent Summary
 
@@ -75,68 +171,6 @@ Workflow state is automatically persisted to `workflow-state.json` in the worktr
 | `test-engineer` | Implement planned tests | After each feature |
 | `code-reviewer` | Code quality review | After tests pass |
 
-## Test Planning with tests.json
-
-The `tests.json` file is an ephemeral file managed by agents (not the Lanes extension):
-
-1. **Coder creates it** before implementing any code
-2. **Test-engineer reads it** to implement the planned tests
-3. **Delete it** when the task is complete
-
-### tests.json Format
-
-```json
-{
-  "planned": [
-    {
-      "id": "test-id",
-      "description": "What the test verifies",
-      "file": "src/test/extension.test.ts",
-      "suite": "Suite name",
-      "priority": "critical|high|medium|low",
-      "acceptance_criteria": ["Given X, when Y, then Z"],
-      "implemented": false
-    }
-  ]
-}
-```
-
-### Workflow
-
-1. **Coder** plans tests and creates `tests.json` with `implemented: false`
-2. **Coder** implements the feature
-3. **Test-engineer** implements each test and sets `implemented: true`
-4. When all tests pass, delete `tests.json`
-
-## Progress Tracking (Persisted)
-
-### claude-progress.txt
-
-Update at the end of each session:
-
-```
-## Session: [Date]
-
-### Completed
-- [What was accomplished]
-
-### Next Steps
-- [What should be done next]
-```
-
-## Commit Message Format
-
-This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via commitlint. A `commit-msg` hook will reject non-conforming messages.
-
-Format: `type(scope): description`
-
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-Examples:
-- `feat: add tmux terminal backend`
-- `fix(sessions): prevent duplicate worktree creation`
-- `chore: release v1.4.0`
-
 ## Constraints
 
 - Always run tests before committing: `npm test`
@@ -144,16 +178,4 @@ Examples:
 - Commit-msg hook enforces: conventional commit format
 - Never commit code that breaks existing tests
 - Keep changes focused and minimal
-
-## Common Commands
-
-```bash
-# Development
-npm run compile          # Compile TypeScript
-npm run watch           # Watch mode
-npm run lint            # Run ESLint
-npm test                # Run full test suite
-
-# Debugging
-# Press F5 in VS Code to launch Extension Development Host
-```
+- No synchronous fs methods in production code
