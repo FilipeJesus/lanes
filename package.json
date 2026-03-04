@@ -38,7 +38,8 @@
   ],
   "main": "./out/extension.bundle.js",
   "bin": {
-    "lanes": "./out/cli.js"
+    "lanes": "./out/cli.js",
+    "lanes-daemon": "./out/daemon.js"
   },
   "contributes": {
     "viewsContainers": {
@@ -420,10 +421,11 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli",
+    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli && npm run bundle:daemon",
     "bundle:extension": "node scripts/bundle-extension.mjs",
     "bundle:mcp": "node scripts/bundle-mcp.mjs",
     "bundle:cli": "node scripts/bundle-cli.mjs",
+    "bundle:daemon": "node scripts/bundle-daemon.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
