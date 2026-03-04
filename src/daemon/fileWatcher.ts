@@ -113,6 +113,32 @@ export class DaemonFileWatchManager implements IFileWatchManager {
     }
 
     /**
+     * Set up automatic file watching for standard Lanes session paths.
+     *
+     * Watches:
+     *   - `.lanes/current-sessions/**\/*` — session data and status files for all agents
+     *   - `<worktreesFolder>/**\/workflow-state.json` — workflow state changes in worktrees
+     *
+     * Returns the watch IDs so the caller can unwatch them individually if needed.
+     * The caller may also simply call `dispose()` on shutdown, which closes all watchers.
+     *
+     * @param worktreesFolder The worktrees folder name (e.g. `.worktrees`), resolved from config.
+     */
+    setupAutoWatching(workspaceRoot: string, worktreesFolder: string = '.worktrees'): string[] {
+        const watchIds: string[] = [];
+
+        // Watch session data directory for status/session file changes (all agent types)
+        const sessionsPath = path.join(workspaceRoot, '.lanes', 'current-sessions');
+        watchIds.push(this.watch(sessionsPath, '**/*'));
+
+        // Watch worktrees directory for workflow-state.json changes
+        const worktreesPath = path.join(workspaceRoot, worktreesFolder);
+        watchIds.push(this.watch(worktreesPath, '**/workflow-state.json'));
+
+        return watchIds;
+    }
+
+    /**
      * Close all watchers (cleanup on shutdown).
      */
     dispose(): void {
