@@ -8,3 +8,9 @@ export type { ITerminalBackend, ITerminalHandle, TerminalOptions } from './ITerm
 export type { IFileWatcher, IFileWatcherHandle } from './IFileWatcher';
 export type { IStorageProvider } from './IStorageProvider';
 export type { IGitPathResolver } from './IGitPathResolver';
+export type {
+    ISimpleConfigStore,
+    INotificationEmitter,
+    IFileWatchManager,
+    IHandlerContext,
+} from './IHandlerContext';
