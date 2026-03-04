@@ -109,6 +109,45 @@ async function readJsonBody(req: http.IncomingMessage): Promise<Record<string, u
 }
 
 // ---------------------------------------------------------------------------
+// Query string helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse the query string portion of a raw URL into a key-value map.
+ * Returns an empty object when there is no query string.
+ */
+function parseQueryString(rawUrl: string): Record<string, string> {
+    const qIndex = rawUrl.indexOf('?');
+    if (qIndex === -1 || qIndex === rawUrl.length - 1) {
+        return {};
+    }
+    const query = rawUrl.slice(qIndex + 1);
+    const result: Record<string, string> = {};
+    for (const part of query.split('&')) {
+        if (!part) {
+            continue;
+        }
+        const eqIndex = part.indexOf('=');
+        if (eqIndex === -1) {
+            result[decodeURIComponent(part)] = '';
+        } else {
+            const key = decodeURIComponent(part.slice(0, eqIndex));
+            const value = decodeURIComponent(part.slice(eqIndex + 1));
+            result[key] = value;
+        }
+    }
+    return result;
+}
+
+/**
+ * Convert a query string value to a boolean.
+ * Treats `"true"` and `"1"` as `true`; everything else (including absence) as `false`.
+ */
+function parseBooleanParam(value: string | undefined): boolean {
+    return value === 'true' || value === '1';
+}
+
+// ---------------------------------------------------------------------------
 // Route matching helpers
 // ---------------------------------------------------------------------------
 
@@ -168,6 +207,7 @@ export function createRouter(
         const rawUrl = req.url ?? '/';
         // Strip query string for routing
         const pathname = rawUrl.split('?')[0];
+        const queryParams = parseQueryString(rawUrl);
 
         // Always set CORS headers
         setCorsHeaders(res);
@@ -301,6 +341,74 @@ export function createRouter(
                 }
             }
 
+            // GET /api/v1/sessions/:name/diff/files
+            {
+                const match = matchRoute('/api/v1/sessions/:name/diff/files', pathname);
+                if (method === 'GET' && match) {
+                    const params: Record<string, unknown> = { sessionName: match.params.name };
+                    if (queryParams['includeUncommitted'] !== undefined) {
+                        params.includeUncommitted = parseBooleanParam(queryParams['includeUncommitted']);
+                    }
+                    const result = await handlerService.handleGitGetDiffFiles(params);
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // GET /api/v1/sessions/:name/diff
+            {
+                const match = matchRoute('/api/v1/sessions/:name/diff', pathname);
+                if (method === 'GET' && match) {
+                    const params: Record<string, unknown> = { sessionName: match.params.name };
+                    if (queryParams['includeUncommitted'] !== undefined) {
+                        params.includeUncommitted = parseBooleanParam(queryParams['includeUncommitted']);
+                    }
+                    const result = await handlerService.handleGitGetDiff(params);
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // GET /api/v1/sessions/:name/worktree
+            {
+                const match = matchRoute('/api/v1/sessions/:name/worktree', pathname);
+                if (method === 'GET' && match) {
+                    const result = await handlerService.handleGitGetWorktreeInfo({
+                        sessionName: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // GET /api/v1/sessions/:name/workflow
+            {
+                const match = matchRoute('/api/v1/sessions/:name/workflow', pathname);
+                if (method === 'GET' && match) {
+                    const result = await handlerService.handleWorkflowGetState({
+                        sessionName: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // GET /api/v1/sessions/:name/insights
+            {
+                const match = matchRoute('/api/v1/sessions/:name/insights', pathname);
+                if (method === 'GET' && match) {
+                    const includeAnalysis = queryParams['includeAnalysis'] !== undefined
+                        ? parseBooleanParam(queryParams['includeAnalysis'])
+                        : true;
+                    const result = await handlerService.handleSessionInsights({
+                        sessionName: match.params.name,
+                        includeAnalysis,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
             // ---------------------------------------------------------------
             // Agents
             // ---------------------------------------------------------------
@@ -355,6 +463,98 @@ export function createRouter(
                     const result = await handlerService.handleConfigSet({
                         key: match.params.key,
                         value: body.value,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // ---------------------------------------------------------------
+            // Git
+            // ---------------------------------------------------------------
+
+            // GET /api/v1/git/branches
+            if (method === 'GET' && pathname === '/api/v1/git/branches') {
+                const result = await handlerService.handleGitListBranches({
+                    includeRemote: parseBooleanParam(queryParams['includeRemote']),
+                });
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // POST /api/v1/git/repair
+            if (method === 'POST' && pathname === '/api/v1/git/repair') {
+                const body = await readJsonBody(req);
+                const result = await handlerService.handleGitRepairWorktrees(body);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // ---------------------------------------------------------------
+            // Workflows
+            // ---------------------------------------------------------------
+
+            // POST /api/v1/workflows/validate  (must be checked before /workflows POST)
+            if (method === 'POST' && pathname === '/api/v1/workflows/validate') {
+                const body = await readJsonBody(req);
+                const result = await handlerService.handleWorkflowValidate(body);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // GET /api/v1/workflows
+            if (method === 'GET' && pathname === '/api/v1/workflows') {
+                const params: Record<string, unknown> = {};
+                if (queryParams['includeBuiltin'] !== undefined) {
+                    params.includeBuiltin = parseBooleanParam(queryParams['includeBuiltin']);
+                }
+                if (queryParams['includeCustom'] !== undefined) {
+                    params.includeCustom = parseBooleanParam(queryParams['includeCustom']);
+                }
+                const result = await handlerService.handleWorkflowList(params);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // POST /api/v1/workflows
+            if (method === 'POST' && pathname === '/api/v1/workflows') {
+                const body = await readJsonBody(req);
+                const result = await handlerService.handleWorkflowCreate(body);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // ---------------------------------------------------------------
+            // Terminals
+            // ---------------------------------------------------------------
+
+            // GET /api/v1/terminals
+            if (method === 'GET' && pathname === '/api/v1/terminals') {
+                const params: Record<string, unknown> = {};
+                if (queryParams['sessionName']) {
+                    params['sessionName'] = queryParams['sessionName'];
+                }
+                const result = await handlerService.handleTerminalList(params);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // POST /api/v1/terminals
+            if (method === 'POST' && pathname === '/api/v1/terminals') {
+                const body = await readJsonBody(req);
+                const result = await handlerService.handleTerminalCreate(body);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            // POST /api/v1/terminals/:name/send
+            {
+                const match = matchRoute('/api/v1/terminals/:name/send', pathname);
+                if (method === 'POST' && match) {
+                    const body = await readJsonBody(req);
+                    const result = await handlerService.handleTerminalSend({
+                        ...body,
+                        terminalName: match.params.name,
                     });
                     sendJson(res, 200, result);
                     return;

@@ -19,6 +19,7 @@ import { DaemonFileWatchManager } from './fileWatcher';
 import { generateToken, writeTokenFile } from './auth';
 import { createRouter } from './router';
 import { SessionHandlerService } from '../core/services/SessionHandlerService';
+import { getWorktreesFolder } from '../core/session/SessionDataService';
 import { IHandlerContext } from '../core/interfaces/IHandlerContext';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,14 @@ async function main(): Promise<void> {
 
     // 5. Create SessionHandlerService
     const handlerService = new SessionHandlerService(context);
+
+    // 5a. Set up automatic file watching for session and workflow-state changes.
+    // fileWatchManager.dispose() in the shutdown handler closes all watchers,
+    // so we don't need to track the IDs for cleanup.
+    const worktreesFolder = getWorktreesFolder(
+        configStore.get('lanes.worktreesFolder') as string | undefined
+    );
+    fileWatchManager.setupAutoWatching(workspaceRoot, worktreesFolder);
 
     // 6. Generate auth token and write to .lanes/daemon.token
     const authToken = generateToken();

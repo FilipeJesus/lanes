@@ -192,3 +192,90 @@ suite('DaemonFileWatchManager', () => {
         assert.strictEqual(fileChangedSpy.firstCall.args[1], 'created', 'Event type should be "created"');
     });
 });
+
+// ---------------------------------------------------------------------------
+// Suite: DaemonFileWatchManager.setupAutoWatching
+// ---------------------------------------------------------------------------
+
+suite('DaemonFileWatchManager.setupAutoWatching', () => {
+    let tempDir: string;
+    let emitter: StubNotificationEmitter;
+    let watchStub: sinon.SinonStub;
+
+    setup(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-fw-auto-'));
+        emitter = new StubNotificationEmitter();
+        watchStub = sinon.stub(chokidar, 'watch').callsFake(() => makeFakeWatcher());
+    });
+
+    teardown(() => {
+        sinon.restore();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    test('Given a workspaceRoot, when setupAutoWatching is called, then watch() is called with path.join(workspaceRoot, ".lanes", "current-sessions") and "**/*"', () => {
+        const manager = new DaemonFileWatchManager(emitter);
+        const expectedSessionsPath = path.join(tempDir, '.lanes', 'current-sessions');
+
+        manager.setupAutoWatching(tempDir);
+
+        // chokidar.watch is called once per watch() invocation; first call is for sessions
+        assert.ok(watchStub.calledTwice, 'chokidar.watch should be called twice (one per path)');
+        const firstCallPath = watchStub.firstCall.args[0] as string;
+        assert.strictEqual(
+            firstCallPath,
+            path.resolve(expectedSessionsPath),
+            'First watch should target .lanes/current-sessions'
+        );
+    });
+
+    test('Given a workspaceRoot, when setupAutoWatching is called, then watch() is called with path.join(workspaceRoot, ".worktrees") and "**/workflow-state.json"', () => {
+        const manager = new DaemonFileWatchManager(emitter);
+        const expectedWorktreesPath = path.join(tempDir, '.worktrees');
+
+        manager.setupAutoWatching(tempDir);
+
+        assert.ok(watchStub.calledTwice, 'chokidar.watch should be called twice (one per path)');
+        const secondCallPath = watchStub.secondCall.args[0] as string;
+        assert.strictEqual(
+            secondCallPath,
+            path.resolve(expectedWorktreesPath),
+            'Second watch should target .worktrees'
+        );
+    });
+
+    test('Given a custom worktreesFolder, when setupAutoWatching is called, then the second watch targets the custom folder', () => {
+        const manager = new DaemonFileWatchManager(emitter);
+        const customFolder = '.lanes-worktrees';
+        const expectedWorktreesPath = path.join(tempDir, customFolder);
+
+        manager.setupAutoWatching(tempDir, customFolder);
+
+        assert.ok(watchStub.calledTwice, 'chokidar.watch should be called twice');
+        const secondCallPath = watchStub.secondCall.args[0] as string;
+        assert.strictEqual(
+            secondCallPath,
+            path.resolve(expectedWorktreesPath),
+            'Second watch should target the custom worktrees folder'
+        );
+    });
+
+    test('Given a workspaceRoot, when setupAutoWatching is called, then it returns an array of exactly 2 non-empty string watch IDs', () => {
+        const manager = new DaemonFileWatchManager(emitter);
+
+        const watchIds = manager.setupAutoWatching(tempDir);
+
+        assert.ok(Array.isArray(watchIds), 'setupAutoWatching should return an array');
+        assert.strictEqual(watchIds.length, 2, 'The array should contain exactly 2 watch IDs');
+        assert.ok(typeof watchIds[0] === 'string' && watchIds[0].length > 0, 'First watch ID should be a non-empty string');
+        assert.ok(typeof watchIds[1] === 'string' && watchIds[1].length > 0, 'Second watch ID should be a non-empty string');
+    });
+
+    test('Given a workspaceRoot, when setupAutoWatching is called, then the two returned watch IDs are different strings', () => {
+        const manager = new DaemonFileWatchManager(emitter);
+
+        const watchIds = manager.setupAutoWatching(tempDir);
+
+        assert.notStrictEqual(watchIds[0], watchIds[1], 'The two watch IDs returned by setupAutoWatching should be unique');
+    });
+});

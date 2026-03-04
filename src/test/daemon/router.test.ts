@@ -14,6 +14,10 @@
  *  - CORS headers are present on all responses
  *  - Config get/set endpoints delegate correctly
  *  - SSE /api/v1/events sets correct headers and calls addClient
+ *  - Git branches, repair, diff, diff/files, worktree, workflow, insights endpoints
+ *  - Workflow list, validate, create endpoints
+ *  - Terminal create, send, list endpoints
+ *  - parseQueryString helper (tested indirectly via route tests)
  */
 
 import * as assert from 'assert';
@@ -41,6 +45,20 @@ function makeHandlerService() {
         handleConfigGet: sinon.stub().resolves({ value: 'claude' }),
         handleConfigSet: sinon.stub().resolves({ success: true }),
         handleConfigGetAll: sinon.stub().resolves({ config: {} }),
+        // New handler methods wired in the extended router
+        handleGitListBranches: sinon.stub().resolves({ branches: [] }),
+        handleGitRepairWorktrees: sinon.stub().resolves({ repaired: [] }),
+        handleGitGetDiff: sinon.stub().resolves({ diff: '' }),
+        handleGitGetDiffFiles: sinon.stub().resolves({ files: [] }),
+        handleGitGetWorktreeInfo: sinon.stub().resolves({ path: '/some/path' }),
+        handleWorkflowGetState: sinon.stub().resolves({ state: null }),
+        handleSessionInsights: sinon.stub().resolves({ insights: null, analysis: null }),
+        handleWorkflowList: sinon.stub().resolves({ workflows: [] }),
+        handleWorkflowValidate: sinon.stub().resolves({ valid: true }),
+        handleWorkflowCreate: sinon.stub().resolves({ success: true }),
+        handleTerminalCreate: sinon.stub().resolves({ terminalName: 'term-1' }),
+        handleTerminalSend: sinon.stub().resolves({ success: true }),
+        handleTerminalList: sinon.stub().resolves({ terminals: [] }),
     };
 }
 
@@ -583,5 +601,440 @@ suite('daemon router', () => {
             res.headers['access-control-allow-methods']?.includes('POST'),
             'Should include POST in allowed methods'
         );
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-git-branches
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/git/branches without query params, when called with valid auth, then it calls handleGitListBranches with { includeRemote: false }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/git/branches',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitListBranches.calledOnce, 'handleGitListBranches should be called once');
+        assert.deepStrictEqual(handlerService.handleGitListBranches.firstCall.args[0], {
+            includeRemote: false,
+        });
+    });
+
+    test('Given GET /api/v1/git/branches?includeRemote=true, when called with valid auth, then it calls handleGitListBranches with { includeRemote: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/git/branches?includeRemote=true',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitListBranches.calledOnce, 'handleGitListBranches should be called once');
+        assert.deepStrictEqual(handlerService.handleGitListBranches.firstCall.args[0], {
+            includeRemote: true,
+        });
+    });
+
+    test('Given GET /api/v1/git/branches with no auth, when called, then it returns 401', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/git/branches',
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 401);
+    });
+
+    // -------------------------------------------------------------------------
+    // router-post-git-repair
+    // -------------------------------------------------------------------------
+
+    test('Given POST /api/v1/git/repair with empty body, when called with valid auth, then it calls handleGitRepairWorktrees with {}', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/git/repair',
+            headers: { Authorization: BEARER },
+            body: {},
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitRepairWorktrees.calledOnce, 'handleGitRepairWorktrees should be called once');
+        assert.deepStrictEqual(handlerService.handleGitRepairWorktrees.firstCall.args[0], {});
+    });
+
+    test('Given POST /api/v1/git/repair with body { detectOnly: true }, when called with valid auth, then it calls handleGitRepairWorktrees with { detectOnly: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/git/repair',
+            headers: { Authorization: BEARER },
+            body: { detectOnly: true },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitRepairWorktrees.calledOnce, 'handleGitRepairWorktrees should be called once');
+        const calledWith = handlerService.handleGitRepairWorktrees.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.detectOnly, true);
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-session-diff
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/sessions/my-session/diff without query params, when called with valid auth, then it calls handleGitGetDiff with { sessionName: "my-session" } (no includeUncommitted so handler defaults apply)', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/diff',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitGetDiff.calledOnce, 'handleGitGetDiff should be called once');
+        assert.deepStrictEqual(handlerService.handleGitGetDiff.firstCall.args[0], {
+            sessionName: 'my-session',
+        });
+    });
+
+    test('Given GET /api/v1/sessions/my-session/diff?includeUncommitted=true, when called with valid auth, then it calls handleGitGetDiff with { sessionName: "my-session", includeUncommitted: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/diff?includeUncommitted=true',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitGetDiff.calledOnce, 'handleGitGetDiff should be called once');
+        assert.deepStrictEqual(handlerService.handleGitGetDiff.firstCall.args[0], {
+            sessionName: 'my-session',
+            includeUncommitted: true,
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-session-diff-files
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/sessions/my-session/diff/files without query params, when called with valid auth, then it calls handleGitGetDiffFiles with { sessionName: "my-session" } (no includeUncommitted so handler defaults apply)', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/diff/files',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitGetDiffFiles.calledOnce, 'handleGitGetDiffFiles should be called once');
+        assert.deepStrictEqual(handlerService.handleGitGetDiffFiles.firstCall.args[0], {
+            sessionName: 'my-session',
+        });
+    });
+
+    test('Given GET /api/v1/sessions/my-session/diff/files?includeUncommitted=true, when called with valid auth, then it calls handleGitGetDiffFiles with { sessionName: "my-session", includeUncommitted: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/diff/files?includeUncommitted=true',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitGetDiffFiles.calledOnce, 'handleGitGetDiffFiles should be called once');
+        assert.deepStrictEqual(handlerService.handleGitGetDiffFiles.firstCall.args[0], {
+            sessionName: 'my-session',
+            includeUncommitted: true,
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-session-worktree
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/sessions/my-session/worktree, when called with valid auth, then it calls handleGitGetWorktreeInfo with { sessionName: "my-session" }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/worktree',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitGetWorktreeInfo.calledOnce, 'handleGitGetWorktreeInfo should be called once');
+        assert.deepStrictEqual(handlerService.handleGitGetWorktreeInfo.firstCall.args[0], {
+            sessionName: 'my-session',
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-session-workflow
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/sessions/my-session/workflow, when called with valid auth, then it calls handleWorkflowGetState with { sessionName: "my-session" }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/workflow',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleWorkflowGetState.calledOnce, 'handleWorkflowGetState should be called once');
+        assert.deepStrictEqual(handlerService.handleWorkflowGetState.firstCall.args[0], {
+            sessionName: 'my-session',
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-session-insights
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/sessions/my-session/insights without query params, when called with valid auth, then it calls handleSessionInsights with { sessionName: "my-session", includeAnalysis: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/insights',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionInsights.calledOnce, 'handleSessionInsights should be called once');
+        assert.deepStrictEqual(handlerService.handleSessionInsights.firstCall.args[0], {
+            sessionName: 'my-session',
+            includeAnalysis: true,
+        });
+    });
+
+    test('Given GET /api/v1/sessions/my-session/insights?includeAnalysis=false, when called with valid auth, then it calls handleSessionInsights with { sessionName: "my-session", includeAnalysis: false }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions/my-session/insights?includeAnalysis=false',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionInsights.calledOnce, 'handleSessionInsights should be called once');
+        assert.deepStrictEqual(handlerService.handleSessionInsights.firstCall.args[0], {
+            sessionName: 'my-session',
+            includeAnalysis: false,
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-workflows
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/workflows without query params, when called with valid auth, then it calls handleWorkflowList with {} (no params so handler defaults apply)', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/workflows',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleWorkflowList.calledOnce, 'handleWorkflowList should be called once');
+        assert.deepStrictEqual(handlerService.handleWorkflowList.firstCall.args[0], {});
+    });
+
+    test('Given GET /api/v1/workflows?includeBuiltin=true&includeCustom=true, when called with valid auth, then it calls handleWorkflowList with { includeBuiltin: true, includeCustom: true }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/workflows?includeBuiltin=true&includeCustom=true',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleWorkflowList.calledOnce, 'handleWorkflowList should be called once');
+        assert.deepStrictEqual(handlerService.handleWorkflowList.firstCall.args[0], {
+            includeBuiltin: true,
+            includeCustom: true,
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-post-workflows-validate
+    // -------------------------------------------------------------------------
+
+    test('Given POST /api/v1/workflows/validate with body { workflowPath: "/some/path.yaml" }, when called with valid auth, then it calls handleWorkflowValidate with the body', async () => {
+        // Arrange
+        const requestBody = { workflowPath: '/some/path.yaml' };
+
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/workflows/validate',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleWorkflowValidate.calledOnce, 'handleWorkflowValidate should be called once');
+        const calledWith = handlerService.handleWorkflowValidate.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.workflowPath, '/some/path.yaml');
+    });
+
+    // -------------------------------------------------------------------------
+    // router-post-workflows-create
+    // -------------------------------------------------------------------------
+
+    test('Given POST /api/v1/workflows with body { name: "my-workflow", content: "steps: []" }, when called with valid auth, then it calls handleWorkflowCreate with the body', async () => {
+        // Arrange
+        const requestBody = { name: 'my-workflow', content: 'steps: []' };
+
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/workflows',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleWorkflowCreate.calledOnce, 'handleWorkflowCreate should be called once');
+        const calledWith = handlerService.handleWorkflowCreate.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.name, 'my-workflow');
+        assert.strictEqual(calledWith.content, 'steps: []');
+    });
+
+    // -------------------------------------------------------------------------
+    // router-post-terminals-create
+    // -------------------------------------------------------------------------
+
+    test('Given POST /api/v1/terminals with body { sessionName: "my-session" }, when called with valid auth, then it calls handleTerminalCreate with the body', async () => {
+        // Arrange
+        const requestBody = { sessionName: 'my-session' };
+
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/terminals',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleTerminalCreate.calledOnce, 'handleTerminalCreate should be called once');
+        const calledWith = handlerService.handleTerminalCreate.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.sessionName, 'my-session');
+    });
+
+    test('Given POST /api/v1/terminals with body { sessionName: "my-session", command: "ls" }, when called with valid auth, then it calls handleTerminalCreate with sessionName and command', async () => {
+        // Arrange
+        const requestBody = { sessionName: 'my-session', command: 'ls' };
+
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/terminals',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleTerminalCreate.calledOnce, 'handleTerminalCreate should be called once');
+        const calledWith = handlerService.handleTerminalCreate.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.sessionName, 'my-session');
+        assert.strictEqual(calledWith.command, 'ls');
+    });
+
+    // -------------------------------------------------------------------------
+    // router-post-terminals-send
+    // -------------------------------------------------------------------------
+
+    test('Given POST /api/v1/terminals/my-terminal/send with body { text: "hello" }, when called with valid auth, then it calls handleTerminalSend with { terminalName: "my-terminal", text: "hello" }', async () => {
+        // Arrange
+        const requestBody = { text: 'hello' };
+
+        // Act
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/terminals/my-terminal/send',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleTerminalSend.calledOnce, 'handleTerminalSend should be called once');
+        const calledWith = handlerService.handleTerminalSend.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.terminalName, 'my-terminal');
+        assert.strictEqual(calledWith.text, 'hello');
+    });
+
+    // -------------------------------------------------------------------------
+    // router-get-terminals-list
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/terminals without query params, when called with valid auth, then it calls handleTerminalList with {}', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/terminals',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleTerminalList.calledOnce, 'handleTerminalList should be called once');
+        assert.deepStrictEqual(handlerService.handleTerminalList.firstCall.args[0], {});
+    });
+
+    test('Given GET /api/v1/terminals?sessionName=my-session, when called with valid auth, then it calls handleTerminalList with { sessionName: "my-session" }', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/terminals?sessionName=my-session',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleTerminalList.calledOnce, 'handleTerminalList should be called once');
+        assert.deepStrictEqual(handlerService.handleTerminalList.firstCall.args[0], {
+            sessionName: 'my-session',
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // router-parse-query-string (tested indirectly via route tests)
+    // -------------------------------------------------------------------------
+
+    test('Given a URL with ?key=value query string, when the route handler is invoked, then the handler receives the parsed value', async () => {
+        // Arrange: use the branches endpoint to exercise parseQueryString indirectly
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/git/branches?includeRemote=1',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert: "1" should be treated as true by parseBooleanParam
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitListBranches.calledOnce);
+        const calledWith = handlerService.handleGitListBranches.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.includeRemote, true);
+    });
+
+    test('Given a URL with no query string, when the route handler is invoked, then boolean params default to false', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/git/branches',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert: absent query param should be treated as false
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleGitListBranches.calledOnce);
+        const calledWith = handlerService.handleGitListBranches.firstCall.args[0] as Record<string, unknown>;
+        assert.strictEqual(calledWith.includeRemote, false);
     });
 });
