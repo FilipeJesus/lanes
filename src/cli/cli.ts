@@ -15,6 +15,7 @@ import { registerHooksCommand } from './commands/hooks';
 import { registerWorkflowCommand } from './commands/workflow';
 import { registerRepairCommand } from './commands/repair';
 import { registerConfigCommand } from './commands/config';
+import { registerDaemonCommand } from './commands/daemon';
 
 declare const CLI_VERSION: string;
 
@@ -38,5 +39,6 @@ registerHooksCommand(program);
 registerWorkflowCommand(program);
 registerRepairCommand(program);
 registerConfigCommand(program);
+registerDaemonCommand(program);
 
 program.parse();
