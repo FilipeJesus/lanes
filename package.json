@@ -342,6 +342,12 @@
             "default": "copy",
             "description": "How to propagate .claude/settings.local.json to worktrees. Ensures your local Claude Code configuration is available in all sessions.",
             "order": 1
+          },
+          "lanes.useDaemon": {
+            "type": "boolean",
+            "default": false,
+            "description": "Route operations through the Lanes daemon REST API instead of calling core services directly. Enable for remote UI or unified execution path scenarios.",
+            "order": 2
           }
         }
       },

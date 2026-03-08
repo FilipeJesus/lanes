@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { CodeAgent } from '../../core/codeAgents';
 import type { IConfigProvider } from '../../core/interfaces/IConfigProvider';
+import type { DaemonClient } from '../../daemon/client';
 import { fileExists, readDir, isDirectory } from '../../core/services/FileService';
 
 // Re-export everything from core session module
@@ -208,9 +209,18 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
     private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private readonly sessionsRoot: string | undefined;
+    private daemonClient: DaemonClient | undefined;
 
     constructor(private workspaceRoot: string | undefined, baseRepoPath?: string, private codeAgent?: CodeAgent, private extensionContext?: vscode.ExtensionContext) {
         this.sessionsRoot = baseRepoPath || workspaceRoot;
+    }
+
+    /**
+     * Set or unset the daemon client for data fetching.
+     * When set, listSessions() is used instead of direct filesystem reads.
+     */
+    setDaemonClient(client: DaemonClient | undefined): void {
+        this.daemonClient = client;
     }
 
     dispose(): void { this._onDidChangeTreeData.dispose(); }
@@ -245,10 +255,59 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
             }
             return [];
         }
+
+        if (this.daemonClient) {
+            return this.getSessionsFromDaemon();
+        }
+
         const worktreesDir = path.join(this.sessionsRoot, getWorktreesFolder());
         const exists = await fileExists(worktreesDir);
         if (!exists) { return []; }
         return this.getSessionsInDir(worktreesDir);
+    }
+
+    /**
+     * Fetch sessions from the daemon via listSessions().
+     * Falls back to an empty list on error so the tree view stays functional.
+     */
+    private async getSessionsFromDaemon(): Promise<SessionItem[]> {
+        if (!this.daemonClient) {
+            return [];
+        }
+
+        try {
+            const result = await this.daemonClient.listSessions();
+            const sessions = Array.isArray(result) ? result : (result as Record<string, unknown>)?.sessions as unknown[];
+            if (!Array.isArray(sessions)) {
+                return [];
+            }
+
+            const items: SessionItem[] = [];
+
+            for (const session of sessions) {
+                const s = session as Record<string, unknown>;
+                const name = s.name as string | undefined;
+                const worktreePath = s.worktreePath as string | undefined;
+                if (!name || !worktreePath) {
+                    continue;
+                }
+                // Fetch status info from the filesystem for icon/description accuracy
+                const agentStatus = await SessionDataService.getAgentStatus(worktreePath);
+                const workflowStatus = await SessionDataService.getWorkflowStatus(worktreePath);
+                const chimeEnabled = await SessionDataService.getSessionChimeEnabled(worktreePath);
+                // Use daemon-provided pin state as the source of truth
+                const pinned = (s.isPinned as boolean) ?? false;
+                items.push(new SessionItem(name, worktreePath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
+            }
+
+            // Sort: pinned items first, then unpinned.
+            const pinnedItems = items.filter(item => item.contextValue === 'sessionItemPinned');
+            const unpinnedItems = items.filter(item => item.contextValue !== 'sessionItemPinned');
+            return [...pinnedItems, ...unpinnedItems];
+        } catch (err) {
+            console.error('Lanes: Failed to list sessions from daemon:', err);
+            return [];
+        }
     }
 
     private async getSessionsInDir(dirPath: string): Promise<SessionItem[]> {

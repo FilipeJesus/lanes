@@ -42,7 +42,8 @@ export function registerSessionCommands(
     const {
         sessionProvider,
         baseRepoPath,
-        codeAgent
+        codeAgent,
+        daemonClient
     } = services;
 
     const warnedMergeBaseBranches = new Set<string>();
@@ -146,7 +147,16 @@ export function registerSessionCommands(
             return;
         }
 
-        await createSession(name, '', 'acceptEdits', '', null, [], baseRepoPath, sessionProvider, codeAgent);
+        if (daemonClient) {
+            try {
+                await daemonClient.createSession({ name, agent: codeAgent.name });
+                sessionProvider.refresh();
+            } catch (err) {
+                vscode.window.showErrorMessage(`Failed to create session via daemon: ${getErrorMessage(err)}`);
+            }
+        } else {
+            await createSession(name, '', 'acceptEdits', '', null, [], baseRepoPath, sessionProvider, codeAgent);
+        }
     });
 
     // Command: Open/resume a session
@@ -186,12 +196,17 @@ export function registerSessionCommands(
             // Remove from Project Manager
             await removeProject(item.worktreePath);
 
-            // Remove worktree
-            if (baseRepoPath) {
-                await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
+            if (daemonClient) {
+                // Route git/fs deletion through the daemon
+                await daemonClient.deleteSession(item.label);
+            } else {
+                // Direct path: remove worktree via git
+                if (baseRepoPath) {
+                    await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
+                }
             }
 
-            // Clean up repo-local settings files
+            // Clean up repo-local settings files (always local, not handled by daemon)
             {
                 const settingsDir = getSettingsDir(item.worktreePath);
                 await fsPromises.rm(settingsDir, { recursive: true, force: true }).catch(() => {
@@ -253,8 +268,18 @@ export function registerSessionCommands(
         }
 
         try {
-            const baseBranch = await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
-            const diffContent = await generateDiffContent(item.worktreePath, baseBranch);
+            let diffContent: string;
+            let baseBranch: string;
+
+            if (daemonClient) {
+                const diffResult = await daemonClient.getSessionDiff(item.label) as { diff?: string; baseBranch?: string } | undefined;
+                diffContent = (diffResult as Record<string, unknown>)?.diff as string ?? '';
+                baseBranch = (diffResult as Record<string, unknown>)?.baseBranch as string
+                    ?? await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
+            } else {
+                baseBranch = await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
+                diffContent = await generateDiffContent(item.worktreePath, baseBranch);
+            }
 
             if (!diffContent || diffContent.trim() === '') {
                 vscode.window.showInformationMessage(`No changes found when comparing to '${baseBranch}'.`);
@@ -551,20 +576,31 @@ export function registerSessionCommands(
         }
 
         try {
-            const insights = await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
-                () => generateInsights(item.worktreePath)
-            );
+            if (daemonClient) {
+                const insightsResult = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
+                    () => daemonClient.getSessionInsights(item.label, { includeAnalysis: true })
+                );
+                const report = (insightsResult as Record<string, unknown>)?.report as string
+                    ?? JSON.stringify(insightsResult, null, 2);
+                const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
+                await vscode.window.showTextDocument(document, { preview: false });
+            } else {
+                const insights = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
+                    () => generateInsights(item.worktreePath)
+                );
 
-            if (insights.sessionCount === 0) {
-                vscode.window.showInformationMessage(`No conversation data found for session '${item.label}'.`);
-                return;
+                if (insights.sessionCount === 0) {
+                    vscode.window.showInformationMessage(`No conversation data found for session '${item.label}'.`);
+                    return;
+                }
+
+                const analysis = analyzeInsights(insights);
+                const report = formatInsightsReport(item.label, insights, analysis);
+                const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
+                await vscode.window.showTextDocument(document, { preview: false });
             }
-
-            const analysis = analyzeInsights(insights);
-            const report = formatInsightsReport(item.label, insights, analysis);
-            const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
-            await vscode.window.showTextDocument(document, { preview: false });
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to generate insights: ${getErrorMessage(err)}`);
         }
@@ -578,7 +614,11 @@ export function registerSessionCommands(
         }
 
         try {
-            await sessionProvider.pinSession(item.worktreePath);
+            if (daemonClient) {
+                await daemonClient.pinSession(item.label);
+            } else {
+                await sessionProvider.pinSession(item.worktreePath);
+            }
             sessionProvider.refresh();
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to pin session: ${getErrorMessage(err)}`);
@@ -593,7 +633,11 @@ export function registerSessionCommands(
         }
 
         try {
-            await sessionProvider.unpinSession(item.worktreePath);
+            if (daemonClient) {
+                await daemonClient.unpinSession(item.label);
+            } else {
+                await sessionProvider.unpinSession(item.worktreePath);
+            }
             sessionProvider.refresh();
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to unpin session: ${getErrorMessage(err)}`);
