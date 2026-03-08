@@ -1,0 +1,190 @@
+/* ==========================================================================
+   StepProgressTracker — visual pipeline for workflow step progress
+   ========================================================================== */
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Each step row */
+.step {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Connector line between steps */
+.step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 20px;
+    bottom: -4px;
+    width: 2px;
+    background-color: var(--color-border-default);
+    z-index: 0;
+}
+
+.step.completed:not(:last-child)::after {
+    background-color: var(--color-success);
+    opacity: 0.5;
+}
+
+/* Step row layout */
+.stepRow {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2) 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Dot indicator */
+.dot {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    margin-top: 2px;
+    border: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: var(--font-weight-bold);
+}
+
+.dotCompleted {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-text-inverse);
+}
+
+.dotCurrent {
+    background-color: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    animation: pulseStep 1.4s ease-in-out infinite;
+}
+
+.dotPending {
+    background-color: transparent;
+    border-color: var(--color-border-emphasis);
+}
+
+/* Step content */
+.stepContent {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.stepHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+.stepId {
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stepIdCurrent {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.stepIdCompleted {
+    color: var(--color-text-muted);
+}
+
+/* Type badge */
+.typeBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px var(--spacing-2);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.typeBadgeStep {
+    background-color: var(--color-bg-overlay);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-muted);
+}
+
+.typeBadgeLoop {
+    background-color: rgba(56, 139, 253, 0.1);
+    color: var(--color-accent-primary);
+    border: 1px solid rgba(56, 139, 253, 0.25);
+}
+
+.typeBadgeRalph {
+    background-color: rgba(210, 153, 34, 0.1);
+    color: var(--color-warning);
+    border: 1px solid rgba(210, 153, 34, 0.25);
+}
+
+.typeBadgeOther {
+    background-color: var(--color-bg-overlay);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+}
+
+/* Iteration counter for loop/ralph steps */
+.iterationCounter {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Step description */
+.stepDescription {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-normal);
+}
+
+/* "Current" label */
+.currentLabel {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-primary);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Empty state */
+.empty {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+    padding: var(--spacing-2) 0;
+}
+
+@keyframes pulseStep {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(56, 139, 253, 0.4);
+    }
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 4px rgba(56, 139, 253, 0);
+    }
+}

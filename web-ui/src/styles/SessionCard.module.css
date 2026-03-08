@@ -1,0 +1,156 @@
+/* ==========================================================================
+   SessionCard — styles for individual session rows in the session list
+   ========================================================================== */
+
+.card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
+    padding: var(--spacing-4) var(--spacing-5);
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.card:hover {
+    background-color: var(--color-bg-overlay);
+    border-color: var(--color-border-emphasis);
+}
+
+.card:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+/* Pinned card has a subtle left accent border */
+.pinned {
+    border-left: 3px solid var(--color-accent-primary);
+}
+
+/* Main info column */
+.info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.name {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pinnedBadge {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-primary);
+    font-weight: var(--font-weight-medium);
+    padding: 1px var(--spacing-1);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    flex-wrap: wrap;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.metaLabel {
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metaValue {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+}
+
+/* Workflow progress */
+.workflowBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background-color: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-full);
+    padding: 1px var(--spacing-2);
+    white-space: nowrap;
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-shrink: 0;
+}
+
+.actionButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: none;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.actionButton:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-emphasis);
+    background-color: var(--color-bg-hover);
+}
+
+.actionButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+.actionButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.deleteButton:hover {
+    color: var(--color-danger);
+    border-color: rgba(248, 81, 73, 0.4);
+    background-color: rgba(248, 81, 73, 0.08);
+}
+
+.pinButton.active {
+    color: var(--color-accent-primary);
+    border-color: rgba(88, 166, 255, 0.4);
+}

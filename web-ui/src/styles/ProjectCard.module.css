@@ -1,0 +1,111 @@
+/* ==========================================================================
+   ProjectCard — Styles for individual project cards in the Dashboard grid
+   ========================================================================== */
+
+.card {
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-5);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    outline: none;
+}
+
+.card:hover {
+    background-color: var(--color-bg-overlay);
+    border-color: var(--color-border-emphasis);
+    box-shadow: var(--shadow-md);
+}
+
+.card:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+/* Header row: project name + health indicator */
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+}
+
+.projectName {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-tight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Health indicator dot */
+.healthIndicator {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    margin-top: 3px; /* Align with text cap height */
+}
+
+.healthHealthy {
+    background-color: var(--color-success);
+    box-shadow: 0 0 6px var(--color-success);
+}
+
+.healthDegraded {
+    background-color: var(--color-warning);
+    box-shadow: 0 0 6px var(--color-warning);
+}
+
+.healthUnreachable {
+    background-color: var(--color-danger);
+    box-shadow: 0 0 6px var(--color-danger);
+}
+
+/* Git remote */
+.gitRemote {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Meta row */
+.cardMeta {
+    display: flex;
+    gap: var(--spacing-4);
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: var(--spacing-2);
+    border-top: 1px solid var(--color-border-muted);
+}
+
+.metaItem {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.metaLabel {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.metaValue {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+}

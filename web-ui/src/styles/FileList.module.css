@@ -1,0 +1,78 @@
+/* ==========================================================================
+   FileList — changed file list sidebar
+   ========================================================================== */
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.empty {
+    padding: var(--spacing-4);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+    font-family: var(--font-family-sans);
+    text-align: center;
+}
+
+.item {
+    display: flex;
+}
+
+.fileButton {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    color: var(--color-text-secondary);
+    transition: background-color 0.1s ease, color 0.1s ease;
+    font-family: var(--font-family-mono);
+}
+
+.fileButton:hover {
+    background-color: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.fileButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 1px;
+}
+
+.fileIcon {
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.fileMeta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+}
+
+.fileName {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fileDir {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -1,0 +1,200 @@
+/* ==========================================================================
+   WorkflowDetail — workflow template detail view
+   ========================================================================== */
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-5);
+}
+
+/* Header */
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    flex-wrap: wrap;
+}
+
+.workflowName {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+/* Builtin badge */
+.builtinBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--spacing-2);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    background-color: rgba(56, 139, 253, 0.12);
+    color: var(--color-accent-primary);
+    border: 1px solid rgba(56, 139, 253, 0.3);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Description */
+.description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Metadata row */
+.meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3) var(--spacing-4);
+    background-color: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-md);
+}
+
+.metaRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-xs);
+}
+
+.metaLabel {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 60px;
+    flex-shrink: 0;
+}
+
+.metaValue {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Steps section */
+.stepsSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.sectionTitle {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+
+.noSteps {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+}
+
+/* Step definition list */
+.stepList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+}
+
+.stepRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3) var(--spacing-4);
+    background-color: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s ease;
+}
+
+.stepRow:hover {
+    border-color: var(--color-border-default);
+}
+
+.stepRowHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+.stepIndex {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    min-width: 20px;
+    flex-shrink: 0;
+}
+
+.stepId {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+/* Type badge */
+.typeBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px var(--spacing-2);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.typeBadgeStep {
+    background-color: var(--color-bg-active);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-default);
+}
+
+.typeBadgeLoop {
+    background-color: rgba(56, 139, 253, 0.1);
+    color: var(--color-accent-primary);
+    border: 1px solid rgba(56, 139, 253, 0.25);
+}
+
+.typeBadgeRalph {
+    background-color: rgba(210, 153, 34, 0.1);
+    color: var(--color-warning);
+    border: 1px solid rgba(210, 153, 34, 0.25);
+}
+
+.typeBadgeOther {
+    background-color: var(--color-bg-overlay);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+}
+
+/* Step description */
+.stepDescription {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-normal);
+    margin: 0;
+    padding-left: 28px;
+}

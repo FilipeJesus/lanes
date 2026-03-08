@@ -26,6 +26,8 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **File Attachments** - Drag-and-drop files into the session form to include with your prompt
 - **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
 - **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
+- **Remote Web UI** - Browser-based dashboard for managing sessions across multiple projects via `lanes web`
+- **HTTP Daemon** - REST API + SSE events for remote session management via `lanes daemon start`
 
 Visit [our website](https://lanes.pro) for more information.
 
@@ -38,29 +40,33 @@ Visit [our website](https://lanes.pro) for more information.
 | **VS Code** | Stable | [Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes) · [Open VSX](https://open-vsx.org/extension/FilipeMarquesJesus/lanes) |
 | **JetBrains IDEs** | Beta | [From source](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin) |
 | **CLI** | Stable | [From source](https://github.com/FilipeJesus/lanes/tree/main/src/cli) |
+| **Web UI** | Beta | `lanes web` — [From source](https://github.com/FilipeJesus/lanes/tree/main/web-ui) |
 
 ---
 
 ## Feature Comparison
 
-| Feature | VS Code | JetBrains (Beta) | CLI |
-|---------|:-------:|:-----------------:|:---:|
-| Create / list / delete / open sessions | ✓ | ✓ | ✓ |
-| Clear sessions | ✓ | ✓ | ✓ |
-| Pin/protect sessions | ✓ | ✓ | — |
-| View git diff | ✓ | ✓ | ✓ |
-| Repair broken worktrees | ✓ | ✓ | ✓ |
-| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ |
-| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ |
-| MCP-based workflows | ✓ | ✓ | ✓ |
-| Integrated terminal | ✓ | ✓ | N/A |
-| Tmux backend | ✓ | ✓ | ✓ |
-| File attachments | ✓ | — | — |
-| Search in worktree | ✓ | — | — |
-| Chime notifications | ✓ | — | — |
-| Session insights | ✓ | — | ✓ |
-| Status hooks | ✓ | ✓ | ✓ |
-| Local settings propagation | ✓ | ✓ | ✓ |
+| Feature | VS Code | JetBrains (Beta) | CLI | Web UI (Beta) |
+|---------|:-------:|:-----------------:|:---:|:-------------:|
+| Create / list / delete / open sessions | ✓ | ✓ | ✓ | ✓ |
+| Clear sessions | ✓ | ✓ | ✓ | — |
+| Pin/protect sessions | ✓ | ✓ | — | ✓ |
+| View git diff | ✓ | ✓ | ✓ | ✓ |
+| Repair broken worktrees | ✓ | ✓ | ✓ | — |
+| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ | ✓ |
+| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ | ✓ |
+| MCP-based workflows | ✓ | ✓ | ✓ | — |
+| Integrated terminal | ✓ | ✓ | N/A | — |
+| Tmux backend | ✓ | ✓ | ✓ | — |
+| File attachments | ✓ | — | — | — |
+| Search in worktree | ✓ | — | — | — |
+| Chime notifications | ✓ | — | — | — |
+| Session insights | ✓ | — | ✓ | ✓ |
+| Status hooks | ✓ | ✓ | ✓ | — |
+| Local settings propagation | ✓ | ✓ | ✓ | — |
+| Multi-project dashboard | — | — | — | ✓ |
+| Real-time SSE status updates | — | — | — | ✓ |
+| Workflow visualization | — | — | — | ✓ |
 
 ---
 
@@ -152,6 +158,27 @@ lanes diff my-feature
 lanes delete my-feature
 ```
 
+### Web UI
+
+```bash
+# Start the web dashboard (opens http://127.0.0.1:3847)
+lanes web
+
+# Custom port
+lanes web --port 4000
+
+# API-only mode (no static UI served)
+lanes web --no-ui
+```
+
+The web UI discovers all running daemons and provides a browser-based dashboard with:
+- Multi-project overview with health monitoring
+- Session management with real-time status updates via SSE
+- Unified diff viewer and insights panel
+- Workflow step progress tracker and template browser
+
+**Note:** Start a daemon for each project first with `lanes daemon start`.
+
 ---
 
 ## Gemini CLI Notes
@@ -194,6 +221,10 @@ lanes delete my-feature
 | `lanes status` | Show status of all sessions |
 | `lanes workflow <name>` | Run a workflow template |
 | `lanes config` | View/edit configuration |
+| `lanes daemon start` | Start HTTP daemon for the current project |
+| `lanes daemon stop` | Stop the running daemon |
+| `lanes daemon status` | Check daemon status |
+| `lanes web` | Start the web UI dashboard |
 
 ---
 
@@ -216,6 +247,8 @@ lanes delete my-feature
 - [x] Additional agent integrations
 - [x] JetBrains IDE plugin (beta)
 - [x] Standalone CLI
+- [x] HTTP daemon with REST API and SSE events
+- [x] Remote web UI dashboard
 - [ ] Windows support
 - [ ] Multi-repo support
 
@@ -268,11 +301,13 @@ Please ensure your PR:
 | `src/gitService.ts` | Git operations (worktrees, branches) |
 | `src/ProjectManagerService.ts` | Project Manager integration |
 | `src/cli/` | Standalone CLI entry point and commands |
+| `src/daemon/` | HTTP daemon server, gateway, registry, auth, lifecycle |
 | `src/codeAgents/` | Agent abstraction (CodeAgent, ClaudeCodeAgent, CodexAgent, factory) |
 | `src/services/TmuxService.ts` | Tmux terminal backend |
 | `src/services/TerminalService.ts` | Terminal management abstraction |
 | `src/services/SettingsFormatService.ts` | TOML/JSON settings format handling |
 | `src/localSettings.ts` | Local settings propagation helper |
+| `web-ui/` | Browser-based dashboard (React 19 + Vite + TypeScript) |
 | `jetbrains-ide-plugin/` | JetBrains IDE plugin (Kotlin/Gradle) |
 | `src/test/*.test.ts` | Test suite |
 | `package.json` | Extension manifest |

@@ -1,0 +1,214 @@
+/* ==========================================================================
+   CreateSessionDialog — modal form for creating a new session
+   ========================================================================== */
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(1, 4, 9, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    animation: fadeIn 0.15s ease;
+}
+
+.dialog {
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-6);
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-5);
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.15s ease;
+}
+
+.dialogHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: var(--font-size-lg);
+    padding: var(--spacing-1);
+    line-height: 1;
+    border-radius: var(--radius-md);
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.closeButton:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+}
+
+.closeButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+/* Form fields */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+}
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+.required {
+    color: var(--color-danger);
+    margin-left: 2px;
+}
+
+.input,
+.select {
+    width: 100%;
+    padding: var(--spacing-2) var(--spacing-3);
+    background-color: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.input.inputError {
+    border-color: var(--color-danger);
+}
+
+.input.inputError:focus {
+    box-shadow: 0 0 0 3px rgba(248, 81, 73, 0.15);
+}
+
+.select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236e7681' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--spacing-3) center;
+    padding-right: var(--spacing-8);
+    cursor: pointer;
+}
+
+.hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.errorText {
+    font-size: var(--font-size-xs);
+    color: var(--color-danger);
+}
+
+/* Error banner */
+.errorBanner {
+    padding: var(--spacing-3) var(--spacing-4);
+    background-color: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-danger);
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-3);
+    padding-top: var(--spacing-2);
+    border-top: 1px solid var(--color-border-muted);
+}
+
+.cancelButton {
+    padding: var(--spacing-2) var(--spacing-4);
+    background-color: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.cancelButton:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-emphasis);
+    background-color: var(--color-bg-hover);
+}
+
+.cancelButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+.submitButton {
+    padding: var(--spacing-2) var(--spacing-5);
+    background-color: var(--color-accent-primary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: #0d1117;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.submitButton:hover {
+    opacity: 0.85;
+}
+
+.submitButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}
+
+.submitButton:disabled,
+.cancelButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
