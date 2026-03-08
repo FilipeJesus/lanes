@@ -32,3 +32,5 @@ export {
     listRegisteredDaemons,
     cleanStaleEntries,
 } from './registry';
+export type { DaemonClientOptions, SseCallbacks, SseSubscription } from './client';
+export { DaemonClient, DaemonHttpError } from './client';

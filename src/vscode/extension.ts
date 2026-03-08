@@ -47,6 +47,7 @@ import { validateWorkflow as validateWorkflowService } from '../core/services/Wo
 import { createSession } from './services/SessionService';
 import { openAgentTerminal } from './services/TerminalService';
 import { VscodeConfigProvider } from './adapters/VscodeConfigProvider';
+import { DaemonService } from './services/DaemonService';
 
 /**
  * Activate the extension.
@@ -153,6 +154,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         })();
     }
 
+    // Read the useDaemon flag early so we know whether to set up DaemonService
+    const useDaemon = vscode.workspace.getConfiguration('lanes').get<boolean>('useDaemon', false);
+
     // Create the global code agent instance using the factory
     // Reads lanes.defaultAgent setting and creates the appropriate agent
     // CLI availability is checked lazily at session creation time, not here.
@@ -178,6 +182,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
     context.subscriptions.push(sessionTreeView);
     context.subscriptions.push(sessionProvider);
+
+    // Initialize daemon service if lanes.useDaemon is enabled
+    let daemonService: DaemonService | undefined;
+    if (useDaemon && baseRepoPath) {
+        daemonService = new DaemonService(baseRepoPath, context.extensionPath, () => sessionProvider.refresh());
+        try {
+            await Promise.race([
+                daemonService.initialize(),
+                new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Daemon initialization timed out')), 5000))
+            ]);
+            // Wire daemon client into the session tree provider
+            if (daemonService.isEnabled()) {
+                sessionProvider.setDaemonClient(daemonService.getClient());
+            }
+        } catch (err) {
+            console.error('Lanes: Failed to initialize daemon service:', getErrorMessage(err));
+            daemonService = undefined;
+        }
+        if (daemonService) {
+            context.subscriptions.push(daemonService);
+        }
+    }
 
     // Update chime and workflow context keys when session selection changes
     sessionTreeView.onDidChangeSelection(async (e) => {
@@ -303,7 +329,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         workspaceRoot,
         baseRepoPath,
         extensionPath: context.extensionPath,
-        codeAgent
+        codeAgent,
+        daemonClient: daemonService?.getClient()
     };
 
     // Register all file system watchers
@@ -318,6 +345,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 vscode.window.showWarningMessage(newAgentResult.warning);
             }
             sessionFormProvider.setDefaultAgent(newAgentResult.agent);
+        }
+        if (event.affectsConfiguration('lanes.useDaemon')) {
+            vscode.window.showInformationMessage(
+                'Lanes: The "Use Daemon" setting change will take effect after reloading the window.',
+                'Reload Window'
+            ).then(selection => {
+                if (selection === 'Reload Window') {
+                    void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
         }
     });
 

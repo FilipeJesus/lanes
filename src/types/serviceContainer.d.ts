@@ -4,6 +4,7 @@ import type { SessionFormProvider } from '../vscode/providers/SessionFormProvide
 import type { PreviousSessionProvider } from '../vscode/providers/PreviousSessionProvider';
 import type { WorkflowsProvider } from '../vscode/providers/WorkflowsProvider';
 import type { CodeAgent } from '../core/codeAgents';
+import type { DaemonClient } from '../daemon/client';
 
 /**
  * Service container for dependency injection.
@@ -26,6 +27,9 @@ export interface ServiceContainer {
 
     // Code agent
     codeAgent: CodeAgent;
+
+    // Optional daemon client (present only when lanes.useDaemon is true and daemon is reachable)
+    daemonClient?: DaemonClient;
 }
 
 /**
