@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Lanes is a cross-IDE tool for managing isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a JetBrains IDE plugin, and a standalone CLI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
+Lanes is a cross-IDE tool for managing isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a JetBrains IDE plugin, a standalone CLI, an HTTP daemon with REST API, and a browser-based web UI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
 
 Supported code agents: Claude Code, Codex (OpenAI), Cortex (Snowflake), Gemini (Google), OpenCode.
 
@@ -13,24 +13,44 @@ src/
 ├── core/                     # Platform-agnostic core library
 │   ├── codeAgents/           # Agent implementations (Claude, Codex, Cortex, Gemini, OpenCode) + factory
 │   ├── errors/               # Typed errors (LanesError, GitError, ValidationError)
-│   ├── interfaces/           # Platform abstractions (IConfigProvider, IStorageProvider, etc.)
-│   ├── services/             # Business logic (session creation, agent launch, diff, insights, etc.)
+│   ├── interfaces/           # Platform abstractions (IConfigProvider, IHandlerContext, etc.)
+│   ├── services/             # Business logic (SessionHandlerService, diff, insights, etc.)
 │   ├── session/              # Session types + SessionDataService
 │   ├── validation/           # Input validation & path sanitization
 │   └── workflow/             # Workflow state machine & YAML template loading
+├── daemon/                   # HTTP daemon + REST API
+│   ├── server.ts             # Daemon entry point (--workspace, --port)
+│   ├── router.ts             # REST router (29 endpoints + auth middleware + CORS)
+│   ├── auth.ts               # Token generation + SHA-256 constant-time validation
+│   ├── lifecycle.ts          # start/stop/isDaemonRunning + PID/port file I/O
+│   ├── registry.ts           # Global daemon registry (~/.lanes/daemons.json)
+│   ├── gateway.ts            # Web UI gateway (static serving + daemon discovery)
+│   ├── client.ts             # DaemonClient (typed HTTP client for all endpoints + SSE)
+│   ├── config.ts             # DaemonConfigStore (ISimpleConfigStore)
+│   ├── notifications.ts      # SSE notification emitter
+│   ├── fileWatcher.ts        # File watcher (chokidar + picomatch)
+│   └── index.ts              # Barrel re-exports
 ├── vscode/                   # VS Code extension
 │   ├── adapters/             # Platform adapter implementations
 │   ├── commands/             # Command handlers (session, workflow, repair)
 │   ├── providers/            # Tree views + webviews (sessions, forms, diffs, workflows)
-│   └── services/             # VS Code-specific services (terminal, polling, etc.)
+│   └── services/             # VS Code-specific services (terminal, polling, DaemonService)
 ├── cli/                      # Standalone CLI (`lanes` command, Commander.js)
 │   ├── adapters/             # CLI platform adapters
-│   └── commands/             # list, create, delete, open, diff, insights, etc.
+│   └── commands/             # list, create, delete, open, diff, daemon, web, etc.
 ├── mcp/                      # MCP server (workflow tools, stdio transport)
-├── jetbrains-ide-bridge/     # JetBrains IDE HTTP bridge server
+├── jetbrains-ide-bridge/     # JetBrains IDE HTTP bridge (thin adapter over SessionHandlerService)
 ├── test/                     # Test suite (mirrors source structure)
 └── types/                    # Global TypeScript type definitions
 
+web-ui/                       # Browser dashboard (React 19 + Vite 6 + TypeScript)
+├── src/
+│   ├── api/                  # DaemonApiClient, DaemonSseClient, gateway, types
+│   ├── components/           # UI components (SessionCard, DiffViewer, StepProgressTracker, etc.)
+│   ├── hooks/                # React hooks (useSessions, useDaemons, useDiff, etc.)
+│   ├── pages/                # Dashboard, ProjectDetail, SessionDetail, WorkflowBrowser
+│   ├── utils/                # Helpers (formatUptime, etc.)
+│   └── test/                 # Vitest + Testing Library tests
 jetbrains-ide-plugin/         # Kotlin JetBrains plugin (separate Gradle build)
 scripts/                      # Build, bundle & install scripts
 docs/                         # Documentation site
@@ -40,16 +60,24 @@ docs/                         # Documentation site
 
 ### Platform Abstraction
 
-Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, JetBrains) implements the interfaces in `src/core/interfaces/`:
+Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, JetBrains, Daemon) implements the interfaces in `src/core/interfaces/`:
 
-| Interface | VS Code Adapter | CLI Adapter |
-|-----------|----------------|-------------|
-| `IConfigProvider` | `VscodeConfigProvider` | `CliConfigProvider` |
-| `IStorageProvider` | `VscodeStorageProvider` | `CliStorageProvider` |
-| `IGitPathResolver` | `VscodeGitPathResolver` | `CliGitPathResolver` |
-| `IFileWatcher` | `VscodeFileWatcher` | — |
-| `ITerminalBackend` | `VscodeTerminalBackend` | — |
-| `IUIProvider` | `VscodeUIProvider` | — |
+| Interface | VS Code Adapter | CLI Adapter | Daemon Adapter |
+|-----------|----------------|-------------|----------------|
+| `IConfigProvider` | `VscodeConfigProvider` | `CliConfigProvider` | — |
+| `IStorageProvider` | `VscodeStorageProvider` | `CliStorageProvider` | — |
+| `IGitPathResolver` | `VscodeGitPathResolver` | `CliGitPathResolver` | — |
+| `IFileWatcher` | `VscodeFileWatcher` | — | — |
+| `ITerminalBackend` | `VscodeTerminalBackend` | — | — |
+| `IUIProvider` | `VscodeUIProvider` | — | — |
+| `ISimpleConfigStore` | — | — | `DaemonConfigStore` |
+| `INotificationEmitter` | — | — | `DaemonNotificationEmitter` |
+| `IFileWatchManager` | — | — | `DaemonFileWatchManager` |
+| `IHandlerContext` | — | — | Built in `server.ts` |
+
+### Handler Layer
+
+`SessionHandlerService` (`src/core/services/SessionHandlerService.ts`) provides 28 platform-agnostic handler methods grouped into 7 categories (sessions, git, config, workflow, agents, terminals, file watching). It accepts an `IHandlerContext` and is consumed by both the JetBrains bridge (JSON-RPC) and the daemon router (REST). This avoids duplicating ~1000 lines of business logic.
 
 ### Storage
 
@@ -58,19 +86,59 @@ Session state is stored locally in the repository at `.lanes/current-sessions/<s
 - `.claude-status` (or agent-specific file) — session status
 - `workflow-state.json` — workflow state (in the worktree)
 
+Daemon-specific files in `.lanes/`:
+- `daemon.pid` — daemon process ID
+- `daemon.port` — daemon listening port
+- `daemon.token` — auth token (mode `0o600`)
+- `daemon-config.json` — daemon-local config store
+
+Global registry at `~/.lanes/daemons.json` tracks all running daemons across projects.
+
 ### Code Agent System
 
 The `CodeAgent` abstract base class (`src/core/codeAgents/CodeAgent.ts`) defines the contract. Each agent provides its CLI command, session/status file names, settings file locations, and permission modes. Use `factory.ts` to instantiate agents.
 
+### Daemon System
+
+The daemon (`src/daemon/`) is a standalone HTTP server that exposes the full Lanes API over REST + SSE:
+
+- **`server.ts`** — Entry point. Accepts `--workspace` and `--port` args. Builds `IHandlerContext`, writes PID/port/token files, registers in global registry, sets up file watchers, graceful shutdown.
+- **`router.ts`** — 29 REST endpoints with Bearer token auth, CORS, 1 MiB body limit. Routes map to `SessionHandlerService` methods.
+- **`auth.ts`** — 32-byte hex token generation. Validates via SHA-256 + `timingSafeEqual` (prevents length leakage).
+- **`lifecycle.ts`** — `startDaemon()`, `stopDaemon()`, `isDaemonRunning()`, `getDaemonPort()`, `getDaemonPid()`. Cleans stale PID files.
+- **`registry.ts`** — Global registry at `~/.lanes/daemons.json`. Atomic writes via temp file + `fs.rename`. `cleanStaleEntries()` removes dead PIDs.
+- **`client.ts`** — `DaemonClient` typed HTTP client with all 29 endpoint methods + SSE subscription with exponential backoff reconnection (1s→30s max).
+- **`gateway.ts`** — Lightweight HTTP server for the web UI. Serves static files from `out/web-ui/`, exposes `GET /api/gateway/daemons` for daemon discovery. Path traversal protection.
+- **`notifications.ts`** — SSE emitter. Events: `sessionStatusChanged`, `fileChanged`, `sessionCreated`, `sessionDeleted`.
+- **`fileWatcher.ts`** — Watches `.lanes/current-sessions/**/*` and `<worktreesFolder>/**/workflow-state.json` via chokidar. Auto-notifies via SSE.
+
+### VS Code Daemon Integration
+
+When `lanes.useDaemon` is enabled in VS Code settings:
+- `DaemonService` (`src/vscode/services/DaemonService.ts`) auto-starts the daemon if not running, creates a `DaemonClient`, and subscribes to SSE events.
+- Session commands (create, delete, diff, insights, pin/unpin) route through the daemon REST API instead of calling core services directly.
+- `AgentSessionProvider` fetches sessions from daemon and uses daemon-provided `isPinned` as source of truth.
+- Falls back to direct mode gracefully if daemon is unavailable.
+
+### Web UI
+
+The browser dashboard (`web-ui/`) is a separate React 19 + Vite 6 + TypeScript package:
+- **API layer** (`web-ui/src/api/`) — `DaemonApiClient` (typed fetch wrappers), `DaemonSseClient` (ReadableStream-based SSE with auth headers), API types.
+- **Pages** — Dashboard (multi-project grid), ProjectDetail (session list + SSE), SessionDetail (diff viewer, insights, workflow tracker), WorkflowBrowser (template browser with search/filter).
+- **Hooks** — `useDaemons`, `useSessions`, `useDaemonConnection`, `useDiff`, `useInsights`, `useWorkflow`, `useWorkflows`.
+- **Components** — StatusBadge, SessionCard, ProjectCard, DiffViewer, FileList, InsightsPanel, StepProgressTracker, WorkflowTaskList, WorkflowDetail, ConfirmDialog, CreateSessionDialog.
+
 ### Bundling
 
-Three separate esbuild bundles are produced:
+Four esbuild bundles + one Vite build are produced:
 
 | Bundle | Entry | Output | Purpose |
 |--------|-------|--------|---------|
 | Extension | `src/extension.ts` | `out/extension.bundle.js` | VS Code extension |
 | MCP Server | `src/mcp/server.ts` | `out/mcp/server.js` | Workflow MCP server |
 | CLI | `src/cli/cli.ts` | `out/cli.js` | `lanes` CLI tool |
+| Daemon | `src/daemon/server.ts` | `out/daemon.js` | HTTP daemon server |
+| Web UI | `web-ui/src/main.tsx` | `out/web-ui/` | Browser dashboard (Vite) |
 
 ## Conventions
 
@@ -103,11 +171,16 @@ The husky `pre-commit` hook runs compile, lint, and test. All must pass before a
 
 ```bash
 # Build
-npm run compile              # TypeScript compile + bundle all three targets
+npm run compile              # TypeScript compile + bundle all four targets (extension, mcp, cli, daemon)
 npm run bundle:extension     # Bundle VS Code extension only
 npm run bundle:mcp           # Bundle MCP server only
 npm run bundle:cli           # Bundle CLI only
+npm run bundle:daemon        # Bundle daemon server only
 npm run watch                # TypeScript watch mode (no bundling)
+
+# Web UI (separate package)
+cd web-ui && npm install && npm run build   # Build web UI to out/web-ui/
+cd web-ui && npx vitest run                 # Run web UI tests
 
 # Quality
 npm run lint                 # ESLint
@@ -130,11 +203,14 @@ npm run release:minor        # Minor release
 
 ### Testing
 
-- **Framework**: Mocha via `@vscode/test-cli` + `@vscode/test-electron`
-- **Mocking**: Sinon for stubs/spies, memfs for virtual file systems
-- **Config**: `.vscode-test.mjs` — runs all `out/test/**/*.test.js` files
-- **Run**: `npm test` (compiles, lints, then runs tests)
-- Test files live in `src/test/` mirroring the source structure
+- **Main project (Mocha)**: via `@vscode/test-cli` + `@vscode/test-electron`
+  - **Mocking**: Sinon for stubs/spies, memfs for virtual file systems
+  - **Config**: `.vscode-test.mjs` — runs all `out/test/**/*.test.js` files
+  - **Run**: `npm test` (compiles, lints, then runs tests)
+  - Test files live in `src/test/` mirroring the source structure
+- **Web UI (Vitest)**: via Vitest + `@testing-library/react`
+  - **Run**: `cd web-ui && npx vitest run`
+  - Test files live in `web-ui/src/test/` mirroring the web-ui source structure
 
 ## Workflow System
 

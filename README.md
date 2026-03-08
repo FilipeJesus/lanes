@@ -158,26 +158,123 @@ lanes diff my-feature
 lanes delete my-feature
 ```
 
-### Web UI
+### Daemon & Web UI
+
+Lanes v2 introduces an HTTP daemon and a browser-based dashboard for managing sessions remotely — across multiple projects, from any browser.
+
+**Architecture:** Each project runs its own daemon process (one per Git repo). A lightweight gateway aggregates all running daemons into a single web UI.
+
+#### 1. Start a daemon for each project
 
 ```bash
-# Start the web dashboard (opens http://127.0.0.1:3847)
-lanes web
+cd ~/projects/my-app
+lanes daemon start
 
+cd ~/projects/my-api
+lanes daemon start --port 9100   # optional: pick a specific port
+```
+
+The daemon writes its PID, port, and auth token to `.lanes/` in the project root, and registers itself in the global registry at `~/.lanes/daemons.json`.
+
+#### 2. Launch the web UI
+
+```bash
+lanes web
+# → Serving at http://127.0.0.1:3847
+```
+
+This starts a gateway that discovers all running daemons and serves the browser dashboard. Open the URL to see:
+
+- **Dashboard** — All projects as cards with health indicators, session counts, and uptime
+- **Project view** — Session list with real-time status updates via SSE; create, delete, pin/unpin sessions
+- **Session detail** — Status, worktree info, workflow progress tracker, unified diff viewer, and AI insights
+- **Workflow browser** — Browse built-in and custom workflow templates with step definitions
+
+```bash
 # Custom port
 lanes web --port 4000
 
-# API-only mode (no static UI served)
+# API-only mode (no static UI, just the gateway endpoint)
 lanes web --no-ui
 ```
 
-The web UI discovers all running daemons and provides a browser-based dashboard with:
-- Multi-project overview with health monitoring
-- Session management with real-time status updates via SSE
-- Unified diff viewer and insights panel
-- Workflow step progress tracker and template browser
+#### 3. Daemon management
 
-**Note:** Start a daemon for each project first with `lanes daemon start`.
+```bash
+lanes daemon status   # Check if daemon is running (shows PID and port)
+lanes daemon stop     # Stop the daemon for the current project
+```
+
+#### 4. VS Code daemon mode (optional)
+
+You can route VS Code operations through the daemon instead of calling core services directly. This is useful if you want the web UI and VS Code to share the same session state source.
+
+1. Open VS Code Settings
+2. Search for `lanes.useDaemon`
+3. Enable it (VS Code will prompt to reload)
+
+When enabled, session create/delete/diff/insights/pin operations go through the daemon REST API. The daemon auto-starts if not already running. If the daemon is unavailable, VS Code falls back to direct mode gracefully.
+
+#### REST API
+
+The daemon exposes a REST API at `http://127.0.0.1:<port>/api/v1/`. All endpoints (except `/health`) require a Bearer token from `.lanes/daemon.token`:
+
+```bash
+TOKEN=$(cat .lanes/daemon.token)
+PORT=$(cat .lanes/daemon.port)
+
+# Health check (no auth required)
+curl http://127.0.0.1:$PORT/api/v1/health
+
+# List sessions
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/sessions
+
+# Create a session
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"sessionName":"my-feature","prompt":"Implement login"}' \
+  http://127.0.0.1:$PORT/api/v1/sessions
+
+# Subscribe to real-time events (SSE)
+curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
+```
+
+<details>
+<summary>Full endpoint reference</summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/health` | Health check (no auth) |
+| GET | `/api/v1/discovery` | Project metadata, uptime, session count |
+| GET | `/api/v1/sessions` | List all sessions |
+| POST | `/api/v1/sessions` | Create a session |
+| DELETE | `/api/v1/sessions/:name` | Delete a session |
+| GET | `/api/v1/sessions/:name/status` | Session status |
+| POST | `/api/v1/sessions/:name/open` | Open/resume a session |
+| POST | `/api/v1/sessions/:name/clear` | Clear session state |
+| POST | `/api/v1/sessions/:name/pin` | Pin a session |
+| DELETE | `/api/v1/sessions/:name/pin` | Unpin a session |
+| GET | `/api/v1/sessions/:name/diff` | Unified diff (`?includeUncommitted`) |
+| GET | `/api/v1/sessions/:name/diff/files` | Changed file list (`?includeUncommitted`) |
+| GET | `/api/v1/sessions/:name/worktree` | Worktree info |
+| GET | `/api/v1/sessions/:name/workflow` | Workflow state |
+| GET | `/api/v1/sessions/:name/insights` | Session insights (`?includeAnalysis`) |
+| GET | `/api/v1/events` | SSE event stream |
+| GET | `/api/v1/agents` | List available agents |
+| GET | `/api/v1/agents/:name` | Agent details |
+| GET | `/api/v1/config` | All config values |
+| GET | `/api/v1/config/:key` | Single config value |
+| PUT | `/api/v1/config/:key` | Set a config value |
+| GET | `/api/v1/git/branches` | List branches (`?includeRemote`) |
+| POST | `/api/v1/git/repair` | Repair broken worktrees |
+| GET | `/api/v1/workflows` | List workflow templates (`?includeBuiltin&includeCustom`) |
+| POST | `/api/v1/workflows` | Create a workflow template |
+| POST | `/api/v1/workflows/validate` | Validate workflow YAML |
+| GET | `/api/v1/terminals` | List terminals (`?sessionName`) |
+| POST | `/api/v1/terminals` | Create a terminal |
+| POST | `/api/v1/terminals/:name/send` | Send input to a terminal |
+
+</details>
 
 ---
 
@@ -223,8 +320,9 @@ The web UI discovers all running daemons and provides a browser-based dashboard 
 | `lanes config` | View/edit configuration |
 | `lanes daemon start` | Start HTTP daemon for the current project |
 | `lanes daemon stop` | Stop the running daemon |
-| `lanes daemon status` | Check daemon status |
-| `lanes web` | Start the web UI dashboard |
+| `lanes daemon status` | Check daemon status (PID, port) |
+| `lanes daemon logs` | Show daemon log info |
+| `lanes web` | Start the web UI gateway + dashboard |
 
 ---
 
@@ -291,26 +389,20 @@ Please ensure your PR:
 
 ### Project Structure
 
-| File | Purpose |
-|------|---------|
-| `src/extension.ts` | Main entry point, commands, terminal management |
-| `src/AgentSessionProvider.ts` | Active sessions tree view |
-| `src/PreviousSessionProvider.ts` | Previous sessions tree view |
-| `src/SessionFormProvider.ts` | New session form webview |
-| `src/GitChangesPanel.ts` | Git diff viewer panel |
-| `src/gitService.ts` | Git operations (worktrees, branches) |
-| `src/ProjectManagerService.ts` | Project Manager integration |
-| `src/cli/` | Standalone CLI entry point and commands |
-| `src/daemon/` | HTTP daemon server, gateway, registry, auth, lifecycle |
-| `src/codeAgents/` | Agent abstraction (CodeAgent, ClaudeCodeAgent, CodexAgent, factory) |
-| `src/services/TmuxService.ts` | Tmux terminal backend |
-| `src/services/TerminalService.ts` | Terminal management abstraction |
-| `src/services/SettingsFormatService.ts` | TOML/JSON settings format handling |
-| `src/localSettings.ts` | Local settings propagation helper |
+| Directory | Purpose |
+|-----------|---------|
+| `src/core/` | Platform-agnostic business logic (services, agents, validation, workflows) |
+| `src/core/codeAgents/` | Agent implementations (Claude, Codex, Cortex, Gemini, OpenCode) + factory |
+| `src/core/services/` | Session handling, diff, insights, file operations |
+| `src/core/interfaces/` | Platform abstractions (`IConfigProvider`, `IHandlerContext`, etc.) |
+| `src/vscode/` | VS Code extension (commands, providers, adapters, services) |
+| `src/cli/` | Standalone CLI (`lanes` command, Commander.js) |
+| `src/daemon/` | HTTP daemon (server, router, auth, lifecycle, registry, gateway, client) |
+| `src/mcp/` | MCP server for workflow tools |
+| `src/jetbrains-ide-bridge/` | JetBrains IDE HTTP bridge |
 | `web-ui/` | Browser-based dashboard (React 19 + Vite + TypeScript) |
 | `jetbrains-ide-plugin/` | JetBrains IDE plugin (Kotlin/Gradle) |
-| `src/test/*.test.ts` | Test suite |
-| `package.json` | Extension manifest |
+| `src/test/` | Test suite (mirrors source structure) |
 
 ---
 
