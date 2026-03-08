@@ -24,3 +24,11 @@ export { DaemonNotificationEmitter } from './notifications';
 export type { FileWatchOptions } from './fileWatcher';
 export { DaemonFileWatchManager } from './fileWatcher';
 export { createRouter } from './router';
+export type { DaemonRegistryEntry } from './registry';
+export {
+    getRegistryPath,
+    registerDaemon,
+    deregisterDaemon,
+    listRegisteredDaemons,
+    cleanStaleEntries,
+} from './registry';
