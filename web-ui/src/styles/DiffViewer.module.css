@@ -1,0 +1,163 @@
+/* ==========================================================================
+   DiffViewer — unified diff display
+   ========================================================================== */
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+/* Empty state */
+.empty {
+    padding: var(--spacing-8) var(--spacing-4);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    font-style: italic;
+    font-family: var(--font-family-sans);
+}
+
+/* --------------------------------------------------------------------------
+   Per-file block
+   -------------------------------------------------------------------------- */
+
+.file {
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.fileHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    background-color: var(--color-bg-overlay);
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.fileHeaderIcon {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
+    flex-shrink: 0;
+}
+
+.fileHeaderName {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    word-break: break-all;
+    min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Table layout
+   -------------------------------------------------------------------------- */
+
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.colLineNo {
+    width: 52px;
+}
+
+.colCode {
+    /* Remaining space */
+    width: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Rows
+   -------------------------------------------------------------------------- */
+
+.contextRow {
+    background-color: var(--color-bg-surface);
+}
+
+.addedRow {
+    background-color: rgba(63, 185, 80, 0.10);
+}
+
+.removedRow {
+    background-color: rgba(248, 81, 73, 0.10);
+}
+
+.hunkRow {
+    background-color: rgba(56, 139, 253, 0.08);
+}
+
+.hunkCell {
+    padding: var(--spacing-1) var(--spacing-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    border-top: 1px solid var(--color-border-muted);
+    border-bottom: 1px solid var(--color-border-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Cells
+   -------------------------------------------------------------------------- */
+
+.lineNoCell {
+    padding: 0 var(--spacing-2);
+    text-align: right;
+    vertical-align: top;
+    user-select: none;
+    border-right: 1px solid var(--color-border-muted);
+    width: 52px;
+    min-width: 52px;
+}
+
+.lineNo {
+    display: block;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    min-height: 1.6em;
+}
+
+.codeCell {
+    padding: 0 var(--spacing-3);
+    vertical-align: top;
+    white-space: pre;
+    overflow: visible;
+}
+
+.marker {
+    display: inline-block;
+    width: 12px;
+    margin-right: var(--spacing-1);
+    color: var(--color-text-muted);
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.addedRow .marker {
+    color: var(--color-success);
+}
+
+.removedRow .marker {
+    color: var(--color-danger);
+}
+
+.codeCell code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    white-space: pre;
+    word-break: normal;
+    overflow-wrap: normal;
+}
