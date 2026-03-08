@@ -18,6 +18,7 @@ import { DaemonNotificationEmitter } from './notifications';
 import { DaemonFileWatchManager } from './fileWatcher';
 import { generateToken, writeTokenFile } from './auth';
 import { createRouter } from './router';
+import { registerDaemon, deregisterDaemon, DaemonRegistryEntry } from './registry';
 import { SessionHandlerService } from '../core/services/SessionHandlerService';
 import { getWorktreesFolder } from '../core/session/SessionDataService';
 import { IHandlerContext } from '../core/interfaces/IHandlerContext';
@@ -133,11 +134,20 @@ async function main(): Promise<void> {
     const authToken = generateToken();
     await writeTokenFile(workspaceRoot, authToken);
 
-    // 7. Create router and HTTP server
-    const requestHandler = createRouter(handlerService, notificationEmitter, authToken);
+    // 7. Record startup time for use in the discovery endpoint
+    const startedAt = new Date().toISOString();
+
+    // 8. Create router and HTTP server (context filled in after actualPort is known)
+    // We create a mutable context object so we can back-fill the port after binding.
+    const routerContext: { workspaceRoot: string; startedAt: string; port: number } = {
+        workspaceRoot,
+        startedAt,
+        port: 0, // will be updated after listen()
+    };
+    const requestHandler = createRouter(handlerService, notificationEmitter, authToken, routerContext);
     const server = http.createServer(requestHandler);
 
-    // 8. Start listening on 127.0.0.1 only
+    // 9. Start listening on 127.0.0.1 only
     await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
         server.listen(port, '127.0.0.1', () => {
@@ -148,9 +158,23 @@ async function main(): Promise<void> {
     const address = server.address();
     const actualPort = typeof address === 'object' && address !== null ? address.port : port;
 
-    // 9. Write PID, port, and log startup info
+    // Back-fill the actual port into the router context (used by /api/v1/discovery)
+    routerContext.port = actualPort;
+
+    // 10. Write PID, port, and log startup info
     await writeLanesFile(workspaceRoot, 'daemon.pid', String(process.pid));
     await writeLanesFile(workspaceRoot, 'daemon.port', String(actualPort));
+
+    // 11. Register this daemon in the global registry (~/.lanes/daemons.json)
+    const registryEntry: DaemonRegistryEntry = {
+        workspaceRoot,
+        port: actualPort,
+        pid: process.pid,
+        token: authToken,
+        startedAt,
+        projectName: path.basename(workspaceRoot),
+    };
+    await registerDaemon(registryEntry);
 
     process.stderr.write(
         `[Daemon] Started. pid=${process.pid} port=${actualPort} workspace=${workspaceRoot}\n`
@@ -189,6 +213,13 @@ async function main(): Promise<void> {
 
         // Dispose file watchers
         fileWatchManager.dispose();
+
+        // Remove this daemon from the global registry (best-effort)
+        try {
+            await deregisterDaemon(workspaceRoot);
+        } catch (err) {
+            process.stderr.write(`[Daemon] Warning: failed to deregister from global registry: ${(err as Error).message}\n`);
+        }
 
         // Remove PID, port, and token files
         await removeLanesFile(workspaceRoot, 'daemon.pid');

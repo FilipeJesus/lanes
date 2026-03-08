@@ -12,9 +12,11 @@
  */
 
 import * as http from 'http';
+import * as path from 'path';
 import { SessionHandlerService, JsonRpcHandlerError } from '../core/services/SessionHandlerService';
 import { DaemonNotificationEmitter } from './notifications';
 import { validateAuthHeader } from './auth';
+import { execGit } from '../core/gitService';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -192,12 +194,14 @@ function matchRoute(pattern: string, pathname: string): RouteMatch | null {
  * @param handlerService  The protocol-agnostic session handler service.
  * @param notificationEmitter  The SSE notification emitter.
  * @param authToken  The Bearer token clients must supply for authentication.
+ * @param context  Additional server context used by the discovery endpoint.
  * @returns An HTTP request handler function suitable for `http.createServer()`.
  */
 export function createRouter(
     handlerService: SessionHandlerService,
     notificationEmitter: DaemonNotificationEmitter,
-    authToken: string
+    authToken: string,
+    context: { workspaceRoot: string; startedAt: string; port: number }
 ): (req: http.IncomingMessage, res: http.ServerResponse) => void {
     return async function router(
         req: http.IncomingMessage,
@@ -233,6 +237,35 @@ export function createRouter(
         }
 
         try {
+            // ---------------------------------------------------------------
+            // Discovery
+            // ---------------------------------------------------------------
+
+            // GET /api/v1/discovery
+            if (method === 'GET' && pathname === '/api/v1/discovery') {
+                let gitRemote: string | null = null;
+                try {
+                    gitRemote = (await execGit(['remote', 'get-url', 'origin'], context.workspaceRoot)).trim();
+                } catch {
+                    gitRemote = null;
+                }
+
+                const sessionsResult = await handlerService.handleSessionList({}) as { sessions?: unknown[] };
+                const sessionCount = Array.isArray(sessionsResult.sessions) ? sessionsResult.sessions.length : 0;
+
+                const uptime = Math.floor((Date.now() - new Date(context.startedAt).getTime()) / 1000);
+
+                sendJson(res, 200, {
+                    projectName: path.basename(context.workspaceRoot),
+                    gitRemote,
+                    sessionCount,
+                    uptime,
+                    workspaceRoot: context.workspaceRoot,
+                    port: context.port,
+                });
+                return;
+            }
+
             // ---------------------------------------------------------------
             // SSE events stream
             // ---------------------------------------------------------------

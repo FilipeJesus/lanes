@@ -18,13 +18,16 @@
  *  - Workflow list, validate, create endpoints
  *  - Terminal create, send, list endpoints
  *  - parseQueryString helper (tested indirectly via route tests)
+ *  - Discovery endpoint: returns expected shape with auth, 401 without auth, null gitRemote on error
  */
 
 import * as assert from 'assert';
 import * as http from 'http';
+import * as path from 'path';
 import sinon from 'sinon';
 import { createRouter } from '../../daemon/router';
 import { JsonRpcHandlerError } from '../../core/services/SessionHandlerService';
+import * as gitService from '../../core/gitService';
 
 // ---------------------------------------------------------------------------
 // Helper: minimal fake SessionHandlerService
@@ -168,7 +171,8 @@ suite('daemon router', () => {
         const handler = createRouter(
             handlerService as never,
             notificationEmitter as never,
-            AUTH_TOKEN
+            AUTH_TOKEN,
+            { workspaceRoot: '/test/workspace', startedAt: new Date().toISOString(), port: 0 }
         );
         server = http.createServer(handler);
         server.listen(0, '127.0.0.1', done);
@@ -1036,5 +1040,75 @@ suite('daemon router', () => {
         assert.ok(handlerService.handleGitListBranches.calledOnce);
         const calledWith = handlerService.handleGitListBranches.firstCall.args[0] as Record<string, unknown>;
         assert.strictEqual(calledWith.includeRemote, false);
+    });
+
+    // -------------------------------------------------------------------------
+    // router-discovery-endpoint
+    // -------------------------------------------------------------------------
+
+    test('Given GET /api/v1/discovery with valid auth and a known git remote, when called, then it returns the expected discovery shape', async () => {
+        // Arrange
+        const gitRemoteUrl = 'https://github.com/example/test-workspace.git';
+        const execGitStub = sinon.stub(gitService, 'execGit').resolves(gitRemoteUrl + '\n');
+        handlerService.handleSessionList.resolves({ sessions: [{ name: 'session-a' }, { name: 'session-b' }] });
+
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/discovery',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        execGitStub.restore();
+        assert.strictEqual(res.status, 200);
+        const body = res.body as Record<string, unknown>;
+        assert.strictEqual(body.projectName, path.basename('/test/workspace'), 'projectName should be the workspace directory name');
+        assert.strictEqual(body.gitRemote, gitRemoteUrl, 'gitRemote should be the trimmed remote URL');
+        assert.strictEqual(body.sessionCount, 2, 'sessionCount should reflect the number of sessions');
+        assert.strictEqual(typeof body.uptime, 'number', 'uptime should be a number');
+        assert.ok((body.uptime as number) >= 0, 'uptime should be non-negative');
+        assert.strictEqual(body.workspaceRoot, '/test/workspace', 'workspaceRoot should match the context workspaceRoot');
+        assert.ok(typeof body.port === 'number', 'port should be a number');
+    });
+
+    test('Given GET /api/v1/discovery without an Authorization header, when called, then it returns 401', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/discovery',
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 401);
+        assert.strictEqual((res.body as { error: string }).error, 'Unauthorized');
+    });
+
+    test('Given GET /api/v1/discovery with a wrong Bearer token, when called, then it returns 401', async () => {
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/discovery',
+            headers: { Authorization: 'Bearer wrong-token' },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 401);
+    });
+
+    test('Given GET /api/v1/discovery when git remote is unavailable, when called, then gitRemote is null in the response', async () => {
+        // Arrange: make execGit throw to simulate missing git remote
+        const execGitStub = sinon.stub(gitService, 'execGit').rejects(new Error('fatal: No such remote: origin'));
+        handlerService.handleSessionList.resolves({ sessions: [] });
+
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/discovery',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        execGitStub.restore();
+        assert.strictEqual(res.status, 200);
+        const body = res.body as Record<string, unknown>;
+        assert.strictEqual(body.gitRemote, null, 'gitRemote should be null when git remote lookup fails');
+        assert.strictEqual(body.sessionCount, 0, 'sessionCount should be 0 when there are no sessions');
     });
 });

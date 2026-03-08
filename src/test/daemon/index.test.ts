@@ -98,4 +98,39 @@ suite('daemon index', () => {
             'DaemonFileWatchManager should be exported as a class/constructor'
         );
     });
+
+    test('Given an import from src/daemon/index, then getRegistryPath is exported', () => {
+        assert.ok(
+            typeof daemonIndex.getRegistryPath === 'function',
+            'getRegistryPath should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then registerDaemon is exported', () => {
+        assert.ok(
+            typeof daemonIndex.registerDaemon === 'function',
+            'registerDaemon should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then deregisterDaemon is exported', () => {
+        assert.ok(
+            typeof daemonIndex.deregisterDaemon === 'function',
+            'deregisterDaemon should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then listRegisteredDaemons is exported', () => {
+        assert.ok(
+            typeof daemonIndex.listRegisteredDaemons === 'function',
+            'listRegisteredDaemons should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then cleanStaleEntries is exported', () => {
+        assert.ok(
+            typeof daemonIndex.cleanStaleEntries === 'function',
+            'cleanStaleEntries should be exported as a function'
+        );
+    });
 });
