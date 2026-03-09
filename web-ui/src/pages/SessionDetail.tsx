@@ -87,6 +87,11 @@ export function SessionDetail() {
     // Uncommitted toggle for diff
     const [includeUncommitted, setIncludeUncommitted] = useState(false);
 
+    // Branch selector for diff — empty string means auto-detect
+    const [baseBranch, setBaseBranch] = useState('');
+    // Input field value (separate from committed baseBranch state)
+    const [branchInputValue, setBranchInputValue] = useState('');
+
     // Ref for scrolling to a specific file in the diff
     const diffSectionRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +107,8 @@ export function SessionDetail() {
         loading: diffLoading,
         error: diffError,
         refresh: refreshDiff,
-    } = useDiff(apiClient, decodedName || undefined, includeUncommitted);
+        resolvedBaseBranch,
+    } = useDiff(apiClient, decodedName || undefined, includeUncommitted, baseBranch);
 
     const {
         insights,
@@ -325,7 +331,7 @@ export function SessionDetail() {
                             <div className={styles.fieldRow}>
                                 <span className={styles.fieldLabel}>Agent</span>
                                 <span className={styles.fieldValue}>
-                                    {session.data.agentName ?? 'claude'}
+                                    {session.data?.agentName ?? 'claude'}
                                 </span>
                             </div>
 
@@ -505,6 +511,34 @@ export function SessionDetail() {
                                         Include uncommitted
                                     </label>
                                 </div>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const trimmed = branchInputValue.trim();
+                                        setBaseBranch(trimmed);
+                                        (e.target as HTMLFormElement).querySelector('input')?.blur();
+                                    }}
+                                >
+                                    <input
+                                        type="text"
+                                        className={styles.branchInput}
+                                        placeholder="main (auto)"
+                                        aria-label="Compare against branch"
+                                        value={branchInputValue}
+                                        onChange={(e) => setBranchInputValue(e.target.value)}
+                                        onBlur={() => {
+                                            const trimmed = branchInputValue.trim();
+                                            if (trimmed !== baseBranch) {
+                                                setBaseBranch(trimmed);
+                                            }
+                                        }}
+                                    />
+                                    {resolvedBaseBranch && (
+                                        <div className={styles.branchInputHint}>
+                                            Comparing against: {resolvedBaseBranch}
+                                        </div>
+                                    )}
+                                </form>
                                 <FileList
                                     files={diffFiles}
                                     onFileClick={handleFileClick}

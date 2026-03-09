@@ -30,8 +30,8 @@ describe('useDiff', () => {
         renderHook(() => useDiff(apiClient, 'my-session', false));
 
         await waitFor(() => {
-            expect(apiClient.getSessionDiffFiles).toHaveBeenCalledWith('my-session', false);
-            expect(apiClient.getSessionDiff).toHaveBeenCalledWith('my-session', false);
+            expect(apiClient.getSessionDiffFiles).toHaveBeenCalledWith('my-session', false, undefined);
+            expect(apiClient.getSessionDiff).toHaveBeenCalledWith('my-session', false, undefined);
         });
     });
 
@@ -100,7 +100,7 @@ describe('useDiff', () => {
         );
 
         await waitFor(() => {
-            expect(vi.mocked(apiClient.getSessionDiffFiles)).toHaveBeenCalledWith('my-session', false);
+            expect(vi.mocked(apiClient.getSessionDiffFiles)).toHaveBeenCalledWith('my-session', false, undefined);
         });
 
         const prevCallCount = vi.mocked(apiClient.getSessionDiff).mock.calls.length;
@@ -108,8 +108,8 @@ describe('useDiff', () => {
         rerender({ includeUncommitted: true });
 
         await waitFor(() => {
-            expect(vi.mocked(apiClient.getSessionDiffFiles)).toHaveBeenCalledWith('my-session', true);
-            expect(vi.mocked(apiClient.getSessionDiff)).toHaveBeenCalledWith('my-session', true);
+            expect(vi.mocked(apiClient.getSessionDiffFiles)).toHaveBeenCalledWith('my-session', true, undefined);
+            expect(vi.mocked(apiClient.getSessionDiff)).toHaveBeenCalledWith('my-session', true, undefined);
             expect(vi.mocked(apiClient.getSessionDiff).mock.calls.length).toBeGreaterThan(prevCallCount);
         });
     });

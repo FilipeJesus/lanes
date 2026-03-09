@@ -382,6 +382,9 @@ export function createRouter(
                     if (queryParams['includeUncommitted'] !== undefined) {
                         params.includeUncommitted = parseBooleanParam(queryParams['includeUncommitted']);
                     }
+                    if (queryParams['baseBranch'] !== undefined) {
+                        params.baseBranch = queryParams['baseBranch'];
+                    }
                     const result = await handlerService.handleGitGetDiffFiles(params);
                     sendJson(res, 200, result);
                     return;
@@ -395,6 +398,9 @@ export function createRouter(
                     const params: Record<string, unknown> = { sessionName: match.params.name };
                     if (queryParams['includeUncommitted'] !== undefined) {
                         params.includeUncommitted = parseBooleanParam(queryParams['includeUncommitted']);
+                    }
+                    if (queryParams['baseBranch'] !== undefined) {
+                        params.baseBranch = queryParams['baseBranch'];
                     }
                     const result = await handlerService.handleGitGetDiff(params);
                     sendJson(res, 200, result);

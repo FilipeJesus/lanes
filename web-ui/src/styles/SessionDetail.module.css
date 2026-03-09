@@ -443,3 +443,35 @@
 .retryButton {
     margin-left: var(--spacing-2);
 }
+
+/* --------------------------------------------------------------------------
+   Branch input — compare against a specific branch
+   -------------------------------------------------------------------------- */
+
+.branchInput {
+    width: 100%;
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-overlay);
+    color: var(--color-text-primary);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.branchInput:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.branchInput::placeholder {
+    color: var(--color-text-secondary);
+}
+
+.branchInputHint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-top: var(--spacing-1);
+}
