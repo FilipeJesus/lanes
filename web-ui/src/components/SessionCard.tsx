@@ -65,8 +65,8 @@ export function SessionCard({
     }
 
     const agentName = session.data.agentName ?? 'claude';
-    const workflowActive = session.workflowStatus.active;
-    const workflowStep = session.workflowStatus.step ?? session.workflowStatus.workflow;
+    const workflowActive = session.workflowStatus?.active ?? false;
+    const workflowStep = session.workflowStatus?.step ?? session.workflowStatus?.workflow;
 
     return (
         <div
@@ -88,7 +88,7 @@ export function SessionCard({
                 </div>
 
                 <div className={styles.meta}>
-                    <StatusBadge status={session.status.status} />
+                    <StatusBadge status={session.status?.status ?? 'idle'} />
 
                     {session.branch && (
                         <span className={styles.metaItem}>

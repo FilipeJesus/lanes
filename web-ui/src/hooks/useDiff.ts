@@ -65,7 +65,7 @@ export function useDiff(
                 ]);
 
                 if (cancelled) return;
-                setFiles(filesRes.files);
+                setFiles(filesRes.files.map((f) => typeof f === 'string' ? f : f.path));
                 setDiff(diffRes.diff);
             } catch (err) {
                 if (cancelled) return;

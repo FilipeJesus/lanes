@@ -122,7 +122,7 @@ describe('useSessions', () => {
                 });
             });
 
-            expect(result.current.sessions[0].status.status).toBe('working');
+            expect(result.current.sessions[0].status!.status).toBe('working');
         });
 
         it('Given a connected SSE client, when session_created fires, then a new session is appended to state', async () => {

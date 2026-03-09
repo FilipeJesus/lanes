@@ -249,7 +249,7 @@ export function SessionDetail() {
                     <div className={styles.titleRow}>
                         <h1 className={styles.title}>{decodedName}</h1>
                         {session && (
-                            <StatusBadge status={session.status.status} />
+                            <StatusBadge status={session.status?.status ?? 'idle'} />
                         )}
                     </div>
                 </div>
@@ -301,10 +301,10 @@ export function SessionDetail() {
                         <div className={styles.cardContent}>
                             <div className={styles.fieldRow}>
                                 <span className={styles.fieldLabel}>State</span>
-                                <StatusBadge status={session.status.status} />
+                                <StatusBadge status={session.status?.status ?? 'idle'} />
                             </div>
 
-                            {session.status.message && (
+                            {session.status?.message && (
                                 <div className={styles.fieldRow}>
                                     <span className={styles.fieldLabel}>Message</span>
                                     <span className={styles.statusMessage}>
@@ -313,7 +313,7 @@ export function SessionDetail() {
                                 </div>
                             )}
 
-                            {session.status.timestamp && (
+                            {session.status?.timestamp && (
                                 <div className={styles.fieldRow}>
                                     <span className={styles.fieldLabel}>Last updated</span>
                                     <span className={styles.timestamp}>
@@ -390,7 +390,7 @@ export function SessionDetail() {
                     <div className={styles.card}>
                         <h2 className={styles.cardTitle}>Workflow</h2>
                         <div className={styles.cardContent}>
-                            {!session.workflowStatus.active ? (
+                            {!session.workflowStatus?.active ? (
                                 <span className={styles.inactiveWorkflow}>No active workflow</span>
                             ) : (
                                 <>

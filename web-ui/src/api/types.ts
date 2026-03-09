@@ -42,8 +42,8 @@ export interface SessionInfo {
     worktreePath: string;
     branch: string;
     data: SessionData;
-    status: AgentSessionStatus;
-    workflowStatus: WorkflowStatus;
+    status: AgentSessionStatus | null;
+    workflowStatus: WorkflowStatus | null;
     isPinned: boolean;
 }
 
@@ -147,8 +147,17 @@ export interface DiffResult {
     sessionName: string;
 }
 
+export interface DiffFileEntry {
+    path: string;
+    status: string;
+    beforeContent?: string;
+    afterContent?: string;
+    isBinary: boolean;
+    previousPath?: string;
+}
+
 export interface DiffFilesResult {
-    files: string[];
+    files: DiffFileEntry[];
     sessionName: string;
 }
 

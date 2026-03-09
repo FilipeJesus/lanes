@@ -35,3 +35,8 @@ docs/plan
 
 # IDEA
 .idea
+
+# Playwright
+web-ui/test-results/
+web-ui/playwright-report/
+web-ui/blob-report/
