@@ -112,6 +112,8 @@ npm run compile && npx vsce package
 # Then install the .vsix via "Extensions: Install from VSIX..."
 ```
 
+`npm run compile` will install `web-ui` dependencies automatically if they are not present yet.
+
 Or use the local install script: `./scripts/install-local.sh`
 
 #### JetBrains IDEs (From Source)
