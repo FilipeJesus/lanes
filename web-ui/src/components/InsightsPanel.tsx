@@ -71,7 +71,11 @@ export function InsightsPanel({
             {/* Insights */}
             <div className={styles.section}>
                 <h3 className={styles.sectionTitle}>Insights</h3>
-                {!loading && !insights ? (
+                {loading ? (
+                    <div className={styles.spinnerContainer} aria-label="Loading insights">
+                        <span className={styles.spinner} />
+                    </div>
+                ) : !insights ? (
                     <p className={styles.empty}>
                         No insights available. Click Refresh Insights to generate them.
                     </p>

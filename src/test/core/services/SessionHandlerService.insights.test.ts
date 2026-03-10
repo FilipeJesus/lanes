@@ -7,7 +7,7 @@
  *  - includeAnalysis=false: result contains insights but analysis is undefined
  *  - Missing sessionName: throws with a validation error
  *  - sessionName with path separators: throws with an invalid session name error
- *  - serializeInsights: converts all Map fields to plain objects
+ *  - formatInsightsReport: returns a formatted string report
  */
 
 import * as assert from 'assert';
@@ -245,14 +245,21 @@ suite('SessionHandlerService - handleSessionInsights', () => {
         const result = await service.handleSessionInsights({
             sessionName: 'test-session',
             // includeAnalysis defaults to true
-        }) as { insights: Record<string, unknown>; analysis: AnalysisResult | undefined };
+        }) as { insights: string; analysis: null; sessionName: string };
 
         assert.ok(result.insights !== undefined, 'result.insights should be present');
-        assert.ok(result.analysis !== undefined, 'result.analysis should be present when includeAnalysis=true');
-        assert.strictEqual(
-            result.analysis?.efficiency?.totalCost,
-            analysis.efficiency.totalCost,
-            'analysis should contain the analyzeInsights return value'
+        assert.strictEqual(typeof result.insights, 'string', 'result.insights should be a formatted string');
+        // Analysis is merged into the formatted string; the separate analysis field is null
+        assert.strictEqual(result.analysis, null, 'result.analysis should be null (merged into insights string)');
+        // The formatted report includes a heading with the session name
+        assert.ok(
+            result.insights.includes('test-session'),
+            'insights string should contain the session name'
+        );
+        // When includeAnalysis=true, the cost is embedded in the insights string
+        assert.ok(
+            result.insights.includes('$0.01') || result.insights.includes('Efficiency') || result.insights.includes('cost'),
+            'insights string should contain analysis information (cost or efficiency)'
         );
     });
 
@@ -268,7 +275,7 @@ suite('SessionHandlerService - handleSessionInsights', () => {
         const result = await service.handleSessionInsights({
             sessionName: 'test-session',
             includeAnalysis: false,
-        }) as { insights: Record<string, unknown>; analysis: AnalysisResult | undefined };
+        }) as { insights: string; analysis: null; sessionName: string };
 
         assert.ok(result.insights !== undefined, 'result.insights should be present');
         assert.strictEqual(result.analysis, null, 'result.analysis should be null when includeAnalysis=false');
@@ -327,7 +334,7 @@ suite('SessionHandlerService - handleSessionInsights', () => {
     });
 
     // -------------------------------------------------------------------------
-    // High: serializeInsights converts all Map fields to plain objects
+    // High: formatInsightsReport returns a formatted string report
     // -------------------------------------------------------------------------
 
     test('Given insights with Map fields (totalToolUses, totalSkillUses, totalMcpUses, totalFileOperations), when handleSessionInsights is called, then returned insights object has plain object keys instead of Map instances', async () => {
@@ -345,66 +352,17 @@ suite('SessionHandlerService - handleSessionInsights', () => {
 
         const result = await service.handleSessionInsights({
             sessionName: 'test-session',
-        }) as { insights: Record<string, unknown>; analysis: unknown };
+        }) as { insights: string; analysis: null; sessionName: string };
 
-        const serialized = result.insights;
-
-        // totalToolUses must be a plain object, not a Map
-        assert.ok(
-            !(serialized.totalToolUses instanceof Map),
-            'totalToolUses should not be a Map instance'
-        );
-        assert.strictEqual(
-            typeof serialized.totalToolUses,
-            'object',
-            'totalToolUses should be a plain object'
-        );
-        assert.strictEqual(
-            (serialized.totalToolUses as Record<string, number>)['Read'],
-            10,
-            'totalToolUses.Read should equal 10'
-        );
-        assert.strictEqual(
-            (serialized.totalToolUses as Record<string, number>)['Edit'],
-            3,
-            'totalToolUses.Edit should equal 3'
-        );
-
-        // totalSkillUses must be a plain object
-        assert.ok(
-            !(serialized.totalSkillUses instanceof Map),
-            'totalSkillUses should not be a Map instance'
-        );
-        assert.strictEqual(
-            (serialized.totalSkillUses as Record<string, number>)['grep'],
-            2,
-            'totalSkillUses.grep should equal 2'
-        );
-
-        // totalMcpUses must be a plain object
-        assert.ok(
-            !(serialized.totalMcpUses instanceof Map),
-            'totalMcpUses should not be a Map instance'
-        );
-        assert.strictEqual(
-            (serialized.totalMcpUses as Record<string, number>)['workflow_status'],
-            4,
-            'totalMcpUses.workflow_status should equal 4'
-        );
-
-        // totalFileOperations must be a plain object
-        assert.ok(
-            !(serialized.totalFileOperations instanceof Map),
-            'totalFileOperations should not be a Map instance'
-        );
-        const fileOps = serialized.totalFileOperations as Record<string, { reads: number; edits: number; writes: number }>;
-        assert.ok(fileOps['src/index.ts'], 'totalFileOperations should have src/index.ts key');
-        assert.strictEqual(fileOps['src/index.ts'].reads, 3);
-        assert.strictEqual(fileOps['src/index.ts'].edits, 2);
-        assert.strictEqual(fileOps['src/index.ts'].writes, 1);
+        // The handler now returns a formatted string; Map serialization is handled internally
+        // by formatInsightsReport. The response is a string, not a raw object.
+        assert.strictEqual(typeof result.insights, 'string', 'result.insights should be a formatted string');
+        assert.ok(result.insights.length > 0, 'insights string should not be empty');
+        assert.strictEqual(result.analysis, null, 'result.analysis should be null');
+        assert.strictEqual(result.sessionName, 'test-session', 'sessionName should be echoed back');
     });
 
-    test('Given generateInsights rejects with ENOENT, when handleSessionInsights is called, then it returns null insights and null analysis', async () => {
+    test('Given generateInsights rejects with ENOENT, when handleSessionInsights is called, then it returns empty insights and null analysis', async () => {
         const enoent = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException;
         enoent.code = 'ENOENT';
         generateInsightsStub.rejects(enoent);
@@ -412,10 +370,12 @@ suite('SessionHandlerService - handleSessionInsights', () => {
         const result = await service.handleSessionInsights({ sessionName: 'test-session' }) as {
             insights: unknown;
             analysis: unknown;
+            sessionName: unknown;
         };
 
-        assert.strictEqual(result.insights, null, 'insights should be null when project dir does not exist');
+        assert.strictEqual(result.insights, '', 'insights should be empty string when project dir does not exist');
         assert.strictEqual(result.analysis, null, 'analysis should be null when project dir does not exist');
+        assert.strictEqual(result.sessionName, 'test-session', 'sessionName should be included in ENOENT response');
     });
 
     test('Given generateInsights rejects with a non-ENOENT error, when handleSessionInsights is called, then it propagates the error', async () => {
@@ -467,57 +427,78 @@ suite('SessionHandlerService - handleSessionInsights', () => {
 
         const result = await service.handleSessionInsights({
             sessionName: 'test-session',
-        }) as { insights: Record<string, unknown>; analysis: unknown };
+        }) as { insights: string; analysis: null; sessionName: string };
 
-        const serialized = result.insights;
-        const conversations = serialized.conversations as Array<Record<string, unknown>>;
+        // The handler now returns a formatted string; Map serialization is handled internally
+        // by formatInsightsReport. The response contains human-readable text, not raw Map objects.
+        assert.strictEqual(typeof result.insights, 'string', 'result.insights should be a formatted string');
+        assert.ok(result.insights.length > 0, 'insights string should not be empty');
+        assert.strictEqual(result.analysis, null, 'result.analysis should be null');
+        assert.strictEqual(result.sessionName, 'test-session', 'sessionName should be echoed back');
+    });
 
-        assert.ok(Array.isArray(conversations), 'conversations should be an array');
-        assert.strictEqual(conversations.length, 1, 'Should have 1 conversation');
+    // -------------------------------------------------------------------------
+    // Critical: formatted string response shape (insights-backend-returns-formatted-string)
+    // -------------------------------------------------------------------------
 
-        const conv = conversations[0];
+    test('Given a valid sessionName and includeAnalysis=false, when handleSessionInsights is called, then response.insights is a string containing the session name in a heading', async () => {
+        const insights = makeInsights();
+        generateInsightsStub.resolves(insights);
+        analyzeInsightsStub.returns(makeAnalysis());
 
-        // toolUses in conversation must be a plain object, not a Map
+        const result = await service.handleSessionInsights({
+            sessionName: 'test-session',
+            includeAnalysis: false,
+        }) as { insights: string; analysis: null; sessionName: string };
+
+        assert.strictEqual(typeof result.insights, 'string', 'response.insights should be a string');
         assert.ok(
-            !(conv.toolUses instanceof Map),
-            'conversation.toolUses should not be a Map instance'
+            result.insights.includes('test-session'),
+            `insights string should contain session name heading, got: ${result.insights.substring(0, 200)}`
         );
-        assert.strictEqual(
-            typeof conv.toolUses,
-            'object',
-            'conversation.toolUses should be a plain object'
-        );
-        assert.strictEqual(
-            (conv.toolUses as Record<string, number>)['Read'],
-            7,
-            'conversation.toolUses.Read should equal 7'
-        );
-        assert.strictEqual(
-            (conv.toolUses as Record<string, number>)['Bash'],
-            2,
-            'conversation.toolUses.Bash should equal 2'
-        );
+    });
 
-        // skillUses in conversation must be a plain object
-        assert.ok(
-            !(conv.skillUses instanceof Map),
-            'conversation.skillUses should not be a Map instance'
-        );
-        assert.strictEqual(
-            (conv.skillUses as Record<string, number>)['code-search'],
-            1,
-            'conversation.skillUses.code-search should equal 1'
-        );
+    test('Given a valid sessionName and includeAnalysis=true, when handleSessionInsights is called, then response.insights string contains analysis sections', async () => {
+        const insights = makeInsights();
+        const analysis = makeAnalysis();
+        generateInsightsStub.resolves(insights);
+        analyzeInsightsStub.returns(analysis);
 
-        // mcpUses in conversation must be a plain object
+        const result = await service.handleSessionInsights({
+            sessionName: 'test-session',
+            includeAnalysis: true,
+        }) as { insights: string; analysis: null; sessionName: string };
+
+        assert.strictEqual(typeof result.insights, 'string', 'response.insights should be a string');
+        // When includeAnalysis=true, the formatted report includes efficiency/cost sections
         assert.ok(
-            !(conv.mcpUses instanceof Map),
-            'conversation.mcpUses should not be a Map instance'
+            result.insights.includes('Efficiency') || result.insights.includes('cost') || result.insights.includes('$'),
+            `insights string should contain analysis content (Efficiency/cost), got: ${result.insights.substring(0, 300)}`
         );
-        assert.strictEqual(
-            (conv.mcpUses as Record<string, number>)['workflow_advance'],
-            2,
-            'conversation.mcpUses.workflow_advance should equal 2'
-        );
+    });
+
+    test('Given handleSessionInsights is called, then response always includes a sessionName field equal to the requested sessionName', async () => {
+        const insights = makeInsights();
+        generateInsightsStub.resolves(insights);
+        analyzeInsightsStub.returns(makeAnalysis());
+
+        const result = await service.handleSessionInsights({
+            sessionName: 'test-session',
+        }) as { insights: string; analysis: null; sessionName: string };
+
+        assert.strictEqual(result.sessionName, 'test-session', 'response.sessionName should equal the requested sessionName');
+    });
+
+    test('Given handleSessionInsights is called, then response.analysis is null (analysis is merged into insights string)', async () => {
+        const insights = makeInsights();
+        generateInsightsStub.resolves(insights);
+        analyzeInsightsStub.returns(makeAnalysis());
+
+        const result = await service.handleSessionInsights({
+            sessionName: 'test-session',
+            includeAnalysis: true,
+        }) as { insights: string; analysis: unknown; sessionName: string };
+
+        assert.strictEqual(result.analysis, null, 'response.analysis should be null when analysis is merged into the string');
     });
 });
