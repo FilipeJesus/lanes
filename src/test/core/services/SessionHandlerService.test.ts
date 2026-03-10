@@ -30,6 +30,7 @@ import type {
     IFileWatchManager,
 } from '../../../core/interfaces/IHandlerContext';
 import { getAvailableAgents } from '../../../core/codeAgents';
+import type { SettingsScope, SettingsView } from '../../../core/services/UnifiedSettingsService';
 
 // ---------------------------------------------------------------------------
 // Minimal stub implementations
@@ -37,20 +38,26 @@ import { getAvailableAgents } from '../../../core/codeAgents';
 
 class StubConfigStore implements ISimpleConfigStore {
     private readonly data: Record<string, unknown>;
+    public lastGetScope: SettingsView | undefined;
+    public lastSetScope: SettingsScope | undefined;
+    public lastGetAllScope: SettingsView | undefined;
 
     constructor(initial: Record<string, unknown> = {}) {
         this.data = { ...initial };
     }
 
-    get(key: string): unknown {
+    get(key: string, scope: SettingsView = 'effective'): unknown {
+        this.lastGetScope = scope;
         return this.data[key];
     }
 
-    async set(key: string, value: unknown): Promise<void> {
+    async set(key: string, value: unknown, scope: SettingsScope = 'local'): Promise<void> {
+        this.lastSetScope = scope;
         this.data[key] = value;
     }
 
-    getAll(prefix?: string): Record<string, unknown> {
+    getAll(prefix?: string, scope: SettingsView = 'effective'): Record<string, unknown> {
+        this.lastGetAllScope = scope;
         if (!prefix) {
             return { ...this.data };
         }
@@ -204,13 +211,20 @@ suite('SessionHandlerService', () => {
 suite('SessionHandlerService - config handlers', () => {
     let tempDir: string;
     let service: SessionHandlerService;
+    let configStore: StubConfigStore;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-shs-config-'));
-        const ctx = makeContext(tempDir, {
+        configStore = new StubConfigStore({
             'lanes.defaultAgent': 'claude',
             'lanes.terminalMode': 'vscode',
         });
+        const ctx: IHandlerContext = {
+            workspaceRoot: tempDir,
+            config: configStore,
+            notificationEmitter: new StubNotificationEmitter(),
+            fileWatchManager: new StubFileWatchManager(),
+        };
         service = new SessionHandlerService(ctx);
     });
 
@@ -221,6 +235,11 @@ suite('SessionHandlerService - config handlers', () => {
     test('handleConfigGet returns the value for a valid key', async () => {
         const result = await service.handleConfigGet({ key: 'lanes.defaultAgent' }) as { value: unknown };
         assert.strictEqual(result.value, 'claude');
+    });
+
+    test('handleConfigGet forwards the requested scope', async () => {
+        await service.handleConfigGet({ key: 'lanes.defaultAgent', scope: 'global' });
+        assert.strictEqual(configStore.lastGetScope, 'global');
     });
 
     test('handleConfigGet returns null for a valid key with no value set', async () => {
@@ -269,6 +288,40 @@ suite('SessionHandlerService - config handlers', () => {
         }
 
         assert.ok(thrown instanceof Error, 'Should throw an Error when key is missing');
+    });
+
+    test('handleConfigSet forwards the requested scope', async () => {
+        const result = await service.handleConfigSet({
+            key: 'lanes.defaultAgent',
+            value: 'codex',
+            scope: 'global',
+        }) as { success: boolean; scope: string };
+
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.scope, 'global');
+        assert.strictEqual(configStore.lastSetScope, 'global');
+    });
+
+    test('handleConfigSet throws JsonRpcHandlerError for an invalid key', async () => {
+        let thrown: unknown;
+        try {
+            await service.handleConfigSet({
+                key: 'lanes.invalidKey',
+                value: 'codex',
+            });
+        } catch (err) {
+            thrown = err;
+        }
+
+        assert.ok(thrown instanceof JsonRpcHandlerError);
+        assert.strictEqual((thrown as JsonRpcHandlerError).code, -32602);
+    });
+
+    test('handleConfigGetAll forwards the requested scope', async () => {
+        const result = await service.handleConfigGetAll({ scope: 'local' }) as { config: Record<string, unknown>; scope: string };
+        assert.strictEqual(result.scope, 'local');
+        assert.strictEqual(configStore.lastGetAllScope, 'local');
+        assert.strictEqual(result.config['lanes.defaultAgent'], 'claude');
     });
 });
 

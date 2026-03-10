@@ -18,6 +18,7 @@
  */
 
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
@@ -46,6 +47,9 @@ export const UNIFIED_DEFAULTS: Record<string, unknown> = {
     'lanes.chimeSound': 'chime',
     'lanes.polling.quietThresholdMs': 3000,
 };
+
+export type SettingsScope = 'global' | 'local';
+export type SettingsView = SettingsScope | 'effective';
 
 // ---------------------------------------------------------------------------
 // Helpers for nested object access via dot-notation sub-keys
@@ -176,11 +180,17 @@ function deepMerge(
 // ---------------------------------------------------------------------------
 
 export class UnifiedSettingsService {
-    /** Absolute path to the .lanes/settings.yaml file. */
-    private settingsPath: string | null = null;
+    /** Absolute path to the machine-wide settings file. */
+    private globalSettingsPath: string | null = null;
 
-    /** In-memory flat-key view of the loaded settings. */
-    private settings: Record<string, unknown> = {};
+    /** Absolute path to the repo-local overrides file. */
+    private localSettingsPath: string | null = null;
+
+    /** In-memory flat-key view of global settings. */
+    private globalSettings: Record<string, unknown> = {};
+
+    /** In-memory flat-key view of local override settings. */
+    private localSettings: Record<string, unknown> = {};
 
     /** Active fs.FSWatcher instances (one per file being watched). */
     private watchers: fs.FSWatcher[] = [];
@@ -190,9 +200,9 @@ export class UnifiedSettingsService {
     // ---------------------------------------------------------------------------
 
     /**
-     * Load settings from `<repoRoot>/.lanes/settings.yaml`.
-     * If the file does not exist, in-memory settings remain empty and defaults
-     * are returned by `get()`.
+     * Load settings from the machine-wide `~/.lanes/settings.yaml` file and
+     * the repo-local `<repoRoot>/.lanes/settings.yaml` overrides file.
+     * If either file does not exist, defaults are used as the final fallback.
      *
      * @param repoRoot Absolute path to the repository root.
      */
@@ -200,27 +210,10 @@ export class UnifiedSettingsService {
         if (!path.isAbsolute(repoRoot)) {
             throw new Error('UnifiedSettingsService: repoRoot must be an absolute path');
         }
-        this.settingsPath = path.join(repoRoot, '.lanes', 'settings.yaml');
-        this.settings = {};
-
-        try {
-            const content = await fsPromises.readFile(this.settingsPath, 'utf-8');
-            const parsed = yamlParse(content) as Record<string, unknown> | null;
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                // Flatten the nested YAML into our internal flat-key map.
-                this.settings = nestedToFlat(parsed);
-            }
-        } catch (err: unknown) {
-            if (
-                err instanceof Error &&
-                'code' in err &&
-                (err as NodeJS.ErrnoException).code === 'ENOENT'
-            ) {
-                // File does not exist – that's fine, defaults will be used.
-            } else {
-                throw err;
-            }
-        }
+        this.globalSettingsPath = path.join(os.homedir(), '.lanes', 'settings.yaml');
+        this.localSettingsPath = path.join(repoRoot, '.lanes', 'settings.yaml');
+        this.globalSettings = await this.readSettingsFile(this.globalSettingsPath);
+        this.localSettings = await this.readSettingsFile(this.localSettingsPath);
     }
 
     /**
@@ -237,13 +230,18 @@ export class UnifiedSettingsService {
      * @param defaultValue Fallback when no value is found.
      */
     get<T>(section: string, key: string, defaultValue: T): T {
+        return this.getForView(section, key, defaultValue, 'effective');
+    }
+
+    getForView<T>(section: string, key: string, defaultValue: T, view: SettingsView = 'effective'): T {
         const flatKey = `${section}.${key}`;
 
-        if (flatKey in this.settings) {
-            return this.settings[flatKey] as T;
+        const scopedValue = this.getValueForView(flatKey, view);
+        if (scopedValue !== undefined) {
+            return scopedValue as T;
         }
 
-        if (flatKey in UNIFIED_DEFAULTS) {
+        if (view === 'effective' && flatKey in UNIFIED_DEFAULTS) {
             return UNIFIED_DEFAULTS[flatKey] as T;
         }
 
@@ -259,38 +257,83 @@ export class UnifiedSettingsService {
      * @param key     Sub-key, supports dot-notation, e.g. `'polling.quietThresholdMs'`.
      * @param value   New value to store.
      */
-    async set(section: string, key: string, value: unknown): Promise<void> {
-        if (!this.settingsPath) {
+    async set(section: string, key: string, value: unknown, scope: SettingsScope = 'local'): Promise<void> {
+        if (!this.localSettingsPath || !this.globalSettingsPath) {
             throw new Error(
                 'UnifiedSettingsService: call load() before set()'
             );
         }
 
         const flatKey = `${section}.${key}`;
-        this.settings[flatKey] = value;
+        if (scope === 'global') {
+            this.globalSettings[flatKey] = value;
+            this.pruneLocalOverride(flatKey);
+            await this._persist('global');
+            await this._persist('local');
+            return;
+        }
 
-        await this._persist();
+        if (this.valuesEqual(value, this.getInheritedValue(flatKey))) {
+            delete this.localSettings[flatKey];
+        } else {
+            this.localSettings[flatKey] = value;
+        }
+
+        await this._persist('local');
     }
 
     /**
      * Set multiple values in a single disk write.
      */
-    async setMany(entries: Array<{ section: string; key: string; value: unknown }>): Promise<void> {
-        if (!this.settingsPath) {
+    async setMany(
+        entries: Array<{ section: string; key: string; value: unknown }>,
+        scope: SettingsScope = 'local'
+    ): Promise<void> {
+        if (!this.localSettingsPath || !this.globalSettingsPath) {
             throw new Error('UnifiedSettingsService: call load() before setMany()');
         }
         for (const { section, key, value } of entries) {
-            this.settings[`${section}.${key}`] = value;
+            const flatKey = `${section}.${key}`;
+            if (scope === 'global') {
+                this.globalSettings[flatKey] = value;
+                this.pruneLocalOverride(flatKey);
+                continue;
+            }
+
+            if (this.valuesEqual(value, this.getInheritedValue(flatKey))) {
+                delete this.localSettings[flatKey];
+            } else {
+                this.localSettings[flatKey] = value;
+            }
         }
-        await this._persist();
+        await this._persist(scope);
+        if (scope === 'global') {
+            await this._persist('local');
+        }
     }
 
     /**
      * Return all settings as a flat-key map, with defaults filled in for any
      * key that is present in UNIFIED_DEFAULTS but missing from the loaded file.
      */
-    getAll(): Record<string, unknown> {
-        return { ...UNIFIED_DEFAULTS, ...this.settings };
+    getAll(view: SettingsView = 'effective'): Record<string, unknown> {
+        if (view === 'global') {
+            return { ...this.globalSettings };
+        }
+
+        if (view === 'local') {
+            return { ...this.localSettings };
+        }
+
+        return { ...UNIFIED_DEFAULTS, ...this.globalSettings, ...this.localSettings };
+    }
+
+    getGlobalSettings(): Record<string, unknown> {
+        return this.getAll('global');
+    }
+
+    getLocalOverrides(): Record<string, unknown> {
+        return this.getAll('local');
     }
 
     // ---------------------------------------------------------------------------
@@ -305,45 +348,53 @@ export class UnifiedSettingsService {
      * @param callback Invoked when the file changes.
      */
     onDidChange(callback: () => void): IDisposable {
-        if (!this.settingsPath) {
+        const watchPaths = [this.globalSettingsPath, this.localSettingsPath]
+            .filter((watchPath): watchPath is string => Boolean(watchPath));
+
+        if (watchPaths.length === 0) {
             return { dispose: () => {} };
         }
-
-        const watchPath = this.settingsPath;
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        let watcher: fs.FSWatcher;
+        const createdWatchers: fs.FSWatcher[] = [];
 
-        try {
-            watcher = fs.watch(
-                watchPath,
-                { persistent: false },
-                (_event: string) => {
-                    if (debounceTimer !== null) {
-                        clearTimeout(debounceTimer);
+        for (const watchPath of watchPaths) {
+            try {
+                const watcher = fs.watch(
+                    watchPath,
+                    { persistent: false },
+                    (_event: string) => {
+                        if (debounceTimer !== null) {
+                            clearTimeout(debounceTimer);
+                        }
+                        debounceTimer = setTimeout(() => {
+                            debounceTimer = null;
+                            callback();
+                        }, 50);
                     }
-                    debounceTimer = setTimeout(() => {
-                        debounceTimer = null;
-                        callback();
-                    }, 50);
-                }
-            );
-        } catch {
-            // File does not exist yet – return a no-op disposable.
-            return { dispose: () => {} };
+                );
+                watcher.on('error', () => {});
+                this.watchers.push(watcher);
+                createdWatchers.push(watcher);
+            } catch {
+                // File does not exist yet – skip this watcher.
+            }
         }
 
-        watcher.on('error', () => {});
-        this.watchers.push(watcher);
+        if (createdWatchers.length === 0) {
+            return { dispose: () => {} };
+        }
 
         return {
             dispose: () => {
                 if (debounceTimer !== null) {
                     clearTimeout(debounceTimer);
                 }
-                watcher.close();
-                const idx = this.watchers.indexOf(watcher);
-                if (idx !== -1) {
-                    this.watchers.splice(idx, 1);
+                for (const watcher of createdWatchers) {
+                    watcher.close();
+                    const idx = this.watchers.indexOf(watcher);
+                    if (idx !== -1) {
+                        this.watchers.splice(idx, 1);
+                    }
                 }
             },
         };
@@ -426,16 +477,77 @@ export class UnifiedSettingsService {
     /**
      * Serialise in-memory flat-key settings to nested YAML and write atomically.
      */
-    private async _persist(): Promise<void> {
-        if (!this.settingsPath) {
+    private async _persist(scope: SettingsScope): Promise<void> {
+        const settingsPath = scope === 'global' ? this.globalSettingsPath : this.localSettingsPath;
+        const settings = scope === 'global' ? this.globalSettings : this.localSettings;
+
+        if (!settingsPath) {
             throw new Error('UnifiedSettingsService: settingsPath is not set');
         }
 
-        await ensureDir(path.dirname(this.settingsPath));
+        if (Object.keys(settings).length === 0) {
+            await fsPromises.unlink(settingsPath).catch(() => {});
+            return;
+        }
+
+        await ensureDir(path.dirname(settingsPath));
 
         // Build nested object from the flat-key settings.
-        const nested = flatToNested(this.settings);
+        const nested = flatToNested(settings);
         const yaml = yamlStringify(nested);
-        await atomicWrite(this.settingsPath, yaml);
+        await atomicWrite(settingsPath, yaml);
+    }
+
+    private async readSettingsFile(settingsPath: string): Promise<Record<string, unknown>> {
+        try {
+            const content = await fsPromises.readFile(settingsPath, 'utf-8');
+            const parsed = yamlParse(content) as Record<string, unknown> | null;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return nestedToFlat(parsed);
+            }
+            return {};
+        } catch (err: unknown) {
+            if (
+                err instanceof Error &&
+                'code' in err &&
+                (err as NodeJS.ErrnoException).code === 'ENOENT'
+            ) {
+                return {};
+            }
+            throw err;
+        }
+    }
+
+    private getInheritedValue(flatKey: string): unknown {
+        if (flatKey in this.globalSettings) {
+            return this.globalSettings[flatKey];
+        }
+        return UNIFIED_DEFAULTS[flatKey];
+    }
+
+    private getValueForView(flatKey: string, view: SettingsView): unknown {
+        if (view === 'local') {
+            return this.localSettings[flatKey];
+        }
+
+        if (view === 'global') {
+            return this.globalSettings[flatKey];
+        }
+
+        if (flatKey in this.localSettings) {
+            return this.localSettings[flatKey];
+        }
+
+        return this.globalSettings[flatKey];
+    }
+
+    private pruneLocalOverride(flatKey: string): void {
+        if (flatKey in this.localSettings && this.valuesEqual(this.localSettings[flatKey], this.getInheritedValue(flatKey))) {
+            delete this.localSettings[flatKey];
+        }
+    }
+
+    private valuesEqual(a: unknown, b: unknown): boolean {
+        return JSON.stringify(a) === JSON.stringify(b);
     }
 }

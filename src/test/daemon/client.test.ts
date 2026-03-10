@@ -910,6 +910,18 @@ suite('DaemonClient', () => {
                 await helper.close();
             }
         });
+
+        test('Given scope=global, when getAllConfig() is called, then the scope query param is included', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { config: {}, scope: 'global' } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getAllConfig('global');
+
+                assert.strictEqual(helper.captured[0].url, '/api/v1/config?scope=global');
+            } finally {
+                await helper.close();
+            }
+        });
     });
 
     suite('getConfig()', () => {
@@ -920,6 +932,18 @@ suite('DaemonClient', () => {
                 await client.getConfig('lanes.agent/name');
 
                 assert.strictEqual(helper.captured[0].url, '/api/v1/config/lanes.agent%2Fname');
+            } finally {
+                await helper.close();
+            }
+        });
+
+        test('Given scope=local, when getConfig() is called, then the scope query param is included', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { value: 'claude', scope: 'local' } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getConfig('lanes.defaultAgent', 'local');
+
+                assert.strictEqual(helper.captured[0].url, '/api/v1/config/lanes.defaultAgent?scope=local');
             } finally {
                 await helper.close();
             }
@@ -936,6 +960,18 @@ suite('DaemonClient', () => {
                 assert.strictEqual(helper.captured[0].method, 'PUT');
                 assert.strictEqual(helper.captured[0].url, '/api/v1/config/agentName');
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { value: 'claude' });
+            } finally {
+                await helper.close();
+            }
+        });
+
+        test('Given scope=global, when setConfig() is called, then PUT body includes scope', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { success: true, scope: 'global' } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.setConfig('agentName', 'claude', 'global');
+
+                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { value: 'claude', scope: 'global' });
             } finally {
                 await helper.close();
             }

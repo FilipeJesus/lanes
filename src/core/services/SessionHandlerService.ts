@@ -55,6 +55,7 @@ import { IHandlerContext } from '../interfaces/IHandlerContext';
 import { validateSessionName as coreValidateSessionName, validateComparisonRef } from '../validation';
 import { generateInsights, formatInsightsReport, SessionInsights } from './InsightsService';
 import { analyzeInsights } from './InsightsAnalyzer';
+import type { SettingsScope, SettingsView } from './UnifiedSettingsService';
 
 const MAX_SESSION_FORM_ATTACHMENTS = 20;
 const MAX_PROMPT_IMPROVE_STDOUT = 1024 * 1024;
@@ -411,6 +412,26 @@ export class SessionHandlerService {
         if (path.isAbsolute(pattern) || pattern.split(/[\\/]/).includes('..')) {
             throw new Error('Watch pattern must be relative and must not traverse parent directories');
         }
+    }
+
+    private parseConfigView(scope: unknown): SettingsView {
+        if (scope === undefined || scope === null || scope === '') {
+            return 'effective';
+        }
+        if (scope === 'effective' || scope === 'global' || scope === 'local') {
+            return scope;
+        }
+        throw new JsonRpcHandlerError(-32602, 'Invalid config scope. Valid scopes: effective, global, local');
+    }
+
+    private parseConfigWriteScope(scope: unknown): SettingsScope {
+        if (scope === undefined || scope === null || scope === '') {
+            return 'local';
+        }
+        if (scope === 'global' || scope === 'local') {
+            return scope;
+        }
+        throw new JsonRpcHandlerError(-32602, 'Invalid config write scope. Valid scopes: global, local');
     }
 
     private async resolveWorkflowPath(workflowNameOrPath: string): Promise<string | null> {
@@ -1193,6 +1214,7 @@ export class SessionHandlerService {
 
     async handleConfigGet(params: Record<string, unknown>): Promise<unknown> {
         const key = params.key as string;
+        const scope = this.parseConfigView(params.scope);
 
         if (!key) {
             throw new Error('Missing required parameter: key');
@@ -1205,30 +1227,35 @@ export class SessionHandlerService {
             );
         }
 
-        const value = this.ctx.config.get(key);
-        return { value: value ?? null };
+        const value = this.ctx.config.get(key, scope);
+        return { value: value ?? null, scope };
     }
 
     async handleConfigSet(params: Record<string, unknown>): Promise<unknown> {
         const key = params.key as string;
         const value = params.value;
+        const scope = this.parseConfigWriteScope(params.scope);
 
         if (!key || value === undefined) {
             throw new Error('Missing required parameters: key and value');
         }
 
         if (!VALID_CONFIG_KEYS.includes(key)) {
-            throw new Error(`Unknown configuration key: ${key}`);
+            throw new JsonRpcHandlerError(
+                -32602,
+                `Invalid config key: ${key}. Valid keys: ${VALID_CONFIG_KEYS.join(', ')}`
+            );
         }
 
-        await this.ctx.config.set(key, value);
-        return { success: true };
+        await this.ctx.config.set(key, value, scope);
+        return { success: true, scope };
     }
 
     async handleConfigGetAll(params: Record<string, unknown>): Promise<unknown> {
         const prefix = params.prefix as string | undefined;
-        const config = this.ctx.config.getAll(prefix);
-        return { config };
+        const scope = this.parseConfigView(params.scope);
+        const config = this.ctx.config.getAll(prefix, scope);
+        return { config, scope };
     }
 
     // ---------------------------------------------------------------------------

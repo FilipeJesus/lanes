@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import { initCli, exitWithError } from '../utils';
-import { UnifiedSettingsService } from '../../core/services/UnifiedSettingsService';
+import { SettingsScope, SettingsView, UnifiedSettingsService } from '../../core/services/UnifiedSettingsService';
 import { getErrorMessage } from '../../core/utils';
 
 const VALID_KEYS = [
@@ -25,9 +25,11 @@ export function registerConfigCommand(program: Command): void {
         .option('--key <key>', 'Configuration key to get or set')
         .option('--value <value>', 'Value to set (omit to get current value)')
         .option('--list', 'List all configuration values')
+        .option('--scope <scope>', 'Configuration scope: effective, global, or local', 'effective')
         .action(async (options) => {
             try {
                 const { repoRoot } = await initCli();
+                const view = parseConfigView(options.scope);
 
                 // Build a dedicated UnifiedSettingsService for this invocation.
                 const service = new UnifiedSettingsService();
@@ -36,12 +38,12 @@ export function registerConfigCommand(program: Command): void {
 
                 if (options.list || (!options.key && !options.value)) {
                     // List all config
-                    console.log('Configuration (.lanes/settings.yaml):');
+                    console.log(`Configuration (${describeScope(view)}):`);
                     console.log('');
-                    const all = service.getAll();
+                    const all = service.getAll(view);
                     for (const key of VALID_KEYS) {
                         const flatKey = `lanes.${key}`;
-                        const value = all[flatKey] ?? service.get('lanes', key, '(default)');
+                        const value = all[flatKey] ?? service.getForView('lanes', key, '(default)', view);
                         console.log(`  ${key}: ${JSON.stringify(value)}`);
                     }
                     service.dispose();
@@ -58,9 +60,14 @@ export function registerConfigCommand(program: Command): void {
                     exitWithError(`Unknown key '${options.key}'. Valid keys: ${VALID_KEYS.join(', ')}`);
                 }
 
+                if (options.value !== undefined && view === 'effective') {
+                    service.dispose();
+                    exitWithError('Use --scope global or --scope local when setting a value.');
+                }
+
                 if (options.value === undefined) {
                     // Get single value
-                    const value = service.get('lanes', options.key, null);
+                    const value = service.getForView('lanes', options.key, null, view);
                     console.log(JSON.stringify(value));
                     service.dispose();
                     return;
@@ -74,13 +81,30 @@ export function registerConfigCommand(program: Command): void {
                     parsedValue = Number(options.value);
                 }
 
-                await service.set('lanes', options.key, parsedValue);
+                await service.set('lanes', options.key, parsedValue, view as SettingsScope);
                 service.dispose();
 
-                console.log(`Set ${options.key} = ${JSON.stringify(parsedValue)}`);
+                console.log(`Set ${options.key} = ${JSON.stringify(parsedValue)} (${describeScope(view)})`);
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') { throw err; }
                 exitWithError(getErrorMessage(err));
             }
         });
+}
+
+function parseConfigView(scope: unknown): SettingsView {
+    if (scope === 'effective' || scope === 'global' || scope === 'local') {
+        return scope;
+    }
+    exitWithError('Invalid --scope value. Valid scopes: effective, global, local');
+}
+
+function describeScope(scope: SettingsView): string {
+    if (scope === 'global') {
+        return '~/.lanes/settings.yaml';
+    }
+    if (scope === 'local') {
+        return '.lanes/settings.yaml overrides';
+    }
+    return 'effective merged view';
 }

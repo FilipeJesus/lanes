@@ -531,7 +531,7 @@ suite('daemon router', () => {
     // router-config-get
     // -------------------------------------------------------------------------
 
-    test('Given GET /api/v1/config/lanes.defaultAgent with valid auth, when called, then it delegates to handleConfigGet with { key: "lanes.defaultAgent" }', async () => {
+    test('Given GET /api/v1/config/lanes.defaultAgent with valid auth, when called, then it delegates to handleConfigGet with key and scope', async () => {
         // Arrange
         handlerService.handleConfigGet.resolves({ value: 'claude' });
 
@@ -546,6 +546,22 @@ suite('daemon router', () => {
         assert.ok(handlerService.handleConfigGet.calledOnce, 'handleConfigGet should be called once');
         assert.deepStrictEqual(handlerService.handleConfigGet.firstCall.args[0], {
             key: 'lanes.defaultAgent',
+            scope: undefined,
+        });
+    });
+
+    test('Given GET /api/v1/config/lanes.defaultAgent?scope=global with valid auth, when called, then it forwards the scope', async () => {
+        handlerService.handleConfigGet.resolves({ value: 'claude', scope: 'global' });
+
+        const res = await makeRequest(server, {
+            path: '/api/v1/config/lanes.defaultAgent?scope=global',
+            headers: { Authorization: BEARER },
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.deepStrictEqual(handlerService.handleConfigGet.firstCall.args[0], {
+            key: 'lanes.defaultAgent',
+            scope: 'global',
         });
     });
 
@@ -568,6 +584,7 @@ suite('daemon router', () => {
         const calledWith = handlerService.handleConfigSet.firstCall.args[0] as Record<string, unknown>;
         assert.strictEqual(calledWith.key, 'lanes.defaultAgent');
         assert.strictEqual(calledWith.value, 'codex');
+        assert.strictEqual(calledWith.scope, undefined);
     });
 
     // -------------------------------------------------------------------------

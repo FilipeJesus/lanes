@@ -7,15 +7,26 @@ import { UnifiedSettingsService, UNIFIED_DEFAULTS } from '../core/services/Unifi
 
 suite('UnifiedSettingsService', () => {
     let tempDir: string;
+    let tempHomeDir: string;
+    let originalHome: string | undefined;
     let service: UnifiedSettingsService;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-unified-settings-test-'));
+        tempHomeDir = path.join(tempDir, 'home');
+        fs.mkdirSync(tempHomeDir, { recursive: true });
+        originalHome = process.env.HOME;
+        process.env.HOME = tempHomeDir;
         service = new UnifiedSettingsService();
     });
 
     teardown(() => {
         service.dispose();
+        if (originalHome === undefined) {
+            delete process.env.HOME;
+        } else {
+            process.env.HOME = originalHome;
+        }
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -52,6 +63,52 @@ suite('UnifiedSettingsService', () => {
     // -------------------------------------------------------------------------
 
     suite('load() parses settings.yaml and get() returns correct values', () => {
+        test('scope-specific reads do not fall back to defaults when that scope has no explicit value', async () => {
+            await service.load(tempDir);
+
+            assert.strictEqual(service.getForView('lanes', 'defaultAgent', null, 'global'), null);
+            assert.strictEqual(service.getForView('lanes', 'defaultAgent', null, 'local'), null);
+            assert.strictEqual(service.getForView('lanes', 'defaultAgent', null, 'effective'), 'claude');
+        });
+
+        test('returns value from global settings when local override is absent', async () => {
+            const globalLanesDir = path.join(tempHomeDir, '.lanes');
+            fs.mkdirSync(globalLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(globalLanesDir, 'settings.yaml'),
+                'lanes:\n  worktreesFolder: global-worktrees\n',
+                'utf-8'
+            );
+
+            await service.load(tempDir);
+            const result = service.get('lanes', 'worktreesFolder', '.worktrees');
+
+            assert.strictEqual(result, 'global-worktrees');
+        });
+
+        test('returns local override when both global and local settings define a key', async () => {
+            const globalLanesDir = path.join(tempHomeDir, '.lanes');
+            fs.mkdirSync(globalLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(globalLanesDir, 'settings.yaml'),
+                'lanes:\n  worktreesFolder: global-worktrees\n',
+                'utf-8'
+            );
+
+            const localLanesDir = path.join(tempDir, '.lanes');
+            fs.mkdirSync(localLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(localLanesDir, 'settings.yaml'),
+                'lanes:\n  worktreesFolder: local-worktrees\n',
+                'utf-8'
+            );
+
+            await service.load(tempDir);
+            const result = service.get('lanes', 'worktreesFolder', '.worktrees');
+
+            assert.strictEqual(result, 'local-worktrees');
+        });
+
         test('returns value from settings.yaml for lanes.worktreesFolder', async () => {
             // Given: A settings.yaml with lanes.worktreesFolder set to 'custom'
             const lanesDir = path.join(tempDir, '.lanes');
@@ -94,6 +151,20 @@ suite('UnifiedSettingsService', () => {
     // -------------------------------------------------------------------------
 
     suite('set() writes values to settings.yaml in correct nested YAML format', () => {
+        test('global scoped set writes to the machine-wide settings file', async () => {
+            await service.load(tempDir);
+
+            await service.set('lanes', 'worktreesFolder', 'global-worktrees', 'global');
+
+            const settingsPath = path.join(tempHomeDir, '.lanes', 'settings.yaml');
+            assert.ok(fs.existsSync(settingsPath), 'global settings.yaml should be created');
+
+            const content = fs.readFileSync(settingsPath, 'utf-8');
+            const parsed = yamlParse(content) as Record<string, unknown>;
+            const lanes = parsed['lanes'] as Record<string, unknown>;
+            assert.strictEqual(lanes['worktreesFolder'], 'global-worktrees');
+        });
+
         test('creates settings.yaml with nested YAML structure', async () => {
             // Given: A repo root with no existing settings.yaml
             await service.load(tempDir);
@@ -151,6 +222,42 @@ suite('UnifiedSettingsService', () => {
             assert.ok(polling !== null && typeof polling === 'object', 'Should have nested polling key');
             assert.strictEqual(polling['quietThresholdMs'], 5000);
         });
+
+        test('local set removes the override file entry when the value matches inherited global config', async () => {
+            const globalLanesDir = path.join(tempHomeDir, '.lanes');
+            fs.mkdirSync(globalLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(globalLanesDir, 'settings.yaml'),
+                'lanes:\n  worktreesFolder: shared-worktrees\n',
+                'utf-8'
+            );
+
+            await service.load(tempDir);
+            await service.set('lanes', 'worktreesFolder', 'shared-worktrees');
+
+            const settingsPath = path.join(tempDir, '.lanes', 'settings.yaml');
+            assert.ok(!fs.existsSync(settingsPath), 'local override file should be omitted when no overrides remain');
+            assert.strictEqual(service.get('lanes', 'worktreesFolder', '.worktrees'), 'shared-worktrees');
+        });
+
+        test('global setMany persists pruning when a matching local override becomes redundant', async () => {
+            const localLanesDir = path.join(tempDir, '.lanes');
+            fs.mkdirSync(localLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(localLanesDir, 'settings.yaml'),
+                'lanes:\n  worktreesFolder: local-worktrees\n',
+                'utf-8'
+            );
+
+            await service.load(tempDir);
+            await service.setMany([
+                { section: 'lanes', key: 'worktreesFolder', value: 'local-worktrees' },
+            ], 'global');
+
+            const settingsPath = path.join(tempDir, '.lanes', 'settings.yaml');
+            assert.ok(!fs.existsSync(settingsPath), 'redundant local override should be removed from disk');
+            assert.strictEqual(service.get('lanes', 'worktreesFolder', '.worktrees'), 'local-worktrees');
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -191,6 +298,30 @@ suite('UnifiedSettingsService', () => {
             // Other UNIFIED_DEFAULTS values should still be present
             assert.strictEqual(all['lanes.defaultAgent'], UNIFIED_DEFAULTS['lanes.defaultAgent']);
             assert.strictEqual(all['lanes.polling.quietThresholdMs'], UNIFIED_DEFAULTS['lanes.polling.quietThresholdMs']);
+        });
+
+        test('includes global settings and overlays them with local overrides', async () => {
+            const globalLanesDir = path.join(tempHomeDir, '.lanes');
+            fs.mkdirSync(globalLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(globalLanesDir, 'settings.yaml'),
+                'lanes:\n  defaultAgent: codex\n  promptsFolder: global-prompts\n',
+                'utf-8'
+            );
+
+            const localLanesDir = path.join(tempDir, '.lanes');
+            fs.mkdirSync(localLanesDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(localLanesDir, 'settings.yaml'),
+                'lanes:\n  defaultAgent: gemini\n',
+                'utf-8'
+            );
+
+            await service.load(tempDir);
+            const all = service.getAll();
+
+            assert.strictEqual(all['lanes.defaultAgent'], 'gemini');
+            assert.strictEqual(all['lanes.promptsFolder'], 'global-prompts');
         });
     });
 

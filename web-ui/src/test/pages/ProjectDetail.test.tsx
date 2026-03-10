@@ -134,4 +134,15 @@ describe('ProjectDetail', () => {
 
         expect(screen.getByRole('dialog', { name: /create session/i })).toBeInTheDocument();
     });
+
+    it('Given a project page, then a Settings link is rendered for the project', () => {
+        setupDefaultMocks([]);
+
+        renderProjectDetail('project-123');
+
+        expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute(
+            'href',
+            '/project/project-123/settings',
+        );
+    });
 });
