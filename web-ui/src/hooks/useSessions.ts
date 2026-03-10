@@ -122,10 +122,14 @@ export function useSessions(
             },
         };
 
-        sseClient.setCallbacks(callbacks);
+        const unsubscribe = sseClient.subscribe?.(callbacks);
+        if (!unsubscribe) {
+            sseClient.setCallbacks(callbacks);
+        }
         sseClient.connect();
 
         return () => {
+            unsubscribe?.();
             sseClient.disconnect();
         };
     }, [sseClient]);

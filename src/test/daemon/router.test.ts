@@ -1048,8 +1048,9 @@ suite('daemon router', () => {
 
     test('Given GET /api/v1/discovery with valid auth and a known git remote, when called, then it returns the expected discovery shape', async () => {
         // Arrange
-        const gitRemoteUrl = 'https://github.com/example/test-workspace.git';
-        const execGitStub = sinon.stub(gitService, 'execGit').resolves(gitRemoteUrl + '\n');
+        const gitRemoteUrlWithCreds = 'https://alice:secret-token@github.com/example/test-workspace.git';
+        const expectedSanitizedRemote = 'https://github.com/example/test-workspace.git';
+        const execGitStub = sinon.stub(gitService, 'execGit').resolves(gitRemoteUrlWithCreds + '\n');
         handlerService.handleSessionList.resolves({ sessions: [{ name: 'session-a' }, { name: 'session-b' }] });
 
         // Act
@@ -1063,12 +1064,13 @@ suite('daemon router', () => {
         assert.strictEqual(res.status, 200);
         const body = res.body as Record<string, unknown>;
         assert.strictEqual(body.projectName, path.basename('/test/workspace'), 'projectName should be the workspace directory name');
-        assert.strictEqual(body.gitRemote, gitRemoteUrl, 'gitRemote should be the trimmed remote URL');
+        assert.strictEqual(body.gitRemote, expectedSanitizedRemote, 'gitRemote should be sanitized to remove embedded credentials');
         assert.strictEqual(body.sessionCount, 2, 'sessionCount should reflect the number of sessions');
         assert.strictEqual(typeof body.uptime, 'number', 'uptime should be a number');
         assert.ok((body.uptime as number) >= 0, 'uptime should be non-negative');
         assert.strictEqual(body.workspaceRoot, '/test/workspace', 'workspaceRoot should match the context workspaceRoot');
         assert.ok(typeof body.port === 'number', 'port should be a number');
+        assert.strictEqual(body.apiVersion, '1', 'apiVersion should match the daemon API version');
     });
 
     test('Given GET /api/v1/discovery without an Authorization header, when called, then it returns 401', async () => {

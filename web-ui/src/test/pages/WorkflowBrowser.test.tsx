@@ -168,8 +168,9 @@ describe('WorkflowBrowser', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient: null,
             sseClient: null,
+            daemonInfo: null,
             loading: false,
-            error: new Error('No port provided'),
+            error: null,
         });
 
         renderWithPort(null);

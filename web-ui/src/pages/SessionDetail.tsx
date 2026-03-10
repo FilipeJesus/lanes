@@ -74,7 +74,7 @@ export function SessionDetail() {
     const { port, name } = useParams<{ port: string; name: string }>();
     const portNum = port ? parseInt(port, 10) : undefined;
 
-    const { apiClient, sseClient, loading: connectionLoading, error: connectionError } =
+    const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(portNum);
 
     const [session, setSession] = useState<SessionInfo | null>(null);
@@ -206,10 +206,14 @@ export function SessionDetail() {
             },
         };
 
-        sseClient.setCallbacks(callbacks);
+        const unsubscribe = sseClient.subscribe?.(callbacks);
+        if (!unsubscribe) {
+            sseClient.setCallbacks(callbacks);
+        }
         sseClient.connect();
 
         return () => {
+            unsubscribe?.();
             sseClient.disconnect();
         };
     }, [sseClient, name, decodedName]);
@@ -297,7 +301,7 @@ export function SessionDetail() {
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
                         <Link to={`/project/${port}`} className={styles.breadcrumbLink}>
-                            Port {port}
+                            {daemonInfo?.projectName ?? `Port ${port}`}
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
                         <span>{decodedName}</span>

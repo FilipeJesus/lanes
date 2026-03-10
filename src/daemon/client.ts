@@ -28,9 +28,7 @@ import type { TerminalOutputData } from '../core/interfaces/ITerminalIOProvider'
  * Error thrown by DaemonClient when the daemon returns a non-400 HTTP error.
  */
 export class DaemonHttpError extends LanesError {
-    // Note: 'config' is used because LanesError's kind union does not yet include
-    // an HTTP/network variant. This should be revisited when the union is extended.
-    public readonly kind = 'config' as const;
+    public readonly kind = 'http' as const;
 
     /** The HTTP status code that triggered this error. */
     public readonly statusCode: number;
@@ -220,6 +218,7 @@ export class DaemonClient {
         uptime: number;
         workspaceRoot: string;
         port: number;
+        apiVersion: string;
     }> {
         return this.request('GET', '/api/v1/discovery');
     }

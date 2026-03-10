@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useDaemonConnection } from '../../hooks/useDaemonConnection';
+import { useDaemonConnection, __resetDaemonConnectionCacheForTests } from '../../hooks/useDaemonConnection';
 import type { DaemonInfo } from '../../api/types';
 
 // ---------------------------------------------------------------------------
@@ -54,6 +54,7 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
 describe('useDaemonConnection', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        __resetDaemonConnectionCacheForTests();
     });
 
     afterEach(() => {
@@ -95,5 +96,46 @@ describe('useDaemonConnection', () => {
 
         expect(result.current.apiClient).toBeNull();
         expect(result.current.sseClient).toBeNull();
+    });
+
+    it('Given no port provided, when the hook runs, then no error is set and fetchDaemons is not called', async () => {
+        const { result } = renderHook(() => useDaemonConnection(undefined));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.error).toBeNull();
+        expect(vi.mocked(fetchDaemons)).not.toHaveBeenCalled();
+    });
+
+    it('Given a matching daemon, when the hook resolves, then daemonInfo is set', async () => {
+        vi.mocked(fetchDaemons).mockResolvedValue([makeDaemonInfo({ port: 3942, projectName: 'api-service' })]);
+
+        const { result } = renderHook(() => useDaemonConnection(3942));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.daemonInfo?.projectName).toBe('api-service');
+    });
+
+    it('Given two hook mounts for the same port, when the second mount occurs within cache TTL, then fetchDaemons is called once', async () => {
+        vi.mocked(fetchDaemons).mockResolvedValue([makeDaemonInfo({ port: 3942 })]);
+
+        const first = renderHook(() => useDaemonConnection(3942));
+        await waitFor(() => {
+            expect(first.result.current.loading).toBe(false);
+        });
+        first.unmount();
+
+        const second = renderHook(() => useDaemonConnection(3942));
+        await waitFor(() => {
+            expect(second.result.current.loading).toBe(false);
+        });
+        second.unmount();
+
+        expect(vi.mocked(fetchDaemons)).toHaveBeenCalledTimes(1);
     });
 });

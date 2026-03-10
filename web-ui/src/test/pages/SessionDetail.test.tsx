@@ -98,6 +98,7 @@ describe('SessionDetail', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient,
             sseClient: null,
+            daemonInfo: { projectName: 'payments-service' },
             loading: false,
             error: null,
         });
@@ -108,6 +109,25 @@ describe('SessionDetail', () => {
             // StatusBadge renders in header + content, so use getAllByLabelText
             const badges = screen.getAllByLabelText(/status: working/i);
             expect(badges.length).toBeGreaterThan(0);
+        });
+    });
+
+    it('Given daemon info with projectName, then breadcrumb shows the project name instead of raw port text', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            daemonInfo: { projectName: 'payments-service' },
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('3942', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: 'payments-service' })).toBeInTheDocument();
         });
     });
 

@@ -28,7 +28,7 @@ export function ProjectDetail() {
     const portNum = port ? parseInt(port, 10) : undefined;
 
     // Daemon connection (provides API client + SSE client)
-    const { apiClient, sseClient, loading: connectionLoading, error: connectionError } =
+    const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(portNum);
 
     // Session list with real-time updates
@@ -132,7 +132,7 @@ export function ProjectDetail() {
                             Projects
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
-                        <span>Port {port}</span>
+                        <span>{daemonInfo?.projectName ?? `Port ${port}`}</span>
                     </nav>
                     <h1 className={styles.title}>Sessions</h1>
                     {port && (

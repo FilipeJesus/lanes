@@ -188,3 +188,9 @@
         box-shadow: 0 0 0 4px rgba(56, 139, 253, 0);
     }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .dotCurrent {
+        animation: none;
+    }
+}

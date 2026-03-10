@@ -149,6 +149,25 @@ function parseBooleanParam(value: string | undefined): boolean {
     return value === 'true' || value === '1';
 }
 
+/**
+ * Remove embedded credentials from git remote URLs.
+ * Example: https://user:token@github.com/org/repo.git -> https://github.com/org/repo.git
+ */
+function sanitizeGitRemoteUrl(remote: string): string {
+    const trimmed = remote.trim();
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.username || parsed.password) {
+            parsed.username = '';
+            parsed.password = '';
+            return parsed.toString();
+        }
+    } catch {
+        // Non-URL forms like git@github.com:org/repo.git are returned unchanged.
+    }
+    return trimmed;
+}
+
 // ---------------------------------------------------------------------------
 // Route matching helpers
 // ---------------------------------------------------------------------------
@@ -245,7 +264,8 @@ export function createRouter(
             if (method === 'GET' && pathname === '/api/v1/discovery') {
                 let gitRemote: string | null = null;
                 try {
-                    gitRemote = (await execGit(['remote', 'get-url', 'origin'], context.workspaceRoot)).trim();
+                    const rawRemote = await execGit(['remote', 'get-url', 'origin'], context.workspaceRoot);
+                    gitRemote = sanitizeGitRemoteUrl(rawRemote);
                 } catch {
                     gitRemote = null;
                 }
@@ -262,6 +282,7 @@ export function createRouter(
                     uptime,
                     workspaceRoot: context.workspaceRoot,
                     port: context.port,
+                    apiVersion: DAEMON_API_VERSION,
                 });
                 return;
             }

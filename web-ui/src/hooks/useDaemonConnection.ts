@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { fetchDaemons } from '../api/gateway';
 import { DaemonApiClient } from '../api/client';
 import { DaemonSseClient } from '../api/sse';
+import type { DaemonInfo } from '../api/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +25,40 @@ export interface DaemonConnection {
     loading: boolean;
     /** Set when the gateway fetch fails or the port is not found */
     error: Error | null;
+    /** Matching daemon entry from gateway registry, if found */
+    daemonInfo: DaemonInfo | null;
+}
+
+// ---------------------------------------------------------------------------
+// Cache
+// ---------------------------------------------------------------------------
+
+const DAEMON_LIST_CACHE_TTL_MS = 30_000;
+let daemonListCache: { data: DaemonInfo[]; expiresAt: number } | null = null;
+let daemonListInFlight: Promise<DaemonInfo[]> | null = null;
+
+async function getDaemonsCached(): Promise<DaemonInfo[]> {
+    const now = Date.now();
+    if (daemonListCache !== null && daemonListCache.expiresAt > now) {
+        return daemonListCache.data;
+    }
+    if (daemonListInFlight !== null) {
+        return daemonListInFlight;
+    }
+    daemonListInFlight = fetchDaemons()
+        .then((data) => {
+            daemonListCache = { data, expiresAt: Date.now() + DAEMON_LIST_CACHE_TTL_MS };
+            return data;
+        })
+        .finally(() => {
+            daemonListInFlight = null;
+        });
+    return daemonListInFlight;
+}
+
+export function __resetDaemonConnectionCacheForTests(): void {
+    daemonListCache = null;
+    daemonListInFlight = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +76,7 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
     const [sseClient, setSseClient] = useState<DaemonSseClient | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    const [daemonInfo, setDaemonInfo] = useState<DaemonInfo | null>(null);
 
     // Keep refs so cleanup does not need to re-run when state changes
     const sseClientRef = useRef<DaemonSseClient | null>(null);
@@ -48,7 +84,10 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
     useEffect(() => {
         if (port === undefined) {
             setLoading(false);
-            setError(new Error('No port provided'));
+            setError(null);
+            setApiClient(null);
+            setSseClient(null);
+            setDaemonInfo(null);
             return;
         }
 
@@ -66,7 +105,7 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
             setError(null);
 
             try {
-                const daemons = await fetchDaemons();
+                const daemons = await getDaemonsCached();
                 if (cancelled) return;
 
                 const daemon = daemons.find((d) => d.port === portNum);
@@ -74,6 +113,7 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
                     setError(new Error(`No daemon running on port ${portNum}`));
                     setApiClient(null);
                     setSseClient(null);
+                    setDaemonInfo(null);
                     return;
                 }
 
@@ -90,11 +130,13 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
 
                 setApiClient(client);
                 setSseClient(sse);
+                setDaemonInfo(daemon);
             } catch (err) {
                 if (cancelled) return;
                 setError(err instanceof Error ? err : new Error(String(err)));
                 setApiClient(null);
                 setSseClient(null);
+                setDaemonInfo(null);
             } finally {
                 if (!cancelled) {
                     setLoading(false);
@@ -118,5 +160,5 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
         };
     }, []);
 
-    return { apiClient, sseClient, loading, error };
+    return { apiClient, sseClient, loading, error, daemonInfo };
 }

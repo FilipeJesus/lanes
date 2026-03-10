@@ -9,13 +9,14 @@
  * - 'validation': User input validation failures (see ValidationError)
  * - 'filesystem': File system operation failures (reserved for Phase 3)
  * - 'config': Configuration errors (reserved for Phase 4)
+ * - 'http': HTTP/network request failures (see DaemonHttpError)
  */
 export abstract class LanesError extends Error {
     /**
      * Error discriminator for type narrowing.
      * Use instanceof checks combined with kind property for precise error handling.
      */
-    public abstract readonly kind: 'git' | 'validation' | 'filesystem' | 'config';
+    public abstract readonly kind: 'git' | 'validation' | 'filesystem' | 'config' | 'http';
 
     /**
      * User-friendly error message suitable for display in VS Code UI.

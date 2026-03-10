@@ -48,6 +48,7 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
         uptime: 100,
         workspaceRoot: '/projects/my-app',
         port: 3942,
+        apiVersion: '1',
         ...overrides,
     };
 }

@@ -3,6 +3,10 @@ import { LanesError, GitError, ValidationError } from '../core/errors';
 
 suite('Error Handling', () => {
 
+    class HttpErrorForTest extends LanesError {
+        public readonly kind = 'http' as const;
+    }
+
     suite('GitError', () => {
 
         test('includes command and exit code', () => {
@@ -147,6 +151,12 @@ suite('Error Handling', () => {
                     assert.strictEqual(error.kind, 'validation');
                 }
             }
+        });
+
+        test('supports "http" kind for network/client errors', () => {
+            const error = new HttpErrorForTest('request failed', 'Could not reach daemon');
+            assert.strictEqual(error.kind, 'http');
+            assert.strictEqual(error.userMessage, 'Could not reach daemon');
         });
     });
 

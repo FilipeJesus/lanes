@@ -33,7 +33,7 @@ export function WorkflowBrowser() {
     const { port } = useParams<{ port?: string }>();
     const portNum = port ? parseInt(port, 10) : undefined;
 
-    const { apiClient, loading: connectionLoading, error: connectionError } =
+    const { apiClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(portNum);
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
@@ -85,7 +85,9 @@ export function WorkflowBrowser() {
                     )}
                     <h1 className={styles.title}>Workflows</h1>
                     {port && (
-                        <span className={styles.subtitle}>Port {port}</span>
+                        <span className={styles.subtitle}>
+                            {daemonInfo?.projectName ?? `Port ${port}`}
+                        </span>
                     )}
                 </div>
 

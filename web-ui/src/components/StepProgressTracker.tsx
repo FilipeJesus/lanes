@@ -11,6 +11,7 @@
  */
 
 import type { WorkflowStep } from '../api/types';
+import { getWorkflowTypeBadgeClass } from '../utils/workflowTypeBadge';
 import styles from '../styles/StepProgressTracker.module.css';
 
 // ---------------------------------------------------------------------------
@@ -45,19 +46,6 @@ function getStepState(
     if (completedSteps.includes(stepId)) return 'completed';
     if (stepId === currentStep) return 'current';
     return 'pending';
-}
-
-function getTypeBadgeClass(type: string): string {
-    switch (type.toLowerCase()) {
-        case 'loop':
-            return styles.typeBadgeLoop;
-        case 'ralph':
-            return styles.typeBadgeRalph;
-        case 'step':
-            return styles.typeBadgeStep;
-        default:
-            return styles.typeBadgeOther;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +125,7 @@ export function StepProgressTracker({
                                     <span className={stepIdClass}>{step.id}</span>
 
                                     <span
-                                        className={`${styles.typeBadge} ${getTypeBadgeClass(step.type)}`}
+                                        className={`${styles.typeBadge} ${getWorkflowTypeBadgeClass(step.type, styles)}`}
                                         title={`Step type: ${step.type}`}
                                     >
                                         {step.type}

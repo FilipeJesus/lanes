@@ -74,6 +74,7 @@ export class DaemonSseClient {
     private readonly maxReconnectAttempts: number;
 
     private callbacks: SseCallbacks;
+    private subscribers = new Set<SseCallbacks>();
     private abortController: AbortController | null = null;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private reconnectAttempts = 0;
@@ -85,13 +86,32 @@ export class DaemonSseClient {
         this.reconnectDelayMs = options.reconnectDelayMs ?? 3000;
         this.maxReconnectAttempts = options.maxReconnectAttempts ?? 0;
         this.callbacks = callbacks;
+        if (Object.keys(callbacks).length > 0) {
+            this.subscribers.add(callbacks);
+        }
     }
 
     /**
      * Update the SSE callbacks at any time.
+     * This replaces all current subscribers and keeps backward compatibility.
      */
     setCallbacks(callbacks: SseCallbacks): void {
         this.callbacks = callbacks;
+        this.subscribers.clear();
+        if (Object.keys(callbacks).length > 0) {
+            this.subscribers.add(callbacks);
+        }
+    }
+
+    /**
+     * Add a callback subscriber without replacing existing ones.
+     * Returns an unsubscribe function.
+     */
+    subscribe(callbacks: SseCallbacks): () => void {
+        this.subscribers.add(callbacks);
+        return () => {
+            this.subscribers.delete(callbacks);
+        };
     }
 
     /**
@@ -147,7 +167,7 @@ export class DaemonSseClient {
 
             // Connection established
             this.reconnectAttempts = 0;
-            this.callbacks.onConnected?.();
+            this.emit((callbacks) => callbacks.onConnected?.());
 
             // Read the SSE stream line by line
             const reader = res.body.getReader();
@@ -174,14 +194,14 @@ export class DaemonSseClient {
             const error = err instanceof Error ? err : new Error(String(err));
             // Don't report AbortError as an error — it's intentional
             if (error.name !== 'AbortError') {
-                this.callbacks.onError?.(error);
+                this.emit((callbacks) => callbacks.onError?.(error));
             }
         }
 
         // Reconnect unless stopped or max attempts reached
         if (!this.stopped) {
             if (this.maxReconnectAttempts > 0 && this.reconnectAttempts >= this.maxReconnectAttempts) {
-                this.callbacks.onError?.(new Error('SSE max reconnect attempts reached'));
+                this.emit((callbacks) => callbacks.onError?.(new Error('SSE max reconnect attempts reached')));
                 return;
             }
             this.reconnectAttempts++;
@@ -246,19 +266,37 @@ export class DaemonSseClient {
 
         switch (event) {
             case 'session_status_changed':
-                this.callbacks.onSessionStatusChanged?.(parsed as SseSessionStatusChangedPayload);
+                this.emit((callbacks) =>
+                    callbacks.onSessionStatusChanged?.(parsed as SseSessionStatusChangedPayload)
+                );
                 break;
             case 'file_changed':
-                this.callbacks.onFileChanged?.(parsed as SseFileChangedPayload);
+                this.emit((callbacks) =>
+                    callbacks.onFileChanged?.(parsed as SseFileChangedPayload)
+                );
                 break;
             case 'session_created':
-                this.callbacks.onSessionCreated?.(parsed as SseSessionCreatedPayload);
+                this.emit((callbacks) =>
+                    callbacks.onSessionCreated?.(parsed as SseSessionCreatedPayload)
+                );
                 break;
             case 'session_deleted':
-                this.callbacks.onSessionDeleted?.(parsed as SseSessionDeletedPayload);
+                this.emit((callbacks) =>
+                    callbacks.onSessionDeleted?.(parsed as SseSessionDeletedPayload)
+                );
                 break;
             default:
                 break;
         }
+    }
+
+    private emit(invoke: (callbacks: SseCallbacks) => void): void {
+        if (this.subscribers.size > 0) {
+            for (const subscriber of this.subscribers) {
+                invoke(subscriber);
+            }
+            return;
+        }
+        invoke(this.callbacks);
     }
 }

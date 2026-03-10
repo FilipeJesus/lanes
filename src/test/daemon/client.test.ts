@@ -343,6 +343,7 @@ suite('DaemonClient', () => {
                     uptime: 100,
                     workspaceRoot: '/tmp',
                     port: 1234,
+                    apiVersion: '1',
                 },
             }));
             try {
@@ -1055,6 +1056,7 @@ suite('DaemonClient error handling', () => {
 
             assert.ok(thrown instanceof DaemonHttpError, 'Should throw a DaemonHttpError for 401');
             assert.strictEqual((thrown as DaemonHttpError).statusCode, 401);
+            assert.strictEqual((thrown as DaemonHttpError).kind, 'http');
             assert.ok(
                 (thrown as DaemonHttpError).message.toLowerCase().includes('unauthorized'),
                 'Error message should contain auth-related text'

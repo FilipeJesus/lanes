@@ -6,24 +6,8 @@
  */
 
 import type { WorkflowInfo } from '../api/types';
+import { getWorkflowTypeBadgeClass } from '../utils/workflowTypeBadge';
 import styles from '../styles/WorkflowDetail.module.css';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getTypeBadgeClass(type: string): string {
-    switch (type.toLowerCase()) {
-        case 'loop':
-            return styles.typeBadgeLoop;
-        case 'ralph':
-            return styles.typeBadgeRalph;
-        case 'step':
-            return styles.typeBadgeStep;
-        default:
-            return styles.typeBadgeOther;
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -93,7 +77,7 @@ export function WorkflowDetail({ workflow }: WorkflowDetailProps) {
                                     </span>
                                     <span className={styles.stepId}>{step.id}</span>
                                     <span
-                                        className={`${styles.typeBadge} ${getTypeBadgeClass(step.type)}`}
+                                        className={`${styles.typeBadge} ${getWorkflowTypeBadgeClass(step.type, styles)}`}
                                         title={`Step type: ${step.type}`}
                                     >
                                         {step.type}

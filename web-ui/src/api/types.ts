@@ -68,6 +68,7 @@ export interface DiscoveryInfo {
     uptime: number;
     workspaceRoot: string;
     port: number;
+    apiVersion: string;
 }
 
 // ---------------------------------------------------------------------------
