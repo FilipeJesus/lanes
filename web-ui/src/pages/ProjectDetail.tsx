@@ -1,39 +1,33 @@
-/**
- * Project Detail page — shows sessions for a single registered project.
- * The :projectId URL param identifies which project to connect to.
- *
- * Features:
- * - Lists all sessions with real-time SSE status updates
- * - Create session dialog (fetches agents, workflows, branches from daemon)
- * - Pin / unpin sessions
- * - Delete session with confirmation dialog
- */
-
-import { useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDaemonConnection } from '../hooks/useDaemonConnection';
 import { useSessions } from '../hooks/useSessions';
-import { SessionCard } from '../components/SessionCard';
 import { CreateSessionDialog } from '../components/CreateSessionDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SessionDetailPanel } from '../components/SessionDetailPanel';
+import { StatusBadge } from '../components/StatusBadge';
 import { useProjectNotifications } from '../components/ProjectNotificationsProvider';
-import type { CreateSessionRequest } from '../api/types';
+import type { CreateSessionRequest, SessionInfo } from '../api/types';
 import { prepareSessionNotifications } from '../utils/sessionNotifications';
 import styles from '../styles/ProjectDetail.module.css';
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+function sortSessions(sessions: SessionInfo[]): SessionInfo[] {
+    return [...sessions].sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return a.name.localeCompare(b.name);
+    });
+}
 
 export function ProjectDetail() {
-    const { projectId } = useParams<{ projectId: string }>();
+    const { projectId, name } = useParams<{ projectId: string; name?: string }>();
+    const navigate = useNavigate();
     const notifications = useProjectNotifications();
+    const decodedName = name ? decodeURIComponent(name) : '';
 
-    // Daemon connection (provides API client + SSE client)
     const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(projectId);
 
-    // Session list with real-time updates
     const {
         sessions,
         loading: sessionsLoading,
@@ -49,7 +43,6 @@ export function ProjectDetail() {
         disableSessionNotifications,
     } = useSessions(apiClient, sseClient);
 
-    // UI state
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [pendingDeleteName, setPendingDeleteName] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -58,34 +51,64 @@ export function ProjectDetail() {
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [notificationError, setNotificationError] = useState<string | null>(null);
 
-    // ---------------------------------------------------------------------------
-    // Handlers
-    // ---------------------------------------------------------------------------
+    const isLoading = connectionLoading || sessionsLoading;
+    const error = connectionError ?? sessionsError;
+    const sortedSessions = sortSessions(sessions);
+    const firstSession = sortedSessions[0] ?? null;
+
+    useEffect(() => {
+        if (!projectId || isLoading || error || decodedName || !firstSession) {
+            return;
+        }
+
+        void navigate(`/project/${projectId}/session/${encodeURIComponent(firstSession.name)}`, {
+            replace: true,
+        });
+    }, [decodedName, error, firstSession, isLoading, navigate, projectId]);
 
     const handleCreate = useCallback(
         async (params: CreateSessionRequest) => {
             await createSession(params);
+
+            if (projectId) {
+                void navigate(`/project/${projectId}/session/${encodeURIComponent(params.name)}`);
+            }
         },
-        [createSession]
+        [createSession, navigate, projectId]
     );
 
-    const handleDeleteRequest = useCallback((name: string) => {
+    const handleDeleteRequest = useCallback((sessionName: string) => {
         setDeleteError(null);
-        setPendingDeleteName(name);
+        setPendingDeleteName(sessionName);
     }, []);
 
     const handleDeleteConfirm = useCallback(async () => {
         if (!pendingDeleteName) return;
+
         setIsDeleting(true);
         try {
             await deleteSession(pendingDeleteName);
+
+            if (projectId && pendingDeleteName === decodedName) {
+                const remaining = sortedSessions.filter((session) => session.name !== pendingDeleteName);
+
+                if (remaining[0]) {
+                    void navigate(
+                        `/project/${projectId}/session/${encodeURIComponent(remaining[0].name)}`,
+                        { replace: true }
+                    );
+                } else {
+                    void navigate(`/project/${projectId}`, { replace: true });
+                }
+            }
+
             setPendingDeleteName(null);
         } catch (err) {
             setDeleteError(err instanceof Error ? err.message : String(err));
         } finally {
             setIsDeleting(false);
         }
-    }, [pendingDeleteName, deleteSession]);
+    }, [decodedName, deleteSession, navigate, pendingDeleteName, projectId, sortedSessions]);
 
     const handleDeleteCancel = useCallback(() => {
         setPendingDeleteName(null);
@@ -93,10 +116,10 @@ export function ProjectDetail() {
     }, []);
 
     const handlePin = useCallback(
-        async (name: string) => {
-            setPendingPinName(name);
+        async (sessionName: string) => {
+            setPendingPinName(sessionName);
             try {
-                await pinSession(name);
+                await pinSession(sessionName);
             } finally {
                 setPendingPinName(null);
             }
@@ -105,10 +128,10 @@ export function ProjectDetail() {
     );
 
     const handleUnpin = useCallback(
-        async (name: string) => {
-            setPendingPinName(name);
+        async (sessionName: string) => {
+            setPendingPinName(sessionName);
             try {
-                await unpinSession(name);
+                await unpinSession(sessionName);
             } finally {
                 setPendingPinName(null);
             }
@@ -117,15 +140,15 @@ export function ProjectDetail() {
     );
 
     const handleEnableNotifications = useCallback(
-        async (name: string) => {
+        async (sessionName: string) => {
             setNotificationError(null);
-            setPendingNotificationName(name);
+            setPendingNotificationName(sessionName);
             try {
                 await prepareSessionNotifications(notifications);
-                await enableSessionNotifications(name);
-                const currentSession = sessions.find((session) => session.name === name);
+                await enableSessionNotifications(sessionName);
+                const currentSession = sessions.find((session) => session.name === sessionName);
                 notifications.syncSessionNotifications(
-                    name,
+                    sessionName,
                     true,
                     currentSession?.status ?? null
                 );
@@ -139,14 +162,14 @@ export function ProjectDetail() {
     );
 
     const handleDisableNotifications = useCallback(
-        async (name: string) => {
+        async (sessionName: string) => {
             setNotificationError(null);
-            setPendingNotificationName(name);
+            setPendingNotificationName(sessionName);
             try {
-                await disableSessionNotifications(name);
-                const currentSession = sessions.find((session) => session.name === name);
+                await disableSessionNotifications(sessionName);
+                const currentSession = sessions.find((session) => session.name === sessionName);
                 notifications.syncSessionNotifications(
-                    name,
+                    sessionName,
                     false,
                     currentSession?.status ?? null
                 );
@@ -159,23 +182,8 @@ export function ProjectDetail() {
         [disableSessionNotifications, notifications, sessions]
     );
 
-    // ---------------------------------------------------------------------------
-    // Render
-    // ---------------------------------------------------------------------------
-
-    const isLoading = connectionLoading || sessionsLoading;
-    const error = connectionError ?? sessionsError;
-
-    // Sort: pinned first, then by name
-    const sortedSessions = [...sessions].sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return a.name.localeCompare(b.name);
-    });
-
     return (
         <div className={styles.page}>
-            {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
                     <nav className={styles.breadcrumb} aria-label="Breadcrumb">
@@ -185,7 +193,7 @@ export function ProjectDetail() {
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
                         <span>{daemonInfo?.projectName ?? projectId}</span>
                     </nav>
-                    <h1 className={styles.title}>Sessions</h1>
+                    <h1 className={styles.title}>Session Workspace</h1>
                     {daemonInfo?.daemon?.port && (
                         <span className={styles.subtitle}>daemon @ localhost:{daemonInfo.daemon.port}</span>
                     )}
@@ -222,15 +230,6 @@ export function ProjectDetail() {
                 </div>
             </div>
 
-            {/* Loading */}
-            {isLoading && sessions.length === 0 && (
-                <div className={styles.loadingContainer} role="status" aria-label="Loading sessions">
-                    <div className={styles.spinner} aria-hidden="true" />
-                    <span>Loading sessions&hellip;</span>
-                </div>
-            )}
-
-            {/* Error */}
             {!isLoading && error && (
                 <div className={styles.errorBanner} role="alert">
                     <div>
@@ -240,7 +239,6 @@ export function ProjectDetail() {
                 </div>
             )}
 
-            {/* Delete error */}
             {deleteError && (
                 <div className={styles.errorBanner} role="alert">
                     <div>
@@ -259,68 +257,201 @@ export function ProjectDetail() {
                 </div>
             )}
 
-            {/* Session list */}
-            {!isLoading && !error && sortedSessions.length === 0 && (
-                <div className={styles.emptyState}>
-                    <div className={styles.emptyStateTitle}>No sessions yet</div>
-                    <p className={styles.emptyStateDescription}>
-                        Create your first session to start an isolated AI coding session in a new
-                        worktree.
-                    </p>
-                    {apiClient && (
-                        <button
-                            type="button"
-                            className={styles.primaryButton}
-                            onClick={() => setShowCreateDialog(true)}
-                        >
-                            + Create Session
-                        </button>
+            <div className={styles.workspace}>
+                <aside className={styles.sidebar} aria-label="Sessions navigation">
+                    <div className={styles.sidebarHeader}>
+                        <div>
+                            <div className={styles.sidebarEyebrow}>Sessions</div>
+                            <div className={styles.sidebarTitle}>
+                                {sortedSessions.length} {sortedSessions.length === 1 ? 'session' : 'sessions'}
+                            </div>
+                        </div>
+                        {apiClient && (
+                            <button
+                                type="button"
+                                className={styles.sidebarCreateButton}
+                                onClick={() => setShowCreateDialog(true)}
+                            >
+                                New
+                            </button>
+                        )}
+                    </div>
+
+                    {isLoading && sortedSessions.length === 0 && (
+                        <div className={styles.loadingContainer} role="status" aria-label="Loading sessions">
+                            <div className={styles.spinner} aria-hidden="true" />
+                            <span>Loading sessions&hellip;</span>
+                        </div>
                     )}
-                </div>
-            )}
 
-            {sortedSessions.length > 0 && (
-                <div>
-                    <div className={styles.toolbar}>
-                        <span className={styles.sessionCount}>
-                            {sortedSessions.length}{' '}
-                            {sortedSessions.length === 1 ? 'session' : 'sessions'}
-                        </span>
-                    </div>
+                    {!isLoading && !error && sortedSessions.length === 0 && (
+                        <div className={styles.emptyState}>
+                            <div className={styles.emptyStateTitle}>No sessions yet</div>
+                            <p className={styles.emptyStateDescription}>
+                                Create a session to start working from this daemon.
+                            </p>
+                        </div>
+                    )}
 
-                    <div className={styles.sessionList}>
-                        {sortedSessions.map((session) => (
-                            <SessionCard
-                                key={session.name}
-                                session={session}
-                                projectId={projectId ?? ''}
-                                onPin={(name) => void handlePin(name)}
-                                onUnpin={(name) => void handleUnpin(name)}
-                                onDelete={handleDeleteRequest}
-                                onEnableNotifications={(name) => void handleEnableNotifications(name)}
-                                onDisableNotifications={(name) => void handleDisableNotifications(name)}
-                                isPinPending={pendingPinName === session.name}
-                                isDeletePending={pendingDeleteName === session.name && isDeleting}
-                                isNotificationPending={pendingNotificationName === session.name}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
+                    {sortedSessions.length > 0 && (
+                        <ul className={styles.sessionList}>
+                            {sortedSessions.map((session) => {
+                                const isSelected = session.name === decodedName;
+                                const notificationEnabled = session.notificationsEnabled ?? false;
 
-            {/* Create session dialog */}
+                                return (
+                                    <li
+                                        key={session.name}
+                                        className={`${styles.sessionItem} ${
+                                            isSelected ? styles.sessionItemActive : ''
+                                        }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className={styles.sessionButton}
+                                            onClick={() => {
+                                                if (projectId) {
+                                                    void navigate(
+                                                        `/project/${projectId}/session/${encodeURIComponent(session.name)}`
+                                                    );
+                                                }
+                                            }}
+                                            aria-current={isSelected ? 'page' : undefined}
+                                        >
+                                            <div className={styles.sessionButtonTop}>
+                                                <span className={styles.sessionName}>{session.name}</span>
+                                                {session.isPinned && (
+                                                    <span className={styles.sessionPinned}>Pinned</span>
+                                                )}
+                                            </div>
+                                            <div className={styles.sessionMeta}>
+                                                <StatusBadge status={session.status?.status ?? 'idle'} />
+                                                <span className={styles.sessionBranch}>
+                                                    {session.branch || 'No branch'}
+                                                </span>
+                                            </div>
+                                            <div className={styles.sessionIndicators}>
+                                                <span className={styles.sessionIndicator}>
+                                                    {notificationEnabled ? 'Notifications on' : 'Notifications off'}
+                                                </span>
+                                                {session.workflowStatus?.active && (
+                                                    <span className={styles.sessionWorkflow}>
+                                                        {session.workflowStatus.step ?? session.workflowStatus.workflow}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+
+                                        <div className={styles.sessionActions}>
+                                            <button
+                                                type="button"
+                                                className={`${styles.iconButton} ${
+                                                    session.isPinned ? styles.iconButtonActive : ''
+                                                }`}
+                                                onClick={() =>
+                                                    void (session.isPinned
+                                                        ? handleUnpin(session.name)
+                                                        : handlePin(session.name))
+                                                }
+                                                disabled={pendingPinName === session.name}
+                                                aria-label={
+                                                    session.isPinned
+                                                        ? `Unpin session ${session.name}`
+                                                        : `Pin session ${session.name}`
+                                                }
+                                            >
+                                                {session.isPinned ? '\u2605' : '\u2606'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`${styles.iconButton} ${
+                                                    notificationEnabled ? styles.iconButtonActive : ''
+                                                }`}
+                                                onClick={() =>
+                                                    void (notificationEnabled
+                                                        ? handleDisableNotifications(session.name)
+                                                        : handleEnableNotifications(session.name))
+                                                }
+                                                disabled={pendingNotificationName === session.name}
+                                                aria-label={
+                                                    notificationEnabled
+                                                        ? `Disable notifications for session ${session.name}`
+                                                        : `Enable notifications for session ${session.name}`
+                                                }
+                                            >
+                                                {notificationEnabled ? '\u{1F514}' : '\u{1F515}'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={styles.iconButton}
+                                                onClick={() => handleDeleteRequest(session.name)}
+                                                disabled={pendingDeleteName === session.name && isDeleting}
+                                                aria-label={`Delete session ${session.name}`}
+                                            >
+                                                &#x1F5D1;
+                                            </button>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </aside>
+
+                <section className={styles.detailPane} aria-label="Selected session">
+                    {!isLoading && !error && sortedSessions.length === 0 && (
+                        <div className={styles.detailEmptyState}>
+                            <div className={styles.detailEmptyTitle}>No session selected</div>
+                            <p className={styles.detailEmptyDescription}>
+                                Create a session from the sidebar to populate the workspace.
+                            </p>
+                        </div>
+                    )}
+
+                    {sortedSessions.length > 0 && !decodedName && (
+                        <div className={styles.detailEmptyState}>
+                            <div className={styles.detailEmptyTitle}>Opening first session</div>
+                            <p className={styles.detailEmptyDescription}>
+                                Routing the workspace to the first available session.
+                            </p>
+                        </div>
+                    )}
+
+                    {decodedName && projectId && (
+                        <SessionDetailPanel
+                            projectId={projectId}
+                            sessionName={decodedName}
+                            apiClient={apiClient}
+                            sseClient={sseClient}
+                            daemonInfo={daemonInfo}
+                            connectionLoading={connectionLoading}
+                            connectionError={connectionError}
+                            subscribeToSse={false}
+                        />
+                    )}
+
+                    {decodedName && !sortedSessions.some((session) => session.name === decodedName) && !isLoading && !error && (
+                        <div className={styles.detailEmptyState}>
+                            <div className={styles.detailEmptyTitle}>Session not found</div>
+                            <p className={styles.detailEmptyDescription}>
+                                Choose an existing session from the left navigation.
+                            </p>
+                        </div>
+                    )}
+                </section>
+            </div>
+
             {apiClient && (
                 <CreateSessionDialog
-                isOpen={showCreateDialog}
-                apiClient={apiClient}
-                onClose={() => setShowCreateDialog(false)}
-                onCreate={handleCreate}
-                onImprovePrompt={improveSessionPrompt}
-                onUploadAttachments={uploadSessionAttachments}
-            />
-        )}
+                    isOpen={showCreateDialog}
+                    apiClient={apiClient}
+                    onClose={() => setShowCreateDialog(false)}
+                    onCreate={handleCreate}
+                    onImprovePrompt={improveSessionPrompt}
+                    onUploadAttachments={uploadSessionAttachments}
+                />
+            )}
 
-            {/* Delete confirmation dialog */}
             <ConfirmDialog
                 isOpen={pendingDeleteName !== null}
                 title="Delete Session"
