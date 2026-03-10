@@ -547,21 +547,37 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!(await fileExists(item.worktreePath))) {
+        if (!daemonClient && !(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
 
-        const workflowStatePath = path.join(item.worktreePath, 'workflow-state.json');
-        const resolvedPath = path.resolve(workflowStatePath);
-        const resolvedWorktreePath = path.resolve(item.worktreePath);
-
-        if (!resolvedPath.startsWith(resolvedWorktreePath)) {
-            vscode.window.showErrorMessage('Invalid workflow state path');
-            return;
-        }
-
         try {
+            if (daemonClient) {
+                const result = await daemonClient.getWorkflowState(item.label) as { state?: unknown } | undefined;
+                const state = result?.state ?? null;
+                if (!state) {
+                    vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state is created when a workflow is started.`);
+                    return;
+                }
+
+                const document = await vscode.workspace.openTextDocument({
+                    content: `${JSON.stringify(state, null, 2)}\n`,
+                    language: 'json',
+                });
+                await vscode.window.showTextDocument(document, { preview: false });
+                return;
+            }
+
+            const workflowStatePath = path.join(item.worktreePath, 'workflow-state.json');
+            const resolvedPath = path.resolve(workflowStatePath);
+            const resolvedWorktreePath = path.resolve(item.worktreePath);
+
+            if (!resolvedPath.startsWith(resolvedWorktreePath)) {
+                vscode.window.showErrorMessage('Invalid workflow state path');
+                return;
+            }
+
             if (!(await fileExists(workflowStatePath))) {
                 vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state file is created when a workflow is started.`);
                 return;
