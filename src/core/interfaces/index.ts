@@ -14,3 +14,4 @@ export type {
     IFileWatchManager,
     IHandlerContext,
 } from './IHandlerContext';
+export type { ITerminalIOProvider, TerminalOutputData } from './ITerminalIOProvider';

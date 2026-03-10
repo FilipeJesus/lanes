@@ -24,6 +24,7 @@ import { StepProgressTracker } from '../components/StepProgressTracker';
 import { WorkflowTaskList } from '../components/WorkflowTaskList';
 import { formatReviewForClipboard } from '../utils/reviewFormat';
 import type { ReviewComment } from '../utils/reviewFormat';
+import { TerminalView } from '../components/TerminalView';
 import type { SseCallbacks } from '../api/sse';
 import type { AgentSessionStatus, SessionInfo, WorktreeInfo, WorkflowState, WorkflowStep } from '../api/types';
 import styles from '../styles/SessionDetail.module.css';
@@ -63,7 +64,7 @@ function buildFallbackSteps(workflow: WorkflowState): WorkflowStep[] {
 // Tab type
 // ---------------------------------------------------------------------------
 
-type ActiveTab = 'changes' | 'insights';
+type ActiveTab = 'changes' | 'insights' | 'terminal';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -542,6 +543,17 @@ export function SessionDetail() {
                         >
                             Insights
                         </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            id="tab-terminal"
+                            aria-selected={activeTab === 'terminal'}
+                            aria-controls="tabpanel-terminal"
+                            className={`${styles.tabButton} ${activeTab === 'terminal' ? styles.tabButtonActive : ''}`}
+                            onClick={() => setActiveTab('terminal')}
+                        >
+                            Terminal
+                        </button>
                     </div>
 
                     {/* Changes tab */}
@@ -654,6 +666,16 @@ export function SessionDetail() {
                                 loading={insightsLoading}
                                 error={insightsError}
                                 onGenerate={refreshInsights}
+                            />
+                        </div>
+                    )}
+
+                    {/* Terminal tab */}
+                    {activeTab === 'terminal' && (
+                        <div role="tabpanel" id="tabpanel-terminal" aria-labelledby="tab-terminal">
+                            <TerminalView
+                                apiClient={apiClient}
+                                terminalName={session.data?.tmuxSessionName ?? decodedName}
                             />
                         </div>
                     )}

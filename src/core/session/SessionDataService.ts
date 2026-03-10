@@ -324,6 +324,19 @@ export async function saveSessionTerminalMode(worktreePath: string, terminal: 'c
     }
 }
 
+export async function saveSessionTmuxName(worktreePath: string, tmuxSessionName: string): Promise<void> {
+    const sessionPath = getSessionFilePath(worktreePath);
+    try {
+        await ensureDir(path.dirname(sessionPath));
+        let existingData: Record<string, unknown> = {};
+        const parsed = await readJson<Record<string, unknown>>(sessionPath);
+        if (parsed) { existingData = parsed; }
+        await writeJson(sessionPath, { ...existingData, tmuxSessionName });
+    } catch (err) {
+        console.warn('Lanes: Failed to save tmux session name:', err);
+    }
+}
+
 export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
     const sessionPath = await resolveSessionFilePath(worktreePath);
     try {

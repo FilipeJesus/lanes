@@ -31,9 +31,11 @@ import {
     saveSessionWorkflow,
     saveSessionPermissionMode,
     saveSessionTerminalMode,
+    saveSessionTmuxName,
 } from '../session/SessionDataService';
 import { ValidationError } from '../errors/ValidationError';
 import * as TmuxService from './TmuxService';
+import { TmuxTerminalIOProvider } from './TmuxTerminalIOProvider';
 import * as DiffService from './DiffService';
 import * as BrokenWorktreeService from './BrokenWorktreeService';
 import { discoverWorkflows } from '../workflow/discovery';
@@ -387,6 +389,7 @@ export class SessionHandlerService {
                         command: launch.command,
                     });
                     await saveSessionTerminalMode(worktreePath, 'tmux');
+                    await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
                     command = tmuxResult.attachCommand;
                 }
             } else {
@@ -990,6 +993,45 @@ export class SessionHandlerService {
             .map((name) => ({ name, sessionName: name }));
 
         return { terminals };
+    }
+
+    async handleTerminalOutput(params: Record<string, unknown>): Promise<unknown> {
+        const name = params.name as string;
+        validateTerminalName(name);
+
+        const provider = new TmuxTerminalIOProvider();
+        const outputData = await provider.readOutput(name);
+
+        return outputData;
+    }
+
+    async handleTerminalResize(params: Record<string, unknown>): Promise<unknown> {
+        const name = params.name as string;
+        validateTerminalName(name);
+
+        const cols = params.cols as number | undefined;
+        const rows = params.rows as number | undefined;
+
+        if (cols === undefined || rows === undefined) {
+            throw new Error('Missing required parameters: cols and rows');
+        }
+
+        if (typeof cols !== 'number' || typeof rows !== 'number') {
+            throw new Error('Parameters cols and rows must be numbers');
+        }
+
+        if (!Number.isInteger(cols) || !Number.isInteger(rows)) {
+            throw new Error('Parameters cols and rows must be integers');
+        }
+
+        if (cols < 1 || cols > 10000 || rows < 1 || rows > 10000) {
+            throw new Error('Parameters cols and rows must be between 1 and 10000');
+        }
+
+        const provider = new TmuxTerminalIOProvider();
+        await provider.resize(name, cols, rows);
+
+        return { success: true };
     }
 
     // ---------------------------------------------------------------------------

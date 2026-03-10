@@ -992,7 +992,7 @@ suite('DaemonClient', () => {
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
                 assert.strictEqual(helper.captured[0].url, '/api/v1/terminals/term-1/send');
-                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { command: 'ls -la' });
+                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { text: 'ls -la' });
             } finally {
                 await helper.close();
             }

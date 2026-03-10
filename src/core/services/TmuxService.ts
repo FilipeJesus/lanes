@@ -241,6 +241,125 @@ export async function launchInTmux(options: TmuxLaunchOptions): Promise<TmuxLaun
 	};
 }
 
+// ---------------------------------------------------------------------------
+// Terminal I/O helpers
+// ---------------------------------------------------------------------------
+
+export interface CapturePaneOptions {
+    /** Start line for scrollback capture (negative values go back in history, '-' means beginning of history). */
+    start?: number | '-';
+    /** End line for scrollback capture. */
+    end?: number;
+    /** When true, preserves ANSI escape sequences in the output. */
+    escapeSequences?: boolean;
+}
+
+/**
+ * Capture the current content of a tmux pane.
+ *
+ * @param sessionName The tmux session name
+ * @param options Optional capture options
+ * @returns The captured pane content as a string
+ */
+export async function capturePane(
+    sessionName: string,
+    options: CapturePaneOptions = {}
+): Promise<string> {
+    const args = ['capture-pane', '-p', '-t', sessionName];
+
+    if (options.escapeSequences) {
+        args.push('-e');
+    }
+
+    if (options.start !== undefined) {
+        args.push('-S', String(options.start));
+    }
+
+    if (options.end !== undefined) {
+        args.push('-E', String(options.end));
+    }
+
+    try {
+        const { stdout } = await execFileAsync('tmux', args, { timeout: TMUX_EXEC_TIMEOUT_MS });
+        return stdout;
+    } catch (err) {
+        throw new Error(
+            `Failed to capture pane for tmux session '${sessionName}': ${err instanceof Error ? err.message : String(err)}`
+        );
+    }
+}
+
+/**
+ * Get the current dimensions of a tmux pane.
+ *
+ * @param sessionName The tmux session name
+ * @returns Object with rows and cols
+ */
+export async function getPaneSize(
+    sessionName: string
+): Promise<{ rows: number; cols: number }> {
+    try {
+        const { stdout } = await execFileAsync(
+            'tmux',
+            ['display-message', '-p', '-t', sessionName, '#{pane_width} #{pane_height}'],
+            { timeout: TMUX_EXEC_TIMEOUT_MS }
+        );
+        const parts = stdout.trim().split(' ');
+        const cols = parseInt(parts[0] ?? '80', 10);
+        const rows = parseInt(parts[1] ?? '24', 10);
+        return {
+            cols: isNaN(cols) ? 80 : cols,
+            rows: isNaN(rows) ? 24 : rows,
+        };
+    } catch (err) {
+        throw new Error(
+            `Failed to get pane size for tmux session '${sessionName}': ${err instanceof Error ? err.message : String(err)}`
+        );
+    }
+}
+
+/**
+ * Resize a tmux window/pane.
+ *
+ * @param sessionName The tmux session name
+ * @param cols Number of columns
+ * @param rows Number of rows
+ */
+export async function resizePane(
+    sessionName: string,
+    cols: number,
+    rows: number
+): Promise<void> {
+    try {
+        await execFileAsync(
+            'tmux',
+            ['resize-window', '-t', sessionName, '-x', String(cols), '-y', String(rows)],
+            { timeout: TMUX_EXEC_TIMEOUT_MS }
+        );
+    } catch (err) {
+        throw new Error(
+            `Failed to resize pane for tmux session '${sessionName}': ${err instanceof Error ? err.message : String(err)}`
+        );
+    }
+}
+
+/**
+ * Send raw keys to a tmux session without appending Enter.
+ * Unlike sendCommand(), this sends the text exactly as-is.
+ *
+ * @param sessionName The session name
+ * @param keys The keys to send (no Enter appended)
+ */
+export async function sendKeys(sessionName: string, keys: string): Promise<void> {
+    try {
+        await execFileAsync('tmux', ['send-keys', '-t', sessionName, keys], { timeout: TMUX_EXEC_TIMEOUT_MS });
+    } catch (err) {
+        throw new Error(
+            `Failed to send keys to tmux session '${sessionName}': ${err instanceof Error ? err.message : String(err)}`
+        );
+    }
+}
+
 /**
  * List all active tmux sessions.
  * Returns an empty array if tmux is not running or no sessions exist.

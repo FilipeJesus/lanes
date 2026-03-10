@@ -35,6 +35,7 @@ export interface SessionData {
     agentName?: string;
     permissionMode?: string;
     terminal?: string;
+    tmuxSessionName?: string;
 }
 
 export interface SessionInfo {
@@ -210,6 +211,20 @@ export interface CreateTerminalResponse {
 
 export interface TerminalSendRequest {
     text: string;
+}
+
+export interface TerminalOutputData {
+    /** Terminal content (may include ANSI escape codes). */
+    content: string;
+    /** Number of terminal rows. */
+    rows: number;
+    /** Number of terminal columns. */
+    cols: number;
+}
+
+export interface TerminalResizeRequest {
+    cols: number;
+    rows: number;
 }
 
 // ---------------------------------------------------------------------------
