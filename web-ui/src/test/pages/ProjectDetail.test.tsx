@@ -29,6 +29,14 @@ vi.mock('../../hooks/useSessions', () => ({
     useSessions: () => mockUseSessions(),
 }));
 
+const mockSessionDetailPanel = vi.fn();
+vi.mock('../../components/SessionDetailPanel', () => ({
+    SessionDetailPanel: (props: { sessionName: string; subscribeToSse?: boolean }) => {
+        mockSessionDetailPanel(props);
+        return <div>Selected session: {props.sessionName}</div>;
+    },
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -75,16 +83,22 @@ function setupDefaultMocks(sessions: SessionInfo[] = []) {
         deleteSession: vi.fn(),
         pinSession: vi.fn(),
         unpinSession: vi.fn(),
+        enableSessionNotifications: vi.fn(),
+        disableSessionNotifications: vi.fn(),
     });
 
     return { apiClient };
 }
 
-function renderProjectDetail(projectId: string = 'project-123') {
+function renderProjectDetail(
+    projectId: string = 'project-123',
+    initialEntry: string = `/project/${projectId}`,
+    routePath: string = '/project/:projectId',
+) {
     return render(
-        <MemoryRouter initialEntries={[`/project/${projectId}`]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
             <Routes>
-                <Route path="/project/:projectId" element={<ProjectDetail />} />
+                <Route path={routePath} element={<ProjectDetail />} />
             </Routes>
         </MemoryRouter>
     );
@@ -99,9 +113,10 @@ describe('ProjectDetail', () => {
         mockNavigate.mockClear();
         mockUseDaemonConnection.mockClear();
         mockUseSessions.mockClear();
+        mockSessionDetailPanel.mockClear();
     });
 
-    it('Given a project id param and a daemon that returns sessions, then session cards are rendered', () => {
+    it('Given a project id param and a daemon that returns sessions, then session navigation items are rendered', () => {
         const sessions = [
             makeSession({ name: 'session-1' }),
             makeSession({ name: 'session-2' }),
@@ -112,6 +127,62 @@ describe('ProjectDetail', () => {
 
         expect(screen.getByText('session-1')).toBeInTheDocument();
         expect(screen.getByText('session-2')).toBeInTheDocument();
+    });
+
+    it('Given a selected session route, then the workspace renders that session in the main pane', () => {
+        const sessions = [
+            makeSession({ name: 'session-1' }),
+            makeSession({ name: 'session-2' }),
+        ];
+        setupDefaultMocks(sessions);
+
+        renderProjectDetail(
+            'project-123',
+            '/project/project-123/session/session-2',
+            '/project/:projectId/session/:name'
+        );
+
+        expect(screen.getByText('Selected session: session-2')).toBeInTheDocument();
+        expect(mockSessionDetailPanel).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sessionName: 'session-2',
+                subscribeToSse: false,
+            })
+        );
+    });
+
+    it('Given a deep-linked session route while the sidebar list is still loading, then the detail pane still mounts immediately', () => {
+        const apiClient = makeApiClient();
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        mockUseSessions.mockReturnValue({
+            sessions: [],
+            loading: true,
+            error: null,
+            refresh: vi.fn(),
+            createSession: vi.fn(),
+            improveSessionPrompt: vi.fn(),
+            uploadSessionAttachments: vi.fn(),
+            deleteSession: vi.fn(),
+            pinSession: vi.fn(),
+            unpinSession: vi.fn(),
+            enableSessionNotifications: vi.fn(),
+            disableSessionNotifications: vi.fn(),
+        });
+
+        renderProjectDetail(
+            'project-123',
+            '/project/project-123/session/session-2',
+            '/project/:projectId/session/:name'
+        );
+
+        expect(screen.getByText('Selected session: session-2')).toBeInTheDocument();
     });
 
     it('Given no sessions, then an empty state message is shown', () => {
