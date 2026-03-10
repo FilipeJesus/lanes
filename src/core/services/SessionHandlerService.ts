@@ -35,6 +35,8 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     saveSessionTmuxName,
+    getSessionTmuxName,
+    getSessionTerminalMode,
 } from '../session/SessionDataService';
 import { ValidationError } from '../errors/ValidationError';
 import * as TmuxService from './TmuxService';
@@ -166,6 +168,47 @@ export class SessionHandlerService {
             return 'vscode';
         }
         return mode ?? 'vscode';
+    }
+
+    private async prepareTerminalLaunch(
+        sessionName: string,
+        worktreePath: string,
+        agentCommand: string,
+        preferredTerminalMode?: string | null
+    ): Promise<{
+        terminalMode: 'vscode' | 'tmux';
+        command: string;
+        attachCommand?: string;
+        tmuxSessionName?: string;
+    }> {
+        const terminalMode = this.normalizeTerminalMode(
+            preferredTerminalMode ?? this.ctx.config.get('lanes.terminalMode') as string | undefined
+        );
+
+        if (TmuxService.isTmuxMode(terminalMode)) {
+            const tmuxInstalled = await TmuxService.isTmuxInstalled();
+            if (tmuxInstalled) {
+                const tmuxResult = await TmuxService.launchInTmux({
+                    sessionName,
+                    worktreePath,
+                    command: agentCommand,
+                });
+                await saveSessionTerminalMode(worktreePath, 'tmux');
+                await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
+                return {
+                    terminalMode: 'tmux',
+                    command: tmuxResult.attachCommand,
+                    attachCommand: tmuxResult.attachCommand,
+                    tmuxSessionName: tmuxResult.tmuxSessionName,
+                };
+            }
+        }
+
+        await saveSessionTerminalMode(worktreePath, 'vscode');
+        return {
+            terminalMode: 'vscode',
+            command: agentCommand,
+        };
     }
 
     private buildCreateSessionPrompt(
@@ -499,29 +542,23 @@ export class SessionHandlerService {
                 await saveSessionPermissionMode(worktreePath, permissionMode);
             }
 
-            const terminalMode = this.normalizeTerminalMode(
-                this.ctx.config.get('lanes.terminalMode') as string | undefined
+            const terminalLaunch = await this.prepareTerminalLaunch(
+                name,
+                worktreePath,
+                launch.command
             );
-            let command = launch.command;
-            if (TmuxService.isTmuxMode(terminalMode)) {
-                const tmuxInstalled = await TmuxService.isTmuxInstalled();
-                if (tmuxInstalled) {
-                    const tmuxResult = await TmuxService.launchInTmux({
-                        sessionName: name,
-                        worktreePath,
-                        command: launch.command,
-                    });
-                    await saveSessionTerminalMode(worktreePath, 'tmux');
-                    await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
-                    command = tmuxResult.attachCommand;
-                }
-            } else {
-                await saveSessionTerminalMode(worktreePath, 'vscode');
-            }
 
             this.ctx.notificationEmitter.sessionCreated(name, worktreePath);
 
-            return { sessionName: name, worktreePath, sessionId, command };
+            return {
+                sessionName: name,
+                worktreePath,
+                sessionId,
+                command: terminalLaunch.command,
+                terminalMode: terminalLaunch.terminalMode,
+                attachCommand: terminalLaunch.attachCommand,
+                tmuxSessionName: terminalLaunch.tmuxSessionName,
+            };
         } catch (err) {
             try {
                 await execGit(
@@ -610,8 +647,10 @@ export class SessionHandlerService {
         const worktreesFolder = getWorktreesFolder();
         const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
 
-        const sanitizedName = TmuxService.sanitizeTmuxSessionName(sessionName);
-        await TmuxService.killSession(sanitizedName);
+        const tmuxSessionName =
+            (await getSessionTmuxName(worktreePath))
+            ?? TmuxService.sanitizeTmuxSessionName(sessionName);
+        await TmuxService.killSession(tmuxSessionName);
 
         if (deleteWorktree) {
             await execGit(
@@ -667,24 +706,23 @@ export class SessionHandlerService {
             workflowResolver: (name: string) => this.resolveWorkflowPath(name),
         });
         const launch = await buildAgentLaunchCommand(launchContext);
+        const savedTerminalMode = await getSessionTerminalMode(worktreePath);
 
-        let command = launch.command;
-        const terminalMode = this.normalizeTerminalMode(
-            this.ctx.config.get('lanes.terminalMode') as string | undefined
+        const terminalLaunch = await this.prepareTerminalLaunch(
+            sessionName,
+            worktreePath,
+            launch.command,
+            savedTerminalMode
         );
-        if (TmuxService.isTmuxMode(terminalMode)) {
-            const tmuxInstalled = await TmuxService.isTmuxInstalled();
-            if (tmuxInstalled) {
-                const tmuxResult = await TmuxService.launchInTmux({
-                    sessionName,
-                    worktreePath,
-                    command: launch.command,
-                });
-                command = tmuxResult.attachCommand;
-            }
-        }
 
-        return { success: true, worktreePath, command };
+        return {
+            success: true,
+            worktreePath,
+            command: terminalLaunch.command,
+            terminalMode: terminalLaunch.terminalMode,
+            attachCommand: terminalLaunch.attachCommand,
+            tmuxSessionName: terminalLaunch.tmuxSessionName,
+        };
     }
 
     async handleSessionPin(params: Record<string, unknown>): Promise<unknown> {
