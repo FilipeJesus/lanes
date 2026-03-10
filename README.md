@@ -206,6 +206,9 @@ This starts a gateway that discovers all running daemons and serves the browser 
 # Custom port
 lanes web --port 4000
 
+# Source checkout: run Vite on 5173 and the gateway on 3847 (or your custom port)
+lanes web --dev
+
 # API-only mode (no static UI, just the gateway endpoint)
 lanes web --no-ui
 ```

@@ -137,7 +137,9 @@ export class SessionDetailItem extends vscode.TreeItem {
 }
 
 export class SessionItem extends vscode.TreeItem {
+    public readonly agentStatus: AgentSessionStatus | null;
     public readonly workflowStatus: WorkflowStatus | null;
+    public readonly chimeEnabled: boolean;
 
     constructor(
         public readonly label: string,
@@ -154,7 +156,9 @@ export class SessionItem extends vscode.TreeItem {
             ? vscode.TreeItemCollapsibleState.Expanded
             : vscode.TreeItemCollapsibleState.None;
         super(label, effectiveCollapsibleState);
+        this.agentStatus = agentStatus ?? null;
         this.workflowStatus = storedWorkflowStatus;
+        this.chimeEnabled = chimeEnabled ?? false;
         this.tooltip = pinned ? `[Pinned] Path: ${this.worktreePath}` : `Path: ${this.worktreePath}`;
         this.description = this.getDescriptionForStatus(agentStatus, workflowStatus, pinned);
         this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
@@ -280,12 +284,25 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
             const items: SessionItem[] = [];
 
             for (const session of result.sessions) {
-                const { name, worktreePath, isPinned } = session;
-                // Fetch status info from the filesystem for icon/description accuracy
-                const agentStatus = await SessionDataService.getAgentStatus(worktreePath);
-                const workflowStatus = await SessionDataService.getWorkflowStatus(worktreePath);
-                const chimeEnabled = await SessionDataService.getSessionChimeEnabled(worktreePath);
-                items.push(new SessionItem(name, worktreePath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, isPinned));
+                const {
+                    name,
+                    worktreePath,
+                    status,
+                    workflowStatus,
+                    notificationsEnabled,
+                    isPinned,
+                } = session;
+                items.push(
+                    new SessionItem(
+                        name,
+                        worktreePath,
+                        vscode.TreeItemCollapsibleState.None,
+                        status,
+                        workflowStatus,
+                        notificationsEnabled,
+                        isPinned
+                    )
+                );
             }
 
             // Sort: pinned items first, then unpinned.
