@@ -181,7 +181,52 @@ describe('SessionDetail', () => {
         });
     });
 
-    it('Given a session is loaded, when the page renders, then Changes and Insights tab buttons are visible', async () => {
+    it('Given a session is loaded, when the page renders, then Terminal, Changes, and Insights tab buttons are visible in that order', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('project-123', 'my-session');
+
+        await waitFor(() => {
+            const tabs = screen.getAllByRole('tab');
+            expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+                'Terminal',
+                'Changes',
+                'Insights',
+            ]);
+            expect(screen.getByRole('tab', { name: /terminal/i })).toBeInTheDocument();
+            expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
+            expect(screen.getByRole('tab', { name: /insights/i })).toBeInTheDocument();
+        });
+    });
+
+    it('Given Terminal tab is active by default, then the terminal output is visible', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('project-123', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /terminal/i })).toHaveAttribute('aria-selected', 'true');
+            expect(screen.getByLabelText(/terminal output/i)).toBeInTheDocument();
+        });
+    });
+
+    it('Given Changes tab is selected, then Include uncommitted toggle checkbox is visible', async () => {
         const session = makeSession({ name: 'my-session' });
         const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
 
@@ -196,44 +241,12 @@ describe('SessionDetail', () => {
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
-            expect(screen.getByRole('tab', { name: /insights/i })).toBeInTheDocument();
-        });
-    });
-
-    it('Given Changes tab is active (default), then the file list sidebar is visible', async () => {
-        const session = makeSession({ name: 'my-session' });
-        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
-
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
         });
 
-        renderSessionDetail('project-123', 'my-session');
+        fireEvent.click(screen.getByRole('tab', { name: /changes/i }));
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /changes/i })).toHaveAttribute('aria-selected', 'true');
-            // The changed files sidebar heading
-            expect(screen.getByText('Files')).toBeInTheDocument();
-        });
-    });
-
-    it('Given Changes tab is active, then Include uncommitted toggle checkbox is visible', async () => {
-        const session = makeSession({ name: 'my-session' });
-        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
-
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
-
-        renderSessionDetail('project-123', 'my-session');
-
-        await waitFor(() => {
             expect(screen.getByLabelText(/include uncommitted/i)).toBeInTheDocument();
         });
     });
@@ -276,6 +289,12 @@ describe('SessionDetail', () => {
         });
 
         renderSessionDetail('project-123', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole('tab', { name: /changes/i }));
 
         await waitFor(() => {
             expect(screen.getByLabelText(/include uncommitted/i)).toBeInTheDocument();
@@ -368,6 +387,9 @@ function makeApiClientWithDiff(sessions: SessionInfo[], worktree: WorktreeInfo, 
         getSessionDiffFiles: vi.fn().mockResolvedValue({ files: ['src/a.ts'], sessionName: 'my-session' }),
         getSessionDiff: vi.fn().mockResolvedValue({ diff: SIMPLE_DIFF, sessionName: 'my-session' }),
         getSessionInsights: vi.fn().mockResolvedValue({ insights: '', analysis: undefined, sessionName: 'my-session' }),
+        streamTerminalOutput: vi.fn().mockReturnValue({ close: vi.fn() }),
+        sendToTerminal: vi.fn().mockResolvedValue(undefined),
+        resizeTerminal: vi.fn().mockResolvedValue(undefined),
     } as unknown as DaemonApiClient;
 }
 
@@ -410,6 +432,12 @@ describe('SessionDetail — review', () => {
         });
 
         renderSessionDetail('project-123', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole('tab', { name: /changes/i }));
 
         // Wait for the diff to render (add-comment buttons appear)
         await waitFor(() => {

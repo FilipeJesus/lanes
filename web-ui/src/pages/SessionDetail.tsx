@@ -7,6 +7,7 @@
  * - Worktree info (path, branch, commit, clean state)
  * - Workflow state summary (current step, completed steps, progress)
  * - Agent and session metadata
+ * - Terminal tab: interactive terminal output and input
  * - Changes tab: file list + unified diff viewer with uncommitted toggle
  * - Insights tab: insights and analysis panel
  */
@@ -84,7 +85,7 @@ export function SessionDetail() {
     const [dataError, setDataError] = useState<Error | null>(null);
 
     // Tab state
-    const [activeTab, setActiveTab] = useState<ActiveTab>('changes');
+    const [activeTab, setActiveTab] = useState<ActiveTab>('terminal');
 
     // Uncommitted toggle for diff
     const [includeUncommitted, setIncludeUncommitted] = useState(false);
@@ -514,11 +515,22 @@ export function SessionDetail() {
                 </div>
             )}
 
-            {/* Tab section — Changes and Insights */}
+            {/* Tab section — Terminal, Changes, and Insights */}
             {session && (
                 <div className={styles.tabSection}>
                     {/* Tab bar */}
                     <div className={styles.tabBar} role="tablist">
+                        <button
+                            type="button"
+                            role="tab"
+                            id="tab-terminal"
+                            aria-selected={activeTab === 'terminal'}
+                            aria-controls="tabpanel-terminal"
+                            className={`${styles.tabButton} ${activeTab === 'terminal' ? styles.tabButtonActive : ''}`}
+                            onClick={() => setActiveTab('terminal')}
+                        >
+                            Terminal
+                        </button>
                         <button
                             type="button"
                             role="tab"
@@ -545,17 +557,6 @@ export function SessionDetail() {
                             onClick={() => setActiveTab('insights')}
                         >
                             Insights
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            id="tab-terminal"
-                            aria-selected={activeTab === 'terminal'}
-                            aria-controls="tabpanel-terminal"
-                            className={`${styles.tabButton} ${activeTab === 'terminal' ? styles.tabButtonActive : ''}`}
-                            onClick={() => setActiveTab('terminal')}
-                        >
-                            Terminal
                         </button>
                     </div>
 
