@@ -44,6 +44,7 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
     return {
+        projectId: 'project-123',
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -55,6 +56,7 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
 
 function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
     return {
+        projectId: 'project-123',
         projectName: 'my-app',
         gitRemote: 'github.com/org/my-app',
         sessionCount: 2,

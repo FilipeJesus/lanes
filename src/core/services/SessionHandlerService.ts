@@ -766,6 +766,7 @@ export class SessionHandlerService {
                 path: w.path,
                 description: w.description,
                 isBuiltin: w.isBuiltIn,
+                steps: w.steps,
             })),
         };
     }

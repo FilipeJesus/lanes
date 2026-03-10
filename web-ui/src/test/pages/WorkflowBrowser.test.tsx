@@ -41,14 +41,11 @@ function makeApiClient(workflows: WorkflowInfo[] = [builtinWorkflow, customWorkf
     } as unknown as DaemonApiClient;
 }
 
-function renderWithProject(projectId: string | null = 'project-123') {
-    const path = projectId ? `/project/${projectId}/workflows` : '/workflows';
-    const routePattern = projectId ? '/project/:projectId/workflows' : '/workflows';
-
+function renderWithProject(projectId: string = 'project-123') {
     return render(
-        <MemoryRouter initialEntries={[path]}>
+        <MemoryRouter initialEntries={[`/project/${projectId}/workflows`]}>
             <Routes>
-                <Route path={routePattern} element={<WorkflowBrowser />} />
+                <Route path="/project/:projectId/workflows" element={<WorkflowBrowser />} />
             </Routes>
         </MemoryRouter>
     );
@@ -162,21 +159,6 @@ describe('WorkflowBrowser', () => {
 
         expect(screen.getByRole('alert')).toBeInTheDocument();
         expect(screen.getByText('Connection refused')).toBeInTheDocument();
-    });
-
-    it('Given no project param, then show an informational message about selecting a project', () => {
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient: null,
-            sseClient: null,
-            daemonInfo: null,
-            loading: false,
-            error: null,
-        });
-
-        renderWithProject(null);
-
-        expect(screen.getByRole('status')).toBeInTheDocument();
-        expect(screen.getByText('Select a project first')).toBeInTheDocument();
     });
 
     it('Given a search query entered, then only matching workflows are shown', async () => {

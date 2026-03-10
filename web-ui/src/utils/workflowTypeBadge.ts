@@ -7,7 +7,7 @@ export interface WorkflowTypeBadgeStyles {
 
 export function getWorkflowTypeBadgeClass(
     type: string,
-    styles: WorkflowTypeBadgeStyles
+    styles: WorkflowTypeBadgeStyles | Record<string, string>
 ): string {
     switch (type.toLowerCase()) {
         case 'loop':

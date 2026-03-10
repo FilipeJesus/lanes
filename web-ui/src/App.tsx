@@ -14,7 +14,6 @@ export function App() {
                     <Route path="project/:projectId" element={<ProjectDetail />} />
                     <Route path="project/:projectId/session/:name" element={<SessionDetail />} />
                     <Route path="project/:projectId/workflows" element={<WorkflowBrowser />} />
-                    <Route path="workflows" element={<WorkflowBrowser />} />
                 </Route>
             </Routes>
         </BrowserRouter>

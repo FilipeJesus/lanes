@@ -424,6 +424,52 @@ suite('SessionHandlerService - workflow handlers', () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
+    test('handleWorkflowList includes workflow steps in the response', async () => {
+        const extensionPath = path.join(tempDir, 'extension');
+        const workflowsDir = path.join(extensionPath, 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        fs.writeFileSync(
+            path.join(workflowsDir, 'feature.yaml'),
+            [
+                'name: feature-flow',
+                'description: Feature workflow',
+                'steps:',
+                '  - id: plan',
+                '    type: step',
+                '    description: Plan the work',
+                '  - id: build',
+                '    type: loop',
+                '    description: Build the changes',
+                '',
+            ].join('\n'),
+            'utf-8'
+        );
+
+        const serviceWithPrivate = service as unknown as {
+            resolveExtensionPath: () => Promise<string>;
+        };
+        const originalResolveExtensionPath = serviceWithPrivate.resolveExtensionPath;
+        serviceWithPrivate.resolveExtensionPath = async () => extensionPath;
+
+        try {
+            const result = await service.handleWorkflowList({}) as {
+                workflows: Array<{
+                    name: string;
+                    steps?: Array<{ id: string; type: string; description?: string }>;
+                }>;
+            };
+
+            assert.strictEqual(result.workflows.length, 1);
+            assert.strictEqual(result.workflows[0].name, 'feature-flow');
+            assert.deepStrictEqual(result.workflows[0].steps, [
+                { id: 'plan', type: 'step', description: 'Plan the work' },
+                { id: 'build', type: 'loop', description: 'Build the changes' },
+            ]);
+        } finally {
+            serviceWithPrivate.resolveExtensionPath = originalResolveExtensionPath;
+        }
+    });
+
     test('handleWorkflowCreate throws for a workflow name containing "/"', async () => {
         let thrown: unknown;
         try {

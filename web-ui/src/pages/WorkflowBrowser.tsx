@@ -30,7 +30,7 @@ type FilterMode = 'all' | 'builtin' | 'custom';
 // ---------------------------------------------------------------------------
 
 export function WorkflowBrowser() {
-    const { projectId } = useParams<{ projectId?: string }>();
+    const { projectId } = useParams<{ projectId: string }>();
 
     const { apiClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(projectId);
@@ -75,19 +75,15 @@ export function WorkflowBrowser() {
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    {projectId && (
-                        <nav aria-label="Breadcrumb">
-                            <Link to={`/project/${projectId}`} className={`${styles.secondaryButton} ${styles.backLink}`}>
-                                &larr; Back to project
-                            </Link>
-                        </nav>
-                    )}
+                    <nav aria-label="Breadcrumb">
+                        <Link to={`/project/${projectId}`} className={`${styles.secondaryButton} ${styles.backLink}`}>
+                            &larr; Back to project
+                        </Link>
+                    </nav>
                     <h1 className={styles.title}>Workflows</h1>
-                    {projectId && (
-                        <span className={styles.subtitle}>
-                            {daemonInfo?.projectName ?? projectId}
-                        </span>
-                    )}
+                    <span className={styles.subtitle}>
+                        {daemonInfo?.projectName ?? projectId}
+                    </span>
                 </div>
 
                 <div className={styles.toolbar}>
@@ -126,15 +122,6 @@ export function WorkflowBrowser() {
                 </div>
             </div>
 
-            {/* No port selected */}
-            {!projectId && (
-                <div className={styles.infoBanner} role="status">
-                    <div className={styles.infoBannerTitle}>Select a project first</div>
-                    Navigate to a project from the Dashboard to browse its workflows, or visit{' '}
-                    <Link to="/">the Dashboard</Link>.
-                </div>
-            )}
-
             {/* Loading */}
             {isLoading && !error && (
                 <div className={styles.loadingContainer} role="status" aria-label="Loading workflows">
@@ -152,7 +139,7 @@ export function WorkflowBrowser() {
             )}
 
             {/* Content */}
-            {projectId && !isLoading && !error && (
+            {!isLoading && !error && (
                 <div className={styles.contentLayout}>
                     {/* Left panel: workflow list */}
                     <div className={styles.listPanel}>

@@ -140,6 +140,11 @@ export function ProjectDetail() {
                 </div>
 
                 <div className={styles.headerActions}>
+                    {projectId && (
+                        <Link to={`/project/${projectId}/workflows`} className={styles.secondaryButton}>
+                            Workflows
+                        </Link>
+                    )}
                     <button
                         type="button"
                         className={styles.secondaryButton}

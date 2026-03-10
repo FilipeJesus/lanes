@@ -37,6 +37,7 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
 
 function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
     return {
+        projectId: 'project-123',
         projectName: 'my-app',
         gitRemote: 'github.com/org/my-app',
         sessionCount: 3,

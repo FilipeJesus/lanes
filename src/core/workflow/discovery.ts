@@ -7,6 +7,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
 
+type WorkflowStepMetadata = NonNullable<WorkflowMetadata['steps']>[number];
+
 /**
  * Metadata for a discovered workflow template.
  */
@@ -15,6 +17,12 @@ export interface WorkflowMetadata {
   name: string;
   /** Description of the workflow (from YAML) */
   description: string;
+  /** Main workflow steps from the YAML definition */
+  steps?: Array<{
+    id: string;
+    type: string;
+    description?: string;
+  }>;
   /** Absolute path to the workflow file */
   path: string;
   /** Whether this is a built-in workflow (vs custom) */
@@ -28,7 +36,9 @@ export interface WorkflowMetadata {
  * @param filePath - Absolute path to the YAML file
  * @returns Object with name and description, or null if invalid
  */
-async function extractWorkflowMetadata(filePath: string): Promise<{ name: string; description: string } | null> {
+async function extractWorkflowMetadata(
+  filePath: string
+): Promise<{ name: string; description: string; steps?: WorkflowMetadata['steps'] } | null> {
   try {
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const parsed = yaml.parse(content);
@@ -40,9 +50,27 @@ async function extractWorkflowMetadata(filePath: string): Promise<{ name: string
       typeof parsed.name === 'string' &&
       typeof parsed.description === 'string'
     ) {
+      const rawSteps = parsed.steps;
+      const steps = Array.isArray(rawSteps)
+        ? parsed.steps
+            .filter(
+              (step: unknown): step is WorkflowStepMetadata =>
+                typeof step === 'object' &&
+                step !== null &&
+                typeof (step as Record<string, unknown>).id === 'string' &&
+                typeof (step as Record<string, unknown>).type === 'string'
+            )
+            .map((step: WorkflowStepMetadata) => ({
+              id: step.id,
+              type: step.type,
+              description: typeof step.description === 'string' ? step.description : undefined,
+            }))
+        : undefined;
+
       return {
         name: parsed.name,
         description: parsed.description,
+        steps,
       };
     }
 

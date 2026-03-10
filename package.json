@@ -427,7 +427,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli && npm run bundle:daemon",
+    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli && npm run bundle:daemon && npm run bundle:web",
     "bundle:extension": "node scripts/bundle-extension.mjs",
     "bundle:mcp": "node scripts/bundle-mcp.mjs",
     "bundle:cli": "node scripts/bundle-cli.mjs",
