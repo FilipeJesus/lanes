@@ -70,6 +70,8 @@ function setupDefaultMocks(sessions: SessionInfo[] = []) {
         error: null,
         refresh: vi.fn(),
         createSession: vi.fn(),
+        improveSessionPrompt: vi.fn(),
+        uploadSessionAttachments: vi.fn(),
         deleteSession: vi.fn(),
         pinSession: vi.fn(),
         unpinSession: vi.fn(),

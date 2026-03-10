@@ -18,7 +18,10 @@
  */
 
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs/promises';
+import { execFile } from 'child_process';
+import { createHash, randomUUID } from 'crypto';
 import { execGit } from '../gitService';
 import {
     getSessionFilePath,
@@ -48,6 +51,9 @@ import { IHandlerContext } from '../interfaces/IHandlerContext';
 import { validateSessionName as coreValidateSessionName, validateComparisonRef } from '../validation';
 import { generateInsights, formatInsightsReport, SessionInsights } from './InsightsService';
 import { analyzeInsights } from './InsightsAnalyzer';
+
+const MAX_SESSION_FORM_ATTACHMENTS = 20;
+const MAX_PROMPT_IMPROVE_STDOUT = 1024 * 1024;
 
 // =============================================================================
 // JSON-RPC Error Helper
@@ -164,9 +170,121 @@ export class SessionHandlerService {
 
     private buildCreateSessionPrompt(
         prompt: string | undefined,
-        effectiveWorkflow: string | null
+        effectiveWorkflow: string | null,
+        attachments: string[] = []
     ): string | undefined {
-        return assemblePrompt({ userPrompt: prompt, effectiveWorkflow });
+        return assemblePrompt({
+            userPrompt: this.assembleSessionPrompt(prompt, attachments),
+            effectiveWorkflow
+        });
+    }
+
+    private assembleSessionPrompt(prompt: string | undefined, attachments: string[]): string | undefined {
+        const validAttachments = attachments
+            .map((value) => (typeof value === 'string' ? value.trim() : ''))
+            .filter((value) => value.length > 0);
+        const trimmedPrompt = prompt?.trim() || '';
+        let combined = '';
+
+        if (validAttachments.length > 0) {
+            combined += 'Attached files:\n';
+            for (const filePath of validAttachments) {
+                combined += `- ${filePath}\n`;
+            }
+            combined += '\n';
+        }
+
+        if (trimmedPrompt) {
+            combined += trimmedPrompt;
+        }
+
+        return combined || undefined;
+    }
+
+    private getWebAttachmentDirectory(): string {
+        const workspaceHash = createHash('sha256')
+            .update(this.ctx.workspaceRoot)
+            .digest('hex')
+            .slice(0, 12);
+        return path.join(os.tmpdir(), 'lanes-web-attachments', workspaceHash);
+    }
+
+    private sanitizeAttachmentFilename(name: string): string {
+        const baseName = path.basename(name).trim();
+        const sanitized = baseName.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+        return sanitized || 'attachment';
+    }
+
+    private async validateSessionAttachmentPaths(rawAttachments: unknown): Promise<string[]> {
+        if (!Array.isArray(rawAttachments)) {
+            return [];
+        }
+        if (rawAttachments.length > MAX_SESSION_FORM_ATTACHMENTS) {
+            throw new Error(`Too many attachments. Maximum ${MAX_SESSION_FORM_ATTACHMENTS} files allowed.`);
+        }
+
+        const uploadRoot = path.resolve(this.getWebAttachmentDirectory());
+        const resolvedAttachments: string[] = [];
+
+        for (const entry of rawAttachments) {
+            if (typeof entry !== 'string') {
+                throw new Error('Attachment paths must be strings');
+            }
+
+            const trimmed = entry.trim();
+            if (!trimmed) {
+                continue;
+            }
+
+            const normalized = path.resolve(trimmed);
+            const relative = path.relative(uploadRoot, normalized);
+            if (relative.startsWith('..') || path.isAbsolute(relative)) {
+                throw new Error('Invalid attachment path');
+            }
+
+            const stat = await fs.stat(normalized).catch(() => null);
+            if (!stat || !stat.isFile()) {
+                throw new Error(`Attachment file not found: ${path.basename(normalized)}`);
+            }
+
+            resolvedAttachments.push(normalized);
+        }
+
+        return resolvedAttachments;
+    }
+
+    private async runPromptImproveCommand(command: string, args: string[]): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const child = execFile(
+                command,
+                args,
+                {
+                    timeout: 60000,
+                    maxBuffer: MAX_PROMPT_IMPROVE_STDOUT,
+                },
+                (error, stdout) => {
+                    if (error) {
+                        const execError = error as { killed?: boolean; signal?: string };
+                        if (execError.killed || execError.signal === 'SIGTERM') {
+                            reject(new Error('Agent command timed out'));
+                            return;
+                        }
+                        reject(new Error(`Agent command failed: ${error.message}`));
+                        return;
+                    }
+
+                    const result = stdout.trim();
+                    if (!result) {
+                        reject(new Error('Agent returned empty response'));
+                        return;
+                    }
+
+                    resolve(result);
+                }
+            );
+
+            child.stdin?.end();
+        });
     }
 
     private async resolveExtensionPath(): Promise<string> {
@@ -293,6 +411,7 @@ export class SessionHandlerService {
         const agent = params.agent as string | undefined;
         const prompt = params.prompt as string | undefined;
         const permissionMode = params.permissionMode as string | undefined;
+        const attachments = await this.validateSessionAttachmentPaths(params.attachments);
 
         if (!name) {
             throw new Error('Missing required parameter: name');
@@ -325,7 +444,11 @@ export class SessionHandlerService {
                 repoRoot: this.ctx.workspaceRoot,
                 workflowResolver: (name: string) => this.resolveWorkflowPath(name),
             });
-            const startPrompt = this.buildCreateSessionPrompt(prompt, launchContext.effectiveWorkflow);
+            const startPrompt = this.buildCreateSessionPrompt(
+                prompt,
+                launchContext.effectiveWorkflow,
+                attachments
+            );
             let launchPrompt = startPrompt;
             if (startPrompt) {
                 const promptsFolder = (this.ctx.config.get('lanes.promptsFolder') as string) ?? '';
@@ -410,6 +533,73 @@ export class SessionHandlerService {
             }
             throw err;
         }
+    }
+
+    async handleSessionFormPromptImprove(params: Record<string, unknown>): Promise<unknown> {
+        const prompt = typeof params.prompt === 'string' ? params.prompt.trim() : '';
+        const requestedAgent = typeof params.agent === 'string' ? params.agent.trim() : '';
+        if (!prompt) {
+            throw new Error('Missing required parameter: prompt');
+        }
+
+        const defaultAgentName =
+            (this.ctx.config.get('lanes.defaultAgent') as string | undefined) ?? 'claude';
+        const agent = getAgent(requestedAgent || defaultAgentName) ?? getAgent(defaultAgentName);
+        if (!agent) {
+            throw new Error('Failed to resolve code agent for prompt improvement');
+        }
+
+        const command = agent.buildPromptImproveCommand(prompt);
+        if (!command) {
+            throw new Error(`${agent.displayName} does not support prompt improvement`);
+        }
+
+        const improvedPrompt = await this.runPromptImproveCommand(command.command, command.args);
+        return { improvedPrompt };
+    }
+
+    async handleSessionFormAttachmentUpload(params: Record<string, unknown>): Promise<unknown> {
+        const rawFiles = params.files;
+        if (!Array.isArray(rawFiles) || rawFiles.length === 0) {
+            throw new Error('Missing required parameter: files');
+        }
+        if (rawFiles.length > MAX_SESSION_FORM_ATTACHMENTS) {
+            throw new Error(`Too many attachments. Maximum ${MAX_SESSION_FORM_ATTACHMENTS} files allowed.`);
+        }
+
+        const targetDir = this.getWebAttachmentDirectory();
+        await fs.mkdir(targetDir, { recursive: true });
+
+        const files: Array<Record<string, unknown>> = [];
+        for (const rawFile of rawFiles) {
+            if (!rawFile || typeof rawFile !== 'object' || Array.isArray(rawFile)) {
+                throw new Error('Each attachment must be an object');
+            }
+
+            const name = typeof rawFile.name === 'string' ? rawFile.name.trim() : '';
+            const data = typeof rawFile.data === 'string' ? rawFile.data.trim() : '';
+            const sourceKey = typeof rawFile.sourceKey === 'string' ? rawFile.sourceKey : undefined;
+            if (!name || !data) {
+                throw new Error('Attachment must include name and data');
+            }
+            if (!/^[A-Za-z0-9+/=]+$/.test(data)) {
+                throw new Error(`Attachment ${name} is not valid base64 data`);
+            }
+
+            const buffer = Buffer.from(data, 'base64');
+            const safeName = this.sanitizeAttachmentFilename(name);
+            const storedPath = path.join(targetDir, `${randomUUID()}-${safeName}`);
+            await fs.writeFile(storedPath, buffer);
+
+            files.push({
+                name,
+                path: storedPath,
+                size: buffer.byteLength,
+                sourceKey,
+            });
+        }
+
+        return { files };
     }
 
     async handleSessionDelete(params: Record<string, unknown>): Promise<unknown> {

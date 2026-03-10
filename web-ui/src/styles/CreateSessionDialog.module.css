@@ -1,29 +1,35 @@
 /* ==========================================================================
-   CreateSessionDialog — modal form for creating a new session
+   CreateSessionDialog
    ========================================================================== */
 
 .overlay {
     position: fixed;
     inset: 0;
-    background-color: rgba(1, 4, 9, 0.7);
+    background:
+        radial-gradient(circle at top, rgba(88, 166, 255, 0.16), transparent 36%),
+        rgba(1, 4, 9, 0.74);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: var(--spacing-4);
     z-index: 500;
     animation: fadeIn 0.15s ease;
 }
 
 .dialog {
-    background-color: var(--color-bg-surface);
-    border: 1px solid var(--color-border-default);
+    background:
+        linear-gradient(180deg, rgba(13, 17, 23, 0.98), rgba(13, 17, 23, 0.94)),
+        var(--color-bg-surface);
+    border: 1px solid rgba(88, 166, 255, 0.18);
     border-radius: var(--radius-xl);
     padding: var(--spacing-6);
-    width: 100%;
-    max-width: 520px;
+    width: min(100%, 680px);
+    max-height: min(92vh, 860px);
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-5);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 26px 80px rgba(0, 0, 0, 0.45);
     animation: slideIn 0.15s ease;
 }
 
@@ -57,12 +63,16 @@
     background-color: var(--color-bg-hover);
 }
 
-.closeButton:focus-visible {
+.closeButton:focus-visible,
+.secondaryInlineButton:focus-visible,
+.attachmentRemove:focus-visible,
+.bypassButton:focus-visible,
+.cancelButton:focus-visible,
+.submitButton:focus-visible {
     outline: 2px solid var(--color-accent-primary);
     outline-offset: 2px;
 }
 
-/* Form fields */
 .form {
     display: flex;
     flex-direction: column;
@@ -72,7 +82,14 @@
 .fieldGroup {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-1);
+    gap: var(--spacing-2);
+}
+
+.labelRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
 }
 
 .label {
@@ -87,10 +104,11 @@
 }
 
 .input,
-.select {
+.select,
+.textarea {
     width: 100%;
     padding: var(--spacing-2) var(--spacing-3);
-    background-color: var(--color-bg-overlay);
+    background-color: rgba(22, 27, 34, 0.9);
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
     color: var(--color-text-primary);
@@ -100,18 +118,25 @@
     box-sizing: border-box;
 }
 
+.textarea {
+    resize: vertical;
+    min-height: 7.5rem;
+    line-height: 1.5;
+}
+
 .input:focus,
-.select:focus {
+.select:focus,
+.textarea:focus {
     outline: none;
     border-color: var(--color-accent-primary);
     box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
 }
 
-.input.inputError {
+.inputError {
     border-color: var(--color-danger);
 }
 
-.input.inputError:focus {
+.inputError:focus {
     box-shadow: 0 0 0 3px rgba(248, 81, 73, 0.15);
 }
 
@@ -134,7 +159,6 @@
     color: var(--color-danger);
 }
 
-/* Error banner */
 .errorBanner {
     padding: var(--spacing-3) var(--spacing-4);
     background-color: rgba(248, 81, 73, 0.1);
@@ -144,7 +168,96 @@
     color: var(--color-danger);
 }
 
-/* Actions */
+.secondaryInlineButton {
+    padding: var(--spacing-1) var(--spacing-3);
+    background-color: rgba(88, 166, 255, 0.08);
+    border: 1px solid rgba(88, 166, 255, 0.18);
+    border-radius: 999px;
+    color: var(--color-accent-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.secondaryInlineButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hiddenInput {
+    display: none;
+}
+
+.attachmentList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+}
+
+.attachmentChip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: 999px;
+    border: 1px solid rgba(110, 118, 129, 0.35);
+    background-color: rgba(110, 118, 129, 0.14);
+    max-width: 100%;
+}
+
+.attachmentName {
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-sm);
+}
+
+.attachmentRemove {
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.permissionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-4);
+    padding: var(--spacing-3) var(--spacing-4);
+    border: 1px solid rgba(110, 118, 129, 0.2);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(248, 81, 73, 0.08), rgba(255, 184, 108, 0.05));
+}
+
+.bypassButton {
+    min-width: 6.5rem;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: 999px;
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    background: rgba(248, 81, 73, 0.08);
+    color: #ffb4ae;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.bypassButtonActive {
+    background: rgba(248, 81, 73, 0.2);
+    color: #ffd7d3;
+}
+
+.bypassButton:disabled,
+.cancelButton:disabled,
+.submitButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .actions {
     display: flex;
     justify-content: flex-end;
@@ -162,45 +275,37 @@
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.cancelButton:hover {
-    color: var(--color-text-primary);
-    border-color: var(--color-border-emphasis);
-    background-color: var(--color-bg-hover);
-}
-
-.cancelButton:focus-visible {
-    outline: 2px solid var(--color-accent-primary);
-    outline-offset: 2px;
 }
 
 .submitButton {
     padding: var(--spacing-2) var(--spacing-5);
-    background-color: var(--color-accent-primary);
+    background: linear-gradient(135deg, #58a6ff, #79c0ff);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     color: #0d1117;
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
-    transition: opacity 0.15s ease;
 }
 
-.submitButton:hover {
-    opacity: 0.85;
-}
+@media (max-width: 720px) {
+    .dialog {
+        padding: var(--spacing-4);
+    }
 
-.submitButton:focus-visible {
-    outline: 2px solid var(--color-accent-primary);
-    outline-offset: 2px;
-}
+    .labelRow,
+    .permissionRow,
+    .actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
 
-.submitButton:disabled,
-.cancelButton:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    .bypassButton,
+    .secondaryInlineButton,
+    .cancelButton,
+    .submitButton {
+        width: 100%;
+    }
 }
 
 @keyframes fadeIn {

@@ -147,6 +147,8 @@ suite('SessionHandlerService', () => {
             'handleSessionOpen',
             'handleSessionPin',
             'handleSessionUnpin',
+            'handleSessionFormPromptImprove',
+            'handleSessionFormAttachmentUpload',
             // Git
             'handleGitListBranches',
             'handleGitGetDiff',
@@ -183,8 +185,8 @@ suite('SessionHandlerService', () => {
 
         assert.strictEqual(
             expectedMethods.length,
-            27,
-            'Expected exactly 27 handler methods'
+            29,
+            'Expected exactly 29 handler methods'
         );
     });
 });
@@ -404,6 +406,61 @@ suite('SessionHandlerService - agent handlers', () => {
 
         const claudeAgent = result.agents.find((a) => a.name === 'claude');
         assert.ok(claudeAgent, 'claude agent should be present in the agent list');
+    });
+});
+
+suite('SessionHandlerService - web session form helpers', () => {
+    let tempDir: string;
+    let service: SessionHandlerService;
+
+    setup(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-shs-web-form-'));
+        service = new SessionHandlerService(makeContext(tempDir, {
+            'lanes.defaultAgent': 'claude',
+            'lanes.terminalMode': 'vscode',
+        }));
+    });
+
+    teardown(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    test('handleSessionFormAttachmentUpload writes uploaded files and returns stored attachment metadata', async () => {
+        const result = await service.handleSessionFormAttachmentUpload({
+            files: [
+                {
+                    name: 'notes.md',
+                    data: Buffer.from('# hello\n').toString('base64'),
+                    sourceKey: 'notes.md:8:123',
+                },
+            ],
+        }) as { files: Array<{ name: string; path: string; sourceKey?: string }> };
+
+        assert.strictEqual(result.files.length, 1);
+        assert.strictEqual(result.files[0].name, 'notes.md');
+        assert.strictEqual(result.files[0].sourceKey, 'notes.md:8:123');
+        assert.ok(fs.existsSync(result.files[0].path), 'Uploaded attachment should exist on disk');
+        assert.strictEqual(fs.readFileSync(result.files[0].path, 'utf-8'), '# hello\n');
+    });
+
+    test('handleSessionCreate rejects attachment paths outside the managed upload directory', async () => {
+        await assert.rejects(
+            service.handleSessionCreate({
+                name: 'bad-attachment-session',
+                attachments: ['/tmp/not-managed-by-lanes.txt'],
+            }),
+            /Invalid attachment path/
+        );
+    });
+
+    test('handleSessionFormPromptImprove rejects agents that do not support prompt improvement', async () => {
+        await assert.rejects(
+            service.handleSessionFormPromptImprove({
+                prompt: 'Improve this prompt',
+                agent: 'cortex',
+            }),
+            /does not support prompt improvement/
+        );
     });
 });
 
