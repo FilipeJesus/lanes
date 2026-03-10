@@ -8,7 +8,7 @@ export default defineConfig({
         proxy: {
             // Proxy /api/gateway/* to the gateway server running locally
             '/api/gateway': {
-                target: 'http://localhost:3847',
+                target: `http://localhost:${process.env.LANES_WEB_GATEWAY_PORT ?? '3847'}`,
                 changeOrigin: true,
             },
         },
