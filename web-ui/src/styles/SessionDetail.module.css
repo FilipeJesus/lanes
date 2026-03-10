@@ -94,6 +94,12 @@
     outline-offset: 2px;
 }
 
+.notificationButtonActive {
+    color: #b7791f;
+    border-color: rgba(183, 121, 31, 0.35);
+    background-color: rgba(183, 121, 31, 0.08);
+}
+
 /* Cards grid */
 .grid {
     display: grid;

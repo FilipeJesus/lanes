@@ -16,7 +16,9 @@ import { useSessions } from '../hooks/useSessions';
 import { SessionCard } from '../components/SessionCard';
 import { CreateSessionDialog } from '../components/CreateSessionDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useProjectNotifications } from '../components/ProjectNotificationsProvider';
 import type { CreateSessionRequest } from '../api/types';
+import { prepareSessionNotifications } from '../utils/sessionNotifications';
 import styles from '../styles/ProjectDetail.module.css';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +27,7 @@ import styles from '../styles/ProjectDetail.module.css';
 
 export function ProjectDetail() {
     const { projectId } = useParams<{ projectId: string }>();
+    const notifications = useProjectNotifications();
 
     // Daemon connection (provides API client + SSE client)
     const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
@@ -42,6 +45,8 @@ export function ProjectDetail() {
         deleteSession,
         pinSession,
         unpinSession,
+        enableSessionNotifications,
+        disableSessionNotifications,
     } = useSessions(apiClient, sseClient);
 
     // UI state
@@ -49,7 +54,9 @@ export function ProjectDetail() {
     const [pendingDeleteName, setPendingDeleteName] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingPinName, setPendingPinName] = useState<string | null>(null);
+    const [pendingNotificationName, setPendingNotificationName] = useState<string | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [notificationError, setNotificationError] = useState<string | null>(null);
 
     // ---------------------------------------------------------------------------
     // Handlers
@@ -107,6 +114,49 @@ export function ProjectDetail() {
             }
         },
         [unpinSession]
+    );
+
+    const handleEnableNotifications = useCallback(
+        async (name: string) => {
+            setNotificationError(null);
+            setPendingNotificationName(name);
+            try {
+                await prepareSessionNotifications(notifications);
+                await enableSessionNotifications(name);
+                const currentSession = sessions.find((session) => session.name === name);
+                notifications.syncSessionNotifications(
+                    name,
+                    true,
+                    currentSession?.status ?? null
+                );
+            } catch (err) {
+                setNotificationError(err instanceof Error ? err.message : String(err));
+            } finally {
+                setPendingNotificationName(null);
+            }
+        },
+        [enableSessionNotifications, notifications, sessions]
+    );
+
+    const handleDisableNotifications = useCallback(
+        async (name: string) => {
+            setNotificationError(null);
+            setPendingNotificationName(name);
+            try {
+                await disableSessionNotifications(name);
+                const currentSession = sessions.find((session) => session.name === name);
+                notifications.syncSessionNotifications(
+                    name,
+                    false,
+                    currentSession?.status ?? null
+                );
+            } catch (err) {
+                setNotificationError(err instanceof Error ? err.message : String(err));
+            } finally {
+                setPendingNotificationName(null);
+            }
+        },
+        [disableSessionNotifications, notifications, sessions]
     );
 
     // ---------------------------------------------------------------------------
@@ -195,6 +245,15 @@ export function ProjectDetail() {
                 </div>
             )}
 
+            {notificationError && (
+                <div className={styles.errorBanner} role="alert">
+                    <div>
+                        <div className={styles.errorTitle}>Failed to update notifications</div>
+                        <div className={styles.errorMessage}>{notificationError}</div>
+                    </div>
+                </div>
+            )}
+
             {/* Session list */}
             {!isLoading && !error && sortedSessions.length === 0 && (
                 <div className={styles.emptyState}>
@@ -233,8 +292,11 @@ export function ProjectDetail() {
                                 onPin={(name) => void handlePin(name)}
                                 onUnpin={(name) => void handleUnpin(name)}
                                 onDelete={handleDeleteRequest}
+                                onEnableNotifications={(name) => void handleEnableNotifications(name)}
+                                onDisableNotifications={(name) => void handleDisableNotifications(name)}
                                 isPinPending={pendingPinName === session.name}
                                 isDeletePending={pendingDeleteName === session.name && isDeleting}
+                                isNotificationPending={pendingNotificationName === session.name}
                             />
                         ))}
                     </div>

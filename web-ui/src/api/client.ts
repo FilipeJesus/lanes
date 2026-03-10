@@ -253,6 +253,26 @@ export class DaemonApiClient {
     }
 
     /**
+     * POST /api/v1/sessions/:name/notifications
+     */
+    async enableSessionNotifications(name: string): Promise<SessionInfo> {
+        return this.request<SessionInfo>(
+            'POST',
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/notifications`)
+        );
+    }
+
+    /**
+     * DELETE /api/v1/sessions/:name/notifications
+     */
+    async disableSessionNotifications(name: string): Promise<SessionInfo> {
+        return this.request<SessionInfo>(
+            'DELETE',
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/notifications`)
+        );
+    }
+
+    /**
      * GET /api/v1/sessions/:name/insights
      */
     async getSessionInsights(name: string, includeAnalysis?: boolean): Promise<InsightsResponse> {

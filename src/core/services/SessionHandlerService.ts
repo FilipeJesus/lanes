@@ -28,6 +28,7 @@ import {
     getAgentStatus,
     getSessionId,
     clearSessionId,
+    getSessionChimeEnabled,
     getSessionNameFromWorktree,
     getWorktreesFolder,
     getWorkflowStatus,
@@ -35,6 +36,7 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     saveSessionTmuxName,
+    setSessionChimeEnabled,
     getSessionTmuxName,
     getSessionTerminalMode,
 } from '../session/SessionDataService';
@@ -330,6 +332,31 @@ export class SessionHandlerService {
         });
     }
 
+    private async buildSessionResponse(sessionName: string, worktreePath: string): Promise<{
+        name: string;
+        worktreePath: string;
+        branch: string;
+        data: Awaited<ReturnType<typeof getSessionId>>;
+        status: Awaited<ReturnType<typeof getAgentStatus>>;
+        workflowStatus: Awaited<ReturnType<typeof getWorkflowStatus>>;
+        isPinned: boolean;
+        notificationsEnabled: boolean;
+    }> {
+        const pinnedSessions =
+            (this.ctx.config.get('lanes.pinnedSessions') as string[] | undefined) ?? [];
+
+        return {
+            name: sessionName,
+            worktreePath,
+            branch: sessionName,
+            data: await getSessionId(worktreePath),
+            status: await getAgentStatus(worktreePath),
+            workflowStatus: await getWorkflowStatus(worktreePath),
+            isPinned: pinnedSessions.includes(sessionName),
+            notificationsEnabled: await getSessionChimeEnabled(worktreePath),
+        };
+    }
+
     private async resolveExtensionPath(): Promise<string> {
         const candidates = [
             path.join(__dirname, '..', '..'), // dev layout: out/core/services -> repo root
@@ -353,6 +380,23 @@ export class SessionHandlerService {
         const base = path.resolve(this.ctx.workspaceRoot);
         if (!resolved.startsWith(base + path.sep) && resolved !== base) {
             throw new Error(`${label} must be within the workspace root`);
+        }
+    }
+
+    private async assertSessionExists(sessionName: string, worktreePath: string): Promise<void> {
+        try {
+            const stat = await fs.stat(worktreePath);
+            if (!stat.isDirectory()) {
+                throw new JsonRpcHandlerError(-32601, `Session not found: ${sessionName}`);
+            }
+        } catch (err) {
+            if (err instanceof JsonRpcHandlerError) {
+                throw err;
+            }
+            if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+                throw new JsonRpcHandlerError(-32601, `Session not found: ${sessionName}`);
+            }
+            throw err;
         }
     }
 
@@ -396,8 +440,6 @@ export class SessionHandlerService {
         const worktreesFolder = getWorktreesFolder();
         const worktreesDir = path.join(this.ctx.workspaceRoot, worktreesFolder);
 
-        const pinnedSessions =
-            (this.ctx.config.get('lanes.pinnedSessions') as string[] | undefined) ?? [];
         const sessions: unknown[] = [];
 
         try {
@@ -412,25 +454,13 @@ export class SessionHandlerService {
                 }
 
                 const sessionName = getSessionNameFromWorktree(worktreePath);
-                const branch = sessionName;
-                const data = await getSessionId(worktreePath);
-                const status = await getAgentStatus(worktreePath);
-                const workflowStatus = await getWorkflowStatus(worktreePath);
-                const isPinned = pinnedSessions.includes(sessionName);
+                const session = await this.buildSessionResponse(sessionName, worktreePath);
 
-                if (!includeInactive && !this.isSessionActive(status as { status?: string } | null)) {
+                if (!includeInactive && !this.isSessionActive(session.status as { status?: string } | null)) {
                     continue;
                 }
 
-                sessions.push({
-                    name: sessionName,
-                    worktreePath,
-                    branch,
-                    data,
-                    status,
-                    workflowStatus,
-                    isPinned,
-                });
+                sessions.push(session);
             }
         } catch (err: unknown) {
             if (
@@ -748,6 +778,32 @@ export class SessionHandlerService {
         await this.ctx.config.set('lanes.pinnedSessions', updated);
 
         return { success: true };
+    }
+
+    async handleSessionEnableNotifications(params: Record<string, unknown>): Promise<unknown> {
+        const sessionName = params.sessionName as string;
+        validateSessionName(sessionName);
+
+        const worktreesFolder = getWorktreesFolder();
+        const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
+
+        await this.assertSessionExists(sessionName, worktreePath);
+        await setSessionChimeEnabled(worktreePath, true);
+
+        return this.buildSessionResponse(sessionName, worktreePath);
+    }
+
+    async handleSessionDisableNotifications(params: Record<string, unknown>): Promise<unknown> {
+        const sessionName = params.sessionName as string;
+        validateSessionName(sessionName);
+
+        const worktreesFolder = getWorktreesFolder();
+        const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
+
+        await this.assertSessionExists(sessionName, worktreePath);
+        await setSessionChimeEnabled(worktreePath, false);
+
+        return this.buildSessionResponse(sessionName, worktreePath);
     }
 
     // ---------------------------------------------------------------------------

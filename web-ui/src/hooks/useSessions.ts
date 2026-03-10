@@ -32,6 +32,8 @@ export interface UseSessionsResult {
     deleteSession: (name: string) => Promise<void>;
     pinSession: (name: string) => Promise<void>;
     unpinSession: (name: string) => Promise<void>;
+    enableSessionNotifications: (name: string) => Promise<void>;
+    disableSessionNotifications: (name: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +123,7 @@ export function useSessions(
                         status: { status: 'idle' },
                         workflowStatus: { active: false },
                         isPinned: false,
+                        notificationsEnabled: false,
                     };
                     return [...prev, newSession];
                 });
@@ -210,6 +213,36 @@ export function useSessions(
         [apiClient]
     );
 
+    const enableSessionNotifications = useCallback(
+        async (name: string) => {
+            if (!apiClient) throw new Error('No API client available');
+            const updated = await apiClient.enableSessionNotifications(name);
+            setSessions((prev) =>
+                prev.map((s) =>
+                    s.name === name
+                        ? { ...s, notificationsEnabled: updated.notificationsEnabled ?? true }
+                        : s
+                )
+            );
+        },
+        [apiClient]
+    );
+
+    const disableSessionNotifications = useCallback(
+        async (name: string) => {
+            if (!apiClient) throw new Error('No API client available');
+            const updated = await apiClient.disableSessionNotifications(name);
+            setSessions((prev) =>
+                prev.map((s) =>
+                    s.name === name
+                        ? { ...s, notificationsEnabled: updated.notificationsEnabled ?? false }
+                        : s
+                )
+            );
+        },
+        [apiClient]
+    );
+
     return {
         sessions,
         loading,
@@ -221,5 +254,7 @@ export function useSessions(
         deleteSession,
         pinSession,
         unpinSession,
+        enableSessionNotifications,
+        disableSessionNotifications,
     };
 }

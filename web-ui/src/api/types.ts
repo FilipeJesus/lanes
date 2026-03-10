@@ -46,6 +46,7 @@ export interface SessionInfo {
     status: AgentSessionStatus | null;
     workflowStatus: WorkflowStatus | null;
     isPinned: boolean;
+    notificationsEnabled?: boolean;
 }
 
 // ---------------------------------------------------------------------------

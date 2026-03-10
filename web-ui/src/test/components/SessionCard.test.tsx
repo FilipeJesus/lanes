@@ -41,6 +41,8 @@ function renderCard(
         onPin?: (name: string) => void;
         onUnpin?: (name: string) => void;
         onDelete?: (name: string) => void;
+        onEnableNotifications?: (name: string) => void;
+        onDisableNotifications?: (name: string) => void;
     } = {}
 ) {
     return render(
@@ -51,6 +53,8 @@ function renderCard(
                 onPin={handlers.onPin ?? vi.fn()}
                 onUnpin={handlers.onUnpin ?? vi.fn()}
                 onDelete={handlers.onDelete ?? vi.fn()}
+                onEnableNotifications={handlers.onEnableNotifications ?? vi.fn()}
+                onDisableNotifications={handlers.onDisableNotifications ?? vi.fn()}
             />
         </MemoryRouter>
     );
@@ -81,6 +85,11 @@ describe('SessionCard', () => {
         renderCard(makeSession({ isPinned: true }));
         const unpinButton = screen.getByLabelText(/^unpin session/i);
         expect(unpinButton).toBeInTheDocument();
+    });
+
+    it('Given a session with notifications disabled, then an enable notifications button is visible', () => {
+        renderCard(makeSession({ notificationsEnabled: false }));
+        expect(screen.getByLabelText(/^enable notifications for session/i)).toBeInTheDocument();
     });
 
     it('When user clicks delete, then onDelete callback is fired with the session name', async () => {
@@ -120,5 +129,20 @@ describe('SessionCard', () => {
 
         expect(onUnpin).toHaveBeenCalledTimes(1);
         expect(onUnpin).toHaveBeenCalledWith('feat-login');
+    });
+
+    it('When user clicks enable notifications, then onEnableNotifications callback is fired with the session name', async () => {
+        const onEnableNotifications = vi.fn();
+        const user = userEvent.setup();
+
+        renderCard(
+            makeSession({ name: 'feat-login', notificationsEnabled: false }),
+            { onEnableNotifications }
+        );
+
+        await user.click(screen.getByLabelText(/^enable notifications for session feat-login/i));
+
+        expect(onEnableNotifications).toHaveBeenCalledTimes(1);
+        expect(onEnableNotifications).toHaveBeenCalledWith('feat-login');
     });
 });

@@ -20,8 +20,11 @@ export interface SessionCardProps {
     onPin: (name: string) => void;
     onUnpin: (name: string) => void;
     onDelete: (name: string) => void;
+    onEnableNotifications: (name: string) => void;
+    onDisableNotifications: (name: string) => void;
     isPinPending?: boolean;
     isDeletePending?: boolean;
+    isNotificationPending?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,8 +37,11 @@ export function SessionCard({
     onPin,
     onUnpin,
     onDelete,
+    onEnableNotifications,
+    onDisableNotifications,
     isPinPending = false,
     isDeletePending = false,
+    isNotificationPending = false,
 }: SessionCardProps) {
     const navigate = useNavigate();
 
@@ -62,6 +68,15 @@ export function SessionCard({
     function handleDeleteClick(e: React.MouseEvent) {
         e.stopPropagation();
         onDelete(session.name);
+    }
+
+    function handleNotificationClick(e: React.MouseEvent) {
+        e.stopPropagation();
+        if (session.notificationsEnabled) {
+            onDisableNotifications(session.name);
+        } else {
+            onEnableNotifications(session.name);
+        }
     }
 
     const agentName = session.data?.agentName ?? 'claude';
@@ -111,6 +126,21 @@ export function SessionCard({
             </div>
 
             <div className={styles.actions}>
+                <button
+                    type="button"
+                    className={`${styles.actionButton} ${styles.notificationButton} ${session.notificationsEnabled ? styles.active : ''}`}
+                    onClick={handleNotificationClick}
+                    disabled={isNotificationPending}
+                    aria-label={
+                        session.notificationsEnabled
+                            ? `Disable notifications for session ${session.name}`
+                            : `Enable notifications for session ${session.name}`
+                    }
+                    title={session.notificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
+                >
+                    {session.notificationsEnabled ? '\u{1F514}' : '\u{1F515}'}
+                </button>
+
                 <button
                     type="button"
                     className={`${styles.actionButton} ${styles.pinButton} ${session.isPinned ? styles.active : ''}`}

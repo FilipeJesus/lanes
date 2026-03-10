@@ -43,6 +43,8 @@ function makeHandlerService() {
         handleSessionClear: sinon.stub().resolves({ success: true }),
         handleSessionPin: sinon.stub().resolves({ success: true }),
         handleSessionUnpin: sinon.stub().resolves({ success: true }),
+        handleSessionEnableNotifications: sinon.stub().resolves({ success: true }),
+        handleSessionDisableNotifications: sinon.stub().resolves({ success: true }),
         handleSessionFormPromptImprove: sinon.stub().resolves({ improvedPrompt: 'Better prompt' }),
         handleSessionFormAttachmentUpload: sinon.stub().resolves({ files: [] }),
         handleAgentList: sinon.stub().resolves({ agents: [] }),
@@ -394,6 +396,42 @@ suite('daemon router', () => {
         assert.deepStrictEqual(handlerService.handleSessionGetStatus.firstCall.args[0], {
             sessionName: 'test-session',
         });
+    });
+
+    test('Given POST /api/v1/sessions/test-session/notifications with valid auth, when called, then it delegates to handleSessionEnableNotifications with { sessionName: "test-session" }', async () => {
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/sessions/test-session/notifications',
+            headers: { Authorization: BEARER },
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(
+            handlerService.handleSessionEnableNotifications.calledOnce,
+            'handleSessionEnableNotifications should be called once'
+        );
+        assert.deepStrictEqual(
+            handlerService.handleSessionEnableNotifications.firstCall.args[0],
+            { sessionName: 'test-session' }
+        );
+    });
+
+    test('Given DELETE /api/v1/sessions/test-session/notifications with valid auth, when called, then it delegates to handleSessionDisableNotifications with { sessionName: "test-session" }', async () => {
+        const res = await makeRequest(server, {
+            method: 'DELETE',
+            path: '/api/v1/sessions/test-session/notifications',
+            headers: { Authorization: BEARER },
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(
+            handlerService.handleSessionDisableNotifications.calledOnce,
+            'handleSessionDisableNotifications should be called once'
+        );
+        assert.deepStrictEqual(
+            handlerService.handleSessionDisableNotifications.firstCall.args[0],
+            { sessionName: 'test-session' }
+        );
     });
 
     // -------------------------------------------------------------------------

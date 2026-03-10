@@ -448,6 +448,30 @@ export function createRouter(
                 }
             }
 
+            // POST /api/v1/sessions/:name/notifications
+            {
+                const match = matchRoute('/sessions/:name/notifications', projectPath);
+                if (method === 'POST' && match) {
+                    const result = await handlerService.handleSessionEnableNotifications({
+                        sessionName: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // DELETE /api/v1/sessions/:name/notifications
+            {
+                const match = matchRoute('/sessions/:name/notifications', projectPath);
+                if (method === 'DELETE' && match) {
+                    const result = await handlerService.handleSessionDisableNotifications({
+                        sessionName: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
             // GET /api/v1/sessions/:name/diff/files
             {
                 const match = matchRoute('/sessions/:name/diff/files', projectPath);
