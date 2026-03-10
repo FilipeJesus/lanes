@@ -3,7 +3,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import sinon from 'sinon';
 import { AgentSessionProvider, SessionItem, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
+import * as SessionDataService from '../../core/session/SessionDataService';
 
 suite('AgentSessionProvider', () => {
 
@@ -22,6 +24,7 @@ suite('AgentSessionProvider', () => {
 
 	// Clean up after each test
 	teardown(() => {
+		sinon.restore();
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
@@ -112,5 +115,40 @@ suite('AgentSessionProvider', () => {
 		});
 
 		provider.refresh();
+	});
+
+	test('should use daemon session payload without filesystem-backed status reads', async () => {
+		const provider = new AgentSessionProvider(tempDir);
+		const getAgentStatusStub = sinon.stub(SessionDataService, 'getAgentStatus').rejects(new Error('unexpected status read'));
+		const getWorkflowStatusStub = sinon.stub(SessionDataService, 'getWorkflowStatus').rejects(new Error('unexpected workflow read'));
+		const getSessionChimeEnabledStub = sinon.stub(SessionDataService, 'getSessionChimeEnabled').rejects(new Error('unexpected chime read'));
+
+		provider.setDaemonClient({
+			listSessions: async () => ({
+				sessions: [
+					{
+						name: 'daemon-session',
+						worktreePath: path.join(tempDir, '.worktrees', 'daemon-session'),
+						status: { status: 'waiting_for_user' },
+						workflowStatus: { active: true, workflow: 'feature', step: 'review', progress: 'Task 1' },
+						notificationsEnabled: true,
+						isPinned: true,
+					},
+				],
+			}),
+		} as any);
+
+		const children = await provider.getChildren();
+
+		assert.strictEqual(children.length, 1);
+		const item = children[0] as SessionItem;
+		assert.strictEqual(item.label, 'daemon-session');
+		assert.strictEqual(item.agentStatus?.status, 'waiting_for_user');
+		assert.strictEqual(item.workflowStatus?.step, 'review');
+		assert.strictEqual(item.chimeEnabled, true);
+		assert.strictEqual(item.contextValue, 'sessionItemPinned');
+		assert.ok(getAgentStatusStub.notCalled);
+		assert.ok(getWorkflowStatusStub.notCalled);
+		assert.ok(getSessionChimeEnabledStub.notCalled);
 	});
 });
