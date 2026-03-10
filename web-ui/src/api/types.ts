@@ -101,7 +101,13 @@ export interface AgentInfo {
     cliCommand: string;
     sessionFileExtension: string;
     statusFileExtension: string;
-    permissionModes: string[];
+    permissionModes: AgentPermissionMode[];
+}
+
+export interface AgentPermissionMode {
+    id: string;
+    label: string;
+    flag?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +256,7 @@ export interface CreateSessionRequest {
     agent?: string;
     prompt?: string;
     permissionMode?: string;
+    attachments?: string[];
 }
 
 export interface CreateSessionResponse {
@@ -279,4 +286,41 @@ export interface InsightsResponse {
 
 export interface ApiError {
     error: string;
+}
+
+// ---------------------------------------------------------------------------
+// Web session form helpers
+// ---------------------------------------------------------------------------
+
+export interface SessionAttachment {
+    name: string;
+    path: string;
+    size: number;
+    sourceKey?: string;
+}
+
+export interface SessionAttachmentUploadFile {
+    name: string;
+    data: string;
+    size?: number;
+    type?: string;
+    lastModified?: number;
+    sourceKey?: string;
+}
+
+export interface UploadSessionAttachmentsRequest {
+    files: SessionAttachmentUploadFile[];
+}
+
+export interface UploadSessionAttachmentsResponse {
+    files: SessionAttachment[];
+}
+
+export interface ImproveSessionPromptRequest {
+    prompt: string;
+    agent?: string;
+}
+
+export interface ImproveSessionPromptResponse {
+    improvedPrompt: string;
 }

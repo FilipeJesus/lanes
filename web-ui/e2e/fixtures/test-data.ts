@@ -211,7 +211,7 @@ export interface AgentInfo {
     cliCommand: string;
     sessionFileExtension: string;
     statusFileExtension: string;
-    permissionModes: string[];
+    permissionModes: Array<{ id: string; label: string; flag?: string }>;
 }
 
 export function makeAgentInfo(overrides: Partial<AgentInfo> = {}): AgentInfo {
@@ -221,7 +221,7 @@ export function makeAgentInfo(overrides: Partial<AgentInfo> = {}): AgentInfo {
         cliCommand: 'claude',
         sessionFileExtension: '.claude-session',
         statusFileExtension: '.claude-status',
-        permissionModes: ['default', 'plan'],
+        permissionModes: [{ id: 'acceptEdits', label: 'Accept Edits' }],
         ...overrides,
     };
 }

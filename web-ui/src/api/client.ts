@@ -31,6 +31,10 @@ import type {
     TerminalSendRequest,
     TerminalOutputData,
     TerminalResizeRequest,
+    ImproveSessionPromptRequest,
+    ImproveSessionPromptResponse,
+    UploadSessionAttachmentsRequest,
+    UploadSessionAttachmentsResponse,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -175,6 +179,32 @@ export class DaemonApiClient {
      */
     async createSession(params: CreateSessionRequest): Promise<CreateSessionResponse> {
         return this.request<CreateSessionResponse>('POST', this.projectUrl('/sessions'), { body: params });
+    }
+
+    /**
+     * POST /api/v1/session-form/improve-prompt
+     */
+    async improveSessionPrompt(
+        params: ImproveSessionPromptRequest
+    ): Promise<ImproveSessionPromptResponse> {
+        return this.request<ImproveSessionPromptResponse>(
+            'POST',
+            this.projectUrl('/session-form/improve-prompt'),
+            { body: params }
+        );
+    }
+
+    /**
+     * POST /api/v1/session-form/attachments
+     */
+    async uploadSessionAttachments(
+        params: UploadSessionAttachmentsRequest
+    ): Promise<UploadSessionAttachmentsResponse> {
+        return this.request<UploadSessionAttachmentsResponse>(
+            'POST',
+            this.projectUrl('/session-form/attachments'),
+            { body: params }
+        );
     }
 
     /**
