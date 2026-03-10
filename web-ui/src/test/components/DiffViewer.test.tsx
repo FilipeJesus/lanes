@@ -17,6 +17,14 @@ const SIMPLE_DIFF = `diff --git a/src/a.ts b/src/a.ts
 +const z = 4;
  export { x, y };`;
 
+const TS_HIGHLIGHT_DIFF = `diff --git a/src/highlight.ts b/src/highlight.ts
+--- a/src/highlight.ts
++++ b/src/highlight.ts
+@@ -1,2 +1,2 @@
+-const count = 1;
++const count: number = 2;
+ export default count;`;
+
 const EMPTY_DIFF = '';
 
 // ---------------------------------------------------------------------------
@@ -81,6 +89,12 @@ describe('DiffViewer', () => {
         // File path "src/a.ts" becomes "diff-file-src-a-ts"
         const fileSection = container.querySelector('#diff-file-src-a-ts');
         expect(fileSection).not.toBeNull();
+    });
+
+    it('Given a TypeScript diff, when rendered, then code tokens are syntax highlighted', () => {
+        const { container } = render(<DiffViewer diff={TS_HIGHLIGHT_DIFF} />);
+        expect(container.querySelector('.token.keyword')).not.toBeNull();
+        expect(container.querySelector('code[data-language="typescript"]')).not.toBeNull();
     });
 });
 
@@ -288,5 +302,11 @@ describe('DiffViewer — review mode', () => {
         fireEvent.click(saveBtns[0]);
 
         expect(onEditComment).toHaveBeenCalledWith('c-edit-save', 'Updated text');
+    });
+
+    it('Given syntax highlighting is active, when review mode is enabled, then add-comment controls still render', () => {
+        const { container } = render(<DiffViewer diff={TS_HIGHLIGHT_DIFF} onAddComment={vi.fn()} />);
+        expect(screen.getAllByRole('button', { name: /add comment/i }).length).toBeGreaterThan(0);
+        expect(container.querySelector('.token.keyword')).not.toBeNull();
     });
 });

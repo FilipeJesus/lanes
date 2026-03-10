@@ -18,6 +18,7 @@
 
 import React, { useState, useRef } from 'react';
 import type { ReviewComment } from '../utils/reviewFormat';
+import { highlightDiffLine } from '../utils/diffSyntaxHighlight';
 import styles from '../styles/DiffViewer.module.css';
 
 // ---------------------------------------------------------------------------
@@ -294,6 +295,10 @@ export function DiffViewer({
                                                     c.lineNumber === lineNo &&
                                                     c.lineType === line.type,
                                             ) ?? [];
+                                        const highlightedLine = highlightDiffLine(
+                                            line.content,
+                                            displayName,
+                                        );
 
                                         return (
                                             <React.Fragment key={lineIdx}>
@@ -324,7 +329,23 @@ export function DiffViewer({
                                                         >
                                                             {marker}
                                                         </span>
-                                                        <code>{line.content}</code>
+                                                        <code
+                                                            className={styles.code}
+                                                            data-language={
+                                                                highlightedLine?.language ?? 'plain'
+                                                            }
+                                                        >
+                                                            {highlightedLine ? (
+                                                                <span
+                                                                    className={styles.codeContent}
+                                                                    dangerouslySetInnerHTML={{
+                                                                        __html: highlightedLine.html,
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                line.content
+                                                            )}
+                                                        </code>
                                                     </td>
                                                 </tr>
 

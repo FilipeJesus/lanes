@@ -163,6 +163,62 @@
     overflow-wrap: normal;
 }
 
+.code {
+    display: inline;
+}
+
+.codeContent {
+    display: inline;
+}
+
+.code :global(.token.comment),
+.code :global(.token.prolog),
+.code :global(.token.doctype),
+.code :global(.token.cdata) {
+    color: #8b949e;
+}
+
+.code :global(.token.punctuation),
+.code :global(.token.operator) {
+    color: #c9d1d9;
+}
+
+.code :global(.token.property),
+.code :global(.token.tag),
+.code :global(.token.boolean),
+.code :global(.token.number),
+.code :global(.token.constant),
+.code :global(.token.symbol),
+.code :global(.token.deleted) {
+    color: #79c0ff;
+}
+
+.code :global(.token.selector),
+.code :global(.token.attr-name),
+.code :global(.token.string),
+.code :global(.token.char),
+.code :global(.token.builtin),
+.code :global(.token.inserted) {
+    color: #a5d6ff;
+}
+
+.code :global(.token.atrule),
+.code :global(.token.attr-value),
+.code :global(.token.keyword) {
+    color: #ff7b72;
+}
+
+.code :global(.token.function),
+.code :global(.token.class-name) {
+    color: #d2a8ff;
+}
+
+.code :global(.token.regex),
+.code :global(.token.important),
+.code :global(.token.variable) {
+    color: #ffa657;
+}
+
 /* ==========================================================================
    Review / inline comment UI
    ========================================================================== */
