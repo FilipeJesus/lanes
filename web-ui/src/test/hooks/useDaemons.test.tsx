@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useDaemons } from '../../hooks/useDaemons';
-import type { DaemonInfo, DiscoveryInfo, HealthResponse } from '../../api/types';
+import type { DaemonInfo, DiscoveryInfo, GatewayProjectInfo, HealthResponse } from '../../api/types';
 
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
 
 vi.mock('../../api/gateway', () => ({
-    fetchDaemons: vi.fn(),
+    fetchProjects: vi.fn(),
 }));
 
 // Shared methods object so the mock constructor closure captures stable references
@@ -24,7 +24,7 @@ vi.mock('../../api/client', () => ({
     },
 }));
 
-import { fetchDaemons } from '../../api/gateway';
+import { fetchProjects } from '../../api/gateway';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -38,6 +38,17 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
         token: 'test-token',
         startedAt: new Date().toISOString(),
         projectName: 'my-app',
+        ...overrides,
+    };
+}
+
+function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    return {
+        workspaceRoot: '/projects/my-app',
+        projectName: 'my-app',
+        registeredAt: new Date().toISOString(),
+        status: 'running',
+        daemon: makeDaemonInfo(),
         ...overrides,
     };
 }
@@ -64,11 +75,11 @@ function makeHealth(status: string = 'ok'): HealthResponse {
 // ---------------------------------------------------------------------------
 
 describe('useDaemons', () => {
-    let mockFetchDaemons: ReturnType<typeof vi.mocked<typeof fetchDaemons>>;
+    let mockFetchProjects: ReturnType<typeof vi.mocked<typeof fetchProjects>>;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockFetchDaemons = vi.mocked(fetchDaemons);
+        mockFetchProjects = vi.mocked(fetchProjects);
         mockClientMethods.getDiscovery.mockResolvedValue(makeDiscovery());
         mockClientMethods.getHealth.mockResolvedValue(makeHealth());
     });
@@ -77,8 +88,8 @@ describe('useDaemons', () => {
         vi.restoreAllMocks();
     });
 
-    it('Given the hook is mounted, when rendered, then fetchDaemons is called once', async () => {
-        mockFetchDaemons.mockResolvedValue([makeDaemonInfo()]);
+    it('Given the hook is mounted, when rendered, then fetchProjects is called once', async () => {
+        mockFetchProjects.mockResolvedValue([makeProjectInfo()]);
 
         const { result } = renderHook(() => useDaemons());
 
@@ -86,12 +97,12 @@ describe('useDaemons', () => {
             expect(result.current.loading).toBe(false);
         });
 
-        expect(mockFetchDaemons).toHaveBeenCalledTimes(1);
+        expect(mockFetchProjects).toHaveBeenCalledTimes(1);
     });
 
-    it('Given fetchDaemons resolves, then daemons state is populated', async () => {
+    it('Given fetchProjects resolves, then daemons state is populated', async () => {
         const daemon = makeDaemonInfo();
-        mockFetchDaemons.mockResolvedValue([daemon]);
+        mockFetchProjects.mockResolvedValue([makeProjectInfo({ daemon })]);
 
         const { result } = renderHook(() => useDaemons());
 
@@ -103,8 +114,8 @@ describe('useDaemons', () => {
         expect(result.current.daemons[0].daemon).toEqual(daemon);
     });
 
-    it('Given fetchDaemons resolves, then loading transitions from true to false', async () => {
-        mockFetchDaemons.mockResolvedValue([makeDaemonInfo()]);
+    it('Given fetchProjects resolves, then loading transitions from true to false', async () => {
+        mockFetchProjects.mockResolvedValue([makeProjectInfo()]);
 
         const { result } = renderHook(() => useDaemons());
 
@@ -116,10 +127,13 @@ describe('useDaemons', () => {
         });
     });
 
-    it('Given fetchDaemons returns 2 daemons, when hook loads, then DaemonApiClient.getDiscovery is called twice', async () => {
+    it('Given fetchProjects returns 2 running projects, when hook loads, then DaemonApiClient.getDiscovery is called twice', async () => {
         const daemon1 = makeDaemonInfo({ port: 3942 });
         const daemon2 = makeDaemonInfo({ port: 3943 });
-        mockFetchDaemons.mockResolvedValue([daemon1, daemon2]);
+        mockFetchProjects.mockResolvedValue([
+            makeProjectInfo({ daemon: daemon1 }),
+            makeProjectInfo({ workspaceRoot: '/projects/my-api', projectName: 'my-api', daemon: daemon2 }),
+        ]);
 
         const { result } = renderHook(() => useDaemons());
 
@@ -137,7 +151,7 @@ describe('useDaemons', () => {
             gitRemote: 'github.com/org/my-app',
             sessionCount: 3,
         });
-        mockFetchDaemons.mockResolvedValue([daemon]);
+        mockFetchProjects.mockResolvedValue([makeProjectInfo({ daemon })]);
         mockClientMethods.getDiscovery.mockResolvedValue(discovery);
 
         const { result } = renderHook(() => useDaemons());
@@ -154,7 +168,7 @@ describe('useDaemons', () => {
 
     it('Given getDiscovery throws for a daemon, then that daemon has health state "unreachable"', async () => {
         const daemon = makeDaemonInfo();
-        mockFetchDaemons.mockResolvedValue([daemon]);
+        mockFetchProjects.mockResolvedValue([makeProjectInfo({ daemon })]);
         mockClientMethods.getDiscovery.mockRejectedValue(new Error('ECONNREFUSED'));
         mockClientMethods.getHealth.mockRejectedValue(new Error('ECONNREFUSED'));
 
@@ -170,7 +184,10 @@ describe('useDaemons', () => {
     it('Given getDiscovery throws for one daemon, the other daemons are still returned successfully', async () => {
         const daemon1 = makeDaemonInfo({ port: 3942 });
         const daemon2 = makeDaemonInfo({ port: 3943 });
-        mockFetchDaemons.mockResolvedValue([daemon1, daemon2]);
+        mockFetchProjects.mockResolvedValue([
+            makeProjectInfo({ daemon: daemon1 }),
+            makeProjectInfo({ workspaceRoot: '/projects/my-api', projectName: 'my-api', daemon: daemon2 }),
+        ]);
 
         // First call fails (daemon1's getDiscovery), second succeeds (daemon2's getDiscovery)
         let callCount = 0;
@@ -197,8 +214,8 @@ describe('useDaemons', () => {
         expect(result.current.daemons).toHaveLength(2);
     });
 
-    it('Given fetchDaemons throws, then error is set in state', async () => {
-        mockFetchDaemons.mockRejectedValue(new Error('Network failure'));
+    it('Given fetchProjects throws, then error is set in state', async () => {
+        mockFetchProjects.mockRejectedValue(new Error('Network failure'));
 
         const { result } = renderHook(() => useDaemons());
 
@@ -210,8 +227,8 @@ describe('useDaemons', () => {
         expect(result.current.error?.message).toBe('Network failure');
     });
 
-    it('Given fetchDaemons throws, then loading is false', async () => {
-        mockFetchDaemons.mockRejectedValue(new Error('Network failure'));
+    it('Given fetchProjects throws, then loading is false', async () => {
+        mockFetchProjects.mockRejectedValue(new Error('Network failure'));
 
         const { result } = renderHook(() => useDaemons());
 
@@ -222,8 +239,8 @@ describe('useDaemons', () => {
         expect(result.current.loading).toBe(false);
     });
 
-    it('Given fetchDaemons throws, then daemons array is empty', async () => {
-        mockFetchDaemons.mockRejectedValue(new Error('Network failure'));
+    it('Given fetchProjects throws, then daemons array is empty', async () => {
+        mockFetchProjects.mockRejectedValue(new Error('Network failure'));
 
         const { result } = renderHook(() => useDaemons());
 
@@ -234,8 +251,8 @@ describe('useDaemons', () => {
         expect(result.current.daemons).toHaveLength(0);
     });
 
-    it('Given the hook is mounted, when refresh() is called, then fetchDaemons is called a second time', async () => {
-        mockFetchDaemons.mockResolvedValue([makeDaemonInfo()]);
+    it('Given the hook is mounted, when refresh() is called, then fetchProjects is called a second time', async () => {
+        mockFetchProjects.mockResolvedValue([makeProjectInfo()]);
 
         const { result } = renderHook(() => useDaemons());
 
@@ -243,14 +260,31 @@ describe('useDaemons', () => {
             expect(result.current.loading).toBe(false);
         });
 
-        expect(mockFetchDaemons).toHaveBeenCalledTimes(1);
+        expect(mockFetchProjects).toHaveBeenCalledTimes(1);
 
         act(() => {
             result.current.refresh();
         });
 
         await waitFor(() => {
-            expect(mockFetchDaemons).toHaveBeenCalledTimes(2);
+            expect(mockFetchProjects).toHaveBeenCalledTimes(2);
         });
+    });
+
+    it('Given a registered project without a daemon, then it is returned with health state "registered" and no daemon client calls', async () => {
+        mockFetchProjects.mockResolvedValue([
+            makeProjectInfo({ status: 'registered', daemon: null }),
+        ]);
+
+        const { result } = renderHook(() => useDaemons());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.daemons[0].health).toBe('registered');
+        expect(result.current.daemons[0].daemon).toBeNull();
+        expect(mockClientMethods.getDiscovery).not.toHaveBeenCalled();
+        expect(mockClientMethods.getHealth).not.toHaveBeenCalled();
     });
 });

@@ -3,7 +3,9 @@
  *
  * A lightweight HTTP server that:
  * - Reads ~/.lanes/daemons.json to discover running daemon instances
+ * - Reads ~/.lanes/projects.json to discover explicitly registered projects
  * - Serves GET /api/gateway/daemons returning live daemon entries
+ * - Serves GET /api/gateway/projects returning registered projects plus runtime state
  * - Serves static files from the web-ui build output in production
  * - Has CORS enabled for local development
  *
@@ -13,7 +15,18 @@
 import * as http from 'http';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { listRegisteredDaemons, cleanStaleEntries } from './registry';
+import {
+    type DaemonRegistryEntry,
+    type RegisteredProjectEntry,
+    listRegisteredDaemons,
+    listRegisteredProjects,
+    cleanStaleEntries,
+} from './registry';
+
+export type GatewayProjectInfo = RegisteredProjectEntry & {
+    status: 'running' | 'registered';
+    daemon: DaemonRegistryEntry | null;
+};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -68,6 +81,39 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
         'Content-Length': Buffer.byteLength(payload),
     });
     res.end(payload);
+}
+
+async function listGatewayProjects(): Promise<GatewayProjectInfo[]> {
+    const [liveDaemons, registeredProjects] = await Promise.all([
+        cleanStaleEntries(),
+        listRegisteredProjects(),
+    ]);
+
+    const liveByWorkspace = new Map(liveDaemons.map((daemon) => [daemon.workspaceRoot, daemon]));
+    const combined = new Map<string, GatewayProjectInfo>();
+
+    for (const project of registeredProjects) {
+        const daemon = liveByWorkspace.get(project.workspaceRoot) ?? null;
+        combined.set(project.workspaceRoot, {
+            ...project,
+            status: daemon ? 'running' : 'registered',
+            daemon,
+        });
+    }
+
+    for (const daemon of liveDaemons) {
+        if (!combined.has(daemon.workspaceRoot)) {
+            combined.set(daemon.workspaceRoot, {
+                workspaceRoot: daemon.workspaceRoot,
+                projectName: daemon.projectName,
+                registeredAt: daemon.startedAt,
+                status: 'running',
+                daemon,
+            });
+        }
+    }
+
+    return Array.from(combined.values()).sort((a, b) => a.projectName.localeCompare(b.projectName));
 }
 
 /**
@@ -157,6 +203,16 @@ export async function createGatewayServer(options: GatewayServerOptions = {}): P
             }
 
             // ------------------------------------------------------------------
+            // API: GET /api/gateway/projects
+            // Returns registered projects plus live daemon state.
+            // ------------------------------------------------------------------
+            if (method === 'GET' && pathname === '/api/gateway/projects') {
+                const projects = await listGatewayProjects();
+                sendJson(res, 200, projects);
+                return;
+            }
+
+            // ------------------------------------------------------------------
             // Static file serving (production web-ui)
             // ------------------------------------------------------------------
             if (staticDir && (method === 'GET' || method === 'HEAD')) {
@@ -217,10 +273,13 @@ export async function runGatewayServer(options: GatewayServerOptions = {}): Prom
     const { server, port } = await createGatewayServer(options);
 
     const daemons = await listRegisteredDaemons();
+    const projects = await listRegisteredProjects();
     const webUiNote = options.staticDir ? ` | Web UI: http://127.0.0.1:${port}` : '';
     process.stdout.write(`Gateway running on http://127.0.0.1:${port}${webUiNote}\n`);
     process.stdout.write(`  API: http://127.0.0.1:${port}/api/gateway/daemons\n`);
+    process.stdout.write(`  Projects: http://127.0.0.1:${port}/api/gateway/projects\n`);
     process.stdout.write(`  Tracking ${daemons.length} registered daemon(s)\n`);
+    process.stdout.write(`  Tracking ${projects.length} registered project(s)\n`);
 
     // Track active connections for graceful shutdown
     const activeConnections = new Set<import('net').Socket>();

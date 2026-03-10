@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ProjectCard } from '../../components/ProjectCard';
 import type { EnrichedDaemon } from '../../hooks/useDaemons';
-import type { DaemonInfo, DiscoveryInfo } from '../../api/types';
+import type { DaemonInfo, DiscoveryInfo, GatewayProjectInfo } from '../../api/types';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -48,8 +48,20 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
     };
 }
 
+function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    return {
+        workspaceRoot: '/projects/my-app',
+        projectName: 'my-app',
+        registeredAt: new Date().toISOString(),
+        status: 'running',
+        daemon: makeDaemonInfo(),
+        ...overrides,
+    };
+}
+
 function makeEnrichedDaemon(overrides: Partial<EnrichedDaemon> = {}): EnrichedDaemon {
     return {
+        project: makeProjectInfo(),
         daemon: makeDaemonInfo(),
         discovery: makeDiscovery(),
         health: 'healthy',
@@ -155,5 +167,20 @@ describe('ProjectCard', () => {
         await user.click(card);
 
         expect(mockNavigate).toHaveBeenCalledWith('/project/3942');
+    });
+
+    it('Given a registered project without a running daemon, then the card is not clickable and shows offline state', () => {
+        const enriched = makeEnrichedDaemon({
+            project: makeProjectInfo({ status: 'registered', daemon: null }),
+            daemon: null,
+            discovery: null,
+            health: 'registered',
+        });
+
+        renderCard(enriched);
+
+        expect(screen.getByLabelText('Health: registered')).toBeInTheDocument();
+        expect(screen.getByText('Offline')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /open project/i })).not.toBeInTheDocument();
     });
 });

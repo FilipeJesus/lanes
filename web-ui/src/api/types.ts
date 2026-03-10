@@ -61,6 +61,14 @@ export interface DaemonInfo {
     projectName: string;
 }
 
+export interface GatewayProjectInfo {
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
+    status: 'running' | 'registered';
+    daemon: DaemonInfo | null;
+}
+
 export interface DiscoveryInfo {
     projectName: string;
     gitRemote: string | null;

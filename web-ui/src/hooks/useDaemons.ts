@@ -1,26 +1,29 @@
 /**
- * useDaemons — custom hook for discovering and monitoring running daemons.
+ * useDaemons — custom hook for discovering registered projects and enriching
+ * running ones with daemon discovery/health data.
  *
- * Fetches the daemon list from the gateway on mount and on a periodic interval.
- * For each daemon, calls getDiscovery() to get project details and getHealth()
- * to determine the health state. Health is polled every 30 seconds; the daemon
+ * Fetches the project list from the gateway on mount and on a periodic interval.
+ * For projects with a live daemon, calls getDiscovery() and getHealth() to
+ * determine runtime details. Health is polled every 30 seconds; the project
  * list is refreshed every 60 seconds.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchDaemons } from '../api/gateway';
+import { fetchProjects } from '../api/gateway';
 import { DaemonApiClient } from '../api/client';
-import type { DaemonInfo, DiscoveryInfo, HealthResponse } from '../api/types';
+import type { DaemonInfo, DiscoveryInfo, GatewayProjectInfo, HealthResponse } from '../api/types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type HealthState = 'healthy' | 'degraded' | 'unreachable';
+export type HealthState = 'healthy' | 'degraded' | 'unreachable' | 'registered';
 
 export interface EnrichedDaemon {
-    /** Base daemon info from the gateway registry */
-    daemon: DaemonInfo;
+    /** Base project info from the gateway registry */
+    project: GatewayProjectInfo;
+    /** Running daemon info, if available */
+    daemon: DaemonInfo | null;
     /** Discovery info fetched from the daemon's /api/v1/discovery endpoint */
     discovery: DiscoveryInfo | null;
     /** Current health state */
@@ -54,7 +57,19 @@ function buildClient(daemon: DaemonInfo): DaemonApiClient {
     });
 }
 
-async function enrichDaemon(daemon: DaemonInfo): Promise<EnrichedDaemon> {
+async function enrichDaemon(project: GatewayProjectInfo): Promise<EnrichedDaemon> {
+    const daemon = project.daemon;
+
+    if (!daemon) {
+        return {
+            project,
+            daemon: null,
+            discovery: null,
+            health: 'registered',
+            healthResponse: null,
+        };
+    }
+
     const client = buildClient(daemon);
 
     let discovery: DiscoveryInfo | null = null;
@@ -85,10 +100,14 @@ async function enrichDaemon(daemon: DaemonInfo): Promise<EnrichedDaemon> {
         health = 'unreachable';
     }
 
-    return { daemon, discovery, health, healthResponse };
+    return { project, daemon, discovery, health, healthResponse };
 }
 
 async function pollHealth(enriched: EnrichedDaemon): Promise<EnrichedDaemon> {
+    if (!enriched.daemon) {
+        return enriched;
+    }
+
     const client = buildClient(enriched.daemon);
 
     try {
@@ -128,10 +147,10 @@ export function useDaemons(): UseDaemonsResult {
             setError(null);
 
             try {
-                const rawDaemons = await fetchDaemons();
+                const rawProjects = await fetchProjects();
                 if (cancelled) return;
 
-                const enriched = await Promise.all(rawDaemons.map(enrichDaemon));
+                const enriched = await Promise.all(rawProjects.map(enrichDaemon));
                 if (cancelled) return;
 
                 setDaemons(enriched);

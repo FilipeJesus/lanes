@@ -27,12 +27,16 @@ import * as path from 'path';
 import sinon from 'sinon';
 import {
     getRegistryPath,
+    getProjectsRegistryPath,
     registerDaemon,
     deregisterDaemon,
     listRegisteredDaemons,
     cleanStaleEntries,
+    registerProject,
+    deregisterProject,
+    listRegisteredProjects,
 } from '../../daemon/registry';
-import type { DaemonRegistryEntry } from '../../daemon/registry';
+import type { DaemonRegistryEntry, RegisteredProjectEntry } from '../../daemon/registry';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,6 +51,15 @@ function makeEntry(overrides: Partial<DaemonRegistryEntry> = {}): DaemonRegistry
         token: 'abc123',
         startedAt: new Date().toISOString(),
         projectName: 'test-project',
+        ...overrides,
+    };
+}
+
+function makeProject(overrides: Partial<RegisteredProjectEntry> = {}): RegisteredProjectEntry {
+    return {
+        workspaceRoot: '/tmp/test-project',
+        projectName: 'test-project',
+        registeredAt: new Date().toISOString(),
         ...overrides,
     };
 }
@@ -87,6 +100,13 @@ suite('daemon registry', () => {
 
         const expected = path.join(tempDir, '.lanes', 'daemons.json');
         assert.strictEqual(result, expected, `Expected registry path to be ${expected}`);
+    });
+
+    test('Given HOME is set to tempDir, when getProjectsRegistryPath() is called, then it returns <tempDir>/.lanes/projects.json', () => {
+        const result = getProjectsRegistryPath();
+
+        const expected = path.join(tempDir, '.lanes', 'projects.json');
+        assert.strictEqual(result, expected, `Expected projects registry path to be ${expected}`);
     });
 
     // -------------------------------------------------------------------------
@@ -403,5 +423,41 @@ suite('daemon registry', () => {
         const parsed = JSON.parse(raw) as DaemonRegistryEntry[];
         const found = parsed.find((e) => e.workspaceRoot === '/workspace/gone');
         assert.strictEqual(found, undefined, 'Deregistered entry should not be present in the JSON file');
+    });
+
+    test('Given no projects registry file exists, when listRegisteredProjects() is called, then it returns an empty array', async () => {
+        const result = await listRegisteredProjects();
+
+        assert.ok(Array.isArray(result), 'listRegisteredProjects should return an array');
+        assert.strictEqual(result.length, 0, 'Should return empty array when no projects registry file exists');
+    });
+
+    test('Given no existing project registry, when registerProject() is called, then the project appears in listRegisteredProjects()', async () => {
+        const project = makeProject({ workspaceRoot: '/workspace/project-alpha', projectName: 'project-alpha' });
+
+        await registerProject(project);
+        const result = await listRegisteredProjects();
+
+        assert.strictEqual(result.length, 1, 'Projects registry should contain exactly one entry');
+        assert.strictEqual(result[0].workspaceRoot, project.workspaceRoot);
+        assert.strictEqual(result[0].projectName, project.projectName);
+    });
+
+    test('Given an existing project for a workspaceRoot, when registerProject() is called again, then it is replaced (upsert)', async () => {
+        await registerProject(makeProject({ workspaceRoot: '/workspace/project-upsert', projectName: 'before' }));
+        await registerProject(makeProject({ workspaceRoot: '/workspace/project-upsert', projectName: 'after' }));
+
+        const result = await listRegisteredProjects();
+        assert.strictEqual(result.length, 1, 'Project upsert should not create duplicates');
+        assert.strictEqual(result[0].projectName, 'after', 'Project name should be updated');
+    });
+
+    test('Given a registered project, when deregisterProject() is called, then listRegisteredProjects() no longer includes it', async () => {
+        await registerProject(makeProject({ workspaceRoot: '/workspace/project-remove' }));
+
+        await deregisterProject('/workspace/project-remove');
+        const result = await listRegisteredProjects();
+
+        assert.strictEqual(result.length, 0, 'Projects registry should be empty after deregistration');
     });
 });

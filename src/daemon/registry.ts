@@ -1,12 +1,9 @@
 /**
- * Daemon Registry - Global registry of running daemon instances
+ * Global daemon and project registries.
  *
- * Maintains a JSON registry at `~/.lanes/daemons.json` that tracks all running
- * daemon instances across workspaces. This allows tools (CLI, IDE plugins) to
- * discover daemons without knowing each workspace path in advance.
- *
- * The registry is written atomically (write to temp + rename) to prevent
- * corruption from concurrent access.
+ * `~/.lanes/daemons.json` tracks live per-workspace daemon processes.
+ * `~/.lanes/projects.json` tracks known workspaces that were explicitly
+ * registered with the machine-wide gateway.
  */
 
 import * as os from 'os';
@@ -35,6 +32,18 @@ export type DaemonRegistryEntry = {
     projectName: string;
 };
 
+/**
+ * A workspace registered with the machine-wide gateway.
+ */
+export type RegisteredProjectEntry = {
+    /** Absolute path to the workspace root this project serves. */
+    workspaceRoot: string;
+    /** Human-readable project name (typically the workspace directory name). */
+    projectName: string;
+    /** ISO-8601 timestamp of when the project was registered. */
+    registeredAt: string;
+};
+
 // ---------------------------------------------------------------------------
 // Registry path
 // ---------------------------------------------------------------------------
@@ -44,6 +53,14 @@ export type DaemonRegistryEntry = {
  */
 export function getRegistryPath(): string {
     return path.join(os.homedir(), '.lanes', 'daemons.json');
+}
+
+/**
+ * Returns the absolute path to the global project registry file:
+ * `~/.lanes/projects.json`.
+ */
+export function getProjectsRegistryPath(): string {
+    return path.join(os.homedir(), '.lanes', 'projects.json');
 }
 
 // ---------------------------------------------------------------------------
@@ -59,16 +76,15 @@ async function ensureRegistryDir(): Promise<void> {
 }
 
 /**
- * Read the current registry from disk.
+ * Read a registry file from disk.
  * Returns an empty array if the file does not exist or is malformed.
  */
-async function readRegistry(): Promise<DaemonRegistryEntry[]> {
-    const registryPath = getRegistryPath();
+async function readRegistryFile<T>(registryPath: string): Promise<T[]> {
     try {
         const content = await fs.readFile(registryPath, 'utf-8');
         const parsed = JSON.parse(content);
         if (Array.isArray(parsed)) {
-            return parsed as DaemonRegistryEntry[];
+            return parsed as T[];
         }
         return [];
     } catch (err) {
@@ -85,16 +101,31 @@ async function readRegistry(): Promise<DaemonRegistryEntry[]> {
 }
 
 /**
- * Write entries to the registry atomically using a temp file + rename.
+ * Write entries to a registry atomically using a temp file + rename.
  * This prevents corruption if the process is interrupted mid-write.
  */
-async function writeRegistry(entries: DaemonRegistryEntry[]): Promise<void> {
+async function writeRegistryFile<T>(registryPath: string, entries: T[]): Promise<void> {
     await ensureRegistryDir();
-    const registryPath = getRegistryPath();
     const tempPath = `${registryPath}.tmp`;
 
     await fs.writeFile(tempPath, JSON.stringify(entries, null, 2), { encoding: 'utf-8', mode: 0o600 });
     await fs.rename(tempPath, registryPath);
+}
+
+async function readDaemonRegistry(): Promise<DaemonRegistryEntry[]> {
+    return readRegistryFile<DaemonRegistryEntry>(getRegistryPath());
+}
+
+async function writeDaemonRegistry(entries: DaemonRegistryEntry[]): Promise<void> {
+    await writeRegistryFile(getRegistryPath(), entries);
+}
+
+async function readProjectsRegistry(): Promise<RegisteredProjectEntry[]> {
+    return readRegistryFile<RegisteredProjectEntry>(getProjectsRegistryPath());
+}
+
+async function writeProjectsRegistry(entries: RegisteredProjectEntry[]): Promise<void> {
+    await writeRegistryFile(getProjectsRegistryPath(), entries);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,10 +141,10 @@ async function writeRegistry(entries: DaemonRegistryEntry[]): Promise<void> {
  * this is rare since daemon starts are user-initiated and sequential.
  */
 export async function registerDaemon(entry: DaemonRegistryEntry): Promise<void> {
-    const existing = await readRegistry();
+    const existing = await readDaemonRegistry();
     const filtered = existing.filter((e) => e.workspaceRoot !== entry.workspaceRoot);
     filtered.push(entry);
-    await writeRegistry(filtered);
+    await writeDaemonRegistry(filtered);
 }
 
 /**
@@ -121,10 +152,10 @@ export async function registerDaemon(entry: DaemonRegistryEntry): Promise<void> 
  * Does nothing if no entry for that workspace exists.
  */
 export async function deregisterDaemon(workspaceRoot: string): Promise<void> {
-    const existing = await readRegistry();
+    const existing = await readDaemonRegistry();
     const filtered = existing.filter((e) => e.workspaceRoot !== workspaceRoot);
     if (filtered.length !== existing.length) {
-        await writeRegistry(filtered);
+        await writeDaemonRegistry(filtered);
     }
 }
 
@@ -132,7 +163,7 @@ export async function deregisterDaemon(workspaceRoot: string): Promise<void> {
  * Return all entries currently in the global registry (no liveness check).
  */
 export async function listRegisteredDaemons(): Promise<DaemonRegistryEntry[]> {
-    return readRegistry();
+    return readDaemonRegistry();
 }
 
 /**
@@ -141,7 +172,7 @@ export async function listRegisteredDaemons(): Promise<DaemonRegistryEntry[]> {
  * Returns the remaining live entries.
  */
 export async function cleanStaleEntries(): Promise<DaemonRegistryEntry[]> {
-    const existing = await readRegistry();
+    const existing = await readDaemonRegistry();
 
     const liveEntries = existing.filter((entry) => {
         try {
@@ -155,8 +186,36 @@ export async function cleanStaleEntries(): Promise<DaemonRegistryEntry[]> {
     });
 
     if (liveEntries.length !== existing.length) {
-        await writeRegistry(liveEntries);
+        await writeDaemonRegistry(liveEntries);
     }
 
     return liveEntries;
+}
+
+/**
+ * Register (or update) a project in the global project registry.
+ */
+export async function registerProject(entry: RegisteredProjectEntry): Promise<void> {
+    const existing = await readProjectsRegistry();
+    const filtered = existing.filter((project) => project.workspaceRoot !== entry.workspaceRoot);
+    filtered.push(entry);
+    await writeProjectsRegistry(filtered);
+}
+
+/**
+ * Remove a project from the global project registry.
+ */
+export async function deregisterProject(workspaceRoot: string): Promise<void> {
+    const existing = await readProjectsRegistry();
+    const filtered = existing.filter((project) => project.workspaceRoot !== workspaceRoot);
+    if (filtered.length !== existing.length) {
+        await writeProjectsRegistry(filtered);
+    }
+}
+
+/**
+ * Return all explicitly registered projects.
+ */
+export async function listRegisteredProjects(): Promise<RegisteredProjectEntry[]> {
+    return readProjectsRegistry();
 }

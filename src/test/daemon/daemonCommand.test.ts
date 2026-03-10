@@ -2,8 +2,7 @@
  * Tests for src/cli/commands/daemon.ts — registerDaemonCommand.
  *
  * Verifies that calling registerDaemonCommand on a Commander program registers
- * the 'daemon' top-level command with the expected subcommands (start, stop,
- * status, logs).
+ * the 'daemon' top-level command with the expected subcommands.
  *
  * These tests do NOT invoke the command actions (which would spawn real
  * processes) — they only inspect the Commander command structure.
@@ -42,7 +41,7 @@ suite('Daemon CLI Command', () => {
         );
     });
 
-    test('Given the daemon command, when listing subcommands, then start, stop, status, and logs subcommands are present', () => {
+    test('Given the daemon command, when listing subcommands, then start, register, unregister, registered, stop, status, and logs subcommands are present', () => {
         // Arrange
         registerDaemonCommand(program);
         const daemonCommand = program.commands.find((c) => c.name() === 'daemon');
@@ -53,7 +52,7 @@ suite('Daemon CLI Command', () => {
         const subcommandNames = daemonCommand!.commands.map((c) => c.name());
 
         // Assert
-        const expectedSubcommands = ['start', 'stop', 'status', 'logs'];
+        const expectedSubcommands = ['start', 'register', 'unregister', 'registered', 'stop', 'status', 'logs'];
         for (const expectedName of expectedSubcommands) {
             assert.ok(
                 subcommandNames.includes(expectedName),

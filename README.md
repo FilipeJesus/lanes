@@ -162,9 +162,21 @@ lanes delete my-feature
 
 Lanes v2 introduces an HTTP daemon and a browser-based dashboard for managing sessions remotely — across multiple projects, from any browser.
 
-**Architecture:** Each project runs its own daemon process (one per Git repo). A lightweight gateway aggregates all running daemons into a single web UI.
+**Architecture:** Lanes keeps a machine-wide registry of projects and a lightweight gateway for discovery. Each project still runs its own local daemon process when active, but you can register repos globally first and start their daemon only when needed.
 
-#### 1. Start a daemon for each project
+#### 1. Register projects with the machine-wide gateway
+
+```bash
+cd ~/projects/my-app
+lanes daemon register .
+
+cd ~/projects/my-api
+lanes daemon register .
+```
+
+Registered projects are stored in `~/.lanes/projects.json`.
+
+#### 2. Start a local daemon when you need one
 
 ```bash
 cd ~/projects/my-app
@@ -174,9 +186,9 @@ cd ~/projects/my-api
 lanes daemon start --port 9100   # optional: pick a specific port
 ```
 
-The daemon writes its PID, port, and auth token to `.lanes/` in the project root, and registers itself in the global registry at `~/.lanes/daemons.json`.
+The daemon writes its PID, port, and auth token to `.lanes/` in the project root, registers itself in `~/.lanes/daemons.json`, and auto-registers the project in `~/.lanes/projects.json`.
 
-#### 2. Launch the web UI
+#### 3. Launch the web UI
 
 ```bash
 lanes web
@@ -198,14 +210,16 @@ lanes web --port 4000
 lanes web --no-ui
 ```
 
-#### 3. Daemon management
+#### 4. Daemon management
 
 ```bash
+lanes daemon registered  # List all registered projects
 lanes daemon status   # Check if daemon is running (shows PID and port)
 lanes daemon stop     # Stop the daemon for the current project
+lanes daemon unregister .  # Remove the current project from the global registry
 ```
 
-#### 4. VS Code daemon mode (optional)
+#### 5. VS Code daemon mode (optional)
 
 You can route VS Code operations through the daemon instead of calling core services directly. This is useful if you want the web UI and VS Code to share the same session state source.
 
@@ -319,6 +333,9 @@ curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
 | `lanes workflow <name>` | Run a workflow template |
 | `lanes config` | View/edit configuration |
 | `lanes daemon start` | Start HTTP daemon for the current project |
+| `lanes daemon register [path]` | Register a project with the machine-wide gateway |
+| `lanes daemon unregister [path]` | Remove a project from the machine-wide gateway |
+| `lanes daemon registered` | List globally registered projects |
 | `lanes daemon stop` | Stop the running daemon |
 | `lanes daemon status` | Check daemon status (PID, port) |
 | `lanes daemon logs` | Show daemon log info |

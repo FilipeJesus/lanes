@@ -24,13 +24,17 @@ export { DaemonNotificationEmitter } from './notifications';
 export type { FileWatchOptions } from './fileWatcher';
 export { DaemonFileWatchManager } from './fileWatcher';
 export { createRouter } from './router';
-export type { DaemonRegistryEntry } from './registry';
+export type { DaemonRegistryEntry, RegisteredProjectEntry } from './registry';
 export {
     getRegistryPath,
+    getProjectsRegistryPath,
     registerDaemon,
     deregisterDaemon,
     listRegisteredDaemons,
     cleanStaleEntries,
+    registerProject,
+    deregisterProject,
+    listRegisteredProjects,
 } from './registry';
 export type { DaemonClientOptions, SseCallbacks, SseSubscription } from './client';
 export { DaemonClient, DaemonHttpError } from './client';

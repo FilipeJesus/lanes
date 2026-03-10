@@ -30,6 +30,8 @@ function healthClassName(health: HealthState): string {
             return styles.healthDegraded;
         case 'unreachable':
             return styles.healthUnreachable;
+        case 'registered':
+            return styles.healthDegraded;
     }
 }
 
@@ -44,19 +46,27 @@ function uptimeSeconds(startedAt: string): number {
 // ---------------------------------------------------------------------------
 
 export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
-    const { daemon, discovery, health } = enrichedDaemon;
+    const { project, daemon, discovery, health } = enrichedDaemon;
     const navigate = useNavigate();
 
-    const projectName = discovery?.projectName ?? daemon.projectName ?? `Port ${daemon.port}`;
+    const projectName = discovery?.projectName ?? daemon?.projectName ?? project.projectName;
     const gitRemote = discovery?.gitRemote ?? null;
     const sessionCount = discovery?.sessionCount ?? 0;
-    const uptime = formatUptime(uptimeSeconds(daemon.startedAt));
+    const uptime = daemon ? formatUptime(uptimeSeconds(daemon.startedAt)) : 'Not running';
+    const portLabel = daemon ? String(daemon.port) : 'Offline';
+    const isRunning = daemon !== null;
 
     function handleClick() {
+        if (!daemon) {
+            return;
+        }
         void navigate(`/project/${daemon.port}`);
     }
 
     function handleKeyDown(e: React.KeyboardEvent) {
+        if (!daemon) {
+            return;
+        }
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             void navigate(`/project/${daemon.port}`);
@@ -66,11 +76,11 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
     return (
         <div
             className={styles.card}
-            role="button"
-            tabIndex={0}
+            role={isRunning ? 'button' : 'article'}
+            tabIndex={isRunning ? 0 : undefined}
             onClick={handleClick}
             onKeyDown={handleKeyDown}
-            aria-label={`Open project ${projectName}`}
+            aria-label={isRunning ? `Open project ${projectName}` : `Registered project ${projectName}`}
         >
             <div className={styles.cardHeader}>
                 <h2 className={styles.projectName}>{projectName}</h2>
@@ -99,7 +109,7 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
                 </span>
                 <span className={styles.metaItem}>
                     <span className={styles.metaLabel}>Port</span>
-                    <span className={styles.metaValue}>{daemon.port}</span>
+                    <span className={styles.metaValue}>{portLabel}</span>
                 </span>
             </div>
         </div>

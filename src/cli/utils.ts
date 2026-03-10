@@ -11,19 +11,19 @@ import { CliGitPathResolver } from './adapters/CliGitPathResolver';
 import { setConfigCallbacks, initializeGlobalStorageContext } from '../core/session/SessionDataService';
 
 /**
- * Resolve the base repo root from the current working directory.
+ * Resolve the base repo root from a workspace path.
  * Handles being run from inside a worktree.
  */
-export async function resolveRepoRoot(): Promise<string> {
-    const cwd = process.cwd();
+export async function resolveRepoRootFromPath(workspacePath: string): Promise<string> {
+    const resolvedPath = path.resolve(workspacePath);
 
     // Find the git toplevel (handles running from subdirectories)
     let toplevel: string;
-    if (await fileExists(path.join(cwd, '.git'))) {
-        toplevel = cwd;
+    if (await fileExists(path.join(resolvedPath, '.git'))) {
+        toplevel = resolvedPath;
     } else {
         try {
-            const result = await execGit(['rev-parse', '--show-toplevel'], cwd);
+            const result = await execGit(['rev-parse', '--show-toplevel'], resolvedPath);
             toplevel = result.trim();
         } catch {
             throw new Error('Not a git repository. Run from inside a git repo or run "git init" first.');
@@ -32,6 +32,22 @@ export async function resolveRepoRoot(): Promise<string> {
 
     // Always resolve to base repo root (handles worktree paths)
     return SettingsService.getBaseRepoPath(toplevel);
+}
+
+/**
+ * Resolve the base repo root from the current working directory.
+ */
+export async function resolveRepoRoot(): Promise<string> {
+    return resolveRepoRootFromPath(process.cwd());
+}
+
+/**
+ * Initialize git path resolution for CLI commands that do not need full config.
+ */
+export async function initCliGit(): Promise<void> {
+    const gitResolver = new CliGitPathResolver();
+    const gitPath = await gitResolver.resolveGitPath();
+    initializeGitPath(gitPath);
 }
 
 /**
@@ -47,10 +63,7 @@ export function getPackageRoot(): string {
  * Returns the config provider and repo root for use by commands.
  */
 export async function initCli(): Promise<{ config: CliConfigProvider; repoRoot: string }> {
-    // Resolve git path
-    const gitResolver = new CliGitPathResolver();
-    const gitPath = await gitResolver.resolveGitPath();
-    initializeGitPath(gitPath);
+    await initCliGit();
 
     // Resolve repo root
     const repoRoot = await resolveRepoRoot();

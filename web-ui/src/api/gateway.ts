@@ -6,7 +6,7 @@
  * In production, these are served directly by the gateway server.
  */
 
-import type { DaemonInfo } from './types';
+import type { DaemonInfo, GatewayProjectInfo } from './types';
 
 /**
  * Fetch the list of all currently running Lanes daemons from the gateway server.
@@ -21,4 +21,16 @@ export async function fetchDaemons(): Promise<DaemonInfo[]> {
         throw new Error(`Failed to fetch daemons: HTTP ${res.status}`);
     }
     return res.json() as Promise<DaemonInfo[]>;
+}
+
+/**
+ * Fetch the list of projects known to the machine-wide gateway, including
+ * whether each project currently has a running daemon attached.
+ */
+export async function fetchProjects(): Promise<GatewayProjectInfo[]> {
+    const res = await fetch('/api/gateway/projects');
+    if (!res.ok) {
+        throw new Error(`Failed to fetch projects: HTTP ${res.status}`);
+    }
+    return res.json() as Promise<GatewayProjectInfo[]>;
 }

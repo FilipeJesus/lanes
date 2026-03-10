@@ -19,7 +19,7 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import { createGatewayServer } from '../../daemon/gateway';
-import { registerDaemon } from '../../daemon/registry';
+import { registerDaemon, registerProject } from '../../daemon/registry';
 import type { DaemonRegistryEntry } from '../../daemon/registry';
 
 // ---------------------------------------------------------------------------
@@ -170,6 +170,55 @@ suite('GatewayServer', () => {
 
         // Assert: public endpoint — must succeed without auth
         assert.strictEqual(res.status, 200, 'Should return 200 without any auth header');
+    });
+
+    test('Given a registered project without a running daemon, when GET /api/gateway/projects is called, then it is returned with status "registered"', async () => {
+        await registerProject({
+            workspaceRoot: '/workspace/registered-only',
+            projectName: 'registered-only',
+            registeredAt: new Date().toISOString(),
+        });
+
+        const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/projects' });
+
+        assert.strictEqual(res.status, 200, 'Should return HTTP 200');
+        const body = JSON.parse(res.body) as Array<{
+            workspaceRoot: string;
+            status: string;
+            daemon: DaemonRegistryEntry | null;
+        }>;
+        const found = body.find((project) => project.workspaceRoot === '/workspace/registered-only');
+        assert.ok(found, 'Registered project should appear in the response');
+        assert.strictEqual(found!.status, 'registered');
+        assert.strictEqual(found!.daemon, null);
+    });
+
+    test('Given a registered project with a live daemon, when GET /api/gateway/projects is called, then it is returned with status "running"', async () => {
+        const workspaceRoot = '/workspace/running-project';
+        await registerProject({
+            workspaceRoot,
+            projectName: 'running-project',
+            registeredAt: new Date().toISOString(),
+        });
+        await registerDaemon(makeEntry({
+            workspaceRoot,
+            projectName: 'running-project',
+            pid: process.pid,
+        }));
+
+        const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/projects' });
+
+        assert.strictEqual(res.status, 200, 'Should return HTTP 200');
+        const body = JSON.parse(res.body) as Array<{
+            workspaceRoot: string;
+            status: string;
+            daemon: DaemonRegistryEntry | null;
+        }>;
+        const found = body.find((project) => project.workspaceRoot === workspaceRoot);
+        assert.ok(found, 'Running project should appear in the response');
+        assert.strictEqual(found!.status, 'running');
+        assert.ok(found!.daemon, 'Running project should include daemon info');
+        assert.strictEqual(found!.daemon?.workspaceRoot, workspaceRoot);
     });
 
     // -----------------------------------------------------------------------

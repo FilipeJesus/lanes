@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { Dashboard } from '../../pages/Dashboard';
 import type { EnrichedDaemon } from '../../hooks/useDaemons';
-import type { DaemonInfo, DiscoveryInfo } from '../../api/types';
+import type { DaemonInfo, DiscoveryInfo, GatewayProjectInfo } from '../../api/types';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -53,8 +53,20 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
     };
 }
 
+function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    return {
+        workspaceRoot: '/projects/my-app',
+        projectName: 'my-app',
+        registeredAt: new Date().toISOString(),
+        status: 'running',
+        daemon: makeDaemonInfo(),
+        ...overrides,
+    };
+}
+
 function makeEnrichedDaemon(port: number, projectName: string): EnrichedDaemon {
     return {
+        project: makeProjectInfo({ workspaceRoot: `/projects/${projectName}`, projectName }),
         daemon: makeDaemonInfo({ port, projectName }),
         discovery: makeDiscovery({ port, projectName }),
         health: 'healthy',
@@ -116,10 +128,10 @@ describe('Dashboard', () => {
 
         renderDashboard();
 
-        expect(screen.getByText(/no projects running/i)).toBeInTheDocument();
+        expect(screen.getByText(/no projects registered/i)).toBeInTheDocument();
     });
 
-    it('Given empty state, then a helpful message about running "lanes start" is visible', () => {
+    it('Given empty state, then a helpful message about running "lanes daemon register ." is visible', () => {
         mockUseDaemons.mockReturnValue({
             daemons: [],
             loading: false,
@@ -129,7 +141,7 @@ describe('Dashboard', () => {
 
         renderDashboard();
 
-        expect(screen.getByText(/lanes start/i)).toBeInTheDocument();
+        expect(screen.getByText(/lanes daemon register \./i)).toBeInTheDocument();
     });
 
     it('Given useDaemons returns 3 daemons, then 3 ProjectCard elements are rendered', () => {

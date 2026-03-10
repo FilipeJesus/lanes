@@ -18,7 +18,12 @@ import { DaemonNotificationEmitter } from './notifications';
 import { DaemonFileWatchManager } from './fileWatcher';
 import { generateToken, writeTokenFile } from './auth';
 import { createRouter } from './router';
-import { registerDaemon, deregisterDaemon, DaemonRegistryEntry } from './registry';
+import {
+    registerDaemon,
+    deregisterDaemon,
+    registerProject,
+    DaemonRegistryEntry,
+} from './registry';
 import { SessionHandlerService } from '../core/services/SessionHandlerService';
 import { getWorktreesFolder } from '../core/session/SessionDataService';
 import { IHandlerContext } from '../core/interfaces/IHandlerContext';
@@ -100,6 +105,13 @@ async function main(): Promise<void> {
 
     // Resolve the actual git root (workspace may already be a git root)
     const workspaceRoot = await resolveGitRoot(workspace);
+    const projectName = path.basename(workspaceRoot);
+
+    await registerProject({
+        workspaceRoot,
+        projectName,
+        registeredAt: new Date().toISOString(),
+    });
 
     // 1. Initialize DaemonConfigStore
     const configStore = new DaemonConfigStore(workspaceRoot);
@@ -172,7 +184,7 @@ async function main(): Promise<void> {
         pid: process.pid,
         token: authToken,
         startedAt,
-        projectName: path.basename(workspaceRoot),
+        projectName,
     };
     await registerDaemon(registryEntry);
 

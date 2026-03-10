@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { initCli, initCliGit, resolveRepoRootFromPath, exitWithError } from '../utils';
 import {
     startDaemon,
     stopDaemon,
@@ -12,6 +12,11 @@ import {
     getDaemonPort,
     getDaemonPid,
 } from '../../daemon/lifecycle';
+import {
+    registerProject,
+    deregisterProject,
+    listRegisteredProjects,
+} from '../../daemon/registry';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerDaemonCommand(program: Command): void {
@@ -50,6 +55,68 @@ export function registerDaemonCommand(program: Command): void {
                     console.log(`Daemon started successfully on port ${actualPort}.`);
                 } else {
                     console.error('Daemon did not start within the expected time. Check daemon logs for details.');
+                }
+            } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                exitWithError(getErrorMessage(err));
+            }
+        });
+
+    daemon
+        .command('register')
+        .description('Register a project with the machine-wide Lanes gateway')
+        .argument('[workspace]', 'Workspace to register (default: current directory)', '.')
+        .action(async (workspaceArg: string) => {
+            try {
+                await initCliGit();
+                const workspaceRoot = await resolveRepoRootFromPath(workspaceArg);
+                const projectName = path.basename(workspaceRoot);
+
+                await registerProject({
+                    workspaceRoot,
+                    projectName,
+                    registeredAt: new Date().toISOString(),
+                });
+
+                console.log(`Registered project "${projectName}" at ${workspaceRoot}.`);
+            } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                exitWithError(getErrorMessage(err));
+            }
+        });
+
+    daemon
+        .command('unregister')
+        .description('Remove a project from the machine-wide Lanes gateway')
+        .argument('[workspace]', 'Workspace to unregister (default: current directory)', '.')
+        .action(async (workspaceArg: string) => {
+            try {
+                await initCliGit();
+                const workspaceRoot = await resolveRepoRootFromPath(workspaceArg);
+
+                await deregisterProject(workspaceRoot);
+
+                console.log(`Unregistered project at ${workspaceRoot}.`);
+            } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                exitWithError(getErrorMessage(err));
+            }
+        });
+
+    daemon
+        .command('registered')
+        .description('List projects registered with the machine-wide Lanes gateway')
+        .action(async () => {
+            try {
+                const projects = await listRegisteredProjects();
+
+                if (projects.length === 0) {
+                    console.log('No projects registered.');
+                    return;
+                }
+
+                for (const project of projects.sort((a, b) => a.projectName.localeCompare(b.projectName))) {
+                    console.log(`${project.projectName}\t${project.workspaceRoot}`);
                 }
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
