@@ -17,6 +17,7 @@ import { registerRepairCommand } from './commands/repair';
 import { registerConfigCommand } from './commands/config';
 import { registerDaemonCommand } from './commands/daemon';
 import { registerWebCommand } from './commands/web';
+import { registerUninstallCommand } from './commands/uninstall';
 
 declare const CLI_VERSION: string;
 
@@ -42,5 +43,6 @@ registerRepairCommand(program);
 registerConfigCommand(program);
 registerDaemonCommand(program);
 registerWebCommand(program);
+registerUninstallCommand(program);
 
 program.parse();

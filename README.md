@@ -343,6 +343,7 @@ curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
 | `lanes daemon status` | Check daemon status (PID, port) |
 | `lanes daemon logs` | Show daemon log info |
 | `lanes web` | Start the web UI gateway + dashboard |
+| `lanes uninstall` | Uninstall all globally installed Lanes CLI versions |
 
 ---
 
