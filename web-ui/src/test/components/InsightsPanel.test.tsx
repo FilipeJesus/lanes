@@ -77,4 +77,46 @@ describe('InsightsPanel', () => {
         renderPanel({ error: new Error('Network failure') });
         expect(screen.getByRole('alert')).toHaveTextContent('Network failure');
     });
+
+    // -------------------------------------------------------------------------
+    // Critical: insights-panel-shows-spinner-when-loading
+    // -------------------------------------------------------------------------
+
+    it('Given loading=true, when InsightsPanel renders, then an element with aria-label "Loading insights" is present in the DOM', () => {
+        renderPanel({ loading: true });
+        expect(screen.getByLabelText('Loading insights')).toBeInTheDocument();
+    });
+
+    it('Given loading=true, when InsightsPanel renders, then no <pre> content element is rendered', () => {
+        const { container } = renderPanel({ loading: true, insights: 'some insights text' });
+        expect(container.querySelector('pre')).not.toBeInTheDocument();
+    });
+
+    it('Given loading=false and insights is non-empty, when InsightsPanel renders, then a <pre> element containing the insights text is rendered and the spinner is not present', () => {
+        const { container } = renderPanel({ loading: false, insights: 'My insights content.' });
+        expect(screen.getByText('My insights content.')).toBeInTheDocument();
+        expect(container.querySelector('pre')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Loading insights')).not.toBeInTheDocument();
+    });
+
+    it('Given loading=false and insights is empty string, when InsightsPanel renders, then the empty-state paragraph is shown and the spinner is not present', () => {
+        renderPanel({ loading: false, insights: '' });
+        expect(
+            screen.getByText('No insights available. Click Refresh Insights to generate them.')
+        ).toBeInTheDocument();
+        expect(screen.queryByLabelText('Loading insights')).not.toBeInTheDocument();
+    });
+
+    // -------------------------------------------------------------------------
+    // Low: insights-panel-spinner-css-class-exists
+    // -------------------------------------------------------------------------
+
+    it('Given loading=true, when InsightsPanel renders, then the spinner container element has a non-empty className applied', () => {
+        const { container } = renderPanel({ loading: true });
+        const spinnerContainer = container.querySelector('[aria-label="Loading insights"]');
+        expect(spinnerContainer).toBeInTheDocument();
+        // CSS module applies a non-empty class to the container
+        expect(spinnerContainer?.className).toBeTruthy();
+        expect((spinnerContainer?.className ?? '').length).toBeGreaterThan(0);
+    });
 });

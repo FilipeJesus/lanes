@@ -44,7 +44,7 @@ import { readJson } from './FileService';
 import { buildAgentLaunchCommand, prepareAgentLaunchContext } from './AgentLaunchSetupService';
 import { IHandlerContext } from '../interfaces/IHandlerContext';
 import { validateSessionName as coreValidateSessionName, validateComparisonRef } from '../validation';
-import { generateInsights, SessionInsights } from './InsightsService';
+import { generateInsights, formatInsightsReport, SessionInsights } from './InsightsService';
 import { analyzeInsights } from './InsightsAnalyzer';
 
 // =============================================================================
@@ -204,22 +204,6 @@ export class SessionHandlerService {
         if (path.isAbsolute(pattern) || pattern.split(/[\\/]/).includes('..')) {
             throw new Error('Watch pattern must be relative and must not traverse parent directories');
         }
-    }
-
-    private serializeInsights(insights: SessionInsights): Record<string, unknown> {
-        return {
-            ...insights,
-            totalToolUses: Object.fromEntries(insights.totalToolUses),
-            totalSkillUses: Object.fromEntries(insights.totalSkillUses),
-            totalMcpUses: Object.fromEntries(insights.totalMcpUses),
-            totalFileOperations: Object.fromEntries(insights.totalFileOperations),
-            conversations: insights.conversations.map(conv => ({
-                ...conv,
-                toolUses: Object.fromEntries(conv.toolUses),
-                skillUses: Object.fromEntries(conv.skillUses),
-                mcpUses: Object.fromEntries(conv.mcpUses),
-            })),
-        };
     }
 
     private async resolveWorkflowPath(workflowNameOrPath: string): Promise<string | null> {
@@ -559,15 +543,15 @@ export class SessionHandlerService {
                 'code' in err &&
                 (err as NodeJS.ErrnoException).code === 'ENOENT'
             ) {
-                return { insights: null, analysis: null };
+                return { insights: '', analysis: null, sessionName };
             }
             throw err;
         }
 
-        const serializedInsights = this.serializeInsights(insights);
-        const analysis = includeAnalysis ? analyzeInsights(insights) : null;
+        const analysisResult = includeAnalysis ? analyzeInsights(insights) : null;
+        const formattedReport = formatInsightsReport(sessionName, insights, analysisResult ?? undefined);
 
-        return { insights: serializedInsights, analysis };
+        return { insights: formattedReport, analysis: null, sessionName };
     }
 
     // ---------------------------------------------------------------------------

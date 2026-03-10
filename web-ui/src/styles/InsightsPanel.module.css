@@ -142,3 +142,28 @@
     font-size: var(--font-size-sm);
     font-style: italic;
 }
+
+/* --------------------------------------------------------------------------
+   Loading spinner
+   -------------------------------------------------------------------------- */
+
+.spinnerContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-8, 2rem);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.spinner {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--color-border-default);
+    border-top-color: var(--color-accent-primary);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+}
