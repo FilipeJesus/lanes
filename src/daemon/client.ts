@@ -18,6 +18,7 @@ import { ValidationError } from '../core/errors/ValidationError';
 import { LanesError } from '../core/errors/LanesError';
 import { getDaemonPort } from './lifecycle';
 import { readTokenFile } from './auth';
+import type { TerminalOutputData } from '../core/interfaces/ITerminalIOProvider';
 
 // ---------------------------------------------------------------------------
 // Concrete error class for non-validation HTTP errors
@@ -429,8 +430,126 @@ export class DaemonClient {
     /** POST /api/v1/terminals/:name/send */
     sendToTerminal(name: string, text: string): Promise<unknown> {
         return this.request('POST', `/api/v1/terminals/${encodeURIComponent(name)}/send`, {
-            body: { command: text },
+            body: { text },
         });
+    }
+
+    /** GET /api/v1/terminals/:name/output */
+    getTerminalOutput(name: string): Promise<TerminalOutputData> {
+        return this.request<TerminalOutputData>(
+            'GET',
+            `/api/v1/terminals/${encodeURIComponent(name)}/output`
+        );
+    }
+
+    /** POST /api/v1/terminals/:name/resize */
+    resizeTerminal(name: string, cols: number, rows: number): Promise<void> {
+        return this.request<void>(
+            'POST',
+            `/api/v1/terminals/${encodeURIComponent(name)}/resize`,
+            { body: { cols, rows } }
+        );
+    }
+
+    /**
+     * Subscribe to terminal output via SSE stream.
+     * Polls terminal content at the server side (every 200ms) and sends diffs.
+     * Returns an object with a `close()` method to stop the stream.
+     */
+    streamTerminalOutput(
+        name: string,
+        callbacks: {
+            onData: (data: TerminalOutputData) => void;
+            onError?: (error: Error) => void;
+        }
+    ): { close: () => void } {
+        let closed = false;
+        let currentReq: http.ClientRequest | null = null;
+
+        const url = new URL(
+            this.baseUrl + `/api/v1/terminals/${encodeURIComponent(name)}/stream`
+        );
+        const reqOptions: http.RequestOptions = {
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname + url.search,
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${this.token}`,
+                Accept: 'text/event-stream',
+            },
+        };
+
+        const req = http.request(reqOptions, (res) => {
+            if (res.statusCode !== 200) {
+                res.resume();
+                callbacks.onError?.(
+                    new Error(`Terminal stream failed with status ${res.statusCode}`)
+                );
+                return;
+            }
+
+            let buffer = '';
+
+            res.on('data', (chunk: Buffer) => {
+                buffer += chunk.toString('utf-8');
+
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() ?? '';
+
+                for (const message of messages) {
+                    if (!message.trim()) {
+                        continue;
+                    }
+
+                    let dataLine = '';
+
+                    for (const line of message.split('\n')) {
+                        if (line.startsWith('data:')) {
+                            dataLine = line.slice('data:'.length).trim();
+                        }
+                    }
+
+                    if (!dataLine) {
+                        continue;
+                    }
+
+                    let parsedData: unknown;
+                    try {
+                        parsedData = JSON.parse(dataLine);
+                    } catch {
+                        continue;
+                    }
+
+                    callbacks.onData(parsedData as TerminalOutputData);
+                }
+            });
+
+            res.on('error', (err) => {
+                if (!closed) {
+                    callbacks.onError?.(err);
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            if (!closed) {
+                callbacks.onError?.(err);
+            }
+        });
+
+        currentReq = req;
+        req.end();
+
+        return {
+            close(): void {
+                closed = true;
+                if (currentReq !== null) {
+                    currentReq.destroy();
+                    currentReq = null;
+                }
+            },
+        };
     }
 
     // -------------------------------------------------------------------------

@@ -1,0 +1,262 @@
+/* ==========================================================================
+   TerminalView — terminal output display and input
+   ========================================================================== */
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    min-height: 400px;
+    max-height: 70vh;
+}
+
+/* --------------------------------------------------------------------------
+   Toolbar
+   -------------------------------------------------------------------------- */
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-2) var(--spacing-3);
+    background-color: var(--color-bg-overlay);
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+}
+
+.toolbarTitle {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--font-family-mono);
+}
+
+.connectionStatus {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.statusDot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+
+.statusDotConnected {
+    background-color: var(--color-success);
+    box-shadow: 0 0 4px rgba(63, 185, 80, 0.6);
+}
+
+.statusDotConnecting {
+    background-color: var(--color-warning);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+.statusDotError {
+    background-color: var(--color-danger);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* --------------------------------------------------------------------------
+   Output area
+   -------------------------------------------------------------------------- */
+
+.output {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: var(--spacing-3);
+    background-color: var(--color-bg-surface);
+}
+
+.pre {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    color: var(--color-text-primary);
+    white-space: pre;
+    word-break: normal;
+    min-height: 100%;
+}
+
+/* Scrollbar styling for the output area */
+.output::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.output::-webkit-scrollbar-track {
+    background: var(--color-bg-surface);
+}
+
+.output::-webkit-scrollbar-thumb {
+    background: var(--color-border-emphasis);
+    border-radius: var(--radius-full);
+}
+
+.output::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   State overlays
+   -------------------------------------------------------------------------- */
+
+.connecting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-3);
+    height: 100%;
+    min-height: 200px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    padding: var(--spacing-4);
+}
+
+.connectingTitle {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+}
+
+.connectingHint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border-default);
+    border-top-color: var(--color-warning);
+    border-radius: var(--radius-full);
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.errorBanner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3) var(--spacing-4);
+    background-color: rgba(248, 81, 73, 0.12);
+    border-bottom: 1px solid rgba(248, 81, 73, 0.3);
+    flex-shrink: 0;
+}
+
+.errorTitle {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-danger);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.errorMessage {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+/* --------------------------------------------------------------------------
+   Input row
+   -------------------------------------------------------------------------- */
+
+.inputRow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background-color: var(--color-bg-overlay);
+    border-top: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+}
+
+.inputPrompt {
+    padding: var(--spacing-2) var(--spacing-2) var(--spacing-2) var(--spacing-3);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-success);
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.input {
+    flex: 1;
+    padding: var(--spacing-2) var(--spacing-2);
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    caret-color: var(--color-text-primary);
+}
+
+.input:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-accent-primary);
+}
+
+.input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.input:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
+.sendButton {
+    padding: var(--spacing-2) var(--spacing-3);
+    background-color: transparent;
+    border: none;
+    border-left: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.sendButton:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-active);
+}
+
+.sendButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.sendButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: -2px;
+}

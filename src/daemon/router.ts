@@ -600,6 +600,99 @@ export function createRouter(
                 }
             }
 
+            // GET /api/v1/terminals/:name/output
+            {
+                const match = matchRoute('/api/v1/terminals/:name/output', pathname);
+                if (method === 'GET' && match) {
+                    const result = await handlerService.handleTerminalOutput({
+                        name: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // POST /api/v1/terminals/:name/resize
+            {
+                const match = matchRoute('/api/v1/terminals/:name/resize', pathname);
+                if (method === 'POST' && match) {
+                    const body = await readJsonBody(req);
+                    const result = await handlerService.handleTerminalResize({
+                        name: match.params.name,
+                        cols: body.cols,
+                        rows: body.rows,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
+            // GET /api/v1/terminals/:name/stream  (SSE — polls terminal content every 200ms)
+            {
+                const match = matchRoute('/api/v1/terminals/:name/stream', pathname);
+                if (method === 'GET' && match) {
+                    const terminalName = match.params.name;
+
+                    if (!terminalName || !/^[a-zA-Z0-9_-]+$/.test(terminalName)) {
+                        sendJson(res, 400, { error: 'Invalid terminal name: must only contain alphanumeric characters, hyphens, and underscores' });
+                        return;
+                    }
+
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                    });
+                    res.write(': connected\n\n');
+
+                    let lastContent = '';
+                    let closed = false;
+
+                    const poll = async (): Promise<void> => {
+                        if (closed) {
+                            return;
+                        }
+                        try {
+                            const outputData = await handlerService.handleTerminalOutput({
+                                name: terminalName,
+                            }) as { content: string; rows: number; cols: number };
+
+                            if (outputData.content !== lastContent) {
+                                lastContent = outputData.content;
+                                const payload = JSON.stringify(outputData);
+                                res.write(`event: terminalOutput\ndata: ${payload}\n\n`);
+                            }
+                        } catch {
+                            // Session may not exist yet or tmux error — skip this tick
+                        }
+
+                        if (!closed) {
+                            pollTimer = setTimeout(() => { void poll(); }, 200);
+                        }
+                    };
+
+                    let pollTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => { void poll(); }, 200);
+
+                    req.on('close', () => {
+                        closed = true;
+                        if (pollTimer !== null) {
+                            clearTimeout(pollTimer);
+                            pollTimer = null;
+                        }
+                    });
+
+                    res.on('close', () => {
+                        closed = true;
+                        if (pollTimer !== null) {
+                            clearTimeout(pollTimer);
+                            pollTimer = null;
+                        }
+                    });
+
+                    return;
+                }
+            }
+
             // ---------------------------------------------------------------
             // No route matched
             // ---------------------------------------------------------------

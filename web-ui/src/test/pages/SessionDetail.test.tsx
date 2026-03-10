@@ -66,6 +66,9 @@ function makeApiClient(sessions: SessionInfo[], worktree: WorktreeInfo, workflow
         getSessionDiffFiles: vi.fn().mockResolvedValue({ files: [], sessionName: 'my-session' }),
         getSessionDiff: vi.fn().mockResolvedValue({ diff: '', sessionName: 'my-session' }),
         getSessionInsights: vi.fn().mockResolvedValue({ insights: '', analysis: undefined, sessionName: 'my-session' }),
+        streamTerminalOutput: vi.fn().mockReturnValue({ close: vi.fn() }),
+        sendToTerminal: vi.fn().mockResolvedValue(undefined),
+        resizeTerminal: vi.fn().mockResolvedValue(undefined),
     } as unknown as DaemonApiClient;
 }
 
@@ -269,6 +272,58 @@ describe('SessionDetail', () => {
         // The last call should pass includeUncommitted=true
         const lastCall = vi.mocked(apiClient.getSessionDiff).mock.calls.at(-1);
         expect(lastCall?.[1]).toBe(true);
+    });
+
+    // -------------------------------------------------------------------------
+    // SessionDetail-terminal-tab: Terminal tab button is present
+    // -------------------------------------------------------------------------
+
+    it('Given a session is loaded, when the tab bar renders, then a Terminal tab button is present', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('3942', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /terminal/i })).toBeInTheDocument();
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // SessionDetail-terminal-tab-content: TerminalView shown when Terminal tab clicked
+    // -------------------------------------------------------------------------
+
+    it('Given a session is loaded and the Terminal tab is clicked, when the tab panel renders, then the TerminalView component is shown', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('3942', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /terminal/i })).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole('tab', { name: /terminal/i }));
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /terminal/i })).toHaveAttribute('aria-selected', 'true');
+            // TerminalView renders an aria-label="Terminal output" on its output div
+            expect(screen.getByLabelText(/terminal output/i)).toBeInTheDocument();
+        });
     });
 });
 

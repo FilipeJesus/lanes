@@ -42,6 +42,8 @@ export interface AgentSessionData {
     isChimeEnabled?: boolean;
     taskListId?: string;
     terminal?: 'code' | 'tmux';
+    /** Sanitized tmux session name (may differ from the Lanes session name) */
+    tmuxSessionName?: string;
     /** Path to the agent's session log file (for polling status on hookless agents) */
     logPath?: string;
 }

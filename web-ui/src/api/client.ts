@@ -29,6 +29,8 @@ import type {
     CreateTerminalRequest,
     CreateTerminalResponse,
     TerminalSendRequest,
+    TerminalOutputData,
+    TerminalResizeRequest,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -392,5 +394,114 @@ export class DaemonApiClient {
             `/api/v1/terminals/${encodeURIComponent(name)}/send`,
             { body: params }
         );
+    }
+
+    /**
+     * GET /api/v1/terminals/:name/output
+     */
+    async getTerminalOutput(name: string): Promise<TerminalOutputData> {
+        return this.request<TerminalOutputData>(
+            'GET',
+            `/api/v1/terminals/${encodeURIComponent(name)}/output`
+        );
+    }
+
+    /**
+     * POST /api/v1/terminals/:name/resize
+     */
+    async resizeTerminal(name: string, params: TerminalResizeRequest): Promise<unknown> {
+        return this.request<unknown>(
+            'POST',
+            `/api/v1/terminals/${encodeURIComponent(name)}/resize`,
+            { body: params }
+        );
+    }
+
+    /**
+     * GET /api/v1/terminals/:name/stream (SSE)
+     *
+     * Connects to the terminal output SSE stream using the Fetch API's ReadableStream.
+     * Returns an object with a `close()` method to abort the stream.
+     *
+     * @param name Terminal name
+     * @param onData Callback invoked with each TerminalOutputData event
+     * @param onError Optional callback for stream errors
+     */
+    streamTerminalOutput(
+        name: string,
+        onData: (data: TerminalOutputData) => void,
+        onError?: (error: Error) => void
+    ): { close: () => void } {
+        const controller = new AbortController();
+        const url = `${this.baseUrl}/api/v1/terminals/${encodeURIComponent(name)}/stream`;
+
+        const run = async (): Promise<void> => {
+            try {
+                const res = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${this.token}`,
+                        Accept: 'text/event-stream',
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!res.ok || !res.body) {
+                    onError?.(new Error(`Terminal stream failed with status ${res.status}`));
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    buffer += decoder.decode(value, { stream: true });
+
+                    const messages = buffer.split('\n\n');
+                    buffer = messages.pop() ?? '';
+
+                    for (const message of messages) {
+                        if (!message.trim()) {
+                            continue;
+                        }
+
+                        let dataLine = '';
+                        for (const line of message.split('\n')) {
+                            if (line.startsWith('data:')) {
+                                dataLine = line.slice('data:'.length).trim();
+                            }
+                        }
+
+                        if (!dataLine) {
+                            continue;
+                        }
+
+                        try {
+                            const parsed = JSON.parse(dataLine) as TerminalOutputData;
+                            onData(parsed);
+                        } catch {
+                            // Skip unparseable events
+                        }
+                    }
+                }
+            } catch (err) {
+                if (err instanceof Error && err.name !== 'AbortError') {
+                    onError?.(err);
+                }
+            }
+        };
+
+        void run();
+
+        return {
+            close(): void {
+                controller.abort();
+            },
+        };
     }
 }
