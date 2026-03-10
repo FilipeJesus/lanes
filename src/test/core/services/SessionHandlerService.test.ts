@@ -19,6 +19,10 @@ import {
     JsonRpcHandlerError,
     validateSessionName,
 } from '../../../core/services/SessionHandlerService';
+import {
+    getSessionChimeEnabled,
+    getWorktreesFolder,
+} from '../../../core/session/SessionDataService';
 import type {
     IHandlerContext,
     ISimpleConfigStore,
@@ -133,7 +137,7 @@ suite('SessionHandlerService', () => {
         });
     });
 
-    test('has all 27 expected handler methods', () => {
+    test('has all 29 expected handler methods', () => {
         const ctx = makeContext(tempDir);
         const service = new SessionHandlerService(ctx);
 
@@ -147,6 +151,8 @@ suite('SessionHandlerService', () => {
             'handleSessionOpen',
             'handleSessionPin',
             'handleSessionUnpin',
+            'handleSessionEnableNotifications',
+            'handleSessionDisableNotifications',
             // Git
             'handleGitListBranches',
             'handleGitGetDiff',
@@ -183,8 +189,8 @@ suite('SessionHandlerService', () => {
 
         assert.strictEqual(
             expectedMethods.length,
-            27,
-            'Expected exactly 27 handler methods'
+            29,
+            'Expected exactly 29 handler methods'
         );
     });
 });
@@ -335,6 +341,60 @@ suite('SessionHandlerService - validation', () => {
         assert.throws(() => {
             validateSessionName('');
         }, Error);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Suite: session notification handlers
+// ---------------------------------------------------------------------------
+
+suite('SessionHandlerService - session notification handlers', () => {
+    let tempDir: string;
+    let service: SessionHandlerService;
+    let worktreePath: string;
+
+    setup(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-shs-notifications-'));
+        service = new SessionHandlerService(makeContext(tempDir));
+
+        worktreePath = path.join(tempDir, getWorktreesFolder(), 'feature-notify');
+        fs.mkdirSync(worktreePath, { recursive: true });
+    });
+
+    teardown(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    test('handleSessionEnableNotifications persists enabled state and returns it in the session payload', async () => {
+        const result = await service.handleSessionEnableNotifications({
+            sessionName: 'feature-notify',
+        }) as { name: string; notificationsEnabled: boolean };
+
+        assert.strictEqual(result.name, 'feature-notify');
+        assert.strictEqual(result.notificationsEnabled, true);
+        assert.strictEqual(await getSessionChimeEnabled(worktreePath), true);
+    });
+
+    test('handleSessionDisableNotifications persists disabled state and returns it in the session payload', async () => {
+        await service.handleSessionEnableNotifications({ sessionName: 'feature-notify' });
+
+        const result = await service.handleSessionDisableNotifications({
+            sessionName: 'feature-notify',
+        }) as { name: string; notificationsEnabled: boolean };
+
+        assert.strictEqual(result.name, 'feature-notify');
+        assert.strictEqual(result.notificationsEnabled, false);
+        assert.strictEqual(await getSessionChimeEnabled(worktreePath), false);
+    });
+
+    test('handleSessionEnableNotifications throws JsonRpcHandlerError for a missing session', async () => {
+        await assert.rejects(
+            async () => service.handleSessionEnableNotifications({ sessionName: 'missing-session' }),
+            (err: unknown) =>
+                err instanceof JsonRpcHandlerError &&
+                err.code === -32601 &&
+                err.message.includes('Session not found')
+        );
     });
 });
 

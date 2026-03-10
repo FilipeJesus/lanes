@@ -154,6 +154,28 @@ describe('SessionDetail', () => {
         });
     });
 
+    it('Given session notifications are enabled, then the header shows the notifications-on bell button', async () => {
+        const session = makeSession({ name: 'my-session', notificationsEnabled: true });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            daemonInfo: { projectName: 'payments-service' },
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('project-123', 'my-session');
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: /disable notifications for session my-session/i })
+            ).toBeInTheDocument();
+            expect(screen.getByText('Enabled')).toBeInTheDocument();
+        });
+    });
+
     it('Given workflow state available, then workflow name and current step are shown', async () => {
         const session = makeSession({
             name: 'my-session',

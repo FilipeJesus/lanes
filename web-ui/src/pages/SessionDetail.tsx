@@ -25,8 +25,10 @@ import { WorkflowTaskList } from '../components/WorkflowTaskList';
 import { formatReviewForClipboard } from '../utils/reviewFormat';
 import type { ReviewComment } from '../utils/reviewFormat';
 import { TerminalView } from '../components/TerminalView';
+import { useProjectNotifications } from '../components/ProjectNotificationsProvider';
 import type { SseCallbacks } from '../api/sse';
 import type { AgentSessionStatus, SessionInfo, WorktreeInfo, WorkflowState, WorkflowStep } from '../api/types';
+import { prepareSessionNotifications } from '../utils/sessionNotifications';
 import styles from '../styles/SessionDetail.module.css';
 
 // ---------------------------------------------------------------------------
@@ -72,6 +74,7 @@ type ActiveTab = 'changes' | 'insights' | 'terminal';
 
 export function SessionDetail() {
     const { projectId, name } = useParams<{ projectId: string; name: string }>();
+    const notifications = useProjectNotifications();
 
     const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
         useDaemonConnection(projectId);
@@ -82,6 +85,8 @@ export function SessionDetail() {
     const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
     const [dataError, setDataError] = useState<Error | null>(null);
+    const [notificationError, setNotificationError] = useState<string | null>(null);
+    const [notificationPending, setNotificationPending] = useState(false);
 
     // Tab state
     const [activeTab, setActiveTab] = useState<ActiveTab>('changes');
@@ -271,6 +276,51 @@ export function SessionDetail() {
         await navigator.clipboard.writeText(formatted);
     }, [comments]);
 
+    const handleEnableNotifications = useCallback(async () => {
+        if (!apiClient || !session) return;
+
+        setNotificationError(null);
+        setNotificationPending(true);
+        try {
+            await prepareSessionNotifications(notifications);
+            const updated = await apiClient.enableSessionNotifications(session.name);
+            notifications.syncSessionNotifications(
+                session.name,
+                true,
+                session.status ?? null
+            );
+            setSession((prev) =>
+                prev ? { ...prev, notificationsEnabled: updated.notificationsEnabled ?? true } : prev
+            );
+        } catch (err) {
+            setNotificationError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setNotificationPending(false);
+        }
+    }, [apiClient, notifications, session]);
+
+    const handleDisableNotifications = useCallback(async () => {
+        if (!apiClient || !session) return;
+
+        setNotificationError(null);
+        setNotificationPending(true);
+        try {
+            const updated = await apiClient.disableSessionNotifications(session.name);
+            notifications.syncSessionNotifications(
+                session.name,
+                false,
+                session.status ?? null
+            );
+            setSession((prev) =>
+                prev ? { ...prev, notificationsEnabled: updated.notificationsEnabled ?? false } : prev
+            );
+        } catch (err) {
+            setNotificationError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setNotificationPending(false);
+        }
+    }, [apiClient, session]);
+
     // ---------------------------------------------------------------------------
     // Render helpers
     // ---------------------------------------------------------------------------
@@ -315,6 +365,27 @@ export function SessionDetail() {
                 </div>
 
                 <div className={styles.headerActions}>
+                    {session && (
+                        <button
+                            type="button"
+                            className={`${styles.secondaryButton} ${
+                                session.notificationsEnabled ? styles.notificationButtonActive : ''
+                            }`}
+                            onClick={() =>
+                                void (session.notificationsEnabled
+                                    ? handleDisableNotifications()
+                                    : handleEnableNotifications())
+                            }
+                            disabled={notificationPending}
+                            aria-label={
+                                session.notificationsEnabled
+                                    ? `Disable notifications for session ${session.name}`
+                                    : `Enable notifications for session ${session.name}`
+                            }
+                        >
+                            {session.notificationsEnabled ? '\u{1F514} Notifications on' : '\u{1F515} Notifications off'}
+                        </button>
+                    )}
                     <button
                         type="button"
                         className={styles.secondaryButton}
@@ -339,6 +410,13 @@ export function SessionDetail() {
                 <div className={styles.errorBanner} role="alert">
                     <div className={styles.errorTitle}>Failed to load session</div>
                     <div className={styles.errorMessage}>{error.message}</div>
+                </div>
+            )}
+
+            {notificationError && (
+                <div className={styles.errorBanner} role="alert">
+                    <div className={styles.errorTitle}>Failed to update notifications</div>
+                    <div className={styles.errorMessage}>{notificationError}</div>
                 </div>
             )}
 
@@ -386,6 +464,13 @@ export function SessionDetail() {
                                 <span className={styles.fieldLabel}>Agent</span>
                                 <span className={styles.fieldValue}>
                                     {session.data?.agentName ?? 'claude'}
+                                </span>
+                            </div>
+
+                            <div className={styles.fieldRow}>
+                                <span className={styles.fieldLabel}>Notifications</span>
+                                <span className={styles.fieldValue}>
+                                    {session.notificationsEnabled ? 'Enabled' : 'Disabled'}
                                 </span>
                             </div>
 

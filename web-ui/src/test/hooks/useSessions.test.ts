@@ -29,6 +29,8 @@ function makeApiClient(sessions: SessionInfo[] = []): DaemonApiClient {
         deleteSession: vi.fn(),
         pinSession: vi.fn(),
         unpinSession: vi.fn(),
+        enableSessionNotifications: vi.fn().mockResolvedValue({ notificationsEnabled: true }),
+        disableSessionNotifications: vi.fn().mockResolvedValue({ notificationsEnabled: false }),
     } as unknown as DaemonApiClient;
 }
 
@@ -170,6 +172,40 @@ describe('useSessions', () => {
 
             expect(result.current.sessions).toHaveLength(1);
             expect(result.current.sessions[0].name).toBe('session-2');
+        });
+    });
+
+    describe('notification preference actions', () => {
+        it('Given enableSessionNotifications succeeds, when called, then the matching session is marked notificationsEnabled=true', async () => {
+            const apiClient = makeApiClient([makeSession({ notificationsEnabled: false })]);
+
+            const { result } = renderHook(() => useSessions(apiClient, null));
+
+            await waitFor(() => {
+                expect(result.current.loading).toBe(false);
+            });
+
+            await act(async () => {
+                await result.current.enableSessionNotifications('test-session');
+            });
+
+            expect(result.current.sessions[0].notificationsEnabled).toBe(true);
+        });
+
+        it('Given disableSessionNotifications succeeds, when called, then the matching session is marked notificationsEnabled=false', async () => {
+            const apiClient = makeApiClient([makeSession({ notificationsEnabled: true })]);
+
+            const { result } = renderHook(() => useSessions(apiClient, null));
+
+            await waitFor(() => {
+                expect(result.current.loading).toBe(false);
+            });
+
+            await act(async () => {
+                await result.current.disableSessionNotifications('test-session');
+            });
+
+            expect(result.current.sessions[0].notificationsEnabled).toBe(false);
         });
     });
 });
