@@ -22,6 +22,8 @@ import { FileList } from '../components/FileList';
 import { InsightsPanel } from '../components/InsightsPanel';
 import { StepProgressTracker } from '../components/StepProgressTracker';
 import { WorkflowTaskList } from '../components/WorkflowTaskList';
+import { formatReviewForClipboard } from '../utils/reviewFormat';
+import type { ReviewComment } from '../utils/reviewFormat';
 import type { SseCallbacks } from '../api/sse';
 import type { AgentSessionStatus, SessionInfo, WorktreeInfo, WorkflowState, WorkflowStep } from '../api/types';
 import styles from '../styles/SessionDetail.module.css';
@@ -94,6 +96,12 @@ export function SessionDetail() {
 
     // Ref for scrolling to a specific file in the diff
     const diffSectionRef = useRef<HTMLDivElement>(null);
+
+    // ---------------------------------------------------------------------------
+    // Review / inline comments state
+    // ---------------------------------------------------------------------------
+
+    const [comments, setComments] = useState<ReviewComment[]>([]);
 
     const decodedName = name ? decodeURIComponent(name) : '';
 
@@ -216,6 +224,48 @@ export function SessionDetail() {
         const el = diffSectionRef.current.querySelector(`[id="${CSS.escape(id)}"]`);
         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
+
+    // ---------------------------------------------------------------------------
+    // Review handlers
+    // ---------------------------------------------------------------------------
+
+    const handleAddComment = useCallback(
+        (
+            filePath: string,
+            lineNumber: number,
+            lineType: 'added' | 'removed' | 'context',
+            lineContent: string,
+            text: string,
+        ) => {
+            setComments((prev) => [
+                ...prev,
+                {
+                    id: crypto.randomUUID(),
+                    filePath,
+                    lineNumber,
+                    lineType,
+                    lineContent,
+                    text,
+                },
+            ]);
+        },
+        [],
+    );
+
+    const handleDeleteComment = useCallback((commentId: string) => {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+    }, []);
+
+    const handleEditComment = useCallback((commentId: string, newText: string) => {
+        setComments((prev) =>
+            prev.map((c) => (c.id === commentId ? { ...c, text: newText } : c)),
+        );
+    }, []);
+
+    const handleSubmitReview = useCallback(async () => {
+        const formatted = formatReviewForClipboard(comments);
+        await navigator.clipboard.writeText(formatted);
+    }, [comments]);
 
     // ---------------------------------------------------------------------------
     // Render helpers
@@ -547,6 +597,23 @@ export function SessionDetail() {
 
                             {/* Main: diff viewer */}
                             <div className={styles.changesMain} ref={diffSectionRef}>
+                                {/* Review bar — only shown when comments exist */}
+                                {comments.length > 0 && (
+                                    <div className={styles.reviewBar}>
+                                        <span className={styles.commentCount}>
+                                            {comments.length}{' '}
+                                            {comments.length === 1 ? 'comment' : 'comments'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={styles.primaryButton}
+                                            onClick={() => void handleSubmitReview()}
+                                        >
+                                            Copy Review to Clipboard
+                                        </button>
+                                    </div>
+                                )}
+
                                 {diffLoading && (
                                     <div className={styles.diffLoading} role="status">
                                         <div className={styles.spinner} aria-hidden="true" />
@@ -566,7 +633,13 @@ export function SessionDetail() {
                                     </div>
                                 )}
                                 {!diffLoading && !diffError && (
-                                    <DiffViewer diff={diff} />
+                                    <DiffViewer
+                                        diff={diff}
+                                        comments={comments}
+                                        onAddComment={handleAddComment}
+                                        onDeleteComment={handleDeleteComment}
+                                        onEditComment={handleEditComment}
+                                    />
                                 )}
                             </div>
                         </div>
