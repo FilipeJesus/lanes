@@ -337,12 +337,25 @@ export async function saveSessionTmuxName(worktreePath: string, tmuxSessionName:
     }
 }
 
-export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'tmux' | null> {
+export async function getSessionTmuxName(worktreePath: string): Promise<string | null> {
+    const sessionPath = await resolveSessionFilePath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        if (!data) { return null; }
+        if (typeof data.tmuxSessionName === 'string' && data.tmuxSessionName.trim() !== '') {
+            return data.tmuxSessionName;
+        }
+        return null;
+    } catch { return null; }
+}
+
+export async function getSessionTerminalMode(worktreePath: string): Promise<'code' | 'vscode' | 'tmux' | null> {
     const sessionPath = await resolveSessionFilePath(worktreePath);
     try {
         const data = await readJson<Record<string, unknown>>(sessionPath);
         if (!data) { return null; }
         if (data.terminal === 'tmux') { return 'tmux'; }
+        if (data.terminal === 'vscode') { return 'vscode'; }
         if (data.terminal === 'code') { return 'code'; }
         return null;
     } catch { return null; }

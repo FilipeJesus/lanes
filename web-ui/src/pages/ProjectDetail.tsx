@@ -40,6 +40,8 @@ export function ProjectDetail() {
         error: sessionsError,
         refresh,
         createSession,
+        improveSessionPrompt,
+        uploadSessionAttachments,
         deleteSession,
         pinSession,
         unpinSession,
@@ -304,12 +306,14 @@ export function ProjectDetail() {
             {/* Create session dialog */}
             {apiClient && (
                 <CreateSessionDialog
-                    isOpen={showCreateDialog}
-                    apiClient={apiClient}
-                    onClose={() => setShowCreateDialog(false)}
-                    onCreate={handleCreate}
-                />
-            )}
+                isOpen={showCreateDialog}
+                apiClient={apiClient}
+                onClose={() => setShowCreateDialog(false)}
+                onCreate={handleCreate}
+                onImprovePrompt={improveSessionPrompt}
+                onUploadAttachments={uploadSessionAttachments}
+            />
+        )}
 
             {/* Delete confirmation dialog */}
             <ConfirmDialog

@@ -4,16 +4,19 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import * as launchSetupService from '../../core/services/AgentLaunchSetupService';
+import * as tmuxService from '../../core/services/TmuxService';
 import { ConfigStore } from '../../jetbrains-ide-bridge/config';
 import { NotificationEmitter } from '../../jetbrains-ide-bridge/notifications';
 import { handleRequest, initializeHandlers } from '../../jetbrains-ide-bridge/handlers';
 import { getAgent } from '../../core/codeAgents';
-import { initializeGlobalStorageContext } from '../../core/session/SessionDataService';
+import { initializeGlobalStorageContext, saveSessionTerminalMode } from '../../core/session/SessionDataService';
 
 suite('Bridge session.open', () => {
     let tempDir: string;
     let prepareLaunchContextStub: sinon.SinonStub;
     let buildLaunchCommandStub: sinon.SinonStub;
+    let isTmuxInstalledStub: sinon.SinonStub;
+    let launchInTmuxStub: sinon.SinonStub;
 
     setup(async () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-bridge-session-open-'));
@@ -33,11 +36,19 @@ suite('Bridge session.open', () => {
             mode: 'start',
             command: 'claude --settings "/tmp/claude-settings.json"'
         });
+        isTmuxInstalledStub = sinon.stub(tmuxService, 'isTmuxInstalled').resolves(false);
+        launchInTmuxStub = sinon.stub(tmuxService, 'launchInTmux').resolves({
+            tmuxSessionName: 'feat-open',
+            attachCommand: 'tmux attach-session -t "feat-open"',
+            wasExisting: false
+        });
     });
 
     teardown(() => {
         prepareLaunchContextStub.restore();
         buildLaunchCommandStub.restore();
+        isTmuxInstalledStub.restore();
+        launchInTmuxStub.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -85,5 +96,76 @@ suite('Bridge session.open', () => {
         }) as { command: string };
 
         assert.strictEqual(result.command, 'claude --settings "/tmp/claude-settings.json"');
+    });
+
+    test('returns tmux attach metadata when tmux mode is enabled', async () => {
+        const config = new ConfigStore(tempDir);
+        await config.initialize();
+        await config.set('lanes.terminalMode', 'tmux');
+        initializeHandlers(tempDir, config, new NotificationEmitter());
+        isTmuxInstalledStub.resolves(true);
+
+        const result = await handleRequest('session.open', {
+            sessionName: 'feat-tmux-open'
+        }) as {
+            command: string;
+            terminalMode?: string;
+            attachCommand?: string;
+            tmuxSessionName?: string;
+        };
+
+        assert.strictEqual(result.command, 'tmux attach-session -t "feat-open"');
+        assert.strictEqual(result.terminalMode, 'tmux');
+        assert.strictEqual(result.attachCommand, 'tmux attach-session -t "feat-open"');
+        assert.strictEqual(result.tmuxSessionName, 'feat-open');
+        sinon.assert.calledOnce(launchInTmuxStub);
+    });
+
+    test('prefers the persisted session terminal mode over the current config on reopen', async () => {
+        const config = new ConfigStore(tempDir);
+        await config.initialize();
+        await config.set('lanes.terminalMode', 'vscode');
+        initializeHandlers(tempDir, config, new NotificationEmitter());
+        isTmuxInstalledStub.resolves(true);
+
+        const worktreePath = path.join(tempDir, '.worktrees', 'feat-persisted-tmux');
+        await saveSessionTerminalMode(worktreePath, 'tmux');
+
+        const result = await handleRequest('session.open', {
+            sessionName: 'feat-persisted-tmux'
+        }) as {
+            command: string;
+            terminalMode?: string;
+            attachCommand?: string;
+        };
+
+        assert.strictEqual(result.command, 'tmux attach-session -t "feat-open"');
+        assert.strictEqual(result.terminalMode, 'tmux');
+        assert.strictEqual(result.attachCommand, 'tmux attach-session -t "feat-open"');
+        sinon.assert.calledOnce(launchInTmuxStub);
+    });
+
+    test('preserves a persisted vscode terminal mode even when config changes to tmux', async () => {
+        const config = new ConfigStore(tempDir);
+        await config.initialize();
+        await config.set('lanes.terminalMode', 'tmux');
+        initializeHandlers(tempDir, config, new NotificationEmitter());
+        isTmuxInstalledStub.resolves(true);
+
+        const worktreePath = path.join(tempDir, '.worktrees', 'feat-persisted-vscode');
+        await saveSessionTerminalMode(worktreePath, 'vscode');
+
+        const result = await handleRequest('session.open', {
+            sessionName: 'feat-persisted-vscode'
+        }) as {
+            command: string;
+            terminalMode?: string;
+            attachCommand?: string;
+        };
+
+        assert.strictEqual(result.command, 'claude --settings "/tmp/claude-settings.json"');
+        assert.strictEqual(result.terminalMode, 'vscode');
+        assert.strictEqual(result.attachCommand, undefined);
+        sinon.assert.notCalled(launchInTmuxStub);
     });
 });

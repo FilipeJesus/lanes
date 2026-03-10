@@ -26,6 +26,8 @@ function makeApiClient(sessions: SessionInfo[] = []): DaemonApiClient {
     return {
         listSessions: vi.fn().mockResolvedValue({ sessions }),
         createSession: vi.fn(),
+        improveSessionPrompt: vi.fn().mockResolvedValue({ improvedPrompt: 'Improved prompt' }),
+        uploadSessionAttachments: vi.fn().mockResolvedValue({ files: [] }),
         deleteSession: vi.fn(),
         pinSession: vi.fn(),
         unpinSession: vi.fn(),
@@ -178,7 +180,6 @@ describe('useSessions', () => {
     describe('notification preference actions', () => {
         it('Given enableSessionNotifications succeeds, when called, then the matching session is marked notificationsEnabled=true', async () => {
             const apiClient = makeApiClient([makeSession({ notificationsEnabled: false })]);
-
             const { result } = renderHook(() => useSessions(apiClient, null));
 
             await waitFor(() => {
@@ -206,6 +207,62 @@ describe('useSessions', () => {
             });
 
             expect(result.current.sessions[0].notificationsEnabled).toBe(false);
+        });
+    });
+
+    describe('session form actions', () => {
+        it('Given an API client, when improveSessionPrompt is called, then the hook returns the improved prompt text', async () => {
+            const apiClient = makeApiClient([]);
+            const { result } = renderHook(() => useSessions(apiClient, null));
+
+            await waitFor(() => {
+                expect(result.current.loading).toBe(false);
+            });
+
+            let improved = '';
+            await act(async () => {
+                improved = await result.current.improveSessionPrompt({
+                    prompt: 'Make this better',
+                    agent: 'claude',
+                });
+            });
+
+            expect(apiClient.improveSessionPrompt).toHaveBeenCalledWith({
+                prompt: 'Make this better',
+                agent: 'claude',
+            });
+            expect(improved).toBe('Improved prompt');
+        });
+
+        it('Given uploaded files, when uploadSessionAttachments is called, then the hook returns the uploaded attachment metadata', async () => {
+            const apiClient = makeApiClient([]);
+            vi.mocked(apiClient.uploadSessionAttachments).mockResolvedValue({
+                files: [{ name: 'notes.md', path: '/tmp/notes.md', size: 12, sourceKey: 'notes.md:12:1' }],
+            });
+
+            const { result } = renderHook(() => useSessions(apiClient, null));
+
+            await waitFor(() => {
+                expect(result.current.loading).toBe(false);
+            });
+
+            let uploaded: Awaited<ReturnType<typeof result.current.uploadSessionAttachments>> = [];
+            await act(async () => {
+                uploaded = await result.current.uploadSessionAttachments([
+                    {
+                        name: 'notes.md',
+                        data: 'aGVsbG8=',
+                        sourceKey: 'notes.md:12:1',
+                    },
+                ]);
+            });
+
+            expect(apiClient.uploadSessionAttachments).toHaveBeenCalledWith({
+                files: [{ name: 'notes.md', data: 'aGVsbG8=', sourceKey: 'notes.md:12:1' }],
+            });
+            expect(uploaded).toEqual([
+                { name: 'notes.md', path: '/tmp/notes.md', size: 12, sourceKey: 'notes.md:12:1' },
+            ]);
         });
     });
 });

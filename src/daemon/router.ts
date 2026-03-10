@@ -22,8 +22,11 @@ import { GlobalDaemonProjectManager } from './manager';
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Maximum allowed request body size (1 MiB). Prevents DoS via oversized payloads. */
+/** Maximum allowed request body size for standard JSON endpoints (1 MiB). */
 const MAX_BODY_SIZE = 1024 * 1024;
+
+/** Attachment uploads are base64-encoded JSON and need a materially larger limit. */
+const MAX_ATTACHMENT_BODY_SIZE = 32 * 1024 * 1024;
 
 /** API version reported by the health endpoint. */
 const DAEMON_API_VERSION = '1';
@@ -76,13 +79,16 @@ function sendError(res: http.ServerResponse, err: unknown): void {
  * Read and parse a JSON request body. Returns an empty object on empty body.
  * Rejects with an error if the body is not valid JSON.
  */
-async function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonBody(
+    req: http.IncomingMessage,
+    maxBodySize: number = MAX_BODY_SIZE
+): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
         let totalLength = 0;
         req.on('data', (chunk: Buffer) => {
             totalLength += chunk.length;
-            if (totalLength > MAX_BODY_SIZE) {
+            if (totalLength > maxBodySize) {
                 req.destroy();
                 reject(new Error('Request body too large'));
                 return;
@@ -340,6 +346,20 @@ export function createRouter(
             // ---------------------------------------------------------------
             // Sessions
             // ---------------------------------------------------------------
+
+            if (method === 'POST' && projectPath === '/session-form/improve-prompt') {
+                const body = await readJsonBody(req);
+                const result = await handlerService.handleSessionFormPromptImprove(body);
+                sendJson(res, 200, result);
+                return;
+            }
+
+            if (method === 'POST' && projectPath === '/session-form/attachments') {
+                const body = await readJsonBody(req, MAX_ATTACHMENT_BODY_SIZE);
+                const result = await handlerService.handleSessionFormAttachmentUpload(body);
+                sendJson(res, 200, result);
+                return;
+            }
 
             if (method === 'GET' && projectPath === '/sessions') {
                 const result = await handlerService.handleSessionList({});

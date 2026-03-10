@@ -5,7 +5,13 @@ import type { ServiceContainer } from '../../types/serviceContainer';
 import type { SessionItem } from '../providers/AgentSessionProvider';
 import type { PreviousSessionItem } from '../providers/PreviousSessionProvider';
 import { createSession } from '../services/SessionService';
-import { openAgentTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
+import {
+    openAgentTerminal,
+    createTerminalForSession,
+    openDaemonSessionTerminal,
+    type DaemonSessionLaunchResult,
+    TERMINAL_CLOSE_DELAY_MS
+} from '../services/TerminalService';
 import * as SettingsService from '../../core/services/SettingsService';
 import * as DiffService from '../../core/services/DiffService';
 import * as TmuxService from '../../core/services/TmuxService';
@@ -149,8 +155,12 @@ export function registerSessionCommands(
 
         if (daemonClient) {
             try {
-                await daemonClient.createSession({ name, agent: codeAgent.name });
+                const result = await daemonClient.createSession({ name, agent: codeAgent.name }) as
+                    DaemonSessionLaunchResult & { sessionName?: string; worktreePath?: string };
                 sessionProvider.refresh();
+                if (result.worktreePath) {
+                    await openDaemonSessionTerminal(result.sessionName ?? name, result.worktreePath, result, codeAgent);
+                }
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to create session via daemon: ${getErrorMessage(err)}`);
             }
@@ -163,6 +173,21 @@ export function registerSessionCommands(
     const openDisposable = vscode.commands.registerCommand('lanes.openSession', async (item: SessionItem) => {
         const agentName = await getSessionAgentName(item.worktreePath);
         const sessionAgent = getAgent(agentName) || codeAgent;
+        if (daemonClient) {
+            try {
+                const result = await daemonClient.openSession(item.label) as
+                    DaemonSessionLaunchResult & { worktreePath?: string };
+                await openDaemonSessionTerminal(
+                    item.label,
+                    result.worktreePath ?? item.worktreePath,
+                    result,
+                    sessionAgent
+                );
+            } catch (err) {
+                vscode.window.showErrorMessage(`Failed to open session via daemon: ${getErrorMessage(err)}`);
+            }
+            return;
+        }
         await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
     });
 

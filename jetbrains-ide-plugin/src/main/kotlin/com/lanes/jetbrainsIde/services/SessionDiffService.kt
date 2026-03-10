@@ -96,7 +96,7 @@ object SessionDiffService {
             project = project,
             sessionName = sessionName,
             worktreePath = openResult.worktreePath ?: "",
-            command = openResult.command
+            command = openResult.launchCommand()
         )
 
         // Give the terminal widget a moment to become available before sending.

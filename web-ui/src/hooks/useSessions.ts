@@ -8,7 +8,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { DaemonApiClient } from '../api/client';
 import type { DaemonSseClient, SseCallbacks } from '../api/sse';
-import type { SessionInfo, AgentSessionStatus, CreateSessionRequest } from '../api/types';
+import type {
+    SessionInfo,
+    AgentSessionStatus,
+    CreateSessionRequest,
+    ImproveSessionPromptRequest,
+    SessionAttachment,
+    SessionAttachmentUploadFile,
+} from '../api/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,6 +27,8 @@ export interface UseSessionsResult {
     error: Error | null;
     refresh: () => void;
     createSession: (params: CreateSessionRequest) => Promise<void>;
+    improveSessionPrompt: (params: ImproveSessionPromptRequest) => Promise<string>;
+    uploadSessionAttachments: (files: SessionAttachmentUploadFile[]) => Promise<SessionAttachment[]>;
     deleteSession: (name: string) => Promise<void>;
     pinSession: (name: string) => Promise<void>;
     unpinSession: (name: string) => Promise<void>;
@@ -161,6 +170,27 @@ export function useSessions(
         [apiClient]
     );
 
+    const improveSessionPrompt = useCallback(
+        async (params: ImproveSessionPromptRequest) => {
+            if (!apiClient) throw new Error('No API client available');
+            const response = await apiClient.improveSessionPrompt(params);
+            return response.improvedPrompt;
+        },
+        [apiClient]
+    );
+
+    const uploadSessionAttachments = useCallback(
+        async (files: SessionAttachmentUploadFile[]) => {
+            if (!apiClient) throw new Error('No API client available');
+            if (files.length === 0) {
+                return [];
+            }
+            const response = await apiClient.uploadSessionAttachments({ files });
+            return response.files;
+        },
+        [apiClient]
+    );
+
     const pinSession = useCallback(
         async (name: string) => {
             if (!apiClient) throw new Error('No API client available');
@@ -219,6 +249,8 @@ export function useSessions(
         error,
         refresh,
         createSession,
+        improveSessionPrompt,
+        uploadSessionAttachments,
         deleteSession,
         pinSession,
         unpinSession,

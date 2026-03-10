@@ -298,8 +298,13 @@ data class SessionCreateResult(
     val sessionName: String,
     val worktreePath: String,
     val sessionId: String,
-    val command: String? = null
-)
+    val command: String? = null,
+    val terminalMode: String? = null,
+    val attachCommand: String? = null,
+    val tmuxSessionName: String? = null
+) {
+    fun launchCommand(): String? = if (terminalMode == TerminalMode.TMUX.value) attachCommand ?: command else command
+}
 
 /**
  * session.delete - Delete session and optionally its worktree
@@ -346,8 +351,13 @@ data class SessionOpenParams(
 data class SessionOpenResult(
     val success: Boolean,
     val worktreePath: String? = null,
-    val command: String? = null
-)
+    val command: String? = null,
+    val terminalMode: String? = null,
+    val attachCommand: String? = null,
+    val tmuxSessionName: String? = null
+) {
+    fun launchCommand(): String? = if (terminalMode == TerminalMode.TMUX.value) attachCommand ?: command else command
+}
 
 /**
  * session.pin - Pin a session

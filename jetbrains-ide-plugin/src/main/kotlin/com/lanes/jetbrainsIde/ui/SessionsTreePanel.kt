@@ -274,7 +274,7 @@ class SessionsTreePanel(private val project: Project) : JPanel(BorderLayout()), 
                     project = project,
                     sessionName = sessionInfo.name,
                     worktreePath = openResult.worktreePath ?: sessionInfo.worktreePath,
-                    command = openResult.command
+                    command = openResult.launchCommand()
                 )
 
                 loadSessions()

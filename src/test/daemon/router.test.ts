@@ -45,6 +45,8 @@ function makeHandlerService() {
         handleSessionUnpin: sinon.stub().resolves({ success: true }),
         handleSessionEnableNotifications: sinon.stub().resolves({ success: true }),
         handleSessionDisableNotifications: sinon.stub().resolves({ success: true }),
+        handleSessionFormPromptImprove: sinon.stub().resolves({ improvedPrompt: 'Better prompt' }),
+        handleSessionFormAttachmentUpload: sinon.stub().resolves({ files: [] }),
         handleAgentList: sinon.stub().resolves({ agents: [] }),
         handleAgentGetConfig: sinon.stub().resolves({ config: null }),
         handleConfigGet: sinon.stub().resolves({ value: 'claude' }),
@@ -300,6 +302,58 @@ suite('daemon router', () => {
         const calledWith = handlerService.handleSessionCreate.firstCall.args[0] as Record<string, unknown>;
         assert.strictEqual(calledWith.name, 'test-session');
         assert.strictEqual(calledWith.agent, 'claude');
+    });
+
+    test('Given POST /api/v1/session-form/improve-prompt, when called, then it delegates to handleSessionFormPromptImprove with the parsed body', async () => {
+        const requestBody = { prompt: 'improve me', agent: 'claude' };
+
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/session-form/improve-prompt',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionFormPromptImprove.calledOnce);
+        assert.deepStrictEqual(
+            handlerService.handleSessionFormPromptImprove.firstCall.args[0],
+            requestBody
+        );
+    });
+
+    test('Given POST /api/v1/session-form/attachments, when called, then it delegates to handleSessionFormAttachmentUpload with the parsed body', async () => {
+        const requestBody = { files: [{ name: 'notes.md', data: 'aGVsbG8=' }] };
+
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/session-form/attachments',
+            headers: { Authorization: BEARER },
+            body: requestBody,
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionFormAttachmentUpload.calledOnce);
+        assert.deepStrictEqual(
+            handlerService.handleSessionFormAttachmentUpload.firstCall.args[0],
+            requestBody
+        );
+    });
+
+    test('Given POST /api/v1/session-form/attachments with a payload larger than the standard JSON cap, when called, then it still reaches the attachment handler', async () => {
+        const largePayload = {
+            files: [{ name: 'large.log', data: 'A'.repeat(2 * 1024 * 1024) }],
+        };
+
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/session-form/attachments',
+            headers: { Authorization: BEARER },
+            body: largePayload,
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionFormAttachmentUpload.calledOnce);
     });
 
     // -------------------------------------------------------------------------
