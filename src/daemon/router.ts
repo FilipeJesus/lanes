@@ -528,7 +528,9 @@ export function createRouter(
             // ---------------------------------------------------------------
 
             if (method === 'GET' && projectPath === '/config') {
-                const result = await handlerService.handleConfigGetAll({});
+                const result = await handlerService.handleConfigGetAll({
+                    scope: queryParams['scope'],
+                });
                 sendJson(res, 200, result);
                 return;
             }
@@ -538,6 +540,7 @@ export function createRouter(
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleConfigGet({
                         key: match.params.key,
+                        scope: queryParams['scope'],
                     });
                     sendJson(res, 200, result);
                     return;
@@ -551,6 +554,7 @@ export function createRouter(
                     const result = await handlerService.handleConfigSet({
                         key: match.params.key,
                         value: body.value,
+                        scope: body.scope,
                     });
                     sendJson(res, 200, result);
                     return;

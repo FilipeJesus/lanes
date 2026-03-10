@@ -10,17 +10,19 @@
  *   - Future daemon: Any class that satisfies these interfaces
  */
 
+import type { SettingsScope, SettingsView } from '../services/UnifiedSettingsService';
+
 /**
  * A simple synchronous/async key-value configuration store.
  * Mirrors the ConfigStore API used by the JetBrains bridge.
  */
 export interface ISimpleConfigStore {
     /** Get a configuration value by key. Returns undefined if not set. */
-    get(key: string): unknown;
+    get(key: string, scope?: SettingsView): unknown;
     /** Persist a configuration value. */
-    set(key: string, value: unknown): Promise<void>;
+    set(key: string, value: unknown, scope?: SettingsScope): Promise<void>;
     /** Get all configuration values, optionally filtered by key prefix. */
-    getAll(prefix?: string): Record<string, unknown>;
+    getAll(prefix?: string, scope?: SettingsView): Record<string, unknown>;
 }
 
 /**

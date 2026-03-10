@@ -69,6 +69,7 @@ interface RequestOpts {
     body?: unknown;
     /** Include Authorization header (default: true) */
     auth?: boolean;
+    query?: Record<string, string | boolean | undefined>;
 }
 
 async function ensureProjectRegistered(workspaceRoot: string) {
@@ -152,8 +153,15 @@ export class DaemonClient {
         path: string,
         opts: RequestOpts = {}
     ): Promise<T> {
-        const { body, auth = true } = opts;
+        const { body, auth = true, query } = opts;
         const url = new URL(this.baseUrl + path);
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                if (value !== undefined) {
+                    url.searchParams.set(key, String(value));
+                }
+            }
+        }
 
         const headers: Record<string, string> = {};
         if (auth) {
@@ -425,19 +433,23 @@ export class DaemonClient {
     // -------------------------------------------------------------------------
 
     /** GET /api/v1/config */
-    getAllConfig(): Promise<unknown> {
-        return this.request('GET', this.projectUrl('/config'));
+    getAllConfig(scope?: 'effective' | 'global' | 'local'): Promise<unknown> {
+        return this.request('GET', this.projectUrl('/config'), {
+            query: { scope },
+        });
     }
 
     /** GET /api/v1/config/:key */
-    getConfig(key: string): Promise<unknown> {
-        return this.request('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`));
+    getConfig(key: string, scope?: 'effective' | 'global' | 'local'): Promise<unknown> {
+        return this.request('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
+            query: { scope },
+        });
     }
 
     /** PUT /api/v1/config/:key */
-    setConfig(key: string, value: unknown): Promise<unknown> {
+    setConfig(key: string, value: unknown, scope?: 'global' | 'local'): Promise<unknown> {
         return this.request('PUT', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
-            body: { value },
+            body: { value, scope },
         });
     }
 

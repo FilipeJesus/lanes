@@ -353,23 +353,27 @@ export class DaemonApiClient {
     /**
      * GET /api/v1/config
      */
-    async getAllConfig(): Promise<ConfigGetAllResponse> {
-        return this.request<ConfigGetAllResponse>('GET', this.projectUrl('/config'));
+    async getAllConfig(scope?: 'effective' | 'global' | 'local'): Promise<ConfigGetAllResponse> {
+        return this.request<ConfigGetAllResponse>('GET', this.projectUrl('/config'), {
+            query: { scope },
+        });
     }
 
     /**
      * GET /api/v1/config/:key
      */
-    async getConfig(key: string): Promise<ConfigEntry> {
-        return this.request<ConfigEntry>('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`));
+    async getConfig(key: string, scope?: 'effective' | 'global' | 'local'): Promise<ConfigEntry> {
+        return this.request<ConfigEntry>('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
+            query: { scope },
+        });
     }
 
     /**
      * PUT /api/v1/config/:key
      */
-    async setConfig(key: string, value: unknown): Promise<ConfigEntry> {
+    async setConfig(key: string, value: unknown, scope?: 'global' | 'local'): Promise<ConfigEntry> {
         return this.request<ConfigEntry>('PUT', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
-            body: { value },
+            body: { value, scope },
         });
     }
 

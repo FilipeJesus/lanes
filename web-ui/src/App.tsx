@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard';
 import { ProjectDetail } from './pages/ProjectDetail';
 import { SessionDetail } from './pages/SessionDetail';
 import { WorkflowBrowser } from './pages/WorkflowBrowser';
+import { ProjectSettings } from './pages/ProjectSettings';
 
 export function App() {
     return (
@@ -12,6 +13,7 @@ export function App() {
                 <Route element={<Layout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="project/:projectId" element={<ProjectDetail />} />
+                    <Route path="project/:projectId/settings" element={<ProjectSettings />} />
                     <Route path="project/:projectId/session/:name" element={<SessionDetail />} />
                     <Route path="project/:projectId/workflows" element={<WorkflowBrowser />} />
                 </Route>

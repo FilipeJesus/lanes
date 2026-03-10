@@ -79,7 +79,8 @@ export class VscodeConfigProvider implements IConfigProvider {
         // from VS Code settings so that user-customised values are captured.
         const settingsPath = path.join(repoRoot, '.lanes', 'settings.yaml');
         if (!await fileExists(settingsPath)) {
-            await this._seedFromVscodeSettings();
+            const hasGlobalSettings = Object.keys(this.service.getGlobalSettings()).length > 0;
+            await this._seedFromVscodeSettings(hasGlobalSettings ? 'workspaceOnly' : 'all');
         }
 
         // Step 4a – watch settings.yaml for external changes (not our own writes).
@@ -180,22 +181,30 @@ export class VscodeConfigProvider implements IConfigProvider {
      * Lanes settings keys. Only called when settings.yaml doesn't yet exist so
      * we don't overwrite user-managed YAML files.
      */
-    private async _seedFromVscodeSettings(): Promise<void> {
+    private async _seedFromVscodeSettings(mode: 'all' | 'workspaceOnly'): Promise<void> {
         const vsConfig = vscode.workspace.getConfiguration('lanes');
         const entries: Array<{ section: string; key: string; value: unknown }> = [];
         for (const key of LANES_SETTING_KEYS) {
             const flatKey = `lanes.${key}`;
-            const vscodeValue = vsConfig.get<unknown>(key);
-            // Use VS Code value if available, otherwise fall back to unified default.
-            const value = vscodeValue !== undefined
-                ? vscodeValue
-                : UNIFIED_DEFAULTS[flatKey];
+            let value: unknown;
+
+            if (mode === 'workspaceOnly') {
+                const inspected = vsConfig.inspect<unknown>(key);
+                value = inspected?.workspaceFolderValue ?? inspected?.workspaceValue;
+            } else {
+                const vscodeValue = vsConfig.get<unknown>(key);
+                value = vscodeValue !== undefined
+                    ? vscodeValue
+                    : UNIFIED_DEFAULTS[flatKey];
+            }
+
             if (value !== undefined) {
                 entries.push({ section: 'lanes', key, value });
             }
         }
-        // Always write the file so CLI and JetBrains adapters can discover it.
-        await this.service.setMany(entries);
+        if (entries.length > 0) {
+            await this.service.setMany(entries);
+        }
     }
 
     private _fireCallbacksForSection(section: string): void {

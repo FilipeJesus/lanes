@@ -2,198 +2,173 @@
  * Tests for DaemonConfigStore.
  *
  * Covers:
- *  - initialize() creates defaults when config file does not exist
- *  - set() persists values and get() returns them
- *  - A new store loaded from an existing file returns persisted values
- *  - getAll() returns all config keys with no prefix
- *  - getAll() filters by prefix
+ *  - effective reads from defaults, global settings, and local overrides
+ *  - scope-aware get/set/getAll behavior
+ *  - persistence through UnifiedSettingsService paths
  */
 
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { parse as yamlParse } from 'yaml';
 import { DaemonConfigStore } from '../../daemon/config';
 
 suite('DaemonConfigStore', () => {
     let tempDir: string;
+    let tempHomeDir: string;
+    let originalHome: string | undefined;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-config-test-'));
+        tempHomeDir = path.join(tempDir, 'home');
+        fs.mkdirSync(tempHomeDir, { recursive: true });
+        originalHome = process.env.HOME;
+        process.env.HOME = tempHomeDir;
     });
 
     teardown(() => {
+        if (originalHome === undefined) {
+            delete process.env.HOME;
+        } else {
+            process.env.HOME = originalHome;
+        }
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    // -------------------------------------------------------------------------
-    // daemon-config-initialize-defaults
-    // -------------------------------------------------------------------------
-
-    test('Given no config file exists, when initialize() is called, then get() returns default values for all known keys', async () => {
-        // Arrange: tempDir has no .lanes/daemon-config.json
+    test('initialize loads default effective values when no settings files exist', async () => {
         const store = new DaemonConfigStore(tempDir);
-
-        // Act
         await store.initialize();
 
-        // Assert: default values must be returned
         assert.strictEqual(store.get('lanes.worktreesFolder'), '.worktrees');
         assert.strictEqual(store.get('lanes.defaultAgent'), 'claude');
         assert.strictEqual(store.get('lanes.localSettingsPropagation'), 'copy');
         assert.strictEqual(store.get('lanes.workflowsEnabled'), true);
-        assert.strictEqual(store.get('lanes.chimeSound'), true);
         assert.strictEqual(store.get('lanes.terminalMode'), 'vscode');
     });
 
-    test('Given no config file exists, when initialize() is called, then the config file is created on disk', async () => {
-        // Arrange
+    test('set with local scope persists to the repo override file', async () => {
         const store = new DaemonConfigStore(tempDir);
-        const expectedPath = path.join(tempDir, '.lanes', 'daemon-config.json');
-
-        // Act
         await store.initialize();
 
-        // Assert: file was written
-        assert.ok(fs.existsSync(expectedPath), 'daemon-config.json should be created');
-        const raw = fs.readFileSync(expectedPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        assert.strictEqual(parsed['lanes.defaultAgent'], 'claude');
+        await store.set('lanes.defaultAgent', 'codex', 'local');
+
+        const settingsPath = path.join(tempDir, '.lanes', 'settings.yaml');
+        assert.ok(fs.existsSync(settingsPath), 'local settings file should be created');
+        const parsed = yamlParse(fs.readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+        const lanes = parsed['lanes'] as Record<string, unknown>;
+        assert.strictEqual(lanes['defaultAgent'], 'codex');
     });
 
-    // -------------------------------------------------------------------------
-    // daemon-config-persist-and-reload
-    // -------------------------------------------------------------------------
+    test('initialize migrates legacy daemon-config.json into local settings overrides', async () => {
+        const lanesDir = path.join(tempDir, '.lanes');
+        fs.mkdirSync(lanesDir, { recursive: true });
+        fs.writeFileSync(
+            path.join(lanesDir, 'daemon-config.json'),
+            JSON.stringify({
+                'lanes.defaultAgent': 'codex',
+                'lanes.worktreesFolder': 'legacy-worktrees',
+            }),
+            'utf-8',
+        );
 
-    test('Given an initialized store, when set() is called with a key/value, then get() returns the new value', async () => {
-        // Arrange
         const store = new DaemonConfigStore(tempDir);
         await store.initialize();
 
-        // Act
-        await store.set('lanes.defaultAgent', 'codex');
+        const settingsPath = path.join(lanesDir, 'settings.yaml');
+        assert.ok(fs.existsSync(settingsPath), 'local settings file should be created from legacy daemon config');
+        assert.strictEqual(store.get('lanes.defaultAgent'), 'codex');
+        assert.strictEqual(store.get('lanes.worktreesFolder'), 'legacy-worktrees');
+    });
 
-        // Assert
+    test('set with global scope persists to the machine-wide settings file', async () => {
+        const store = new DaemonConfigStore(tempDir);
+        await store.initialize();
+
+        await store.set('lanes.defaultAgent', 'gemini', 'global');
+
+        const settingsPath = path.join(tempHomeDir, '.lanes', 'settings.yaml');
+        assert.ok(fs.existsSync(settingsPath), 'global settings file should be created');
+        const parsed = yamlParse(fs.readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+        const lanes = parsed['lanes'] as Record<string, unknown>;
+        assert.strictEqual(lanes['defaultAgent'], 'gemini');
+    });
+
+    test('get respects requested scope and local overrides effective values', async () => {
+        fs.mkdirSync(path.join(tempHomeDir, '.lanes'), { recursive: true });
+        fs.writeFileSync(
+            path.join(tempHomeDir, '.lanes', 'settings.yaml'),
+            'lanes:\n  defaultAgent: gemini\n',
+            'utf-8'
+        );
+        fs.mkdirSync(path.join(tempDir, '.lanes'), { recursive: true });
+        fs.writeFileSync(
+            path.join(tempDir, '.lanes', 'settings.yaml'),
+            'lanes:\n  defaultAgent: codex\n',
+            'utf-8'
+        );
+
+        const store = new DaemonConfigStore(tempDir);
+        await store.initialize();
+
+        assert.strictEqual(store.get('lanes.defaultAgent', 'global'), 'gemini');
+        assert.strictEqual(store.get('lanes.defaultAgent', 'local'), 'codex');
         assert.strictEqual(store.get('lanes.defaultAgent'), 'codex');
     });
 
-    test('Given a config file with saved values, when a new store is initialized, then get() returns the persisted values', async () => {
-        // Arrange: write a value via the first store
-        const store1 = new DaemonConfigStore(tempDir);
-        await store1.initialize();
-        await store1.set('lanes.defaultAgent', 'codex');
-        await store1.set('lanes.worktreesFolder', 'my-worktrees');
-
-        // Act: create a second store pointing at the same directory
-        const store2 = new DaemonConfigStore(tempDir);
-        await store2.initialize();
-
-        // Assert: persisted values are loaded
-        assert.strictEqual(store2.get('lanes.defaultAgent'), 'codex');
-        assert.strictEqual(store2.get('lanes.worktreesFolder'), 'my-worktrees');
-    });
-
-    test('Given an initialized store, when set() is called, then the value is persisted to disk', async () => {
-        // Arrange
+    test('scope-specific get returns undefined when that scope has no explicit value', async () => {
         const store = new DaemonConfigStore(tempDir);
         await store.initialize();
 
-        // Act
-        await store.set('lanes.baseBranch', 'main');
-
-        // Assert: file contains the new value
-        const configPath = path.join(tempDir, '.lanes', 'daemon-config.json');
-        const raw = fs.readFileSync(configPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        assert.strictEqual(parsed['lanes.baseBranch'], 'main');
+        assert.strictEqual(store.get('lanes.defaultAgent', 'global'), undefined);
+        assert.strictEqual(store.get('lanes.defaultAgent', 'local'), undefined);
+        assert.strictEqual(store.get('lanes.defaultAgent'), 'claude');
     });
 
-    // -------------------------------------------------------------------------
-    // daemon-config-getAll-prefix
-    // -------------------------------------------------------------------------
+    test('getAll respects scope filtering', async () => {
+        fs.mkdirSync(path.join(tempHomeDir, '.lanes'), { recursive: true });
+        fs.writeFileSync(
+            path.join(tempHomeDir, '.lanes', 'settings.yaml'),
+            'lanes:\n  defaultAgent: gemini\n',
+            'utf-8'
+        );
+        fs.mkdirSync(path.join(tempDir, '.lanes'), { recursive: true });
+        fs.writeFileSync(
+            path.join(tempDir, '.lanes', 'settings.yaml'),
+            'lanes:\n  worktreesFolder: project-worktrees\n',
+            'utf-8'
+        );
 
-    test('Given an initialized store, when getAll() is called without a prefix, then all config keys are returned', async () => {
-        // Arrange
         const store = new DaemonConfigStore(tempDir);
         await store.initialize();
 
-        // Act
-        const all = store.getAll();
+        const globalConfig = store.getAll(undefined, 'global');
+        const localConfig = store.getAll(undefined, 'local');
+        const effectiveConfig = store.getAll();
 
-        // Assert: at least the known default keys are present
-        assert.ok('lanes.defaultAgent' in all, 'lanes.defaultAgent should be present');
-        assert.ok('lanes.worktreesFolder' in all, 'lanes.worktreesFolder should be present');
-        assert.ok('lanes.terminalMode' in all, 'lanes.terminalMode should be present');
+        assert.strictEqual(globalConfig['lanes.defaultAgent'], 'gemini');
+        assert.ok(!('lanes.worktreesFolder' in globalConfig));
+        assert.strictEqual(localConfig['lanes.worktreesFolder'], 'project-worktrees');
+        assert.ok(!('lanes.defaultAgent' in localConfig));
+        assert.strictEqual(effectiveConfig['lanes.defaultAgent'], 'gemini');
+        assert.strictEqual(effectiveConfig['lanes.worktreesFolder'], 'project-worktrees');
     });
 
-    test("Given an initialized store, when getAll('lanes.polling') is called, then only keys starting with that prefix are returned", async () => {
-        // Arrange
+    test('getAll with prefix excludes non-matching keys in scoped views', async () => {
+        const store = new DaemonConfigStore(tempDir);
+        await store.initialize();
+        await store.set('custom.setting', 'hello', 'local');
+
+        const filtered = store.getAll('lanes.', 'local');
+        assert.ok(!('custom.setting' in filtered));
+    });
+
+    test('terminalMode get normalizes legacy code value to vscode', async () => {
         const store = new DaemonConfigStore(tempDir);
         await store.initialize();
 
-        // Act
-        const filtered = store.getAll('lanes.polling');
+        await store.set('lanes.terminalMode', 'code', 'global');
 
-        // Assert: only polling keys returned
-        for (const key of Object.keys(filtered)) {
-            assert.ok(
-                key.startsWith('lanes.polling'),
-                `Key '${key}' does not start with 'lanes.polling'`
-            );
-        }
-        // The default config includes lanes.polling.quietThresholdMs
-        assert.ok('lanes.polling.quietThresholdMs' in filtered);
-    });
-
-    test("Given an initialized store with a custom value, when getAll('lanes.') is called, then non-matching keys are excluded", async () => {
-        // Arrange
-        const store = new DaemonConfigStore(tempDir);
-        await store.initialize();
-        await store.set('custom.setting', 'hello');
-
-        // Act
-        const filtered = store.getAll('lanes.');
-
-        // Assert: custom.setting is NOT included
-        assert.ok(!('custom.setting' in filtered), 'custom.setting should not appear in lanes. prefix filter');
-    });
-
-    // -------------------------------------------------------------------------
-    // Error before initialization
-    // -------------------------------------------------------------------------
-
-    test('Given an uninitialized store, when get() is called, then it throws an error', () => {
-        const store = new DaemonConfigStore(tempDir);
-        assert.throws(() => {
-            store.get('lanes.defaultAgent');
-        }, /not initialized/i);
-    });
-
-    test('Given an uninitialized store, when set() is called, then it throws an error', async () => {
-        const store = new DaemonConfigStore(tempDir);
-        let thrown: unknown;
-        try {
-            await store.set('lanes.defaultAgent', 'codex');
-        } catch (err) {
-            thrown = err;
-        }
-        assert.ok(thrown instanceof Error);
-        assert.ok((thrown as Error).message.toLowerCase().includes('not initialized'));
-    });
-
-    // -------------------------------------------------------------------------
-    // terminalMode normalization
-    // -------------------------------------------------------------------------
-
-    test('Given terminalMode is set to "code", when get() is called, then it returns "vscode"', async () => {
-        // Arrange
-        const store = new DaemonConfigStore(tempDir);
-        await store.initialize();
-
-        // Act
-        await store.set('lanes.terminalMode', 'code');
-
-        // Assert: normalized to "vscode"
-        assert.strictEqual(store.get('lanes.terminalMode'), 'vscode');
+        assert.strictEqual(store.get('lanes.terminalMode', 'global'), 'vscode');
     });
 });

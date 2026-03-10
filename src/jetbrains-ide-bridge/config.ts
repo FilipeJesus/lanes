@@ -5,7 +5,12 @@
  * so that VS Code, CLI, and JetBrains adapters all share the same config file.
  */
 
-import { UnifiedSettingsService, UNIFIED_DEFAULTS } from '../core/services/UnifiedSettingsService';
+import {
+    SettingsScope,
+    SettingsView,
+    UnifiedSettingsService,
+    UNIFIED_DEFAULTS,
+} from '../core/services/UnifiedSettingsService';
 
 /**
  * Keys accepted by the config.get / config.set JSON-RPC handlers.
@@ -62,7 +67,7 @@ export class ConfigStore {
      * Special-cases:
      * - 'lanes.terminalMode': normalises legacy 'code' value to 'vscode'.
      */
-    get(key: string): unknown {
+    get(key: string, scope: SettingsView = 'effective'): unknown {
         if (!this.initialized) {
             throw new Error('ConfigStore not initialized');
         }
@@ -78,7 +83,7 @@ export class ConfigStore {
         const section = key.substring(0, dotIdx);
         const subKey = key.substring(dotIdx + 1);
 
-        const value = this.service.get<unknown>(section, subKey, undefined);
+        const value = this.service.getForView<unknown>(section, subKey, undefined, scope);
 
         if (key === 'lanes.terminalMode' && value === 'code') {
             return 'vscode';
@@ -93,7 +98,7 @@ export class ConfigStore {
      * Special-cases:
      * - 'lanes.terminalMode': normalises legacy 'code' value to 'vscode'.
      */
-    async set(key: string, value: unknown): Promise<void> {
+    async set(key: string, value: unknown, scope: SettingsScope = 'local'): Promise<void> {
         if (!this.initialized) {
             throw new Error('ConfigStore not initialized');
         }
@@ -107,7 +112,7 @@ export class ConfigStore {
         const subKey = key.substring(dotIdx + 1);
 
         const normalised = (key === 'lanes.terminalMode' && value === 'code') ? 'vscode' : value;
-        await this.service.set(section, subKey, normalised);
+        await this.service.set(section, subKey, normalised, scope);
     }
 
     /**
@@ -116,12 +121,12 @@ export class ConfigStore {
      * @param prefix Optional prefix filter (e.g. 'lanes.'). Only keys that
      *               start with the prefix are included in the result.
      */
-    getAll(prefix?: string): Record<string, unknown> {
+    getAll(prefix?: string, scope: SettingsView = 'effective'): Record<string, unknown> {
         if (!this.initialized) {
             throw new Error('ConfigStore not initialized');
         }
 
-        const all = this.service.getAll();
+        const all = this.service.getAll(scope);
 
         if (!prefix) {
             return all;

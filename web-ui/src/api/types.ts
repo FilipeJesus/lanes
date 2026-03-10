@@ -188,12 +188,13 @@ export interface WorktreeInfo {
 // ---------------------------------------------------------------------------
 
 export interface ConfigEntry {
-    key: string;
     value: unknown;
+    scope?: 'effective' | 'global' | 'local';
 }
 
 export interface ConfigGetAllResponse {
     config: Record<string, unknown>;
+    scope?: 'effective' | 'global' | 'local';
 }
 
 // ---------------------------------------------------------------------------

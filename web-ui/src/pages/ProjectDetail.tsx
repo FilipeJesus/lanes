@@ -145,6 +145,11 @@ export function ProjectDetail() {
                             Workflows
                         </Link>
                     )}
+                    {projectId && (
+                        <Link to={`/project/${projectId}/settings`} className={styles.secondaryButton}>
+                            Settings
+                        </Link>
+                    )}
                     <button
                         type="button"
                         className={styles.secondaryButton}

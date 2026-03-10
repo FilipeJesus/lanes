@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import sinon from 'sinon';
 import { parse as yamlParse } from 'yaml';
 import {
 	initializeGlobalStorageContext,
@@ -443,5 +444,58 @@ suite('VscodeConfigProvider', () => {
 		assert.strictEqual(content, existingYaml, 'settings.yaml should not be overwritten');
 
 		assert.strictEqual(provider.get('lanes', 'worktreesFolder', 'fallback'), 'from-existing-yaml');
+	});
+
+	test('initialize() preserves workspace-specific VS Code settings as local overrides even when global settings exist', async () => {
+		const originalHome = process.env.HOME;
+		const tempHomeDir = path.join(tempDir, 'home');
+		fs.mkdirSync(path.join(tempHomeDir, '.lanes'), { recursive: true });
+		process.env.HOME = tempHomeDir;
+
+		const lanesDir = path.join(tempDir, '.lanes');
+		fs.mkdirSync(lanesDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(tempHomeDir, '.lanes', 'settings.yaml'),
+			'lanes:\n  defaultAgent: claude\n',
+			'utf-8'
+		);
+
+		const realGetConfiguration = vscode.workspace.getConfiguration.bind(vscode.workspace);
+		const getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string) => {
+			if (section !== 'lanes') {
+				return realGetConfiguration(section as never);
+			}
+
+			return {
+				get: (key: string) => key === 'defaultAgent' ? 'codex' : undefined,
+				inspect: (key: string) => ({
+					defaultValue: UNIFIED_DEFAULTS[`lanes.${key}`],
+					globalValue: undefined,
+					workspaceValue: key === 'defaultAgent' ? 'codex' : undefined,
+					workspaceFolderValue: undefined,
+				}),
+			} as vscode.WorkspaceConfiguration;
+		});
+
+		try {
+			provider = new VscodeConfigProvider();
+			await provider.initialize(tempDir);
+
+			const settingsPath = path.join(lanesDir, 'settings.yaml');
+			assert.ok(fs.existsSync(settingsPath), 'workspace override should be written to local settings');
+
+			const content = fs.readFileSync(settingsPath, 'utf-8');
+			const parsed = yamlParse(content) as Record<string, unknown>;
+			const lanes = parsed['lanes'] as Record<string, unknown>;
+			assert.strictEqual(lanes['defaultAgent'], 'codex');
+			assert.strictEqual(provider.get('lanes', 'defaultAgent', 'fallback'), 'codex');
+		} finally {
+			getConfigurationStub.restore();
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
 	});
 });
