@@ -26,6 +26,7 @@ export { DaemonFileWatchManager } from './fileWatcher';
 export { createRouter } from './router';
 export type { DaemonRegistryEntry, RegisteredProjectEntry } from './registry';
 export {
+    createProjectId,
     getRegistryPath,
     getProjectsRegistryPath,
     registerDaemon,
@@ -35,6 +36,8 @@ export {
     registerProject,
     deregisterProject,
     listRegisteredProjects,
+    getRegisteredProjectById,
+    getRegisteredProjectByWorkspace,
 } from './registry';
 export type { DaemonClientOptions, SseCallbacks, SseSubscription } from './client';
 export { DaemonClient, DaemonHttpError } from './client';

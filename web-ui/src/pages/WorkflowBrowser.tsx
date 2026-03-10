@@ -1,8 +1,8 @@
 /**
  * Workflow Browser page — browse and inspect available workflow templates.
  *
- * Route: /project/:port/workflows
- * Uses the :port param to connect to the right daemon and fetch its workflows.
+ * Route: /project/:projectId/workflows
+ * Uses the :projectId param to connect to the right project and fetch its workflows.
  *
  * Features:
  * - Lists all available workflow templates (builtin + custom)
@@ -30,11 +30,10 @@ type FilterMode = 'all' | 'builtin' | 'custom';
 // ---------------------------------------------------------------------------
 
 export function WorkflowBrowser() {
-    const { port } = useParams<{ port?: string }>();
-    const portNum = port ? parseInt(port, 10) : undefined;
+    const { projectId } = useParams<{ projectId?: string }>();
 
     const { apiClient, daemonInfo, loading: connectionLoading, error: connectionError } =
-        useDaemonConnection(portNum);
+        useDaemonConnection(projectId);
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -76,17 +75,17 @@ export function WorkflowBrowser() {
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    {port && (
+                    {projectId && (
                         <nav aria-label="Breadcrumb">
-                            <Link to={`/project/${port}`} className={`${styles.secondaryButton} ${styles.backLink}`}>
+                            <Link to={`/project/${projectId}`} className={`${styles.secondaryButton} ${styles.backLink}`}>
                                 &larr; Back to project
                             </Link>
                         </nav>
                     )}
                     <h1 className={styles.title}>Workflows</h1>
-                    {port && (
+                    {projectId && (
                         <span className={styles.subtitle}>
-                            {daemonInfo?.projectName ?? `Port ${port}`}
+                            {daemonInfo?.projectName ?? projectId}
                         </span>
                     )}
                 </div>
@@ -128,7 +127,7 @@ export function WorkflowBrowser() {
             </div>
 
             {/* No port selected */}
-            {!port && (
+            {!projectId && (
                 <div className={styles.infoBanner} role="status">
                     <div className={styles.infoBannerTitle}>Select a project first</div>
                     Navigate to a project from the Dashboard to browse its workflows, or visit{' '}
@@ -153,7 +152,7 @@ export function WorkflowBrowser() {
             )}
 
             {/* Content */}
-            {port && !isLoading && !error && (
+            {projectId && !isLoading && !error && (
                 <div className={styles.contentLayout}>
                     {/* Left panel: workflow list */}
                     <div className={styles.listPanel}>

@@ -52,6 +52,7 @@ export interface SseClientOptions {
     baseUrl: string;
     /** Bearer token for authentication */
     token: string;
+    projectId?: string;
     /** Reconnection delay in milliseconds. Defaults to 3000. */
     reconnectDelayMs?: number;
     /** Maximum reconnection attempts. 0 = unlimited. Defaults to 0. */
@@ -72,6 +73,7 @@ export class DaemonSseClient {
     private readonly token: string;
     private readonly reconnectDelayMs: number;
     private readonly maxReconnectAttempts: number;
+    private readonly projectPath: string;
 
     private callbacks: SseCallbacks;
     private subscribers = new Set<SseCallbacks>();
@@ -85,6 +87,9 @@ export class DaemonSseClient {
         this.token = options.token;
         this.reconnectDelayMs = options.reconnectDelayMs ?? 3000;
         this.maxReconnectAttempts = options.maxReconnectAttempts ?? 0;
+        this.projectPath = options.projectId
+            ? `/api/v1/projects/${encodeURIComponent(options.projectId)}`
+            : '';
         this.callbacks = callbacks;
         if (Object.keys(callbacks).length > 0) {
             this.subscribers.add(callbacks);
@@ -147,7 +152,7 @@ export class DaemonSseClient {
         this.abortController = new AbortController();
 
         try {
-            const url = `${this.baseUrl}/api/v1/events`;
+            const url = `${this.baseUrl}${this.projectPath}/events`;
             const res = await fetch(url, {
                 signal: this.abortController.signal,
                 headers: {

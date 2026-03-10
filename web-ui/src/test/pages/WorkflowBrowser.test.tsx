@@ -41,9 +41,9 @@ function makeApiClient(workflows: WorkflowInfo[] = [builtinWorkflow, customWorkf
     } as unknown as DaemonApiClient;
 }
 
-function renderWithPort(port: string | null = '3942') {
-    const path = port ? `/project/${port}/workflows` : '/workflows';
-    const routePattern = port ? '/project/:port/workflows' : '/workflows';
+function renderWithProject(projectId: string | null = 'project-123') {
+    const path = projectId ? `/project/${projectId}/workflows` : '/workflows';
+    const routePattern = projectId ? '/project/:projectId/workflows' : '/workflows';
 
     return render(
         <MemoryRouter initialEntries={[path]}>
@@ -63,7 +63,7 @@ describe('WorkflowBrowser', () => {
         mockUseDaemonConnection.mockClear();
     });
 
-    it('Given a port param and workflows returned from API, then workflow cards are rendered', async () => {
+    it('Given a project param and workflows returned from API, then workflow cards are rendered', async () => {
         const apiClient = makeApiClient();
         mockUseDaemonConnection.mockReturnValue({
             apiClient,
@@ -72,7 +72,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             expect(screen.getByTestId('workflow-card-basic-feature')).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             expect(screen.getByText('basic-feature')).toBeInTheDocument();
@@ -106,7 +106,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             // There should be a builtin badge somewhere (inside the card)
@@ -123,7 +123,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             expect(screen.getByTestId('workflow-card-basic-feature')).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         expect(screen.getByRole('status', { name: /loading workflows/i })).toBeInTheDocument();
     });
@@ -158,13 +158,13 @@ describe('WorkflowBrowser', () => {
             error: new Error('Connection refused'),
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         expect(screen.getByRole('alert')).toBeInTheDocument();
         expect(screen.getByText('Connection refused')).toBeInTheDocument();
     });
 
-    it('Given no port param, then show an informational message about selecting a project', () => {
+    it('Given no project param, then show an informational message about selecting a project', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient: null,
             sseClient: null,
@@ -173,7 +173,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort(null);
+        renderWithProject(null);
 
         expect(screen.getByRole('status')).toBeInTheDocument();
         expect(screen.getByText('Select a project first')).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             expect(screen.getByTestId('workflow-card-basic-feature')).toBeInTheDocument();
@@ -212,7 +212,7 @@ describe('WorkflowBrowser', () => {
             error: null,
         });
 
-        renderWithPort('3942');
+        renderWithProject('project-123');
 
         await waitFor(() => {
             expect(screen.getByTestId('workflow-card-basic-feature')).toBeInTheDocument();

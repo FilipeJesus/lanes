@@ -54,6 +54,7 @@ function buildClient(daemon: DaemonInfo): DaemonApiClient {
     return new DaemonApiClient({
         baseUrl: `http://127.0.0.1:${daemon.port}`,
         token: daemon.token,
+        projectId: daemon.projectId,
     });
 }
 

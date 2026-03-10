@@ -2,15 +2,28 @@
  * Daemon Authentication - Token-based authentication for the HTTP daemon
  *
  * Generates and validates bearer tokens for securing the daemon HTTP endpoints.
- * Tokens are stored in `.lanes/daemon.token` in the workspace root.
+ * Tokens are stored in `~/.lanes/daemon.token` for the machine-wide daemon.
  */
 
 import * as crypto from 'crypto';
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs/promises';
 
 const TOKEN_FILE_NAME = 'daemon.token';
 const LANES_DIR = '.lanes';
+
+function getHomeDir(): string {
+    return process.env.HOME || os.homedir();
+}
+
+function getGlobalLanesDir(): string {
+    return path.join(getHomeDir(), LANES_DIR);
+}
+
+export function getGlobalTokenPath(): string {
+    return path.join(getGlobalLanesDir(), TOKEN_FILE_NAME);
+}
 
 /**
  * Generate a cryptographically secure random token.
@@ -21,33 +34,30 @@ export function generateToken(): string {
 }
 
 /**
- * Write the authentication token to `.lanes/daemon.token` in the workspace root.
+ * Write the authentication token to `~/.lanes/daemon.token`.
  */
-export async function writeTokenFile(workspaceRoot: string, token: string): Promise<void> {
-    const lanesDir = path.join(workspaceRoot, LANES_DIR);
+export async function writeTokenFile(_workspaceRoot: string | undefined, token: string): Promise<void> {
+    const lanesDir = getGlobalLanesDir();
     await fs.mkdir(lanesDir, { recursive: true });
-    const tokenPath = path.join(lanesDir, TOKEN_FILE_NAME);
-    await fs.writeFile(tokenPath, token, { encoding: 'utf-8', mode: 0o600 });
+    await fs.writeFile(getGlobalTokenPath(), token, { encoding: 'utf-8', mode: 0o600 });
 }
 
 /**
- * Read the authentication token from `.lanes/daemon.token` in the workspace root.
+ * Read the authentication token from `~/.lanes/daemon.token`.
  * Throws if the file does not exist or cannot be read.
  */
-export async function readTokenFile(workspaceRoot: string): Promise<string> {
-    const tokenPath = path.join(workspaceRoot, LANES_DIR, TOKEN_FILE_NAME);
-    const content = await fs.readFile(tokenPath, 'utf-8');
+export async function readTokenFile(_workspaceRoot?: string): Promise<string> {
+    const content = await fs.readFile(getGlobalTokenPath(), 'utf-8');
     return content.trim();
 }
 
 /**
- * Remove the token file from `.lanes/daemon.token`.
+ * Remove the token file from `~/.lanes/daemon.token`.
  * Does not throw if the file does not exist.
  */
-export async function removeTokenFile(workspaceRoot: string): Promise<void> {
-    const tokenPath = path.join(workspaceRoot, LANES_DIR, TOKEN_FILE_NAME);
+export async function removeTokenFile(_workspaceRoot?: string): Promise<void> {
     try {
-        await fs.unlink(tokenPath);
+        await fs.unlink(getGlobalTokenPath());
     } catch (err) {
         // Ignore ENOENT (file already removed)
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {

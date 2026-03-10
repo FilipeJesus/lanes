@@ -1,6 +1,6 @@
 /**
- * Project Detail page — shows sessions for a single project (daemon).
- * The :port URL param identifies which daemon to connect to.
+ * Project Detail page — shows sessions for a single registered project.
+ * The :projectId URL param identifies which project to connect to.
  *
  * Features:
  * - Lists all sessions with real-time SSE status updates
@@ -24,12 +24,11 @@ import styles from '../styles/ProjectDetail.module.css';
 // ---------------------------------------------------------------------------
 
 export function ProjectDetail() {
-    const { port } = useParams<{ port: string }>();
-    const portNum = port ? parseInt(port, 10) : undefined;
+    const { projectId } = useParams<{ projectId: string }>();
 
     // Daemon connection (provides API client + SSE client)
     const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
-        useDaemonConnection(portNum);
+        useDaemonConnection(projectId);
 
     // Session list with real-time updates
     const {
@@ -132,11 +131,11 @@ export function ProjectDetail() {
                             Projects
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
-                        <span>{daemonInfo?.projectName ?? `Port ${port}`}</span>
+                        <span>{daemonInfo?.projectName ?? projectId}</span>
                     </nav>
                     <h1 className={styles.title}>Sessions</h1>
-                    {port && (
-                        <span className={styles.subtitle}>daemon @ localhost:{port}</span>
+                    {daemonInfo?.daemon?.port && (
+                        <span className={styles.subtitle}>daemon @ localhost:{daemonInfo.daemon.port}</span>
                     )}
                 </div>
 
@@ -223,7 +222,7 @@ export function ProjectDetail() {
                             <SessionCard
                                 key={session.name}
                                 session={session}
-                                port={port ?? ''}
+                                projectId={projectId ?? ''}
                                 onPin={(name) => void handlePin(name)}
                                 onUnpin={(name) => void handleUnpin(name)}
                                 onDelete={handleDeleteRequest}

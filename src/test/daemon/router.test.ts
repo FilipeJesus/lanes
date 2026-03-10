@@ -106,6 +106,10 @@ function makeRequest(
     return new Promise((resolve, reject) => {
         const address = server.address() as { port: number };
         const { method = 'GET', path = '/', headers = {}, body } = options;
+        const requestPath =
+            path.startsWith('/api/v1/') && path !== '/api/v1/health'
+                ? `/api/v1/projects/${PROJECT_ID}${path.slice('/api/v1'.length)}`
+                : path;
 
         const payload = body !== undefined ? JSON.stringify(body) : undefined;
         const reqHeaders: Record<string, string> = { ...headers };
@@ -119,7 +123,7 @@ function makeRequest(
                 hostname: '127.0.0.1',
                 port: address.port,
                 method,
-                path,
+                path: requestPath,
                 headers: reqHeaders,
             },
             (res) => {
@@ -158,6 +162,7 @@ function makeRequest(
 
 const AUTH_TOKEN = 'test-secret-token-abc123';
 const BEARER = `Bearer ${AUTH_TOKEN}`;
+const PROJECT_ID = 'project-test-1';
 
 suite('daemon router', () => {
     let handlerService: ReturnType<typeof makeHandlerService>;
@@ -169,10 +174,22 @@ suite('daemon router', () => {
         notificationEmitter = makeNotificationEmitter();
 
         const handler = createRouter(
-            handlerService as never,
-            notificationEmitter as never,
+            {
+                listProjects: sinon.stub().resolves([]),
+                getRuntime: sinon.stub().resolves({
+                    project: {
+                        projectId: PROJECT_ID,
+                        workspaceRoot: '/test/workspace',
+                        projectName: 'workspace',
+                        registeredAt: new Date().toISOString(),
+                    },
+                    startedAt: new Date().toISOString(),
+                    handlerService,
+                    notificationEmitter,
+                }),
+            } as never,
             AUTH_TOKEN,
-            { workspaceRoot: '/test/workspace', startedAt: new Date().toISOString(), port: 0 }
+            { port: 0 }
         );
         server = http.createServer(handler);
         server.listen(0, '127.0.0.1', done);
@@ -474,7 +491,7 @@ suite('daemon router', () => {
                 hostname: '127.0.0.1',
                 port: address.port,
                 method: 'GET',
-                path: '/api/v1/events',
+                path: `/api/v1/projects/${PROJECT_ID}/events`,
                 headers: { Authorization: BEARER },
             },
             (res) => {
@@ -506,15 +523,15 @@ suite('daemon router', () => {
         const address = server.address() as { port: number };
         const res = await new Promise<TestResponse>((resolve, reject) => {
             const payload = '{not valid json';
-            const req = http.request(
-                {
-                    hostname: '127.0.0.1',
-                    port: address.port,
-                    method: 'POST',
-                    path: '/api/v1/sessions',
-                    headers: {
-                        Authorization: BEARER,
-                        'Content-Type': 'application/json',
+        const req = http.request(
+            {
+                hostname: '127.0.0.1',
+                port: address.port,
+                method: 'POST',
+                path: `/api/v1/projects/${PROJECT_ID}/sessions`,
+                headers: {
+                    Authorization: BEARER,
+                    'Content-Type': 'application/json',
                         'Content-Length': String(Buffer.byteLength(payload)),
                     },
                 },

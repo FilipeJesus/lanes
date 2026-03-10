@@ -6,9 +6,10 @@
  * registered with the machine-wide gateway.
  */
 
-import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
+import * as os from 'os';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +19,8 @@ import * as fs from 'fs/promises';
  * A single entry in the global daemon registry.
  */
 export type DaemonRegistryEntry = {
+    /** Optional project identifier when a daemon entry is associated with a project. */
+    projectId?: string;
     /** Absolute path to the workspace root this daemon serves. */
     workspaceRoot: string;
     /** Port number the daemon is listening on. */
@@ -36,6 +39,8 @@ export type DaemonRegistryEntry = {
  * A workspace registered with the machine-wide gateway.
  */
 export type RegisteredProjectEntry = {
+    /** Stable identifier used by the global daemon and web UI routes. */
+    projectId: string;
     /** Absolute path to the workspace root this project serves. */
     workspaceRoot: string;
     /** Human-readable project name (typically the workspace directory name). */
@@ -48,11 +53,15 @@ export type RegisteredProjectEntry = {
 // Registry path
 // ---------------------------------------------------------------------------
 
+function getHomeDir(): string {
+    return process.env.HOME || os.homedir();
+}
+
 /**
  * Returns the absolute path to the global registry file: `~/.lanes/daemons.json`.
  */
 export function getRegistryPath(): string {
-    return path.join(os.homedir(), '.lanes', 'daemons.json');
+    return path.join(getHomeDir(), '.lanes', 'daemons.json');
 }
 
 /**
@@ -60,7 +69,11 @@ export function getRegistryPath(): string {
  * `~/.lanes/projects.json`.
  */
 export function getProjectsRegistryPath(): string {
-    return path.join(os.homedir(), '.lanes', 'projects.json');
+    return path.join(getHomeDir(), '.lanes', 'projects.json');
+}
+
+export function createProjectId(workspaceRoot: string): string {
+    return crypto.createHash('sha1').update(path.resolve(workspaceRoot)).digest('hex').slice(0, 12);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +84,7 @@ export function getProjectsRegistryPath(): string {
  * Ensure the `~/.lanes/` directory exists.
  */
 async function ensureRegistryDir(): Promise<void> {
-    const registryDir = path.join(os.homedir(), '.lanes');
+    const registryDir = path.join(getHomeDir(), '.lanes');
     await fs.mkdir(registryDir, { recursive: true });
 }
 
@@ -121,7 +134,11 @@ async function writeDaemonRegistry(entries: DaemonRegistryEntry[]): Promise<void
 }
 
 async function readProjectsRegistry(): Promise<RegisteredProjectEntry[]> {
-    return readRegistryFile<RegisteredProjectEntry>(getProjectsRegistryPath());
+    const entries = await readRegistryFile<RegisteredProjectEntry>(getProjectsRegistryPath());
+    return entries.map((entry) => ({
+        ...entry,
+        projectId: entry.projectId || createProjectId(entry.workspaceRoot),
+    }));
 }
 
 async function writeProjectsRegistry(entries: RegisteredProjectEntry[]): Promise<void> {
@@ -196,9 +213,14 @@ export async function cleanStaleEntries(): Promise<DaemonRegistryEntry[]> {
  * Register (or update) a project in the global project registry.
  */
 export async function registerProject(entry: RegisteredProjectEntry): Promise<void> {
+    const normalized: RegisteredProjectEntry = {
+        ...entry,
+        projectId: entry.projectId || createProjectId(entry.workspaceRoot),
+        workspaceRoot: path.resolve(entry.workspaceRoot),
+    };
     const existing = await readProjectsRegistry();
-    const filtered = existing.filter((project) => project.workspaceRoot !== entry.workspaceRoot);
-    filtered.push(entry);
+    const filtered = existing.filter((project) => project.workspaceRoot !== normalized.workspaceRoot);
+    filtered.push(normalized);
     await writeProjectsRegistry(filtered);
 }
 
@@ -218,4 +240,15 @@ export async function deregisterProject(workspaceRoot: string): Promise<void> {
  */
 export async function listRegisteredProjects(): Promise<RegisteredProjectEntry[]> {
     return readProjectsRegistry();
+}
+
+export async function getRegisteredProjectById(projectId: string): Promise<RegisteredProjectEntry | undefined> {
+    const projects = await readProjectsRegistry();
+    return projects.find((project) => project.projectId === projectId);
+}
+
+export async function getRegisteredProjectByWorkspace(workspaceRoot: string): Promise<RegisteredProjectEntry | undefined> {
+    const projects = await readProjectsRegistry();
+    const resolved = path.resolve(workspaceRoot);
+    return projects.find((project) => project.workspaceRoot === resolved);
 }

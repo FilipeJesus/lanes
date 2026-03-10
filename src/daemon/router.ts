@@ -13,10 +13,10 @@
 
 import * as http from 'http';
 import * as path from 'path';
-import { SessionHandlerService, JsonRpcHandlerError } from '../core/services/SessionHandlerService';
-import { DaemonNotificationEmitter } from './notifications';
+import { JsonRpcHandlerError } from '../core/services/SessionHandlerService';
 import { validateAuthHeader } from './auth';
 import { execGit } from '../core/gitService';
+import { GlobalDaemonProjectManager } from './manager';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -216,11 +216,28 @@ function matchRoute(pattern: string, pathname: string): RouteMatch | null {
  * @param context  Additional server context used by the discovery endpoint.
  * @returns An HTTP request handler function suitable for `http.createServer()`.
  */
+function extractProjectRoute(pathname: string): { projectId: string; projectPath: string } | null {
+    const prefix = '/api/v1/projects/';
+    if (!pathname.startsWith(prefix)) {
+        return null;
+    }
+
+    const remainder = pathname.slice(prefix.length);
+    const slashIndex = remainder.indexOf('/');
+    if (slashIndex === -1) {
+        return { projectId: decodeURIComponent(remainder), projectPath: '/' };
+    }
+
+    return {
+        projectId: decodeURIComponent(remainder.slice(0, slashIndex)),
+        projectPath: remainder.slice(slashIndex) || '/',
+    };
+}
+
 export function createRouter(
-    handlerService: SessionHandlerService,
-    notificationEmitter: DaemonNotificationEmitter,
+    projectManager: GlobalDaemonProjectManager,
     authToken: string,
-    context: { workspaceRoot: string; startedAt: string; port: number }
+    context: { port: number }
 ): (req: http.IncomingMessage, res: http.ServerResponse) => void {
     return async function router(
         req: http.IncomingMessage,
@@ -256,15 +273,32 @@ export function createRouter(
         }
 
         try {
+            if (method === 'GET' && pathname === '/api/v1/projects') {
+                const projects = await projectManager.listProjects();
+                sendJson(res, 200, { projects });
+                return;
+            }
+
+            const projectRoute = extractProjectRoute(pathname);
+            if (!projectRoute) {
+                sendJson(res, 404, { error: 'Not Found' });
+                return;
+            }
+
+            const runtime = await projectManager.getRuntime(projectRoute.projectId);
+            const handlerService = runtime.handlerService;
+            const notificationEmitter = runtime.notificationEmitter;
+            const projectPath = projectRoute.projectPath;
+
             // ---------------------------------------------------------------
             // Discovery
             // ---------------------------------------------------------------
 
-            // GET /api/v1/discovery
-            if (method === 'GET' && pathname === '/api/v1/discovery') {
+            // GET /api/v1/projects/:projectId/discovery
+            if (method === 'GET' && projectPath === '/discovery') {
                 let gitRemote: string | null = null;
                 try {
-                    const rawRemote = await execGit(['remote', 'get-url', 'origin'], context.workspaceRoot);
+                    const rawRemote = await execGit(['remote', 'get-url', 'origin'], runtime.project.workspaceRoot);
                     gitRemote = sanitizeGitRemoteUrl(rawRemote);
                 } catch {
                     gitRemote = null;
@@ -273,14 +307,15 @@ export function createRouter(
                 const sessionsResult = await handlerService.handleSessionList({}) as { sessions?: unknown[] };
                 const sessionCount = Array.isArray(sessionsResult.sessions) ? sessionsResult.sessions.length : 0;
 
-                const uptime = Math.floor((Date.now() - new Date(context.startedAt).getTime()) / 1000);
+                const uptime = Math.floor((Date.now() - new Date(runtime.startedAt).getTime()) / 1000);
 
                 sendJson(res, 200, {
-                    projectName: path.basename(context.workspaceRoot),
+                    projectId: runtime.project.projectId,
+                    projectName: runtime.project.projectName,
                     gitRemote,
                     sessionCount,
                     uptime,
-                    workspaceRoot: context.workspaceRoot,
+                    workspaceRoot: runtime.project.workspaceRoot,
                     port: context.port,
                     apiVersion: DAEMON_API_VERSION,
                 });
@@ -290,7 +325,7 @@ export function createRouter(
             // ---------------------------------------------------------------
             // SSE events stream
             // ---------------------------------------------------------------
-            if (method === 'GET' && pathname === '/api/v1/events') {
+            if (method === 'GET' && projectPath === '/events') {
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
@@ -306,15 +341,13 @@ export function createRouter(
             // Sessions
             // ---------------------------------------------------------------
 
-            // GET /api/v1/sessions
-            if (method === 'GET' && pathname === '/api/v1/sessions') {
+            if (method === 'GET' && projectPath === '/sessions') {
                 const result = await handlerService.handleSessionList({});
                 sendJson(res, 200, result);
                 return;
             }
 
-            // POST /api/v1/sessions
-            if (method === 'POST' && pathname === '/api/v1/sessions') {
+            if (method === 'POST' && projectPath === '/sessions') {
                 const body = await readJsonBody(req);
                 const result = await handlerService.handleSessionCreate(body);
                 sendJson(res, 200, result);
@@ -323,7 +356,7 @@ export function createRouter(
 
             // DELETE /api/v1/sessions/:name
             {
-                const match = matchRoute('/api/v1/sessions/:name', pathname);
+                const match = matchRoute('/sessions/:name', projectPath);
                 if (method === 'DELETE' && match) {
                     const result = await handlerService.handleSessionDelete({
                         sessionName: match.params.name,
@@ -335,7 +368,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/status
             {
-                const match = matchRoute('/api/v1/sessions/:name/status', pathname);
+                const match = matchRoute('/sessions/:name/status', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleSessionGetStatus({
                         sessionName: match.params.name,
@@ -347,7 +380,7 @@ export function createRouter(
 
             // POST /api/v1/sessions/:name/open
             {
-                const match = matchRoute('/api/v1/sessions/:name/open', pathname);
+                const match = matchRoute('/sessions/:name/open', projectPath);
                 if (method === 'POST' && match) {
                     const body = await readJsonBody(req);
                     const result = await handlerService.handleSessionOpen({
@@ -361,7 +394,7 @@ export function createRouter(
 
             // POST /api/v1/sessions/:name/clear
             {
-                const match = matchRoute('/api/v1/sessions/:name/clear', pathname);
+                const match = matchRoute('/sessions/:name/clear', projectPath);
                 if (method === 'POST' && match) {
                     const result = await handlerService.handleSessionClear({
                         sessionName: match.params.name,
@@ -373,7 +406,7 @@ export function createRouter(
 
             // POST /api/v1/sessions/:name/pin
             {
-                const match = matchRoute('/api/v1/sessions/:name/pin', pathname);
+                const match = matchRoute('/sessions/:name/pin', projectPath);
                 if (method === 'POST' && match) {
                     const result = await handlerService.handleSessionPin({
                         sessionName: match.params.name,
@@ -385,7 +418,7 @@ export function createRouter(
 
             // DELETE /api/v1/sessions/:name/pin
             {
-                const match = matchRoute('/api/v1/sessions/:name/pin', pathname);
+                const match = matchRoute('/sessions/:name/pin', projectPath);
                 if (method === 'DELETE' && match) {
                     const result = await handlerService.handleSessionUnpin({
                         sessionName: match.params.name,
@@ -397,7 +430,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/diff/files
             {
-                const match = matchRoute('/api/v1/sessions/:name/diff/files', pathname);
+                const match = matchRoute('/sessions/:name/diff/files', projectPath);
                 if (method === 'GET' && match) {
                     const params: Record<string, unknown> = { sessionName: match.params.name };
                     if (queryParams['includeUncommitted'] !== undefined) {
@@ -414,7 +447,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/diff
             {
-                const match = matchRoute('/api/v1/sessions/:name/diff', pathname);
+                const match = matchRoute('/sessions/:name/diff', projectPath);
                 if (method === 'GET' && match) {
                     const params: Record<string, unknown> = { sessionName: match.params.name };
                     if (queryParams['includeUncommitted'] !== undefined) {
@@ -431,7 +464,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/worktree
             {
-                const match = matchRoute('/api/v1/sessions/:name/worktree', pathname);
+                const match = matchRoute('/sessions/:name/worktree', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleGitGetWorktreeInfo({
                         sessionName: match.params.name,
@@ -443,7 +476,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/workflow
             {
-                const match = matchRoute('/api/v1/sessions/:name/workflow', pathname);
+                const match = matchRoute('/sessions/:name/workflow', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleWorkflowGetState({
                         sessionName: match.params.name,
@@ -455,7 +488,7 @@ export function createRouter(
 
             // GET /api/v1/sessions/:name/insights
             {
-                const match = matchRoute('/api/v1/sessions/:name/insights', pathname);
+                const match = matchRoute('/sessions/:name/insights', projectPath);
                 if (method === 'GET' && match) {
                     const includeAnalysis = queryParams['includeAnalysis'] !== undefined
                         ? parseBooleanParam(queryParams['includeAnalysis'])
@@ -473,16 +506,14 @@ export function createRouter(
             // Agents
             // ---------------------------------------------------------------
 
-            // GET /api/v1/agents
-            if (method === 'GET' && pathname === '/api/v1/agents') {
+            if (method === 'GET' && projectPath === '/agents') {
                 const result = await handlerService.handleAgentList({});
                 sendJson(res, 200, result);
                 return;
             }
 
-            // GET /api/v1/agents/:name
             {
-                const match = matchRoute('/api/v1/agents/:name', pathname);
+                const match = matchRoute('/agents/:name', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleAgentGetConfig({
                         agentName: match.params.name,
@@ -496,16 +527,14 @@ export function createRouter(
             // Config
             // ---------------------------------------------------------------
 
-            // GET /api/v1/config
-            if (method === 'GET' && pathname === '/api/v1/config') {
+            if (method === 'GET' && projectPath === '/config') {
                 const result = await handlerService.handleConfigGetAll({});
                 sendJson(res, 200, result);
                 return;
             }
 
-            // GET /api/v1/config/:key
             {
-                const match = matchRoute('/api/v1/config/:key', pathname);
+                const match = matchRoute('/config/:key', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleConfigGet({
                         key: match.params.key,
@@ -515,9 +544,8 @@ export function createRouter(
                 }
             }
 
-            // PUT /api/v1/config/:key
             {
-                const match = matchRoute('/api/v1/config/:key', pathname);
+                const match = matchRoute('/config/:key', projectPath);
                 if (method === 'PUT' && match) {
                     const body = await readJsonBody(req);
                     const result = await handlerService.handleConfigSet({
@@ -533,8 +561,7 @@ export function createRouter(
             // Git
             // ---------------------------------------------------------------
 
-            // GET /api/v1/git/branches
-            if (method === 'GET' && pathname === '/api/v1/git/branches') {
+            if (method === 'GET' && projectPath === '/git/branches') {
                 const result = await handlerService.handleGitListBranches({
                     includeRemote: parseBooleanParam(queryParams['includeRemote']),
                 });
@@ -542,8 +569,7 @@ export function createRouter(
                 return;
             }
 
-            // POST /api/v1/git/repair
-            if (method === 'POST' && pathname === '/api/v1/git/repair') {
+            if (method === 'POST' && projectPath === '/git/repair') {
                 const body = await readJsonBody(req);
                 const result = await handlerService.handleGitRepairWorktrees(body);
                 sendJson(res, 200, result);
@@ -554,16 +580,14 @@ export function createRouter(
             // Workflows
             // ---------------------------------------------------------------
 
-            // POST /api/v1/workflows/validate  (must be checked before /workflows POST)
-            if (method === 'POST' && pathname === '/api/v1/workflows/validate') {
+            if (method === 'POST' && projectPath === '/workflows/validate') {
                 const body = await readJsonBody(req);
                 const result = await handlerService.handleWorkflowValidate(body);
                 sendJson(res, 200, result);
                 return;
             }
 
-            // GET /api/v1/workflows
-            if (method === 'GET' && pathname === '/api/v1/workflows') {
+            if (method === 'GET' && projectPath === '/workflows') {
                 const params: Record<string, unknown> = {};
                 if (queryParams['includeBuiltin'] !== undefined) {
                     params.includeBuiltin = parseBooleanParam(queryParams['includeBuiltin']);
@@ -576,8 +600,7 @@ export function createRouter(
                 return;
             }
 
-            // POST /api/v1/workflows
-            if (method === 'POST' && pathname === '/api/v1/workflows') {
+            if (method === 'POST' && projectPath === '/workflows') {
                 const body = await readJsonBody(req);
                 const result = await handlerService.handleWorkflowCreate(body);
                 sendJson(res, 200, result);
@@ -588,8 +611,7 @@ export function createRouter(
             // Terminals
             // ---------------------------------------------------------------
 
-            // GET /api/v1/terminals
-            if (method === 'GET' && pathname === '/api/v1/terminals') {
+            if (method === 'GET' && projectPath === '/terminals') {
                 const params: Record<string, unknown> = {};
                 if (queryParams['sessionName']) {
                     params['sessionName'] = queryParams['sessionName'];
@@ -599,17 +621,15 @@ export function createRouter(
                 return;
             }
 
-            // POST /api/v1/terminals
-            if (method === 'POST' && pathname === '/api/v1/terminals') {
+            if (method === 'POST' && projectPath === '/terminals') {
                 const body = await readJsonBody(req);
                 const result = await handlerService.handleTerminalCreate(body);
                 sendJson(res, 200, result);
                 return;
             }
 
-            // POST /api/v1/terminals/:name/send
             {
-                const match = matchRoute('/api/v1/terminals/:name/send', pathname);
+                const match = matchRoute('/terminals/:name/send', projectPath);
                 if (method === 'POST' && match) {
                     const body = await readJsonBody(req);
                     const result = await handlerService.handleTerminalSend({
@@ -621,9 +641,8 @@ export function createRouter(
                 }
             }
 
-            // GET /api/v1/terminals/:name/output
             {
-                const match = matchRoute('/api/v1/terminals/:name/output', pathname);
+                const match = matchRoute('/terminals/:name/output', projectPath);
                 if (method === 'GET' && match) {
                     const result = await handlerService.handleTerminalOutput({
                         name: match.params.name,
@@ -633,9 +652,8 @@ export function createRouter(
                 }
             }
 
-            // POST /api/v1/terminals/:name/resize
             {
-                const match = matchRoute('/api/v1/terminals/:name/resize', pathname);
+                const match = matchRoute('/terminals/:name/resize', projectPath);
                 if (method === 'POST' && match) {
                     const body = await readJsonBody(req);
                     const result = await handlerService.handleTerminalResize({
@@ -648,9 +666,8 @@ export function createRouter(
                 }
             }
 
-            // GET /api/v1/terminals/:name/stream  (SSE — polls terminal content every 200ms)
             {
-                const match = matchRoute('/api/v1/terminals/:name/stream', pathname);
+                const match = matchRoute('/terminals/:name/stream', projectPath);
                 if (method === 'GET' && match) {
                     const terminalName = match.params.name;
 

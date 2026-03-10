@@ -50,6 +50,7 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
     return {
+        projectId: 'project-123',
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -157,7 +158,7 @@ describe('ProjectCard', () => {
         expect(screen.getByLabelText('Health: unreachable')).toBeInTheDocument();
     });
 
-    it('Given a card for port 3942, when the card is clicked, then navigation to "/project/3942" occurs', async () => {
+    it('Given a running project, when the card is clicked, then navigation to "/project/project-123" occurs', async () => {
         const user = userEvent.setup();
         const enriched = makeEnrichedDaemon({ daemon: makeDaemonInfo({ port: 3942 }) });
 
@@ -166,7 +167,7 @@ describe('ProjectCard', () => {
         const card = screen.getByRole('button', { name: /open project/i });
         await user.click(card);
 
-        expect(mockNavigate).toHaveBeenCalledWith('/project/3942');
+        expect(mockNavigate).toHaveBeenCalledWith('/project/project-123');
     });
 
     it('Given a registered project without a running daemon, then the card is not clickable and shows offline state', () => {

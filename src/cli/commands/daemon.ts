@@ -73,6 +73,7 @@ export function registerDaemonCommand(program: Command): void {
                 const projectName = path.basename(workspaceRoot);
 
                 await registerProject({
+                    projectId: '',
                     workspaceRoot,
                     projectName,
                     registeredAt: new Date().toISOString(),

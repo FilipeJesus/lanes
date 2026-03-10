@@ -1,6 +1,6 @@
 /**
  * Session Detail page — shows detailed information for a single session.
- * The :port and :name URL params identify the daemon and session.
+ * The :projectId and :name URL params identify the project and session.
  *
  * Shows:
  * - Status badge with optional message and timestamp
@@ -71,11 +71,10 @@ type ActiveTab = 'changes' | 'insights' | 'terminal';
 // ---------------------------------------------------------------------------
 
 export function SessionDetail() {
-    const { port, name } = useParams<{ port: string; name: string }>();
-    const portNum = port ? parseInt(port, 10) : undefined;
+    const { projectId, name } = useParams<{ projectId: string; name: string }>();
 
     const { apiClient, sseClient, daemonInfo, loading: connectionLoading, error: connectionError } =
-        useDaemonConnection(portNum);
+        useDaemonConnection(projectId);
 
     const [session, setSession] = useState<SessionInfo | null>(null);
     const [worktree, setWorktree] = useState<WorktreeInfo | null>(null);
@@ -300,8 +299,8 @@ export function SessionDetail() {
                             Projects
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
-                        <Link to={`/project/${port}`} className={styles.breadcrumbLink}>
-                            {daemonInfo?.projectName ?? `Port ${port}`}
+                        <Link to={`/project/${projectId}`} className={styles.breadcrumbLink}>
+                            {daemonInfo?.projectName ?? projectId}
                         </Link>
                         <span className={styles.breadcrumbSep} aria-hidden="true">/</span>
                         <span>{decodedName}</span>

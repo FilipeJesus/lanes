@@ -11,9 +11,9 @@ export function App() {
             <Routes>
                 <Route element={<Layout />}>
                     <Route index element={<Dashboard />} />
-                    <Route path="project/:port" element={<ProjectDetail />} />
-                    <Route path="project/:port/session/:name" element={<SessionDetail />} />
-                    <Route path="project/:port/workflows" element={<WorkflowBrowser />} />
+                    <Route path="project/:projectId" element={<ProjectDetail />} />
+                    <Route path="project/:projectId/session/:name" element={<SessionDetail />} />
+                    <Route path="project/:projectId/workflows" element={<WorkflowBrowser />} />
                     <Route path="workflows" element={<WorkflowBrowser />} />
                 </Route>
             </Routes>

@@ -16,7 +16,7 @@ import styles from '../styles/SessionCard.module.css';
 
 export interface SessionCardProps {
     session: SessionInfo;
-    port: number | string;
+    projectId: string;
     onPin: (name: string) => void;
     onUnpin: (name: string) => void;
     onDelete: (name: string) => void;
@@ -30,7 +30,7 @@ export interface SessionCardProps {
 
 export function SessionCard({
     session,
-    port,
+    projectId,
     onPin,
     onUnpin,
     onDelete,
@@ -40,7 +40,7 @@ export function SessionCard({
     const navigate = useNavigate();
 
     function handleCardClick() {
-        void navigate(`/project/${port}/session/${encodeURIComponent(session.name)}`);
+        void navigate(`/project/${projectId}/session/${encodeURIComponent(session.name)}`);
     }
 
     function handleCardKeyDown(e: React.KeyboardEvent) {

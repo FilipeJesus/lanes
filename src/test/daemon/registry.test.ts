@@ -57,6 +57,7 @@ function makeEntry(overrides: Partial<DaemonRegistryEntry> = {}): DaemonRegistry
 
 function makeProject(overrides: Partial<RegisteredProjectEntry> = {}): RegisteredProjectEntry {
     return {
+        projectId: 'proj-test-123',
         workspaceRoot: '/tmp/test-project',
         projectName: 'test-project',
         registeredAt: new Date().toISOString(),

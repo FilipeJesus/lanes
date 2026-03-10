@@ -57,6 +57,8 @@ export interface DaemonApiClientOptions {
     baseUrl: string;
     /** Bearer token for authentication */
     token: string;
+    /** Project identifier served by the global daemon */
+    projectId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,11 +68,17 @@ export interface DaemonApiClientOptions {
 export class DaemonApiClient {
     private readonly baseUrl: string;
     private readonly token: string;
+    private readonly projectPath: string;
 
-    constructor({ baseUrl, token }: DaemonApiClientOptions) {
+    constructor({ baseUrl, token, projectId }: DaemonApiClientOptions) {
         // Strip trailing slash
         this.baseUrl = baseUrl.replace(/\/$/, '');
         this.token = token;
+        this.projectPath = projectId ? `/api/v1/projects/${encodeURIComponent(projectId)}` : '';
+    }
+
+    private projectUrl(path: string): string {
+        return this.projectPath ? `${this.projectPath}${path}` : `/api/v1${path}`;
     }
 
     // -------------------------------------------------------------------------
@@ -148,7 +156,7 @@ export class DaemonApiClient {
      * GET /api/v1/discovery
      */
     async getDiscovery(): Promise<DiscoveryInfo> {
-        return this.request<DiscoveryInfo>('GET', '/api/v1/discovery');
+        return this.request<DiscoveryInfo>('GET', this.projectUrl('/discovery'));
     }
 
     // -------------------------------------------------------------------------
@@ -159,21 +167,21 @@ export class DaemonApiClient {
      * GET /api/v1/sessions
      */
     async listSessions(): Promise<SessionListResponse> {
-        return this.request<SessionListResponse>('GET', '/api/v1/sessions');
+        return this.request<SessionListResponse>('GET', this.projectUrl('/sessions'));
     }
 
     /**
      * POST /api/v1/sessions
      */
     async createSession(params: CreateSessionRequest): Promise<CreateSessionResponse> {
-        return this.request<CreateSessionResponse>('POST', '/api/v1/sessions', { body: params });
+        return this.request<CreateSessionResponse>('POST', this.projectUrl('/sessions'), { body: params });
     }
 
     /**
      * DELETE /api/v1/sessions/:name
      */
     async deleteSession(name: string): Promise<void> {
-        return this.request<void>('DELETE', `/api/v1/sessions/${encodeURIComponent(name)}`);
+        return this.request<void>('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}`));
     }
 
     /**
@@ -182,7 +190,7 @@ export class DaemonApiClient {
     async getSessionStatus(name: string): Promise<SessionStatusResponse> {
         return this.request<SessionStatusResponse>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/status`
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/status`)
         );
     }
 
@@ -190,28 +198,28 @@ export class DaemonApiClient {
      * POST /api/v1/sessions/:name/open
      */
     async openSession(name: string): Promise<unknown> {
-        return this.request<unknown>('POST', `/api/v1/sessions/${encodeURIComponent(name)}/open`);
+        return this.request<unknown>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/open`));
     }
 
     /**
      * POST /api/v1/sessions/:name/clear
      */
     async clearSession(name: string): Promise<unknown> {
-        return this.request<unknown>('POST', `/api/v1/sessions/${encodeURIComponent(name)}/clear`);
+        return this.request<unknown>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/clear`));
     }
 
     /**
      * POST /api/v1/sessions/:name/pin
      */
     async pinSession(name: string): Promise<SessionInfo> {
-        return this.request<SessionInfo>('POST', `/api/v1/sessions/${encodeURIComponent(name)}/pin`);
+        return this.request<SessionInfo>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`));
     }
 
     /**
      * DELETE /api/v1/sessions/:name/pin
      */
     async unpinSession(name: string): Promise<SessionInfo> {
-        return this.request<SessionInfo>('DELETE', `/api/v1/sessions/${encodeURIComponent(name)}/pin`);
+        return this.request<SessionInfo>('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`));
     }
 
     /**
@@ -220,7 +228,7 @@ export class DaemonApiClient {
     async getSessionInsights(name: string, includeAnalysis?: boolean): Promise<InsightsResponse> {
         return this.request<InsightsResponse>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/insights`,
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/insights`),
             { query: { includeAnalysis } }
         );
     }
@@ -231,7 +239,7 @@ export class DaemonApiClient {
     async getSessionDiff(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffResult> {
         return this.request<DiffResult>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/diff`,
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/diff`),
             { query: { includeUncommitted, baseBranch } }
         );
     }
@@ -242,7 +250,7 @@ export class DaemonApiClient {
     async getSessionDiffFiles(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffFilesResult> {
         return this.request<DiffFilesResult>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/diff/files`,
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/diff/files`),
             { query: { includeUncommitted, baseBranch } }
         );
     }
@@ -253,7 +261,7 @@ export class DaemonApiClient {
     async getSessionWorktree(name: string): Promise<WorktreeInfo> {
         return this.request<WorktreeInfo>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/worktree`
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/worktree`)
         );
     }
 
@@ -263,7 +271,7 @@ export class DaemonApiClient {
     async getSessionWorkflow(name: string): Promise<WorkflowState> {
         return this.request<WorkflowState>(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/workflow`
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/workflow`)
         );
     }
 
@@ -275,7 +283,7 @@ export class DaemonApiClient {
      * GET /api/v1/git/branches
      */
     async getGitBranches(includeRemote?: boolean): Promise<GitBranchesResponse> {
-        return this.request<GitBranchesResponse>('GET', '/api/v1/git/branches', {
+        return this.request<GitBranchesResponse>('GET', this.projectUrl('/git/branches'), {
             query: { includeRemote },
         });
     }
@@ -284,7 +292,7 @@ export class DaemonApiClient {
      * POST /api/v1/git/repair
      */
     async repairGit(params?: Record<string, unknown>): Promise<GitRepairResult> {
-        return this.request<GitRepairResult>('POST', '/api/v1/git/repair', { body: params ?? {} });
+        return this.request<GitRepairResult>('POST', this.projectUrl('/git/repair'), { body: params ?? {} });
     }
 
     // -------------------------------------------------------------------------
@@ -298,7 +306,7 @@ export class DaemonApiClient {
         includeBuiltin?: boolean;
         includeCustom?: boolean;
     }): Promise<{ workflows: WorkflowInfo[] }> {
-        return this.request<{ workflows: WorkflowInfo[] }>('GET', '/api/v1/workflows', {
+        return this.request<{ workflows: WorkflowInfo[] }>('GET', this.projectUrl('/workflows'), {
             query: {
                 includeBuiltin: options?.includeBuiltin,
                 includeCustom: options?.includeCustom,
@@ -310,14 +318,14 @@ export class DaemonApiClient {
      * POST /api/v1/workflows/validate
      */
     async validateWorkflow(body: Record<string, unknown>): Promise<WorkflowValidateResult> {
-        return this.request<WorkflowValidateResult>('POST', '/api/v1/workflows/validate', { body });
+        return this.request<WorkflowValidateResult>('POST', this.projectUrl('/workflows/validate'), { body });
     }
 
     /**
      * POST /api/v1/workflows
      */
     async createWorkflow(body: Record<string, unknown>): Promise<WorkflowInfo> {
-        return this.request<WorkflowInfo>('POST', '/api/v1/workflows', { body });
+        return this.request<WorkflowInfo>('POST', this.projectUrl('/workflows'), { body });
     }
 
     // -------------------------------------------------------------------------
@@ -328,14 +336,14 @@ export class DaemonApiClient {
      * GET /api/v1/agents
      */
     async listAgents(): Promise<{ agents: AgentInfo[] }> {
-        return this.request<{ agents: AgentInfo[] }>('GET', '/api/v1/agents');
+        return this.request<{ agents: AgentInfo[] }>('GET', this.projectUrl('/agents'));
     }
 
     /**
      * GET /api/v1/agents/:name
      */
     async getAgent(name: string): Promise<AgentInfo> {
-        return this.request<AgentInfo>('GET', `/api/v1/agents/${encodeURIComponent(name)}`);
+        return this.request<AgentInfo>('GET', this.projectUrl(`/agents/${encodeURIComponent(name)}`));
     }
 
     // -------------------------------------------------------------------------
@@ -346,21 +354,21 @@ export class DaemonApiClient {
      * GET /api/v1/config
      */
     async getAllConfig(): Promise<ConfigGetAllResponse> {
-        return this.request<ConfigGetAllResponse>('GET', '/api/v1/config');
+        return this.request<ConfigGetAllResponse>('GET', this.projectUrl('/config'));
     }
 
     /**
      * GET /api/v1/config/:key
      */
     async getConfig(key: string): Promise<ConfigEntry> {
-        return this.request<ConfigEntry>('GET', `/api/v1/config/${encodeURIComponent(key)}`);
+        return this.request<ConfigEntry>('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`));
     }
 
     /**
      * PUT /api/v1/config/:key
      */
     async setConfig(key: string, value: unknown): Promise<ConfigEntry> {
-        return this.request<ConfigEntry>('PUT', `/api/v1/config/${encodeURIComponent(key)}`, {
+        return this.request<ConfigEntry>('PUT', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
             body: { value },
         });
     }
@@ -373,7 +381,7 @@ export class DaemonApiClient {
      * GET /api/v1/terminals
      */
     async listTerminals(sessionName?: string): Promise<TerminalListResponse> {
-        return this.request<TerminalListResponse>('GET', '/api/v1/terminals', {
+        return this.request<TerminalListResponse>('GET', this.projectUrl('/terminals'), {
             query: sessionName ? { sessionName } : undefined,
         });
     }
@@ -382,7 +390,7 @@ export class DaemonApiClient {
      * POST /api/v1/terminals
      */
     async createTerminal(params: CreateTerminalRequest): Promise<CreateTerminalResponse> {
-        return this.request<CreateTerminalResponse>('POST', '/api/v1/terminals', { body: params });
+        return this.request<CreateTerminalResponse>('POST', this.projectUrl('/terminals'), { body: params });
     }
 
     /**
@@ -391,7 +399,7 @@ export class DaemonApiClient {
     async sendToTerminal(name: string, params: TerminalSendRequest): Promise<unknown> {
         return this.request<unknown>(
             'POST',
-            `/api/v1/terminals/${encodeURIComponent(name)}/send`,
+            this.projectUrl(`/terminals/${encodeURIComponent(name)}/send`),
             { body: params }
         );
     }
@@ -402,7 +410,7 @@ export class DaemonApiClient {
     async getTerminalOutput(name: string): Promise<TerminalOutputData> {
         return this.request<TerminalOutputData>(
             'GET',
-            `/api/v1/terminals/${encodeURIComponent(name)}/output`
+            this.projectUrl(`/terminals/${encodeURIComponent(name)}/output`)
         );
     }
 
@@ -412,7 +420,7 @@ export class DaemonApiClient {
     async resizeTerminal(name: string, params: TerminalResizeRequest): Promise<unknown> {
         return this.request<unknown>(
             'POST',
-            `/api/v1/terminals/${encodeURIComponent(name)}/resize`,
+            this.projectUrl(`/terminals/${encodeURIComponent(name)}/resize`),
             { body: params }
         );
     }
@@ -433,7 +441,7 @@ export class DaemonApiClient {
         onError?: (error: Error) => void
     ): { close: () => void } {
         const controller = new AbortController();
-        const url = `${this.baseUrl}/api/v1/terminals/${encodeURIComponent(name)}/stream`;
+        const url = `${this.baseUrl}${this.projectUrl(`/terminals/${encodeURIComponent(name)}/stream`)}`;
 
         const run = async (): Promise<void> => {
             try {

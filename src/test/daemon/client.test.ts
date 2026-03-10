@@ -216,31 +216,43 @@ suite('DaemonClient', () => {
 
     suite('fromWorkspace()', () => {
         let tempDir: string;
+        let originalHome: string | undefined;
 
         setup(() => {
             tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-client-test-'));
+            originalHome = process.env.HOME;
+            process.env.HOME = tempDir;
         });
 
         teardown(() => {
+            if (originalHome !== undefined) {
+                process.env.HOME = originalHome;
+            } else {
+                delete process.env.HOME;
+            }
             fs.rmSync(tempDir, { recursive: true, force: true });
         });
 
-        test('Given daemon.port and daemon.token in .lanes/, when fromWorkspace is called, then DaemonClient is constructed', async () => {
+        test('Given global daemon.port and daemon.token plus a workspace, when fromWorkspace is called, then DaemonClient is constructed', async () => {
             // Arrange
+            const workspaceRoot = path.join(tempDir, 'workspace');
+            fs.mkdirSync(workspaceRoot, { recursive: true });
             const lanesDir = path.join(tempDir, '.lanes');
             fs.mkdirSync(lanesDir, { recursive: true });
             fs.writeFileSync(path.join(lanesDir, 'daemon.port'), '9876', 'utf-8');
             fs.writeFileSync(path.join(lanesDir, 'daemon.token'), 'workspace-token-abc', 'utf-8');
 
             // Act
-            const client = await DaemonClient.fromWorkspace(tempDir);
+            const client = await DaemonClient.fromWorkspace(workspaceRoot);
 
             // Assert — client should be a DaemonClient instance
             assert.ok(client instanceof DaemonClient, 'fromWorkspace should return a DaemonClient');
         });
 
-        test('Given no daemon.port file, when fromWorkspace is called, then it throws', async () => {
+        test('Given no global daemon.port file, when fromWorkspace is called, then it throws', async () => {
             // Arrange: only create the token file (no port file)
+            const workspaceRoot = path.join(tempDir, 'workspace');
+            fs.mkdirSync(workspaceRoot, { recursive: true });
             const lanesDir = path.join(tempDir, '.lanes');
             fs.mkdirSync(lanesDir, { recursive: true });
             fs.writeFileSync(path.join(lanesDir, 'daemon.token'), 'some-token', 'utf-8');
@@ -248,7 +260,7 @@ suite('DaemonClient', () => {
             // Act & Assert
             let thrown: unknown;
             try {
-                await DaemonClient.fromWorkspace(tempDir);
+                await DaemonClient.fromWorkspace(workspaceRoot);
             } catch (err) {
                 thrown = err;
             }

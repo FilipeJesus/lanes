@@ -19,7 +19,7 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import { createGatewayServer } from '../../daemon/gateway';
-import { registerDaemon, registerProject } from '../../daemon/registry';
+import { registerProject } from '../../daemon/registry';
 import type { DaemonRegistryEntry } from '../../daemon/registry';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +70,14 @@ function makeEntry(overrides: Partial<DaemonRegistryEntry> = {}): DaemonRegistry
     };
 }
 
+function writeGlobalDaemonFiles(homeDir: string, entry: DaemonRegistryEntry): void {
+    const lanesDir = path.join(homeDir, '.lanes');
+    fs.mkdirSync(lanesDir, { recursive: true });
+    fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(entry.pid), 'utf-8');
+    fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(entry.port), 'utf-8');
+    fs.writeFileSync(path.join(lanesDir, 'daemon.token'), entry.token, 'utf-8');
+}
+
 // ---------------------------------------------------------------------------
 // Suite: GatewayServer
 // ---------------------------------------------------------------------------
@@ -114,13 +122,19 @@ suite('GatewayServer', () => {
     // -----------------------------------------------------------------------
 
     test('Given running daemons in registry, when GET /api/gateway/daemons is called, then returns array of DaemonInfo', async () => {
-        // Arrange: register a live daemon entry
+        // Arrange: create a registered project and live global daemon state
         const entry = makeEntry({
             workspaceRoot: '/workspace/running',
             projectName: 'running-project',
             pid: process.pid,
         });
-        await registerDaemon(entry);
+        await registerProject({
+            projectId: '',
+            workspaceRoot: entry.workspaceRoot,
+            projectName: entry.projectName,
+            registeredAt: new Date().toISOString(),
+        });
+        writeGlobalDaemonFiles(tempDir, entry);
 
         // Act
         const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/daemons' });
@@ -136,14 +150,20 @@ suite('GatewayServer', () => {
     });
 
     test('Given stale daemons in registry, when GET /api/gateway/daemons is called, then stale entries are excluded', async () => {
-        // Arrange: register a stale (dead-PID) entry
+        // Arrange: create a stale global daemon state
         const deadPid = 999999999;
         const staleEntry = makeEntry({
             workspaceRoot: '/workspace/stale',
             projectName: 'stale-project',
             pid: deadPid,
         });
-        await registerDaemon(staleEntry);
+        await registerProject({
+            projectId: '',
+            workspaceRoot: staleEntry.workspaceRoot,
+            projectName: staleEntry.projectName,
+            registeredAt: new Date().toISOString(),
+        });
+        writeGlobalDaemonFiles(tempDir, staleEntry);
 
         // Stub process.kill to simulate a dead process for the fake PID
         sinon.stub(process, 'kill').callsFake((pid: number | NodeJS.Signals) => {
@@ -160,8 +180,7 @@ suite('GatewayServer', () => {
         assert.strictEqual(res.status, 200, 'Should return HTTP 200');
         const body = JSON.parse(res.body) as DaemonRegistryEntry[];
         assert.ok(Array.isArray(body), 'Response body should be an array');
-        const staleFound = body.find((d) => d.workspaceRoot === '/workspace/stale');
-        assert.strictEqual(staleFound, undefined, 'Stale entry should not be present in the response');
+        assert.strictEqual(body.length, 0, 'Stale global daemon should not produce daemon entries');
     });
 
     test('Given no auth, when GET /api/gateway/daemons is called, then returns 200 (public endpoint)', async () => {
@@ -174,6 +193,7 @@ suite('GatewayServer', () => {
 
     test('Given a registered project without a running daemon, when GET /api/gateway/projects is called, then it is returned with status "registered"', async () => {
         await registerProject({
+            projectId: '',
             workspaceRoot: '/workspace/registered-only',
             projectName: 'registered-only',
             registeredAt: new Date().toISOString(),
@@ -196,11 +216,12 @@ suite('GatewayServer', () => {
     test('Given a registered project with a live daemon, when GET /api/gateway/projects is called, then it is returned with status "running"', async () => {
         const workspaceRoot = '/workspace/running-project';
         await registerProject({
+            projectId: '',
             workspaceRoot,
             projectName: 'running-project',
             registeredAt: new Date().toISOString(),
         });
-        await registerDaemon(makeEntry({
+        writeGlobalDaemonFiles(tempDir, makeEntry({
             workspaceRoot,
             projectName: 'running-project',
             pid: process.pid,

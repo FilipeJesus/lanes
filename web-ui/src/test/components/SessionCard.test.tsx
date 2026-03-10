@@ -47,7 +47,7 @@ function renderCard(
         <MemoryRouter>
             <SessionCard
                 session={session}
-                port={3942}
+                projectId="project-123"
                 onPin={handlers.onPin ?? vi.fn()}
                 onUnpin={handlers.onUnpin ?? vi.fn()}
                 onDelete={handlers.onDelete ?? vi.fn()}

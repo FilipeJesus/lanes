@@ -1,16 +1,16 @@
 /**
  * useDaemonConnection — resolves a DaemonApiClient and DaemonSseClient for a
- * specific daemon port by looking it up in the gateway daemon list.
+ * specific project ID by looking it up in the gateway project list.
  *
  * Returns null for both clients while the gateway list is being fetched, or
- * when the port does not correspond to a known daemon.
+ * when the project does not correspond to a known registered project.
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { fetchDaemons } from '../api/gateway';
+import { fetchProjects } from '../api/gateway';
 import { DaemonApiClient } from '../api/client';
 import { DaemonSseClient } from '../api/sse';
-import type { DaemonInfo } from '../api/types';
+import type { GatewayProjectInfo } from '../api/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,8 +25,8 @@ export interface DaemonConnection {
     loading: boolean;
     /** Set when the gateway fetch fails or the port is not found */
     error: Error | null;
-    /** Matching daemon entry from gateway registry, if found */
-    daemonInfo: DaemonInfo | null;
+    /** Matching project entry from gateway registry, if found */
+    daemonInfo: GatewayProjectInfo | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,10 +34,10 @@ export interface DaemonConnection {
 // ---------------------------------------------------------------------------
 
 const DAEMON_LIST_CACHE_TTL_MS = 30_000;
-let daemonListCache: { data: DaemonInfo[]; expiresAt: number } | null = null;
-let daemonListInFlight: Promise<DaemonInfo[]> | null = null;
+let daemonListCache: { data: GatewayProjectInfo[]; expiresAt: number } | null = null;
+let daemonListInFlight: Promise<GatewayProjectInfo[]> | null = null;
 
-async function getDaemonsCached(): Promise<DaemonInfo[]> {
+async function getDaemonsCached(): Promise<GatewayProjectInfo[]> {
     const now = Date.now();
     if (daemonListCache !== null && daemonListCache.expiresAt > now) {
         return daemonListCache.data;
@@ -45,7 +45,7 @@ async function getDaemonsCached(): Promise<DaemonInfo[]> {
     if (daemonListInFlight !== null) {
         return daemonListInFlight;
     }
-    daemonListInFlight = fetchDaemons()
+    daemonListInFlight = fetchProjects()
         .then((data) => {
             daemonListCache = { data, expiresAt: Date.now() + DAEMON_LIST_CACHE_TTL_MS };
             return data;
@@ -66,35 +66,28 @@ export function __resetDaemonConnectionCacheForTests(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolves the token for `port` from the gateway, then constructs a
+ * Resolves the token for `projectId` from the gateway, then constructs a
  * DaemonApiClient and DaemonSseClient.  The SSE client is NOT auto-connected
  * here — callers are responsible for calling sseClient.connect() and
  * sseClient.disconnect() themselves (typically via useSessions).
  */
-export function useDaemonConnection(port: number | string | undefined): DaemonConnection {
+export function useDaemonConnection(projectId: string | undefined): DaemonConnection {
     const [apiClient, setApiClient] = useState<DaemonApiClient | null>(null);
     const [sseClient, setSseClient] = useState<DaemonSseClient | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
-    const [daemonInfo, setDaemonInfo] = useState<DaemonInfo | null>(null);
+    const [daemonInfo, setDaemonInfo] = useState<GatewayProjectInfo | null>(null);
 
     // Keep refs so cleanup does not need to re-run when state changes
     const sseClientRef = useRef<DaemonSseClient | null>(null);
 
     useEffect(() => {
-        if (port === undefined) {
+        if (projectId === undefined) {
             setLoading(false);
             setError(null);
             setApiClient(null);
             setSseClient(null);
             setDaemonInfo(null);
-            return;
-        }
-
-        const portNum = typeof port === 'string' ? parseInt(port, 10) : port;
-        if (!Number.isFinite(portNum)) {
-            setLoading(false);
-            setError(new Error(`Invalid port: ${port}`));
             return;
         }
 
@@ -105,22 +98,31 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
             setError(null);
 
             try {
-                const daemons = await getDaemonsCached();
+                const projects = await getDaemonsCached();
                 if (cancelled) return;
 
-                const daemon = daemons.find((d) => d.port === portNum);
-                if (!daemon) {
-                    setError(new Error(`No daemon running on port ${portNum}`));
+                const project = projects.find((entry) => entry.projectId === projectId);
+                if (!project) {
+                    setError(new Error(`Unknown project: ${projectId}`));
                     setApiClient(null);
                     setSseClient(null);
                     setDaemonInfo(null);
                     return;
                 }
 
+                const daemon = project.daemon;
+                if (!daemon) {
+                    setError(new Error(`Global daemon is not running for project ${project.projectName}`));
+                    setApiClient(null);
+                    setSseClient(null);
+                    setDaemonInfo(project);
+                    return;
+                }
+
                 const baseUrl = `http://127.0.0.1:${daemon.port}`;
 
-                const client = new DaemonApiClient({ baseUrl, token: daemon.token });
-                const sse = new DaemonSseClient({ baseUrl, token: daemon.token });
+                const client = new DaemonApiClient({ baseUrl, token: daemon.token, projectId });
+                const sse = new DaemonSseClient({ baseUrl, token: daemon.token, projectId });
 
                 if (cancelled) return;
 
@@ -130,7 +132,7 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
 
                 setApiClient(client);
                 setSseClient(sse);
-                setDaemonInfo(daemon);
+                setDaemonInfo(project);
             } catch (err) {
                 if (cancelled) return;
                 setError(err instanceof Error ? err : new Error(String(err)));
@@ -150,7 +152,7 @@ export function useDaemonConnection(port: number | string | undefined): DaemonCo
             cancelled = true;
             sseClientRef.current?.disconnect();
         };
-    }, [port]);
+    }, [projectId]);
 
     // Disconnect SSE on unmount
     useEffect(() => {

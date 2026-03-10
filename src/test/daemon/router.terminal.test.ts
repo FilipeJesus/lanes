@@ -93,6 +93,10 @@ function makeRequest(
     return new Promise((resolve, reject) => {
         const address = server.address() as { port: number };
         const { method = 'GET', path = '/', headers = {}, body } = options;
+        const requestPath =
+            path.startsWith('/api/v1/') && path !== '/api/v1/health'
+                ? `/api/v1/projects/${PROJECT_ID}${path.slice('/api/v1'.length)}`
+                : path;
 
         const payload = body !== undefined ? JSON.stringify(body) : undefined;
         const reqHeaders: Record<string, string> = { ...headers };
@@ -106,7 +110,7 @@ function makeRequest(
                 hostname: '127.0.0.1',
                 port: address.port,
                 method,
-                path,
+                path: requestPath,
                 headers: reqHeaders,
             },
             (res) => {
@@ -150,13 +154,17 @@ function makeRequestAndAbort(
     return new Promise((resolve, reject) => {
         const address = server.address() as { port: number };
         const { method = 'GET', path = '/', headers = {} } = options;
+        const requestPath =
+            path.startsWith('/api/v1/') && path !== '/api/v1/health'
+                ? `/api/v1/projects/${PROJECT_ID}${path.slice('/api/v1'.length)}`
+                : path;
 
         const req = http.request(
             {
                 hostname: '127.0.0.1',
                 port: address.port,
                 method,
-                path,
+                path: requestPath,
                 headers,
             },
             (res) => {
@@ -207,6 +215,7 @@ function makeRequestAndAbort(
 
 const AUTH_TOKEN = 'test-secret-token-terminal-xyz';
 const BEARER = `Bearer ${AUTH_TOKEN}`;
+const PROJECT_ID = 'project-test-terminal';
 
 // ---------------------------------------------------------------------------
 // Suite: router - GET /api/v1/terminals/:name/output
@@ -222,10 +231,22 @@ suite('router - GET /api/v1/terminals/:name/output', () => {
         notificationEmitter = makeNotificationEmitter();
 
         const handler = createRouter(
-            handlerService as never,
-            notificationEmitter as never,
+            {
+                listProjects: sinon.stub().resolves([]),
+                getRuntime: sinon.stub().resolves({
+                    project: {
+                        projectId: PROJECT_ID,
+                        workspaceRoot: '/test/workspace',
+                        projectName: 'workspace',
+                        registeredAt: new Date().toISOString(),
+                    },
+                    startedAt: new Date().toISOString(),
+                    handlerService,
+                    notificationEmitter,
+                }),
+            } as never,
             AUTH_TOKEN,
-            { workspaceRoot: '/test/workspace', startedAt: new Date().toISOString(), port: 0 }
+            { port: 0 }
         );
         server = http.createServer(handler);
         server.listen(0, '127.0.0.1', done);
@@ -289,10 +310,22 @@ suite('router - POST /api/v1/terminals/:name/resize', () => {
         notificationEmitter = makeNotificationEmitter();
 
         const handler = createRouter(
-            handlerService as never,
-            notificationEmitter as never,
+            {
+                listProjects: sinon.stub().resolves([]),
+                getRuntime: sinon.stub().resolves({
+                    project: {
+                        projectId: PROJECT_ID,
+                        workspaceRoot: '/test/workspace',
+                        projectName: 'workspace',
+                        registeredAt: new Date().toISOString(),
+                    },
+                    startedAt: new Date().toISOString(),
+                    handlerService,
+                    notificationEmitter,
+                }),
+            } as never,
             AUTH_TOKEN,
-            { workspaceRoot: '/test/workspace', startedAt: new Date().toISOString(), port: 0 }
+            { port: 0 }
         );
         server = http.createServer(handler);
         server.listen(0, '127.0.0.1', done);
@@ -363,10 +396,22 @@ suite('router - GET /api/v1/terminals/:name/stream', () => {
         handlerService.handleTerminalOutput.resolves({ content: 'stream content\n', rows: 24, cols: 80 });
 
         const handler = createRouter(
-            handlerService as never,
-            notificationEmitter as never,
+            {
+                listProjects: sinon.stub().resolves([]),
+                getRuntime: sinon.stub().resolves({
+                    project: {
+                        projectId: PROJECT_ID,
+                        workspaceRoot: '/test/workspace',
+                        projectName: 'workspace',
+                        registeredAt: new Date().toISOString(),
+                    },
+                    startedAt: new Date().toISOString(),
+                    handlerService,
+                    notificationEmitter,
+                }),
+            } as never,
             AUTH_TOKEN,
-            { workspaceRoot: '/test/workspace', startedAt: new Date().toISOString(), port: 0 }
+            { port: 0 }
         );
         server = http.createServer(handler);
         server.listen(0, '127.0.0.1', done);
@@ -385,7 +430,7 @@ suite('router - GET /api/v1/terminals/:name/stream', () => {
                 hostname: '127.0.0.1',
                 port: address.port,
                 method: 'GET',
-                path: '/api/v1/terminals/my-terminal/stream',
+                path: `/api/v1/projects/${PROJECT_ID}/terminals/my-terminal/stream`,
                 headers: { Authorization: BEARER },
             },
             (res) => {

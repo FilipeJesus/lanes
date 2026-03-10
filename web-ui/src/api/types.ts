@@ -53,6 +53,7 @@ export interface SessionInfo {
 // ---------------------------------------------------------------------------
 
 export interface DaemonInfo {
+    projectId?: string;
     workspaceRoot: string;
     port: number;
     pid: number;
@@ -62,6 +63,7 @@ export interface DaemonInfo {
 }
 
 export interface GatewayProjectInfo {
+    projectId: string;
     workspaceRoot: string;
     projectName: string;
     registeredAt: string;
@@ -70,6 +72,7 @@ export interface GatewayProjectInfo {
 }
 
 export interface DiscoveryInfo {
+    projectId: string;
     projectName: string;
     gitRemote: string | null;
     sessionCount: number;

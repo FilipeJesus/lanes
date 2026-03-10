@@ -23,12 +23,20 @@ import {
 
 suite('daemon auth', () => {
     let tempDir: string;
+    let originalHome: string | undefined;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-auth-test-'));
+        originalHome = process.env.HOME;
+        process.env.HOME = tempDir;
     });
 
     teardown(() => {
+        if (originalHome !== undefined) {
+            process.env.HOME = originalHome;
+        } else {
+            delete process.env.HOME;
+        }
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -55,7 +63,7 @@ suite('daemon auth', () => {
     // daemon-auth-write-read-remove-token
     // -------------------------------------------------------------------------
 
-    test('Given a workspaceRoot, when writeTokenFile is called, then readTokenFile returns the same token', async () => {
+    test('Given a global token file, when writeTokenFile is called, then readTokenFile returns the same token', async () => {
         // Arrange
         const token = generateToken();
 
@@ -67,7 +75,7 @@ suite('daemon auth', () => {
         assert.strictEqual(readBack, token);
     });
 
-    test('Given writeTokenFile is called, then the token file exists at .lanes/daemon.token', async () => {
+    test('Given writeTokenFile is called, then the token file exists at ~/.lanes/daemon.token', async () => {
         // Arrange
         const token = generateToken();
         const expectedPath = path.join(tempDir, '.lanes', 'daemon.token');
@@ -79,7 +87,7 @@ suite('daemon auth', () => {
         assert.ok(fs.existsSync(expectedPath), '.lanes/daemon.token should exist after writeTokenFile');
     });
 
-    test('Given a written token file, when removeTokenFile is called, then the file no longer exists', async () => {
+    test('Given a written global token file, when removeTokenFile is called, then the file no longer exists', async () => {
         // Arrange
         const token = generateToken();
         await writeTokenFile(tempDir, token);

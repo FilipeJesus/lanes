@@ -30,9 +30,9 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Write fake daemon PID/port files to simulate a running daemon. */
-function writeFakeDaemonFiles(workspaceRoot: string, pid: number, port: number): void {
-    const lanesDir = path.join(workspaceRoot, '.lanes');
+/** Write fake global daemon PID/port files to simulate a running daemon. */
+function writeFakeDaemonFiles(homeDir: string, pid: number, port: number): void {
+    const lanesDir = path.join(homeDir, '.lanes');
     fs.mkdirSync(lanesDir, { recursive: true });
     fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(pid), 'utf-8');
     fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(port), 'utf-8');
@@ -44,13 +44,21 @@ function writeFakeDaemonFiles(workspaceRoot: string, pid: number, port: number):
 
 suite('daemon lifecycle', () => {
     let tempDir: string;
+    let originalHome: string | undefined;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-lifecycle-test-'));
+        originalHome = process.env.HOME;
+        process.env.HOME = tempDir;
     });
 
     teardown(() => {
         sinon.restore();
+        if (originalHome !== undefined) {
+            process.env.HOME = originalHome;
+        } else {
+            delete process.env.HOME;
+        }
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 

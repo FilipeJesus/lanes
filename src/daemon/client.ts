@@ -18,6 +18,7 @@ import { ValidationError } from '../core/errors/ValidationError';
 import { LanesError } from '../core/errors/LanesError';
 import { getDaemonPort } from './lifecycle';
 import { readTokenFile } from './auth';
+import { getRegisteredProjectByWorkspace, registerProject } from './registry';
 import type { TerminalOutputData } from '../core/interfaces/ITerminalIOProvider';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +71,26 @@ interface RequestOpts {
     auth?: boolean;
 }
 
+async function ensureProjectRegistered(workspaceRoot: string) {
+    const existing = await getRegisteredProjectByWorkspace(workspaceRoot);
+    if (existing) {
+        return existing;
+    }
+
+    await registerProject({
+        projectId: '',
+        workspaceRoot,
+        projectName: workspaceRoot.split(/[\\/]/).pop() || workspaceRoot,
+        registeredAt: new Date().toISOString(),
+    });
+
+    const registered = await getRegisteredProjectByWorkspace(workspaceRoot);
+    if (!registered) {
+        throw new Error(`Failed to register project for workspace ${workspaceRoot}`);
+    }
+    return registered;
+}
+
 // ---------------------------------------------------------------------------
 // DaemonClient
 // ---------------------------------------------------------------------------
@@ -78,11 +99,13 @@ export interface DaemonClientOptions {
     port?: number;
     baseUrl?: string;
     token: string;
+    projectId?: string;
 }
 
 export class DaemonClient {
     private readonly baseUrl: string;
     private readonly token: string;
+    private readonly projectPath: string;
 
     constructor(options: DaemonClientOptions) {
         if (options.baseUrl !== undefined) {
@@ -93,6 +116,9 @@ export class DaemonClient {
             throw new Error('DaemonClient requires either baseUrl or port');
         }
         this.token = options.token;
+        this.projectPath = options.projectId
+            ? `/api/v1/projects/${encodeURIComponent(options.projectId)}`
+            : '';
     }
 
     /**
@@ -100,12 +126,17 @@ export class DaemonClient {
      * Reads `.lanes/daemon.port` and `.lanes/daemon.token`.
      */
     static async fromWorkspace(workspaceRoot: string): Promise<DaemonClient> {
+        const resolved = await ensureProjectRegistered(workspaceRoot);
         const port = await getDaemonPort(workspaceRoot);
         if (port === undefined) {
             throw new Error('Daemon port file not found or invalid. Is the daemon running?');
         }
         const token = await readTokenFile(workspaceRoot);
-        return new DaemonClient({ port, token });
+        return new DaemonClient({ port, token, projectId: resolved.projectId });
+    }
+
+    private projectUrl(path: string): string {
+        return this.projectPath ? `${this.projectPath}${path}` : `/api/v1${path}`;
     }
 
     // -------------------------------------------------------------------------
@@ -212,6 +243,7 @@ export class DaemonClient {
 
     /** GET /api/v1/discovery */
     discovery(): Promise<{
+        projectId: string;
         projectName: string;
         gitRemote: string | null;
         sessionCount: number;
@@ -220,7 +252,7 @@ export class DaemonClient {
         port: number;
         apiVersion: string;
     }> {
-        return this.request('GET', '/api/v1/discovery');
+        return this.request('GET', this.projectUrl('/discovery'));
     }
 
     // -------------------------------------------------------------------------
@@ -229,48 +261,48 @@ export class DaemonClient {
 
     /** GET /api/v1/sessions */
     listSessions(): Promise<unknown> {
-        return this.request('GET', '/api/v1/sessions');
+        return this.request('GET', this.projectUrl('/sessions'));
     }
 
     /** POST /api/v1/sessions */
     createSession(opts: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', '/api/v1/sessions', { body: opts });
+        return this.request('POST', this.projectUrl('/sessions'), { body: opts });
     }
 
     /** DELETE /api/v1/sessions/:name */
     deleteSession(name: string): Promise<unknown> {
-        return this.request('DELETE', `/api/v1/sessions/${encodeURIComponent(name)}`);
+        return this.request('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}`));
     }
 
     /** GET /api/v1/sessions/:name/status */
     getSessionStatus(name: string): Promise<unknown> {
-        return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/status`);
+        return this.request('GET', this.projectUrl(`/sessions/${encodeURIComponent(name)}/status`));
     }
 
     /** POST /api/v1/sessions/:name/open */
     openSession(name: string, opts?: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', `/api/v1/sessions/${encodeURIComponent(name)}/open`, {
+        return this.request('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/open`), {
             body: opts ?? {},
         });
     }
 
     /** POST /api/v1/sessions/:name/clear */
     clearSession(name: string): Promise<unknown> {
-        return this.request('POST', `/api/v1/sessions/${encodeURIComponent(name)}/clear`, {
+        return this.request('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/clear`), {
             body: {},
         });
     }
 
     /** POST /api/v1/sessions/:name/pin */
     pinSession(name: string): Promise<unknown> {
-        return this.request('POST', `/api/v1/sessions/${encodeURIComponent(name)}/pin`, {
+        return this.request('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`), {
             body: {},
         });
     }
 
     /** DELETE /api/v1/sessions/:name/pin */
     unpinSession(name: string): Promise<unknown> {
-        return this.request('DELETE', `/api/v1/sessions/${encodeURIComponent(name)}/pin`);
+        return this.request('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`));
     }
 
     // -------------------------------------------------------------------------
@@ -283,7 +315,7 @@ export class DaemonClient {
             opts?.includeAnalysis !== undefined
                 ? `?includeAnalysis=${opts.includeAnalysis}`
                 : '';
-        return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/insights${qs}`);
+        return this.request('GET', this.projectUrl(`/sessions/${encodeURIComponent(name)}/insights${qs}`));
     }
 
     // -------------------------------------------------------------------------
@@ -294,12 +326,12 @@ export class DaemonClient {
     listBranches(opts?: { includeRemote?: boolean }): Promise<unknown> {
         const qs =
             opts?.includeRemote !== undefined ? `?includeRemote=${opts.includeRemote}` : '';
-        return this.request('GET', `/api/v1/git/branches${qs}`);
+        return this.request('GET', this.projectUrl(`/git/branches${qs}`));
     }
 
     /** POST /api/v1/git/repair */
     repairWorktrees(opts?: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', '/api/v1/git/repair', { body: opts ?? {} });
+        return this.request('POST', this.projectUrl('/git/repair'), { body: opts ?? {} });
     }
 
     /** GET /api/v1/sessions/:name/diff?includeUncommitted=true|false&baseBranch=... */
@@ -315,7 +347,7 @@ export class DaemonClient {
             qp.set('baseBranch', opts.baseBranch);
         }
         const qs = qp.toString() ? `?${qp.toString()}` : '';
-        return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/diff${qs}`);
+        return this.request('GET', this.projectUrl(`/sessions/${encodeURIComponent(name)}/diff${qs}`));
     }
 
     /** GET /api/v1/sessions/:name/diff/files?includeUncommitted=true|false&baseBranch=... */
@@ -333,13 +365,13 @@ export class DaemonClient {
         const qs = qp.toString() ? `?${qp.toString()}` : '';
         return this.request(
             'GET',
-            `/api/v1/sessions/${encodeURIComponent(name)}/diff/files${qs}`
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/diff/files${qs}`)
         );
     }
 
     /** GET /api/v1/sessions/:name/worktree */
     getWorktreeInfo(name: string): Promise<unknown> {
-        return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/worktree`);
+        return this.request('GET', this.projectUrl(`/sessions/${encodeURIComponent(name)}/worktree`));
     }
 
     // -------------------------------------------------------------------------
@@ -356,22 +388,22 @@ export class DaemonClient {
             params.push(`includeCustom=${opts.includeCustom}`);
         }
         const qs = params.length > 0 ? `?${params.join('&')}` : '';
-        return this.request('GET', `/api/v1/workflows${qs}`);
+        return this.request('GET', this.projectUrl(`/workflows${qs}`));
     }
 
     /** POST /api/v1/workflows/validate */
     validateWorkflow(content: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', '/api/v1/workflows/validate', { body: content });
+        return this.request('POST', this.projectUrl('/workflows/validate'), { body: content });
     }
 
     /** POST /api/v1/workflows */
     createWorkflow(name: string, content: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', '/api/v1/workflows', { body: { name, content } });
+        return this.request('POST', this.projectUrl('/workflows'), { body: { name, content } });
     }
 
     /** GET /api/v1/sessions/:name/workflow */
     getWorkflowState(name: string): Promise<unknown> {
-        return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/workflow`);
+        return this.request('GET', this.projectUrl(`/sessions/${encodeURIComponent(name)}/workflow`));
     }
 
     // -------------------------------------------------------------------------
@@ -380,12 +412,12 @@ export class DaemonClient {
 
     /** GET /api/v1/agents */
     listAgents(): Promise<unknown> {
-        return this.request('GET', '/api/v1/agents');
+        return this.request('GET', this.projectUrl('/agents'));
     }
 
     /** GET /api/v1/agents/:name */
     getAgentConfig(name: string): Promise<unknown> {
-        return this.request('GET', `/api/v1/agents/${encodeURIComponent(name)}`);
+        return this.request('GET', this.projectUrl(`/agents/${encodeURIComponent(name)}`));
     }
 
     // -------------------------------------------------------------------------
@@ -394,17 +426,17 @@ export class DaemonClient {
 
     /** GET /api/v1/config */
     getAllConfig(): Promise<unknown> {
-        return this.request('GET', '/api/v1/config');
+        return this.request('GET', this.projectUrl('/config'));
     }
 
     /** GET /api/v1/config/:key */
     getConfig(key: string): Promise<unknown> {
-        return this.request('GET', `/api/v1/config/${encodeURIComponent(key)}`);
+        return this.request('GET', this.projectUrl(`/config/${encodeURIComponent(key)}`));
     }
 
     /** PUT /api/v1/config/:key */
     setConfig(key: string, value: unknown): Promise<unknown> {
-        return this.request('PUT', `/api/v1/config/${encodeURIComponent(key)}`, {
+        return this.request('PUT', this.projectUrl(`/config/${encodeURIComponent(key)}`), {
             body: { value },
         });
     }
@@ -418,17 +450,17 @@ export class DaemonClient {
         const qs = opts?.sessionName
             ? `?sessionName=${encodeURIComponent(opts.sessionName)}`
             : '';
-        return this.request('GET', `/api/v1/terminals${qs}`);
+        return this.request('GET', this.projectUrl(`/terminals${qs}`));
     }
 
     /** POST /api/v1/terminals */
     createTerminal(opts: Record<string, unknown>): Promise<unknown> {
-        return this.request('POST', '/api/v1/terminals', { body: opts });
+        return this.request('POST', this.projectUrl('/terminals'), { body: opts });
     }
 
     /** POST /api/v1/terminals/:name/send */
     sendToTerminal(name: string, text: string): Promise<unknown> {
-        return this.request('POST', `/api/v1/terminals/${encodeURIComponent(name)}/send`, {
+        return this.request('POST', this.projectUrl(`/terminals/${encodeURIComponent(name)}/send`), {
             body: { text },
         });
     }
@@ -437,7 +469,7 @@ export class DaemonClient {
     getTerminalOutput(name: string): Promise<TerminalOutputData> {
         return this.request<TerminalOutputData>(
             'GET',
-            `/api/v1/terminals/${encodeURIComponent(name)}/output`
+            this.projectUrl(`/terminals/${encodeURIComponent(name)}/output`)
         );
     }
 
@@ -445,7 +477,7 @@ export class DaemonClient {
     resizeTerminal(name: string, cols: number, rows: number): Promise<void> {
         return this.request<void>(
             'POST',
-            `/api/v1/terminals/${encodeURIComponent(name)}/resize`,
+            this.projectUrl(`/terminals/${encodeURIComponent(name)}/resize`),
             { body: { cols, rows } }
         );
     }
@@ -466,7 +498,7 @@ export class DaemonClient {
         let currentReq: http.ClientRequest | null = null;
 
         const url = new URL(
-            this.baseUrl + `/api/v1/terminals/${encodeURIComponent(name)}/stream`
+            this.baseUrl + this.projectUrl(`/terminals/${encodeURIComponent(name)}/stream`)
         );
         const reqOptions: http.RequestOptions = {
             hostname: url.hostname,
@@ -571,7 +603,7 @@ export class DaemonClient {
                 return;
             }
 
-            const url = new URL(this.baseUrl + '/api/v1/events');
+            const url = new URL(this.baseUrl + this.projectUrl('/events'));
             const reqOptions: http.RequestOptions = {
                 hostname: url.hostname,
                 port: url.port,

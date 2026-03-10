@@ -33,13 +33,12 @@ suite('WebCommand', () => {
         });
 
         // Stub runGatewayServer so no real server is started.
-        // Return a never-resolving promise to simulate the blocking `await`.
-        runGatewayServerStub = sinon.stub(gatewayModule, 'runGatewayServer').returns(
-            new Promise<void>(() => { /* never resolves */ })
-        );
+        runGatewayServerStub = sinon.stub(gatewayModule, 'runGatewayServer').resolves();
 
-        // Stub process.exit to capture exit-code assertions without crashing
-        processExitStub = sinon.stub(process, 'exit');
+        // Stub process.exit to capture exit-code assertions and stop execution.
+        processExitStub = sinon.stub(process, 'exit').callsFake(((code?: number) => {
+            throw new Error(`process.exit:${code ?? 0}`);
+        }) as never);
 
         registerWebCommand(program);
     });
@@ -53,10 +52,8 @@ suite('WebCommand', () => {
     // -----------------------------------------------------------------------
 
     test('Given --port 4000, when lanes web is run, then gateway starts on port 4000', async () => {
-        // Act: parse the command — the action fires asynchronously, so we
-        // flush the microtask queue with a short tick.
-        program.parse(['node', 'lanes', 'web', '--port', '4000']);
-        await new Promise<void>((resolve) => setImmediate(resolve));
+        // Act
+        await program.parseAsync(['node', 'lanes', 'web', '--port', '4000']);
 
         // Assert
         assert.ok(
@@ -69,8 +66,7 @@ suite('WebCommand', () => {
 
     test('Given no --port, when lanes web is run, then gateway starts on default port', async () => {
         // Act
-        program.parse(['node', 'lanes', 'web']);
-        await new Promise<void>((resolve) => setImmediate(resolve));
+        await program.parseAsync(['node', 'lanes', 'web']);
 
         // Assert
         assert.ok(
@@ -87,12 +83,12 @@ suite('WebCommand', () => {
 
     test('Given invalid port, when lanes web is run, then exits with error', async () => {
         // Act: pass an invalid port value
-        program.parse(['node', 'lanes', 'web', '--port', 'not-a-number']);
-        await new Promise<void>((resolve) => setImmediate(resolve));
+        await assert.rejects(
+            program.parseAsync(['node', 'lanes', 'web', '--port', 'not-a-number']),
+            /process\.exit:1/
+        );
 
         // Assert: process.exit(1) should have been called for the invalid port.
-        // Note: because process.exit is stubbed (not a real exit), execution
-        // continues after the stub call, but the error path was taken.
         assert.ok(
             processExitStub.calledWith(1),
             'process.exit(1) should be called for an invalid port'

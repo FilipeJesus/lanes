@@ -60,7 +60,7 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
         if (!daemon) {
             return;
         }
-        void navigate(`/project/${daemon.port}`);
+        void navigate(`/project/${project.projectId}`);
     }
 
     function handleKeyDown(e: React.KeyboardEvent) {
@@ -69,7 +69,7 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
         }
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            void navigate(`/project/${daemon.port}`);
+            void navigate(`/project/${project.projectId}`);
         }
     }
 
