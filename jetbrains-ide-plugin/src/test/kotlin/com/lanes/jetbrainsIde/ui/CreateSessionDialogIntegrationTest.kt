@@ -86,7 +86,48 @@ class CreateSessionDialogIntegrationTest : BasePlatformTestCase() {
         assertEquals("bypassPermissions", createParams.permissionMode)
     }
 
-    private class FakeBridgeRequester : BridgeRequester {
+    fun testDialogUsesTmuxAttachCommandWhenSessionIsTmuxBacked() = runBlocking {
+        val fakeRequester = FakeBridgeRequester(
+            createResultFactory = { params ->
+                SessionCreateResult(
+                    sessionName = params.name,
+                    worktreePath = "/tmp/worktrees/${params.name}",
+                    sessionId = "session-1",
+                    command = """claude --settings "/tmp/settings/claude-settings.json"""",
+                    terminalMode = "tmux",
+                    attachCommand = "tmux attach-session -t \"${params.name}\""
+                )
+            }
+        )
+        var openedCommand: String? = null
+        val dialog = CreateSessionDialog(
+            project,
+            bridgeRequesterProvider = { _ -> fakeRequester },
+            terminalOpener = { _, _, command ->
+                openedCommand = command
+            },
+            autoLoad = false
+        )
+        dialog.loadDataForTest()
+        dialog.setSessionNameForTest("feat-tmux")
+        dialog.selectBranchForTest("main")
+        dialog.selectAgentForTest("Claude")
+
+        dialog.createSessionForTest()
+
+        assertEquals("tmux attach-session -t \"feat-tmux\"", openedCommand)
+    }
+
+    private class FakeBridgeRequester(
+        private val createResultFactory: (SessionCreateParams) -> SessionCreateResult = { params ->
+            SessionCreateResult(
+                sessionName = params.name,
+                worktreePath = "/tmp/worktrees/${params.name}",
+                sessionId = "session-1",
+                command = """claude --settings "/tmp/settings/claude-settings.json""""
+            )
+        }
+    ) : BridgeRequester {
         var lastCreateParams: SessionCreateParams? = null
 
         override suspend fun <T> request(method: String, params: Any?, resultType: Class<T>): T {
@@ -130,12 +171,7 @@ class CreateSessionDialogIntegrationTest : BasePlatformTestCase() {
                 )
                 SessionMethods.CREATE -> {
                     lastCreateParams = params as SessionCreateParams
-                    SessionCreateResult(
-                        sessionName = lastCreateParams!!.name,
-                        worktreePath = "/tmp/worktrees/${lastCreateParams!!.name}",
-                        sessionId = "session-1",
-                        command = """claude --settings "/tmp/settings/claude-settings.json""""
-                    )
+                    createResultFactory(lastCreateParams!!)
                 }
                 else -> error("Unexpected method in test bridge requester: $method")
             }

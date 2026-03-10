@@ -5,6 +5,7 @@ import * as path from 'path';
 import sinon from 'sinon';
 import * as gitService from '../../core/gitService';
 import * as launchSetupService from '../../core/services/AgentLaunchSetupService';
+import * as tmuxService from '../../core/services/TmuxService';
 import { ConfigStore } from '../../jetbrains-ide-bridge/config';
 import { NotificationEmitter } from '../../jetbrains-ide-bridge/notifications';
 import { handleRequest, initializeHandlers } from '../../jetbrains-ide-bridge/handlers';
@@ -16,6 +17,8 @@ suite('Bridge session.create branch behavior', () => {
     let execGitStub: sinon.SinonStub;
     let prepareLaunchContextStub: sinon.SinonStub;
     let buildLaunchCommandStub: sinon.SinonStub;
+    let isTmuxInstalledStub: sinon.SinonStub;
+    let launchInTmuxStub: sinon.SinonStub;
 
     setup(async () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-bridge-session-create-'));
@@ -37,12 +40,20 @@ suite('Bridge session.create branch behavior', () => {
             mode: 'start',
             command: 'claude --settings "/tmp/claude-settings.json"'
         });
+        isTmuxInstalledStub = sinon.stub(tmuxService, 'isTmuxInstalled').resolves(false);
+        launchInTmuxStub = sinon.stub(tmuxService, 'launchInTmux').resolves({
+            tmuxSessionName: 'feat-command',
+            attachCommand: 'tmux attach-session -t "feat-command"',
+            wasExisting: false
+        });
     });
 
     teardown(() => {
         execGitStub.restore();
         prepareLaunchContextStub.restore();
         buildLaunchCommandStub.restore();
+        isTmuxInstalledStub.restore();
+        launchInTmuxStub.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -131,5 +142,29 @@ suite('Bridge session.create branch behavior', () => {
         assert.strictEqual(result.command, 'claude --settings "/tmp/claude-settings.json"');
         sinon.assert.called(prepareLaunchContextStub);
         sinon.assert.called(buildLaunchCommandStub);
+    });
+
+    test('returns explicit tmux metadata when tmux mode is enabled on session.create', async () => {
+        const config = new ConfigStore(tempDir);
+        await config.initialize();
+        await config.set('lanes.terminalMode', 'tmux');
+        initializeHandlers(tempDir, config, new NotificationEmitter());
+        isTmuxInstalledStub.resolves(true);
+
+        const result = await handleRequest('session.create', {
+            name: 'feat-tmux',
+            branch: ''
+        }) as {
+            command?: string;
+            terminalMode?: string;
+            attachCommand?: string;
+            tmuxSessionName?: string;
+        };
+
+        assert.strictEqual(result.terminalMode, 'tmux');
+        assert.strictEqual(result.command, 'tmux attach-session -t "feat-command"');
+        assert.strictEqual(result.attachCommand, 'tmux attach-session -t "feat-command"');
+        assert.strictEqual(result.tmuxSessionName, 'feat-command');
+        sinon.assert.calledOnce(launchInTmuxStub);
     });
 });

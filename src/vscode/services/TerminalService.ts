@@ -30,6 +30,13 @@ import {
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
 
+export interface DaemonSessionLaunchResult {
+    command?: string;
+    terminalMode?: string;
+    attachCommand?: string;
+    tmuxSessionName?: string;
+}
+
 // Track hookless agent terminals for lifecycle-based status updates
 // Maps terminal instances to their worktree paths for status file management
 const hooklessTerminals = new Map<vscode.Terminal, string>();
@@ -185,6 +192,63 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
         }
     } catch (err) {
         vscode.window.showErrorMessage(`Failed to create terminal: ${getErrorMessage(err)}`);
+    }
+}
+
+export async function openDaemonSessionTerminal(
+    taskName: string,
+    worktreePath: string,
+    launchResult: DaemonSessionLaunchResult,
+    codeAgent?: CodeAgent
+): Promise<void> {
+    const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
+    const existingTerminal = vscode.window.terminals.find((terminal) => terminal.name === terminalName);
+
+    if (existingTerminal) {
+        existingTerminal.show();
+        return;
+    }
+
+    const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
+
+    if (launchResult.terminalMode === 'tmux') {
+        if (!await TmuxService.isTmuxInstalled()) {
+            vscode.window.showErrorMessage(
+                "Tmux is not installed. Please install tmux or change 'Lanes: Terminal Mode' setting to 'vscode'."
+            );
+            return;
+        }
+
+        const tmuxSessionName = launchResult.tmuxSessionName ?? TmuxService.sanitizeTmuxSessionName(taskName);
+        const terminal = vscode.window.createTerminal({
+            name: terminalName,
+            shellPath: 'tmux',
+            shellArgs: ['attach-session', '-t', tmuxSessionName],
+            cwd: worktreePath,
+            iconPath: new vscode.ThemeIcon(iconConfig.id),
+            color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
+        });
+        terminal.show();
+        return;
+    }
+
+    const taskListId = await getOrCreateTaskListId(worktreePath, taskName);
+    const terminal = vscode.window.createTerminal({
+        name: terminalName,
+        cwd: worktreePath,
+        iconPath: new vscode.ThemeIcon(iconConfig.id),
+        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen'),
+        env: { CLAUDE_CODE_TASK_LIST_ID: taskListId }
+    });
+
+    terminal.show();
+
+    if (codeAgent && !codeAgent.supportsHooks()) {
+        await trackHooklessTerminal(terminal, worktreePath);
+    }
+
+    if (launchResult.command) {
+        terminal.sendText(launchResult.command);
     }
 }
 

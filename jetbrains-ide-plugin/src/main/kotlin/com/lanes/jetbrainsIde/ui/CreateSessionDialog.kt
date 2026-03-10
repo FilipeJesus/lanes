@@ -286,7 +286,7 @@ class CreateSessionDialog(
             )
         }
 
-        val startCommand = createResult.command ?: selectedAgent?.cliCommand
+        val startCommand = createResult.launchCommand() ?: selectedAgent?.cliCommand
         terminalOpener(createResult.sessionName, createResult.worktreePath, startCommand)
 
         logger.info("Created session: $sessionName")
