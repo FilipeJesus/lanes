@@ -277,27 +277,15 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
 
         try {
             const result = await this.daemonClient.listSessions();
-            const sessions = Array.isArray(result) ? result : (result as Record<string, unknown>)?.sessions as unknown[];
-            if (!Array.isArray(sessions)) {
-                return [];
-            }
-
             const items: SessionItem[] = [];
 
-            for (const session of sessions) {
-                const s = session as Record<string, unknown>;
-                const name = s.name as string | undefined;
-                const worktreePath = s.worktreePath as string | undefined;
-                if (!name || !worktreePath) {
-                    continue;
-                }
+            for (const session of result.sessions) {
+                const { name, worktreePath, isPinned } = session;
                 // Fetch status info from the filesystem for icon/description accuracy
                 const agentStatus = await SessionDataService.getAgentStatus(worktreePath);
                 const workflowStatus = await SessionDataService.getWorkflowStatus(worktreePath);
                 const chimeEnabled = await SessionDataService.getSessionChimeEnabled(worktreePath);
-                // Use daemon-provided pin state as the source of truth
-                const pinned = (s.isPinned as boolean) ?? false;
-                items.push(new SessionItem(name, worktreePath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
+                items.push(new SessionItem(name, worktreePath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, isPinned));
             }
 
             // Sort: pinned items first, then unpinned.
