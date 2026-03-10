@@ -281,26 +281,28 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
 
         try {
             const result = await this.daemonClient.listSessions();
-            const sessions = Array.isArray(result) ? result : (result as Record<string, unknown>)?.sessions as unknown[];
-            if (!Array.isArray(sessions)) {
-                return [];
-            }
-
             const items: SessionItem[] = [];
 
-            for (const session of sessions) {
-                const s = session as Record<string, unknown>;
-                const name = s.name as string | undefined;
-                const worktreePath = s.worktreePath as string | undefined;
-                if (!name || !worktreePath) {
-                    continue;
-                }
-                const agentStatus = (s.status as AgentSessionStatus | null | undefined) ?? null;
-                const workflowStatus = (s.workflowStatus as WorkflowStatus | null | undefined) ?? null;
-                const chimeEnabled = (s.notificationsEnabled as boolean | undefined) ?? false;
-                // Use daemon-provided pin state as the source of truth
-                const pinned = (s.isPinned as boolean) ?? false;
-                items.push(new SessionItem(name, worktreePath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
+            for (const session of result.sessions) {
+                const {
+                    name,
+                    worktreePath,
+                    status,
+                    workflowStatus,
+                    notificationsEnabled,
+                    isPinned,
+                } = session;
+                items.push(
+                    new SessionItem(
+                        name,
+                        worktreePath,
+                        vscode.TreeItemCollapsibleState.None,
+                        status,
+                        workflowStatus,
+                        notificationsEnabled,
+                        isPinned
+                    )
+                );
             }
 
             // Sort: pinned items first, then unpinned.

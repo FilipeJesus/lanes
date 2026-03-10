@@ -9,7 +9,6 @@ import {
     openAgentTerminal,
     createTerminalForSession,
     openDaemonSessionTerminal,
-    type DaemonSessionLaunchResult,
     TERMINAL_CLOSE_DELAY_MS
 } from '../services/TerminalService';
 import * as SettingsService from '../../core/services/SettingsService';
@@ -155,12 +154,9 @@ export function registerSessionCommands(
 
         if (daemonClient) {
             try {
-                const result = await daemonClient.createSession({ name, agent: codeAgent.name }) as
-                    DaemonSessionLaunchResult & { sessionName?: string; worktreePath?: string };
+                const result = await daemonClient.createSession({ name, agent: codeAgent.name });
                 sessionProvider.refresh();
-                if (result.worktreePath) {
-                    await openDaemonSessionTerminal(result.sessionName ?? name, result.worktreePath, result, codeAgent);
-                }
+                await openDaemonSessionTerminal(result.sessionName, result.worktreePath, result, codeAgent);
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to create session via daemon: ${getErrorMessage(err)}`);
             }
@@ -175,11 +171,10 @@ export function registerSessionCommands(
         const sessionAgent = getAgent(agentName) || codeAgent;
         if (daemonClient) {
             try {
-                const result = await daemonClient.openSession(item.label) as
-                    DaemonSessionLaunchResult & { worktreePath?: string };
+                const result = await daemonClient.openSession(item.label);
                 await openDaemonSessionTerminal(
                     item.label,
-                    result.worktreePath ?? item.worktreePath,
+                    result.worktreePath,
                     result,
                     sessionAgent
                 );
@@ -299,10 +294,9 @@ export function registerSessionCommands(
             if (daemonClient) {
                 const config = vscode.workspace.getConfiguration('lanes');
                 const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
-                const diffResult = await daemonClient.getSessionDiff(item.label, { includeUncommitted }) as { diff?: string; baseBranch?: string } | undefined;
-                diffContent = (diffResult as Record<string, unknown>)?.diff as string ?? '';
-                baseBranch = (diffResult as Record<string, unknown>)?.baseBranch as string
-                    ?? await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
+                const diffResult = await daemonClient.getSessionDiff(item.label, { includeUncommitted });
+                diffContent = diffResult.diff;
+                baseBranch = diffResult.baseBranch;
             } else {
                 baseBranch = await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
                 diffContent = await generateDiffContent(item.worktreePath, baseBranch);
@@ -624,9 +618,10 @@ export function registerSessionCommands(
                     { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
                     () => daemonClient.getSessionInsights(item.label, { includeAnalysis: true })
                 );
-                const report = (insightsResult as Record<string, unknown>)?.report as string
-                    ?? JSON.stringify(insightsResult, null, 2);
-                const document = await vscode.workspace.openTextDocument({ content: report, language: 'markdown' });
+                const document = await vscode.workspace.openTextDocument({
+                    content: insightsResult.insights,
+                    language: 'markdown'
+                });
                 await vscode.window.showTextDocument(document, { preview: false });
             } else {
                 const insights = await vscode.window.withProgress(
