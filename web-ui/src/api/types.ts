@@ -41,7 +41,7 @@ export interface SessionInfo {
     name: string;
     worktreePath: string;
     branch: string;
-    data: SessionData;
+    data: SessionData | null;
     status: AgentSessionStatus | null;
     workflowStatus: WorkflowStatus | null;
     isPinned: boolean;
@@ -145,6 +145,7 @@ export interface GitRepairResult {
 export interface DiffResult {
     diff: string;
     sessionName: string;
+    baseBranch?: string;
 }
 
 export interface DiffFileEntry {
@@ -159,6 +160,7 @@ export interface DiffFileEntry {
 export interface DiffFilesResult {
     files: DiffFileEntry[];
     sessionName: string;
+    baseBranch?: string;
 }
 
 export interface WorktreeInfo {

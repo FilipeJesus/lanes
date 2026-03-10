@@ -443,3 +443,81 @@
 .retryButton {
     margin-left: var(--spacing-2);
 }
+
+/* --------------------------------------------------------------------------
+   Branch input — compare against a specific branch
+   -------------------------------------------------------------------------- */
+
+.branchInput {
+    width: 100%;
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-overlay);
+    color: var(--color-text-primary);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.branchInput:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.branchInput::placeholder {
+    color: var(--color-text-secondary);
+}
+
+.branchInputHint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-top: var(--spacing-1);
+}
+
+/* --------------------------------------------------------------------------
+   Review bar — shown above the diff when comments exist
+   -------------------------------------------------------------------------- */
+
+.reviewBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-bg-overlay);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-3);
+}
+
+.commentCount {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.primaryButton {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-4);
+    background-color: var(--color-accent-primary);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+}
+
+.primaryButton:hover {
+    background-color: var(--color-accent-primary-hover);
+    border-color: var(--color-accent-primary-hover);
+}
+
+.primaryButton:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+}

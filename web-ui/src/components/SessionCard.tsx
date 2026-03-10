@@ -64,7 +64,7 @@ export function SessionCard({
         onDelete(session.name);
     }
 
-    const agentName = session.data.agentName ?? 'claude';
+    const agentName = session.data?.agentName ?? 'claude';
     const workflowActive = session.workflowStatus?.active ?? false;
     const workflowStep = session.workflowStatus?.step ?? session.workflowStatus?.workflow;
 

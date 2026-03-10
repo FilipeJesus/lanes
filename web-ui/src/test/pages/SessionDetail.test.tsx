@@ -5,6 +5,13 @@ import { SessionDetail } from '../../pages/SessionDetail';
 import type { DaemonApiClient } from '../../api/client';
 import type { SessionInfo, WorktreeInfo, WorkflowState } from '../../api/types';
 
+// Stub out navigator.clipboard for tests that exercise "Copy Review to Clipboard"
+Object.assign(navigator, {
+    clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+    },
+});
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -262,5 +269,93 @@ describe('SessionDetail', () => {
         // The last call should pass includeUncommitted=true
         const lastCall = vi.mocked(apiClient.getSessionDiff).mock.calls.at(-1);
         expect(lastCall?.[1]).toBe(true);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Review feature tests
+// ---------------------------------------------------------------------------
+
+const SIMPLE_DIFF = `diff --git a/src/a.ts b/src/a.ts
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,3 +1,3 @@
+ const x = 1;
+-const y = 2;
++const y = 3;
+ export { x, y };`;
+
+function makeApiClientWithDiff(sessions: SessionInfo[], worktree: WorktreeInfo, workflow: WorkflowState): DaemonApiClient {
+    return {
+        listSessions: vi.fn().mockResolvedValue({ sessions }),
+        getSessionWorktree: vi.fn().mockResolvedValue(worktree),
+        getSessionWorkflow: vi.fn().mockResolvedValue(workflow),
+        getSessionDiffFiles: vi.fn().mockResolvedValue({ files: ['src/a.ts'], sessionName: 'my-session' }),
+        getSessionDiff: vi.fn().mockResolvedValue({ diff: SIMPLE_DIFF, sessionName: 'my-session' }),
+        getSessionInsights: vi.fn().mockResolvedValue({ insights: '', analysis: undefined, sessionName: 'my-session' }),
+    } as unknown as DaemonApiClient;
+}
+
+describe('SessionDetail — review', () => {
+    beforeEach(() => {
+        mockUseDaemonConnection.mockClear();
+    });
+
+    it('Given a session is loaded with no comments, then the Copy Review to Clipboard button is not visible', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('3942', 'my-session');
+
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
+        });
+
+        expect(
+            screen.queryByRole('button', { name: /copy review to clipboard/i }),
+        ).not.toBeInTheDocument();
+    });
+
+    it('Given a diff is loaded, when a comment is added via the DiffViewer, then the review bar appears', async () => {
+        const session = makeSession({ name: 'my-session' });
+        const apiClient = makeApiClientWithDiff([session], makeWorktreeInfo(), makeWorkflowState());
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient,
+            sseClient: null,
+            loading: false,
+            error: null,
+        });
+
+        renderSessionDetail('3942', 'my-session');
+
+        // Wait for the diff to render (add-comment buttons appear)
+        await waitFor(() => {
+            const addBtns = screen.queryAllByRole('button', { name: /add comment/i });
+            expect(addBtns.length).toBeGreaterThan(0);
+        });
+
+        // Open the comment form on the first line
+        const [firstAddBtn] = screen.getAllByRole('button', { name: /add comment/i });
+        fireEvent.click(firstAddBtn);
+
+        const textarea = await screen.findByPlaceholderText('Write a review comment...');
+        fireEvent.change(textarea, { target: { value: 'Great change!' } });
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+        // The review bar should now show the comment count and copy button
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: /copy review to clipboard/i }),
+            ).toBeInTheDocument();
+            expect(screen.getByText(/1 comment/i)).toBeInTheDocument();
+        });
     });
 });

@@ -226,22 +226,22 @@ export class DaemonApiClient {
     /**
      * GET /api/v1/sessions/:name/diff
      */
-    async getSessionDiff(name: string, includeUncommitted?: boolean): Promise<DiffResult> {
+    async getSessionDiff(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffResult> {
         return this.request<DiffResult>(
             'GET',
             `/api/v1/sessions/${encodeURIComponent(name)}/diff`,
-            { query: { includeUncommitted } }
+            { query: { includeUncommitted, baseBranch } }
         );
     }
 
     /**
      * GET /api/v1/sessions/:name/diff/files
      */
-    async getSessionDiffFiles(name: string, includeUncommitted?: boolean): Promise<DiffFilesResult> {
+    async getSessionDiffFiles(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffFilesResult> {
         return this.request<DiffFilesResult>(
             'GET',
             `/api/v1/sessions/${encodeURIComponent(name)}/diff/files`,
-            { query: { includeUncommitted } }
+            { query: { includeUncommitted, baseBranch } }
         );
     }
 

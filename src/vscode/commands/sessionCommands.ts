@@ -272,7 +272,9 @@ export function registerSessionCommands(
             let baseBranch: string;
 
             if (daemonClient) {
-                const diffResult = await daemonClient.getSessionDiff(item.label) as { diff?: string; baseBranch?: string } | undefined;
+                const config = vscode.workspace.getConfiguration('lanes');
+                const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
+                const diffResult = await daemonClient.getSessionDiff(item.label, { includeUncommitted }) as { diff?: string; baseBranch?: string } | undefined;
                 diffContent = (diffResult as Record<string, unknown>)?.diff as string ?? '';
                 baseBranch = (diffResult as Record<string, unknown>)?.baseBranch as string
                     ?? await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));

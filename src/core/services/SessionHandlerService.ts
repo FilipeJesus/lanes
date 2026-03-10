@@ -32,6 +32,7 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
 } from '../session/SessionDataService';
+import { ValidationError } from '../errors/ValidationError';
 import * as TmuxService from './TmuxService';
 import * as DiffService from './DiffService';
 import * as BrokenWorktreeService from './BrokenWorktreeService';
@@ -42,7 +43,7 @@ import { getAgent, getAvailableAgents } from '../codeAgents';
 import { readJson } from './FileService';
 import { buildAgentLaunchCommand, prepareAgentLaunchContext } from './AgentLaunchSetupService';
 import { IHandlerContext } from '../interfaces/IHandlerContext';
-import { validateSessionName as coreValidateSessionName } from '../validation';
+import { validateSessionName as coreValidateSessionName, validateComparisonRef } from '../validation';
 import { generateInsights, SessionInsights } from './InsightsService';
 import { analyzeInsights } from './InsightsAnalyzer';
 
@@ -593,6 +594,21 @@ export class SessionHandlerService {
         return { branches };
     }
 
+    private async resolveBaseBranch(
+        worktreePath: string,
+        explicitBranch: string | undefined
+    ): Promise<string> {
+        if (explicitBranch) {
+            const refValidation = validateComparisonRef(explicitBranch);
+            if (!refValidation.valid) {
+                throw new ValidationError('baseBranch', explicitBranch, refValidation.error ?? 'Invalid baseBranch');
+            }
+            return DiffService.getBaseBranch(worktreePath, explicitBranch);
+        }
+        const configBranch = (this.ctx.config.get('lanes.baseBranch') as string) ?? '';
+        return DiffService.getBaseBranch(worktreePath, configBranch);
+    }
+
     async handleGitGetDiff(params: Record<string, unknown>): Promise<unknown> {
         const sessionName = params.sessionName as string;
         validateSessionName(sessionName);
@@ -601,8 +617,10 @@ export class SessionHandlerService {
         const worktreesFolder = getWorktreesFolder();
         const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
 
-        const baseBranch = (this.ctx.config.get('lanes.baseBranch') as string) ?? '';
-        const resolvedBaseBranch = await DiffService.getBaseBranch(worktreePath, baseBranch);
+        const resolvedBaseBranch = await this.resolveBaseBranch(
+            worktreePath,
+            params.baseBranch as string | undefined
+        );
 
         const warnedBranches = new Set<string>();
         const diff = await DiffService.generateDiffContent(
@@ -612,7 +630,7 @@ export class SessionHandlerService {
             { includeUncommitted }
         );
 
-        return { diff };
+        return { diff, baseBranch: resolvedBaseBranch };
     }
 
     async handleGitGetDiffFiles(params: Record<string, unknown>): Promise<unknown> {
@@ -623,8 +641,10 @@ export class SessionHandlerService {
         const worktreesFolder = getWorktreesFolder();
         const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
 
-        const baseBranch = (this.ctx.config.get('lanes.baseBranch') as string) ?? '';
-        const resolvedBaseBranch = await DiffService.getBaseBranch(worktreePath, baseBranch);
+        const resolvedBaseBranch = await this.resolveBaseBranch(
+            worktreePath,
+            params.baseBranch as string | undefined
+        );
 
         const warnedBranches = new Set<string>();
         const files = await DiffService.generateDiffFiles(
@@ -634,7 +654,7 @@ export class SessionHandlerService {
             { includeUncommitted }
         );
 
-        return { files };
+        return { files, baseBranch: resolvedBaseBranch };
     }
 
     async handleGitGetWorktreeInfo(params: Record<string, unknown>): Promise<unknown> {

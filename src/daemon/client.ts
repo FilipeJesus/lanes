@@ -302,21 +302,35 @@ export class DaemonClient {
         return this.request('POST', '/api/v1/git/repair', { body: opts ?? {} });
     }
 
-    /** GET /api/v1/sessions/:name/diff?includeUncommitted=true|false */
-    getSessionDiff(name: string, opts?: { includeUncommitted?: boolean }): Promise<unknown> {
-        const qs =
-            opts?.includeUncommitted !== undefined
-                ? `?includeUncommitted=${opts.includeUncommitted}`
-                : '';
+    /** GET /api/v1/sessions/:name/diff?includeUncommitted=true|false&baseBranch=... */
+    getSessionDiff(
+        name: string,
+        opts?: { includeUncommitted?: boolean; baseBranch?: string }
+    ): Promise<unknown> {
+        const qp = new URLSearchParams();
+        if (opts?.includeUncommitted !== undefined) {
+            qp.set('includeUncommitted', String(opts.includeUncommitted));
+        }
+        if (opts?.baseBranch !== undefined) {
+            qp.set('baseBranch', opts.baseBranch);
+        }
+        const qs = qp.toString() ? `?${qp.toString()}` : '';
         return this.request('GET', `/api/v1/sessions/${encodeURIComponent(name)}/diff${qs}`);
     }
 
-    /** GET /api/v1/sessions/:name/diff/files?includeUncommitted=true|false */
-    getSessionDiffFiles(name: string, opts?: { includeUncommitted?: boolean }): Promise<unknown> {
-        const qs =
-            opts?.includeUncommitted !== undefined
-                ? `?includeUncommitted=${opts.includeUncommitted}`
-                : '';
+    /** GET /api/v1/sessions/:name/diff/files?includeUncommitted=true|false&baseBranch=... */
+    getSessionDiffFiles(
+        name: string,
+        opts?: { includeUncommitted?: boolean; baseBranch?: string }
+    ): Promise<unknown> {
+        const qp = new URLSearchParams();
+        if (opts?.includeUncommitted !== undefined) {
+            qp.set('includeUncommitted', String(opts.includeUncommitted));
+        }
+        if (opts?.baseBranch !== undefined) {
+            qp.set('baseBranch', opts.baseBranch);
+        }
+        const qs = qp.toString() ? `?${qp.toString()}` : '';
         return this.request(
             'GET',
             `/api/v1/sessions/${encodeURIComponent(name)}/diff/files${qs}`

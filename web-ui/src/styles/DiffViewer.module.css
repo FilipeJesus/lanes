@@ -117,6 +117,7 @@
     border-right: 1px solid var(--color-border-muted);
     width: 52px;
     min-width: 52px;
+    position: relative;
 }
 
 .lineNo {
@@ -160,4 +161,141 @@
     white-space: pre;
     word-break: normal;
     overflow-wrap: normal;
+}
+
+/* ==========================================================================
+   Review / inline comment UI
+   ========================================================================== */
+
+/* Add-comment button — appears in the left gutter on row hover */
+.addCommentBtn {
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-accent-primary);
+    color: white;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* Show button when the row is hovered */
+.contextRow:hover .addCommentBtn,
+.addedRow:hover .addCommentBtn,
+.removedRow:hover .addCommentBtn {
+    opacity: 1;
+}
+
+/* Comment row (both saved comments and the new-comment form) */
+.commentRow {
+    background-color: var(--color-bg-overlay);
+}
+
+.commentCell {
+    padding: var(--spacing-2) var(--spacing-3);
+    border-top: 1px solid var(--color-border-muted);
+    border-bottom: 1px solid var(--color-border-muted);
+}
+
+/* Inline comment form */
+.commentForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+}
+
+.commentTextarea {
+    width: 100%;
+    padding: var(--spacing-2);
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    resize: vertical;
+    min-height: 60px;
+    box-sizing: border-box;
+}
+
+.commentTextarea:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.commentActions {
+    display: flex;
+    gap: var(--spacing-2);
+    justify-content: flex-end;
+}
+
+/* Shared button base for all comment action buttons */
+.commentSaveBtn,
+.commentCancelBtn,
+.commentEditBtn,
+.commentDeleteBtn {
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-default);
+    cursor: pointer;
+    font-family: var(--font-family-sans);
+}
+
+.commentSaveBtn {
+    background: var(--color-accent-primary);
+    color: white;
+    border-color: var(--color-accent-primary);
+}
+
+.commentSaveBtn:hover {
+    background: var(--color-accent-primary-hover);
+}
+
+.commentCancelBtn {
+    background: transparent;
+    color: var(--color-text-secondary);
+}
+
+.commentEditBtn {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: none;
+    padding: 0 var(--spacing-1);
+}
+
+.commentDeleteBtn {
+    background: transparent;
+    color: var(--color-danger);
+    border: none;
+    padding: 0 var(--spacing-1);
+}
+
+/* Saved comment block */
+.commentBlock {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+}
+
+.commentText {
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    flex: 1;
 }

@@ -658,6 +658,43 @@ suite('DaemonClient', () => {
                 await helper.close();
             }
         });
+
+        // -------------------------------------------------------------------------
+        // client-getSessionDiff-basebranch-querystring
+        // -------------------------------------------------------------------------
+
+        test('Given opts.baseBranch is "main", when getSessionDiff() is called, the request URL contains baseBranch=main', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { diff: '' } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getSessionDiff('my-session', { baseBranch: 'main' });
+
+                const qs = parseQs(helper.captured[0].url);
+                assert.strictEqual(
+                    qs['baseBranch'],
+                    'main',
+                    `Expected baseBranch=main in query string, got: ${helper.captured[0].url}`
+                );
+            } finally {
+                await helper.close();
+            }
+        });
+
+        test('Given opts.baseBranch is absent, when getSessionDiff() is called, the request URL does not contain baseBranch parameter', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { diff: '' } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getSessionDiff('my-session');
+
+                const qs = parseQs(helper.captured[0].url);
+                assert.ok(
+                    !('baseBranch' in qs),
+                    `Expected no baseBranch in query string, got: ${helper.captured[0].url}`
+                );
+            } finally {
+                await helper.close();
+            }
+        });
     });
 
     suite('getSessionDiffFiles()', () => {
@@ -669,6 +706,43 @@ suite('DaemonClient', () => {
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
                 assert.ok(helper.captured[0].url.startsWith('/api/v1/sessions/feat-session/diff/files'));
+            } finally {
+                await helper.close();
+            }
+        });
+
+        // -------------------------------------------------------------------------
+        // client-getSessionDiffFiles-basebranch-querystring
+        // -------------------------------------------------------------------------
+
+        test('Given opts.baseBranch is "develop", when getSessionDiffFiles() is called, the request URL contains baseBranch=develop', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { files: [] } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getSessionDiffFiles('my-session', { baseBranch: 'develop' });
+
+                const qs = parseQs(helper.captured[0].url);
+                assert.strictEqual(
+                    qs['baseBranch'],
+                    'develop',
+                    `Expected baseBranch=develop in query string, got: ${helper.captured[0].url}`
+                );
+            } finally {
+                await helper.close();
+            }
+        });
+
+        test('Given opts.baseBranch is absent, when getSessionDiffFiles() is called, the request URL does not contain baseBranch parameter', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { files: [] } }));
+            try {
+                const client = makeClient(helper.port());
+                await client.getSessionDiffFiles('my-session');
+
+                const qs = parseQs(helper.captured[0].url);
+                assert.ok(
+                    !('baseBranch' in qs),
+                    `Expected no baseBranch in query string, got: ${helper.captured[0].url}`
+                );
             } finally {
                 await helper.close();
             }

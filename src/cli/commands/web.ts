@@ -9,6 +9,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { getErrorMessage } from '../../core/utils';
 import { runGatewayServer, DEFAULT_GATEWAY_PORT } from '../../daemon/gateway';
 
@@ -33,16 +34,26 @@ export function registerWebCommand(program: Command): void {
                 process.exit(1);
             }
 
-            // Attempt to locate the web-ui build output relative to this CLI bundle.
-            // Both the CLI bundle and web-ui are built to out/:
-            //   CLI    -> out/cli.js
-            //   Web UI -> out/web-ui/  (index.html, assets/)
+            // Locate the web-ui build output. Check the current working directory
+            // first (supports worktrees and local dev), then fall back to the
+            // installed CLI bundle location.
             let staticDir: string | undefined;
             if (options.ui !== false) {
-                const candidateStaticDir = path.resolve(__dirname, 'web-ui');
-                // We'll pass it to the gateway; it handles missing directories gracefully
-                // by falling back to API-only mode.
-                staticDir = candidateStaticDir;
+                const cwdCandidate = path.resolve(process.cwd(), 'out', 'web-ui');
+                const bundleCandidate = path.resolve(__dirname, 'web-ui');
+
+                let resolved: string | undefined;
+                for (const candidate of [cwdCandidate, bundleCandidate]) {
+                    try {
+                        await fs.access(path.join(candidate, 'index.html'));
+                        resolved = candidate;
+                        break;
+                    } catch {
+                        // not found, try next
+                    }
+                }
+
+                staticDir = resolved ?? bundleCandidate;
             }
 
             try {

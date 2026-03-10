@@ -22,6 +22,8 @@ import { FileList } from '../components/FileList';
 import { InsightsPanel } from '../components/InsightsPanel';
 import { StepProgressTracker } from '../components/StepProgressTracker';
 import { WorkflowTaskList } from '../components/WorkflowTaskList';
+import { formatReviewForClipboard } from '../utils/reviewFormat';
+import type { ReviewComment } from '../utils/reviewFormat';
 import type { SseCallbacks } from '../api/sse';
 import type { AgentSessionStatus, SessionInfo, WorktreeInfo, WorkflowState, WorkflowStep } from '../api/types';
 import styles from '../styles/SessionDetail.module.css';
@@ -87,8 +89,19 @@ export function SessionDetail() {
     // Uncommitted toggle for diff
     const [includeUncommitted, setIncludeUncommitted] = useState(false);
 
+    // Branch selector for diff — empty string means auto-detect
+    const [baseBranch, setBaseBranch] = useState('');
+    // Input field value (separate from committed baseBranch state)
+    const [branchInputValue, setBranchInputValue] = useState('');
+
     // Ref for scrolling to a specific file in the diff
     const diffSectionRef = useRef<HTMLDivElement>(null);
+
+    // ---------------------------------------------------------------------------
+    // Review / inline comments state
+    // ---------------------------------------------------------------------------
+
+    const [comments, setComments] = useState<ReviewComment[]>([]);
 
     const decodedName = name ? decodeURIComponent(name) : '';
 
@@ -102,7 +115,8 @@ export function SessionDetail() {
         loading: diffLoading,
         error: diffError,
         refresh: refreshDiff,
-    } = useDiff(apiClient, decodedName || undefined, includeUncommitted);
+        resolvedBaseBranch,
+    } = useDiff(apiClient, decodedName || undefined, includeUncommitted, baseBranch);
 
     const {
         insights,
@@ -210,6 +224,48 @@ export function SessionDetail() {
         const el = diffSectionRef.current.querySelector(`[id="${CSS.escape(id)}"]`);
         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
+
+    // ---------------------------------------------------------------------------
+    // Review handlers
+    // ---------------------------------------------------------------------------
+
+    const handleAddComment = useCallback(
+        (
+            filePath: string,
+            lineNumber: number,
+            lineType: 'added' | 'removed' | 'context',
+            lineContent: string,
+            text: string,
+        ) => {
+            setComments((prev) => [
+                ...prev,
+                {
+                    id: crypto.randomUUID(),
+                    filePath,
+                    lineNumber,
+                    lineType,
+                    lineContent,
+                    text,
+                },
+            ]);
+        },
+        [],
+    );
+
+    const handleDeleteComment = useCallback((commentId: string) => {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+    }, []);
+
+    const handleEditComment = useCallback((commentId: string, newText: string) => {
+        setComments((prev) =>
+            prev.map((c) => (c.id === commentId ? { ...c, text: newText } : c)),
+        );
+    }, []);
+
+    const handleSubmitReview = useCallback(async () => {
+        const formatted = formatReviewForClipboard(comments);
+        await navigator.clipboard.writeText(formatted);
+    }, [comments]);
 
     // ---------------------------------------------------------------------------
     // Render helpers
@@ -325,7 +381,7 @@ export function SessionDetail() {
                             <div className={styles.fieldRow}>
                                 <span className={styles.fieldLabel}>Agent</span>
                                 <span className={styles.fieldValue}>
-                                    {session.data.agentName ?? 'claude'}
+                                    {session.data?.agentName ?? 'claude'}
                                 </span>
                             </div>
 
@@ -505,6 +561,34 @@ export function SessionDetail() {
                                         Include uncommitted
                                     </label>
                                 </div>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const trimmed = branchInputValue.trim();
+                                        setBaseBranch(trimmed);
+                                        (e.target as HTMLFormElement).querySelector('input')?.blur();
+                                    }}
+                                >
+                                    <input
+                                        type="text"
+                                        className={styles.branchInput}
+                                        placeholder="main (auto)"
+                                        aria-label="Compare against branch"
+                                        value={branchInputValue}
+                                        onChange={(e) => setBranchInputValue(e.target.value)}
+                                        onBlur={() => {
+                                            const trimmed = branchInputValue.trim();
+                                            if (trimmed !== baseBranch) {
+                                                setBaseBranch(trimmed);
+                                            }
+                                        }}
+                                    />
+                                    {resolvedBaseBranch && (
+                                        <div className={styles.branchInputHint}>
+                                            Comparing against: {resolvedBaseBranch}
+                                        </div>
+                                    )}
+                                </form>
                                 <FileList
                                     files={diffFiles}
                                     onFileClick={handleFileClick}
@@ -513,6 +597,23 @@ export function SessionDetail() {
 
                             {/* Main: diff viewer */}
                             <div className={styles.changesMain} ref={diffSectionRef}>
+                                {/* Review bar — only shown when comments exist */}
+                                {comments.length > 0 && (
+                                    <div className={styles.reviewBar}>
+                                        <span className={styles.commentCount}>
+                                            {comments.length}{' '}
+                                            {comments.length === 1 ? 'comment' : 'comments'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={styles.primaryButton}
+                                            onClick={() => void handleSubmitReview()}
+                                        >
+                                            Copy Review to Clipboard
+                                        </button>
+                                    </div>
+                                )}
+
                                 {diffLoading && (
                                     <div className={styles.diffLoading} role="status">
                                         <div className={styles.spinner} aria-hidden="true" />
@@ -532,7 +633,13 @@ export function SessionDetail() {
                                     </div>
                                 )}
                                 {!diffLoading && !diffError && (
-                                    <DiffViewer diff={diff} />
+                                    <DiffViewer
+                                        diff={diff}
+                                        comments={comments}
+                                        onAddComment={handleAddComment}
+                                        onDeleteComment={handleDeleteComment}
+                                        onEditComment={handleEditComment}
+                                    />
                                 )}
                             </div>
                         </div>
