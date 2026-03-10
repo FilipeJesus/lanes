@@ -18,6 +18,20 @@ else
     npm run test || exit 1
 fi
 
+# Run web UI tests if web files changed
+WEB_CHANGED=$(git diff --cached --name-only -- 'web-ui/' | head -1)
+if [ -n "$WEB_CHANGED" ]; then
+    echo "🌐 Running web UI unit tests..."
+    npm --prefix web-ui test || exit 1
+
+    echo "🌐 Running web UI e2e tests..."
+    if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
+        xvfb-run -a npm --prefix web-ui run test:e2e || exit 1
+    else
+        npm --prefix web-ui run test:e2e || exit 1
+    fi
+fi
+
 # Run IntelliJ plugin tests if plugin files changed
 JB_CHANGED=$(git diff --cached --name-only -- 'jetbrains-ide-plugin/' | head -1)
 if [ -n "$JB_CHANGED" ]; then

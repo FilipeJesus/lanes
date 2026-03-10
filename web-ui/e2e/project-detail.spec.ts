@@ -9,7 +9,7 @@ test.describe('Project Detail', () => {
         mockApi.withDefaultDaemon(sessions);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await expect(page.getByRole('button', { name: /open session feat-login/i })).toBeVisible();
         await expect(page.getByRole('button', { name: /open session fix-bug-42/i })).toBeVisible();
         await expect(page.getByText('2 sessions')).toBeVisible();
@@ -19,7 +19,7 @@ test.describe('Project Detail', () => {
         mockApi.withDefaultDaemon([]);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await expect(page.getByText(/no sessions yet/i)).toBeVisible();
     });
 
@@ -31,7 +31,7 @@ test.describe('Project Detail', () => {
         mockApi.withDefaultDaemon(sessions);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
 
         // Pinned should appear before unpinned in DOM order
         const cards = page.locator('[role="button"][aria-label^="Open session"]');
@@ -47,7 +47,7 @@ test.describe('Project Detail', () => {
         mockApi.withDefaultDaemon(sessions);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await expect(page.getByRole('button', { name: /open session no-agent/i })).toBeVisible();
         // Should fall back to 'idle' status badge
         await expect(page.getByText('Idle')).toBeVisible();
@@ -57,7 +57,7 @@ test.describe('Project Detail', () => {
         mockApi.withDefaultDaemon();
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await page.getByRole('link', { name: 'Projects' }).click();
         await expect(page).toHaveURL('/');
     });

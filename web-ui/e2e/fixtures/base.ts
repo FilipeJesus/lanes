@@ -8,6 +8,7 @@
 import { test as base, type Page, type Route } from '@playwright/test';
 import {
     makeDaemonInfo,
+    makeProjectInfo,
     makeHealthResponse,
     makeDiscoveryInfo,
     makeSessionListResponse,
@@ -19,6 +20,7 @@ import {
     makeAgentInfo,
     makeGitBranchesResponse,
     type DaemonInfo,
+    type GatewayProjectInfo,
     type SessionInfo,
     type WorkflowInfo,
 } from './test-data';
@@ -28,31 +30,52 @@ import {
 // ---------------------------------------------------------------------------
 
 export class MockApi {
-    private daemons: DaemonInfo[] = [];
+    private projects: GatewayProjectInfo[] = [];
     private daemonEndpoints = new Map<number, Record<string, unknown>>();
     private interceptedRequests: { method: string; url: string }[] = [];
 
     constructor(private readonly page: Page) {}
 
-    /** Configure the gateway to return these daemons. */
+    /** Configure the gateway to return these projects. */
+    withProjects(projects: GatewayProjectInfo[]): this {
+        this.projects = projects;
+        return this;
+    }
+
+    /** Backward-compatible helper that wraps daemons as running projects. */
     withDaemons(daemons: DaemonInfo[]): this {
-        this.daemons = daemons;
+        this.projects = daemons.map((daemon) =>
+            makeProjectInfo({
+                projectId: daemon.projectId,
+                projectName: daemon.projectName,
+                workspaceRoot: daemon.workspaceRoot,
+                daemon,
+            }),
+        );
         return this;
     }
 
     /** Configure a single default daemon with one session. */
     withDefaultDaemon(sessions: SessionInfo[] = []): this {
         const daemon = makeDaemonInfo();
-        this.daemons = [daemon];
+        this.projects = [
+            makeProjectInfo({
+                projectId: daemon.projectId,
+                projectName: daemon.projectName,
+                workspaceRoot: daemon.workspaceRoot,
+                daemon,
+            }),
+        ];
+        const projectPath = `/api/v1/projects/${encodeURIComponent(daemon.projectId)}`;
         this.withDaemonEndpoints(daemon.port, {
             '/api/v1/health': makeHealthResponse(),
-            '/api/v1/discovery': makeDiscoveryInfo({ port: daemon.port }),
-            '/api/v1/sessions': makeSessionListResponse(sessions),
-            '/api/v1/agents': { agents: [makeAgentInfo()] },
-            '/api/v1/git/branches': makeGitBranchesResponse(),
-            '/api/v1/workflows': { workflows: [] },
-            '/api/v1/config': { config: {} },
-            '/api/v1/terminals': { terminals: [] },
+            [`${projectPath}/discovery`]: makeDiscoveryInfo({ projectId: daemon.projectId, projectName: daemon.projectName, workspaceRoot: daemon.workspaceRoot, port: daemon.port }),
+            [`${projectPath}/sessions`]: makeSessionListResponse(sessions),
+            [`${projectPath}/agents`]: { agents: [makeAgentInfo()] },
+            [`${projectPath}/git/branches`]: makeGitBranchesResponse(),
+            [`${projectPath}/workflows`]: { workflows: [] },
+            [`${projectPath}/config`]: { config: {} },
+            [`${projectPath}/terminals`]: { terminals: [] },
         });
         return this;
     }
@@ -66,13 +89,22 @@ export class MockApi {
 
     /** Install all route interceptors. Call this before navigating. */
     async install(): Promise<void> {
-        // Gateway: /api/gateway/daemons
+        await this.page.route('**/api/gateway/projects', (route) => {
+            this.recordRequest(route);
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(this.projects),
+            });
+        });
+
+        // Compatibility for any legacy callers still hitting the old endpoint.
         await this.page.route('**/api/gateway/daemons', (route) => {
             this.recordRequest(route);
             return route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify(this.daemons),
+                body: JSON.stringify(this.projects.map((project) => project.daemon).filter(Boolean)),
             });
         });
 
@@ -143,7 +175,12 @@ export class MockApi {
 
     /** Get the default daemon port (first daemon). */
     get defaultPort(): number {
-        return this.daemons[0]?.port ?? 9100;
+        return this.projects[0]?.daemon?.port ?? 9100;
+    }
+
+    /** Get the default project id (first project). */
+    get defaultProjectId(): string {
+        return this.projects[0]?.projectId ?? 'project-my-app';
     }
 
     // -------------------------------------------------------------------------
@@ -185,6 +222,7 @@ export { expect } from '@playwright/test';
 // Re-export test data factories for convenience
 export {
     makeDaemonInfo,
+    makeProjectInfo,
     makeHealthResponse,
     makeDiscoveryInfo,
     makeSessionInfo,

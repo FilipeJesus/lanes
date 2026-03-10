@@ -1,7 +1,7 @@
 import { test, expect, makeWorkflowInfo } from './fixtures/base';
 
 test.describe('Workflow Browser', () => {
-    const PORT = 9100;
+    const PROJECT_ID = 'project-my-app';
 
     test('shows workflow template list', async ({ page, mockApi }) => {
         const workflows = [
@@ -10,12 +10,12 @@ test.describe('Workflow Browser', () => {
             makeWorkflowInfo({ name: 'custom-deploy', description: 'Custom deploy pipeline', isBuiltin: false }),
         ];
         mockApi.withDefaultDaemon();
-        mockApi.withDaemonEndpoints(PORT, {
-            '/api/v1/workflows': { workflows },
+        mockApi.withDaemonEndpoints(mockApi.defaultPort, {
+            [`/api/v1/projects/${PROJECT_ID}/workflows`]: { workflows },
         });
         await mockApi.install();
 
-        await page.goto(`/project/${PORT}/workflows`);
+        await page.goto(`/project/${PROJECT_ID}/workflows`);
         await expect(page.getByText('feature-dev')).toBeVisible();
         await expect(page.getByText('bug-fix')).toBeVisible();
         await expect(page.getByText('custom-deploy')).toBeVisible();
@@ -27,12 +27,12 @@ test.describe('Workflow Browser', () => {
             makeWorkflowInfo({ name: 'bug-fix', description: 'Bug fix workflow' }),
         ];
         mockApi.withDefaultDaemon();
-        mockApi.withDaemonEndpoints(PORT, {
-            '/api/v1/workflows': { workflows },
+        mockApi.withDaemonEndpoints(mockApi.defaultPort, {
+            [`/api/v1/projects/${PROJECT_ID}/workflows`]: { workflows },
         });
         await mockApi.install();
 
-        await page.goto(`/project/${PORT}/workflows`);
+        await page.goto(`/project/${PROJECT_ID}/workflows`);
         await expect(page.getByText('feature-dev')).toBeVisible();
         await expect(page.getByText('bug-fix')).toBeVisible();
 
@@ -55,12 +55,12 @@ test.describe('Workflow Browser', () => {
             }),
         ];
         mockApi.withDefaultDaemon();
-        mockApi.withDaemonEndpoints(PORT, {
-            '/api/v1/workflows': { workflows },
+        mockApi.withDaemonEndpoints(mockApi.defaultPort, {
+            [`/api/v1/projects/${PROJECT_ID}/workflows`]: { workflows },
         });
         await mockApi.install();
 
-        await page.goto(`/project/${PORT}/workflows`);
+        await page.goto(`/project/${PROJECT_ID}/workflows`);
         await page.getByText('feature-dev').click();
 
         // Detail panel should show step info
@@ -71,12 +71,12 @@ test.describe('Workflow Browser', () => {
 
     test('shows empty state when no workflows', async ({ page, mockApi }) => {
         mockApi.withDefaultDaemon();
-        mockApi.withDaemonEndpoints(PORT, {
-            '/api/v1/workflows': { workflows: [] },
+        mockApi.withDaemonEndpoints(mockApi.defaultPort, {
+            [`/api/v1/projects/${PROJECT_ID}/workflows`]: { workflows: [] },
         });
         await mockApi.install();
 
-        await page.goto(`/project/${PORT}/workflows`);
+        await page.goto(`/project/${PROJECT_ID}/workflows`);
         await expect(page.getByText(/no workflow/i)).toBeVisible();
     });
 });

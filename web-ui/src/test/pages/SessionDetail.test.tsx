@@ -72,11 +72,11 @@ function makeApiClient(sessions: SessionInfo[], worktree: WorktreeInfo, workflow
     } as unknown as DaemonApiClient;
 }
 
-function renderSessionDetail(port: string = '3942', sessionName: string = 'my-session') {
+function renderSessionDetail(projectId: string = 'project-123', sessionName: string = 'my-session') {
     return render(
-        <MemoryRouter initialEntries={[`/project/${port}/session/${encodeURIComponent(sessionName)}`]}>
+        <MemoryRouter initialEntries={[`/project/${projectId}/session/${encodeURIComponent(sessionName)}`]}>
             <Routes>
-                <Route path="/project/:port/session/:name" element={<SessionDetail />} />
+                <Route path="/project/:projectId/session/:name" element={<SessionDetail />} />
             </Routes>
         </MemoryRouter>
     );
@@ -91,7 +91,7 @@ describe('SessionDetail', () => {
         mockUseDaemonConnection.mockClear();
     });
 
-    it('Given port and name params, then session status badge is rendered', async () => {
+    it('Given project id and name params, then session status badge is rendered', async () => {
         const session = makeSession({ name: 'my-session', status: { status: 'working' } });
         const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
 
@@ -103,7 +103,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             // StatusBadge renders in header + content, so use getAllByLabelText
@@ -112,7 +112,7 @@ describe('SessionDetail', () => {
         });
     });
 
-    it('Given daemon info with projectName, then breadcrumb shows the project name instead of raw port text', async () => {
+    it('Given daemon info with projectName, then breadcrumb shows the project name instead of raw project id text', async () => {
         const session = makeSession({ name: 'my-session' });
         const apiClient = makeApiClient([session], makeWorktreeInfo(), makeWorkflowState());
 
@@ -124,7 +124,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('link', { name: 'payments-service' })).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByText('/projects/app/.worktrees/my-session')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByText('basic-feature')).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /changes/i })).toHaveAttribute('aria-selected', 'true');
@@ -231,7 +231,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByLabelText(/include uncommitted/i)).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /insights/i })).toBeInTheDocument();
@@ -275,7 +275,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByLabelText(/include uncommitted/i)).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /terminal/i })).toBeInTheDocument();
@@ -331,7 +331,7 @@ describe('SessionDetail', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /terminal/i })).toBeInTheDocument();
@@ -387,7 +387,7 @@ describe('SessionDetail — review', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         await waitFor(() => {
             expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument();
@@ -409,7 +409,7 @@ describe('SessionDetail — review', () => {
             error: null,
         });
 
-        renderSessionDetail('3942', 'my-session');
+        renderSessionDetail('project-123', 'my-session');
 
         // Wait for the diff to render (add-comment buttons appear)
         await waitFor(() => {

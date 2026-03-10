@@ -1,18 +1,26 @@
-import { test, expect, makeDaemonInfo, makeHealthResponse, makeDiscoveryInfo } from './fixtures/base';
+import { test, expect, makeDaemonInfo, makeProjectInfo, makeHealthResponse, makeDiscoveryInfo } from './fixtures/base';
 
 test.describe('Dashboard', () => {
     test('shows project cards for running daemons', async ({ page, mockApi }) => {
-        const daemon1 = makeDaemonInfo({ port: 9100, projectName: 'my-app' });
-        const daemon2 = makeDaemonInfo({ port: 9200, projectName: 'my-api', workspaceRoot: '/home/user/projects/my-api' });
+        const daemon1 = makeDaemonInfo({ projectId: 'project-my-app', port: 9100, projectName: 'my-app' });
+        const daemon2 = makeDaemonInfo({
+            projectId: 'project-my-api',
+            port: 9200,
+            projectName: 'my-api',
+            workspaceRoot: '/home/user/projects/my-api',
+        });
 
-        mockApi.withDaemons([daemon1, daemon2]);
+        mockApi.withProjects([
+            makeProjectInfo({ projectId: daemon1.projectId, projectName: daemon1.projectName, workspaceRoot: daemon1.workspaceRoot, daemon: daemon1 }),
+            makeProjectInfo({ projectId: daemon2.projectId, projectName: daemon2.projectName, workspaceRoot: daemon2.workspaceRoot, daemon: daemon2 }),
+        ]);
         mockApi.withDaemonEndpoints(9100, {
             '/api/v1/health': makeHealthResponse(),
-            '/api/v1/discovery': makeDiscoveryInfo({ projectName: 'my-app', port: 9100, sessionCount: 3 }),
+            '/api/v1/projects/project-my-app/discovery': makeDiscoveryInfo({ projectId: 'project-my-app', projectName: 'my-app', port: 9100, sessionCount: 3 }),
         });
         mockApi.withDaemonEndpoints(9200, {
             '/api/v1/health': makeHealthResponse(),
-            '/api/v1/discovery': makeDiscoveryInfo({ projectName: 'my-api', port: 9200, sessionCount: 1 }),
+            '/api/v1/projects/project-my-api/discovery': makeDiscoveryInfo({ projectId: 'project-my-api', projectName: 'my-api', workspaceRoot: '/home/user/projects/my-api', port: 9200, sessionCount: 1 }),
         });
         await mockApi.install();
 
@@ -24,23 +32,23 @@ test.describe('Dashboard', () => {
     });
 
     test('shows empty state when no daemons are running', async ({ page, mockApi }) => {
-        mockApi.withDaemons([]);
+        mockApi.withProjects([]);
         await mockApi.install();
 
         await page.goto('/');
-        await expect(page.getByText(/no.*running/i)).toBeVisible();
+        await expect(page.getByText(/no projects registered/i)).toBeVisible();
     });
 
     test('clicking a project card navigates to project detail', async ({ page, mockApi }) => {
         mockApi.withDefaultDaemon();
         mockApi.withDaemonEndpoints(9100, {
             '/api/v1/health': makeHealthResponse(),
-            '/api/v1/discovery': makeDiscoveryInfo({ projectName: 'my-app', port: 9100 }),
+            '/api/v1/projects/project-my-app/discovery': makeDiscoveryInfo({ projectId: 'project-my-app', projectName: 'my-app', port: 9100 }),
         });
         await mockApi.install();
 
         await page.goto('/');
         await page.getByRole('button', { name: /open project my-app/i }).click();
-        await expect(page).toHaveURL(/\/project\/9100/);
+        await expect(page).toHaveURL(/\/project\/project-my-app$/);
     });
 });

@@ -5,7 +5,7 @@ test.describe('Session Lifecycle', () => {
         mockApi.withDefaultDaemon([]);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         // Use first() since empty state and header both have "Create Session" button
         await page.getByRole('button', { name: /create session/i }).first().click();
         await expect(page.getByRole('dialog')).toBeVisible();
@@ -18,20 +18,20 @@ test.describe('Session Lifecycle', () => {
     test('create session dialog populates selects from API', async ({ page, mockApi }) => {
         mockApi.withDefaultDaemon([]);
         mockApi.withDaemonEndpoints(mockApi.defaultPort, {
-            '/api/v1/agents': {
+            [`/api/v1/projects/${mockApi.defaultProjectId}/agents`]: {
                 agents: [
                     makeAgentInfo({ name: 'claude', displayName: 'Claude Code' }),
                     makeAgentInfo({ name: 'codex', displayName: 'Codex CLI' }),
                 ],
             },
-            '/api/v1/git/branches': makeGitBranchesResponse([
+            [`/api/v1/projects/${mockApi.defaultProjectId}/git/branches`]: makeGitBranchesResponse([
                 { name: 'main', isRemote: false },
                 { name: 'develop', isRemote: false },
             ]),
         });
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await page.getByRole('button', { name: /create session/i }).first().click();
 
         // Agent select should have options
@@ -42,7 +42,7 @@ test.describe('Session Lifecycle', () => {
     test('delete session shows confirmation and removes on confirm', async ({ page, mockApi }) => {
         const session = makeSessionInfo({ name: 'to-delete' });
         mockApi.withDefaultDaemon([session]);
-        await mockApi.route(mockApi.defaultPort, '/api/v1/sessions/to-delete', (route) => {
+        await mockApi.route(mockApi.defaultPort, `/api/v1/projects/${mockApi.defaultProjectId}/sessions/to-delete`, (route) => {
             if (route.request().method() === 'DELETE') {
                 return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
             }
@@ -50,7 +50,7 @@ test.describe('Session Lifecycle', () => {
         });
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await expect(page.getByRole('button', { name: /open session to-delete/i })).toBeVisible();
 
         // Click delete button
@@ -72,7 +72,7 @@ test.describe('Session Lifecycle', () => {
         mockApi.withDefaultDaemon([session]);
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await page.getByRole('button', { name: /delete session keep-me/i }).click();
         await expect(page.getByRole('dialog')).toBeVisible();
 
@@ -84,7 +84,7 @@ test.describe('Session Lifecycle', () => {
     test('pin toggle updates session state', async ({ page, mockApi }) => {
         const session = makeSessionInfo({ name: 'pin-me', isPinned: false });
         mockApi.withDefaultDaemon([session]);
-        await mockApi.route(mockApi.defaultPort, '/api/v1/sessions/pin-me/pin', (route) => {
+        await mockApi.route(mockApi.defaultPort, `/api/v1/projects/${mockApi.defaultProjectId}/sessions/pin-me/pin`, (route) => {
             if (route.request().method() === 'POST') {
                 return route.fulfill({
                     status: 200,
@@ -96,7 +96,7 @@ test.describe('Session Lifecycle', () => {
         });
         await mockApi.install();
 
-        await page.goto(`/project/${mockApi.defaultPort}`);
+        await page.goto(`/project/${mockApi.defaultProjectId}`);
         await page.getByRole('button', { name: /pin session pin-me/i }).click();
         await expect(page.getByText('Pinned')).toBeVisible();
     });

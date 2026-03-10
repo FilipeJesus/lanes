@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 
 export interface DaemonInfo {
+    projectId: string;
     workspaceRoot: string;
     port: number;
     pid: number;
@@ -18,12 +19,47 @@ export interface DaemonInfo {
 
 export function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
     return {
+        projectId: 'project-my-app',
         workspaceRoot: '/home/user/projects/my-app',
         port: 9100,
         pid: 12345,
         token: 'test-token-abc123',
         startedAt: new Date().toISOString(),
         projectName: 'my-app',
+        ...overrides,
+    };
+}
+
+export interface GatewayProjectInfo {
+    projectId: string;
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
+    status: 'running' | 'registered';
+    daemon: DaemonInfo | null;
+}
+
+export function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    const projectId = overrides.projectId ?? 'project-my-app';
+    const projectName = overrides.projectName ?? 'my-app';
+    const workspaceRoot = overrides.workspaceRoot ?? '/home/user/projects/my-app';
+    const daemon =
+        overrides.daemon === null
+            ? null
+            : makeDaemonInfo({
+                  projectId,
+                  projectName,
+                  workspaceRoot,
+                  ...(overrides.daemon ?? {}),
+              });
+
+    return {
+        projectId,
+        workspaceRoot,
+        projectName,
+        registeredAt: new Date().toISOString(),
+        status: daemon ? 'running' : 'registered',
+        daemon,
         ...overrides,
     };
 }
@@ -37,6 +73,7 @@ export function makeHealthResponse() {
 }
 
 export interface DiscoveryInfo {
+    projectId: string;
     projectName: string;
     gitRemote: string | null;
     sessionCount: number;
@@ -47,12 +84,14 @@ export interface DiscoveryInfo {
 
 export function makeDiscoveryInfo(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
     return {
+        projectId: 'project-my-app',
         projectName: 'my-app',
         gitRemote: 'https://github.com/user/my-app.git',
         sessionCount: 2,
         uptime: 3600,
         workspaceRoot: '/home/user/projects/my-app',
         port: 9100,
+        apiVersion: '1',
         ...overrides,
     };
 }

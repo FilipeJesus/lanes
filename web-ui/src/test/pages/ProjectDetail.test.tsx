@@ -78,11 +78,11 @@ function setupDefaultMocks(sessions: SessionInfo[] = []) {
     return { apiClient };
 }
 
-function renderProjectDetail(port: string = '3942') {
+function renderProjectDetail(projectId: string = 'project-123') {
     return render(
-        <MemoryRouter initialEntries={[`/project/${port}`]}>
+        <MemoryRouter initialEntries={[`/project/${projectId}`]}>
             <Routes>
-                <Route path="/project/:port" element={<ProjectDetail />} />
+                <Route path="/project/:projectId" element={<ProjectDetail />} />
             </Routes>
         </MemoryRouter>
     );
@@ -99,14 +99,14 @@ describe('ProjectDetail', () => {
         mockUseSessions.mockClear();
     });
 
-    it('Given a port param and a daemon that returns sessions, then session cards are rendered', () => {
+    it('Given a project id param and a daemon that returns sessions, then session cards are rendered', () => {
         const sessions = [
             makeSession({ name: 'session-1' }),
             makeSession({ name: 'session-2' }),
         ];
         setupDefaultMocks(sessions);
 
-        renderProjectDetail('3942');
+        renderProjectDetail('project-123');
 
         expect(screen.getByText('session-1')).toBeInTheDocument();
         expect(screen.getByText('session-2')).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe('ProjectDetail', () => {
     it('Given no sessions, then an empty state message is shown', () => {
         setupDefaultMocks([]);
 
-        renderProjectDetail('3942');
+        renderProjectDetail('project-123');
 
         expect(screen.getByText(/no sessions yet/i)).toBeInTheDocument();
     });
@@ -124,7 +124,7 @@ describe('ProjectDetail', () => {
         const user = userEvent.setup();
         setupDefaultMocks([]);
 
-        renderProjectDetail('3942');
+        renderProjectDetail('project-123');
 
         // There may be multiple Create Session buttons (header + empty state); click the first
         const createButtons = screen.getAllByRole('button', { name: /\+ create session/i });
