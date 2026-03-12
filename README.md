@@ -112,7 +112,7 @@ npm run compile && npx vsce package
 # Then install the .vsix via "Extensions: Install from VSIX..."
 ```
 
-`npm run compile` will install `web-ui` dependencies automatically if they are not present yet.
+`npm run compile` will install `web-ui` dependencies automatically if they are not present yet. The `pre-commit` hook intentionally disables that auto-install so commits fail fast instead of stalling inside a git hook.
 
 Or use the local install script: `./scripts/install-local-vscode.sh`
 
@@ -400,11 +400,14 @@ Press `F5` in VS Code to launch the Extension Development Host.
 ### Scripts
 
 ```bash
-npm test          # Run tests
+npm test          # Run the full test suite
+npm run test:vscode # Run the VS Code test harness only
 npm run lint      # Run ESLint
 npm run compile   # Compile TypeScript
 npm run watch     # Watch mode for development
 ```
+
+The `pre-commit` hook uses a hook-safe VS Code test runner that reuses a locally installed VS Code instance instead of downloading one during the hook, and it avoids auto-installing missing `web-ui` dependencies during the hook.
 
 ### Pull Request Guidelines
 

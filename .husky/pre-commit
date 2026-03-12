@@ -4,7 +4,7 @@ echo "🔍 Running pre-commit checks..."
 
 # Compile TypeScript
 echo "📦 Compiling TypeScript..."
-npm run compile || exit 1
+LANES_NO_INSTALL_IN_HOOKS=1 npm run compile || exit 1
 
 # Run ESLint
 echo "🧹 Running ESLint..."
@@ -13,9 +13,9 @@ npm run lint || exit 1
 # Run tests (use xvfb-run if available for headless environments)
 echo "🧪 Running tests..."
 if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
-    xvfb-run -a npm run test || exit 1
+    xvfb-run -a npm run test:hook || exit 1
 else
-    npm run test || exit 1
+    npm run test:hook || exit 1
 fi
 
 # Run web UI tests if web files changed
