@@ -19,6 +19,11 @@ function ensureWebUiDependenciesInstalled() {
         return;
     }
 
+    if (process.env.LANES_NO_INSTALL_IN_HOOKS === '1') {
+        console.error('web-ui dependencies are missing. Run `npm --prefix web-ui install` before committing.');
+        process.exit(1);
+    }
+
     console.log('Installing missing web UI dependencies...');
     execSync('npm install --force', {
         cwd: webUiDir,

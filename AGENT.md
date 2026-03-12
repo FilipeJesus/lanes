@@ -165,7 +165,7 @@ Examples:
 
 ### Pre-commit Hooks
 
-The husky `pre-commit` hook runs compile, lint, and test. All must pass before a commit is accepted.
+The husky `pre-commit` hook runs compile, lint, and a hook-safe VS Code test pass. It does not install missing dependencies or download VS Code mid-hook; it fails fast instead. All checks must pass before a commit is accepted.
 
 ## Commands
 
@@ -185,6 +185,7 @@ cd web-ui && npx vitest run                 # Run web UI tests
 # Quality
 npm run lint                 # ESLint
 npm test                     # Full test suite (compile + lint + vscode-test)
+npm run test:vscode          # Run the VS Code test harness only
 
 # Release
 npm run changelog            # Generate CHANGELOG from commits
@@ -207,6 +208,7 @@ npm run release:minor        # Minor release
   - **Mocking**: Sinon for stubs/spies, memfs for virtual file systems
   - **Config**: `.vscode-test.mjs` — runs all `out/test/**/*.test.js` files
   - **Run**: `npm test` (compiles, lints, then runs tests)
+  - **Hooks**: `npm run test:hook` reuses an existing local VS Code install to avoid download stalls during `pre-commit`
   - Test files live in `src/test/` mirroring the source structure
 - **Web UI (Vitest)**: via Vitest + `@testing-library/react`
   - **Run**: `cd web-ui && npx vitest run`
@@ -250,7 +252,7 @@ When creating a session, Lanes can propagate `.claude/settings.local.json` from 
 ## Constraints
 
 - Always run tests before committing: `npm test`
-- Pre-commit hook enforces: compile, lint, and test
+- Pre-commit hook enforces: compile, lint, and hook-safe VS Code tests
 - Commit-msg hook enforces: conventional commit format
 - Never commit code that breaks existing tests
 - Keep changes focused and minimal

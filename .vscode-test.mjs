@@ -6,6 +6,15 @@ import * as path from 'path';
 const runtimeDir = path.join(os.tmpdir(), 'vscode-test-runtime');
 fs.mkdirSync(runtimeDir, { recursive: true, mode: 0o700 });
 
+const localInstallationPath = process.env.LANES_VSCODE_TEST_EXECUTABLE?.trim();
+const useMachineInstallation = process.env.LANES_VSCODE_TEST_USE_MACHINE === '1';
+
+const useInstallation = localInstallationPath
+	? { fromPath: localInstallationPath }
+	: useMachineInstallation
+		? { fromMachine: true }
+		: undefined;
+
 export default defineConfig({
 	files: 'out/test/**/*.test.js',
 	// Use a shorter path for user data to avoid socket path length issues
@@ -25,5 +34,6 @@ export default defineConfig({
 		XDG_RUNTIME_DIR: runtimeDir,
 		DBUS_SESSION_BUS_ADDRESS: 'disabled:',
 		ELECTRON_DISABLE_GPU: '1'
-	}
+	},
+	...(useInstallation ? { useInstallation } : {})
 });
