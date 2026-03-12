@@ -2,7 +2,7 @@
 set -e
 
 # Lanes Local Install Script
-# Usage: ./scripts/install-local.sh
+# Usage: ./scripts/install-local-vscode.sh
 
 echo "🔨 Building extension..."
 npm run compile

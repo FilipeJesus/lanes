@@ -157,7 +157,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/discovery
+     * GET /discovery via the project-scoped API path when `projectId` is set.
      */
     async getDiscovery(): Promise<DiscoveryInfo> {
         return this.request<DiscoveryInfo>('GET', this.projectUrl('/discovery'));
@@ -168,21 +168,21 @@ export class DaemonApiClient {
     // -------------------------------------------------------------------------
 
     /**
-     * GET /api/v1/sessions
+     * GET /sessions via the project-scoped API path when `projectId` is set.
      */
     async listSessions(): Promise<SessionListResponse> {
         return this.request<SessionListResponse>('GET', this.projectUrl('/sessions'));
     }
 
     /**
-     * POST /api/v1/sessions
+     * POST /sessions via the project-scoped API path when `projectId` is set.
      */
     async createSession(params: CreateSessionRequest): Promise<CreateSessionResponse> {
         return this.request<CreateSessionResponse>('POST', this.projectUrl('/sessions'), { body: params });
     }
 
     /**
-     * POST /api/v1/session-form/improve-prompt
+     * POST /session-form/improve-prompt via the project-scoped API path when `projectId` is set.
      */
     async improveSessionPrompt(
         params: ImproveSessionPromptRequest
@@ -195,7 +195,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * POST /api/v1/session-form/attachments
+     * POST /session-form/attachments via the project-scoped API path when `projectId` is set.
      */
     async uploadSessionAttachments(
         params: UploadSessionAttachmentsRequest
@@ -208,14 +208,14 @@ export class DaemonApiClient {
     }
 
     /**
-     * DELETE /api/v1/sessions/:name
+     * DELETE /sessions/:name via the project-scoped API path when `projectId` is set.
      */
     async deleteSession(name: string): Promise<void> {
         return this.request<void>('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}`));
     }
 
     /**
-     * GET /api/v1/sessions/:name/status
+     * GET /sessions/:name/status via the project-scoped API path when `projectId` is set.
      */
     async getSessionStatus(name: string): Promise<SessionStatusResponse> {
         return this.request<SessionStatusResponse>(
@@ -225,35 +225,35 @@ export class DaemonApiClient {
     }
 
     /**
-     * POST /api/v1/sessions/:name/open
+     * POST /sessions/:name/open via the project-scoped API path when `projectId` is set.
      */
     async openSession(name: string): Promise<unknown> {
         return this.request<unknown>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/open`));
     }
 
     /**
-     * POST /api/v1/sessions/:name/clear
+     * POST /sessions/:name/clear via the project-scoped API path when `projectId` is set.
      */
     async clearSession(name: string): Promise<unknown> {
         return this.request<unknown>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/clear`));
     }
 
     /**
-     * POST /api/v1/sessions/:name/pin
+     * POST /sessions/:name/pin via the project-scoped API path when `projectId` is set.
      */
     async pinSession(name: string): Promise<SessionInfo> {
         return this.request<SessionInfo>('POST', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`));
     }
 
     /**
-     * DELETE /api/v1/sessions/:name/pin
+     * DELETE /sessions/:name/pin via the project-scoped API path when `projectId` is set.
      */
     async unpinSession(name: string): Promise<SessionInfo> {
         return this.request<SessionInfo>('DELETE', this.projectUrl(`/sessions/${encodeURIComponent(name)}/pin`));
     }
 
     /**
-     * POST /api/v1/sessions/:name/notifications
+     * POST /sessions/:name/notifications via the project-scoped API path when `projectId` is set.
      */
     async enableSessionNotifications(name: string): Promise<SessionInfo> {
         return this.request<SessionInfo>(
@@ -263,7 +263,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * DELETE /api/v1/sessions/:name/notifications
+     * DELETE /sessions/:name/notifications via the project-scoped API path when `projectId` is set.
      */
     async disableSessionNotifications(name: string): Promise<SessionInfo> {
         return this.request<SessionInfo>(
@@ -273,7 +273,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/sessions/:name/insights
+     * GET /sessions/:name/insights via the project-scoped API path when `projectId` is set.
      */
     async getSessionInsights(name: string, includeAnalysis?: boolean): Promise<InsightsResponse> {
         return this.request<InsightsResponse>(
@@ -284,7 +284,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/sessions/:name/diff
+     * GET /sessions/:name/diff via the project-scoped API path when `projectId` is set.
      */
     async getSessionDiff(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffResult> {
         return this.request<DiffResult>(
@@ -295,7 +295,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/sessions/:name/diff/files
+     * GET /sessions/:name/diff/files via the project-scoped API path when `projectId` is set.
      */
     async getSessionDiffFiles(name: string, includeUncommitted?: boolean, baseBranch?: string): Promise<DiffFilesResult> {
         return this.request<DiffFilesResult>(
@@ -306,7 +306,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/sessions/:name/worktree
+     * GET /sessions/:name/worktree via the project-scoped API path when `projectId` is set.
      */
     async getSessionWorktree(name: string): Promise<WorktreeInfo> {
         return this.request<WorktreeInfo>(
@@ -316,7 +316,7 @@ export class DaemonApiClient {
     }
 
     /**
-     * GET /api/v1/sessions/:name/workflow
+     * GET /sessions/:name/workflow via the project-scoped API path when `projectId` is set.
      */
     async getSessionWorkflow(name: string): Promise<WorkflowState> {
         return this.request<WorkflowState>(

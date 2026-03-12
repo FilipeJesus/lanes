@@ -2,8 +2,8 @@
  * `lanes web` — Start the Lanes gateway server and optionally serve the web UI.
  *
  * The gateway server:
- * - Reads ~/.lanes/daemons.json to discover running daemon instances
- * - Exposes GET /api/gateway/daemons for the web UI to fetch project list
+ * - Reads ~/.lanes/projects.json plus machine-wide daemon state from ~/.lanes/
+ * - Exposes GET /api/gateway/projects for the web UI to fetch project list
  * - Optionally serves the web UI static files (production build)
  */
 

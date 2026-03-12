@@ -151,8 +151,8 @@ export class DaemonClient {
     }
 
     /**
-     * Create a DaemonClient by reading port and token from workspace files.
-     * Reads `.lanes/daemon.port` and `.lanes/daemon.token`.
+     * Create a DaemonClient by reading the machine-wide daemon port and token.
+     * Reads `~/.lanes/daemon.port` and `~/.lanes/daemon.token`.
      */
     static async fromWorkspace(workspaceRoot: string): Promise<DaemonClient> {
         const resolved = await ensureProjectRegistered(workspaceRoot);
@@ -286,17 +286,17 @@ export class DaemonClient {
     // Sessions
     // -------------------------------------------------------------------------
 
-    /** GET /api/v1/sessions */
+    /** GET /sessions (project-scoped when projectId is set) */
     listSessions(): Promise<DaemonSessionListResponse> {
         return this.request<DaemonSessionListResponse>('GET', this.projectUrl('/sessions'));
     }
 
-    /** POST /api/v1/sessions */
+    /** POST /sessions (project-scoped when projectId is set) */
     createSession(opts: Record<string, unknown>): Promise<DaemonSessionCreateResponse> {
         return this.request<DaemonSessionCreateResponse>('POST', this.projectUrl('/sessions'), { body: opts });
     }
 
-    /** DELETE /api/v1/sessions/:name */
+    /** DELETE /sessions/:name (project-scoped when projectId is set) */
     deleteSession(name: string): Promise<DaemonSuccessResponse> {
         return this.request<DaemonSuccessResponse>(
             'DELETE',
@@ -304,7 +304,7 @@ export class DaemonClient {
         );
     }
 
-    /** GET /api/v1/sessions/:name/status */
+    /** GET /sessions/:name/status (project-scoped when projectId is set) */
     getSessionStatus(name: string): Promise<DaemonSessionStatusResponse> {
         return this.request<DaemonSessionStatusResponse>(
             'GET',
@@ -312,7 +312,7 @@ export class DaemonClient {
         );
     }
 
-    /** POST /api/v1/sessions/:name/open */
+    /** POST /sessions/:name/open (project-scoped when projectId is set) */
     openSession(name: string, opts?: Record<string, unknown>): Promise<DaemonSessionOpenResponse> {
         return this.request<DaemonSessionOpenResponse>(
             'POST',
@@ -323,7 +323,7 @@ export class DaemonClient {
         );
     }
 
-    /** POST /api/v1/sessions/:name/clear */
+    /** POST /sessions/:name/clear (project-scoped when projectId is set) */
     clearSession(name: string): Promise<DaemonSuccessResponse> {
         return this.request<DaemonSuccessResponse>(
             'POST',
@@ -334,7 +334,7 @@ export class DaemonClient {
         );
     }
 
-    /** POST /api/v1/sessions/:name/pin */
+    /** POST /sessions/:name/pin (project-scoped when projectId is set) */
     pinSession(name: string): Promise<DaemonSuccessResponse> {
         return this.request<DaemonSuccessResponse>(
             'POST',
@@ -345,7 +345,7 @@ export class DaemonClient {
         );
     }
 
-    /** DELETE /api/v1/sessions/:name/pin */
+    /** DELETE /sessions/:name/pin (project-scoped when projectId is set) */
     unpinSession(name: string): Promise<DaemonSuccessResponse> {
         return this.request<DaemonSuccessResponse>(
             'DELETE',
@@ -357,7 +357,7 @@ export class DaemonClient {
     // Insights
     // -------------------------------------------------------------------------
 
-    /** GET /api/v1/sessions/:name/insights?includeAnalysis=true|false */
+    /** GET /sessions/:name/insights?includeAnalysis=true|false (project-scoped when projectId is set) */
     getSessionInsights(
         name: string,
         opts?: { includeAnalysis?: boolean }
@@ -390,7 +390,7 @@ export class DaemonClient {
         });
     }
 
-    /** GET /api/v1/sessions/:name/diff?includeUncommitted=true|false&baseBranch=... */
+    /** GET /sessions/:name/diff?includeUncommitted=true|false&baseBranch=... (project-scoped when projectId is set) */
     getSessionDiff(
         name: string,
         opts?: { includeUncommitted?: boolean; baseBranch?: string }
@@ -409,7 +409,7 @@ export class DaemonClient {
         );
     }
 
-    /** GET /api/v1/sessions/:name/diff/files?includeUncommitted=true|false&baseBranch=... */
+    /** GET /sessions/:name/diff/files?includeUncommitted=true|false&baseBranch=... (project-scoped when projectId is set) */
     getSessionDiffFiles(
         name: string,
         opts?: { includeUncommitted?: boolean; baseBranch?: string }
@@ -428,7 +428,7 @@ export class DaemonClient {
         );
     }
 
-    /** GET /api/v1/sessions/:name/worktree */
+    /** GET /sessions/:name/worktree (project-scoped when projectId is set) */
     getWorktreeInfo(name: string): Promise<DaemonWorktreeInfoResponse> {
         return this.request<DaemonWorktreeInfoResponse>(
             'GET',
@@ -471,7 +471,7 @@ export class DaemonClient {
         });
     }
 
-    /** GET /api/v1/sessions/:name/workflow */
+    /** GET /sessions/:name/workflow (project-scoped when projectId is set) */
     getWorkflowState(name: string): Promise<DaemonWorkflowStateResponse> {
         return this.request<DaemonWorkflowStateResponse>(
             'GET',

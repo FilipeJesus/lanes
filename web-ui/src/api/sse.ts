@@ -64,7 +64,7 @@ export interface SseClientOptions {
 // ---------------------------------------------------------------------------
 
 /**
- * SSE client for the daemon's /api/v1/events endpoint.
+ * SSE client for the daemon's project-scoped events endpoint.
  * Uses fetch() + ReadableStream so that the Authorization header can be set.
  * Automatically reconnects on disconnect.
  */

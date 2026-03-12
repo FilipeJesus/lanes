@@ -26,6 +26,6 @@ npm link
 
 echo ""
 echo "✅ Web UI installed!"
-echo "   Start a daemon in your project:  lanes daemon start"
+echo "   Start the daemon from a project: lanes daemon start"
 echo "   Then launch the web UI:          lanes web"
-echo "   Open http://localhost:3100 in your browser."
+echo "   Open http://127.0.0.1:3847 in your browser."

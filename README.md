@@ -26,8 +26,8 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **File Attachments** - Drag-and-drop files into the session form to include with your prompt
 - **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
 - **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
-- **Remote Web UI** - Browser-based dashboard for managing sessions across multiple projects via `lanes web`
-- **HTTP Daemon** - REST API + SSE events for remote session management via `lanes daemon start`
+- **Local Web UI** - Browser-based dashboard for managing registered projects on the current machine via `lanes web`
+- **HTTP Daemon** - Machine-wide REST API + SSE events for local session management via `lanes daemon start`
 
 Visit [our website](https://lanes.pro) for more information.
 
@@ -114,7 +114,9 @@ npm run compile && npx vsce package
 
 `npm run compile` will install `web-ui` dependencies automatically if they are not present yet.
 
-Or use the local install script: `./scripts/install-local.sh`
+Or use the local install script: `./scripts/install-local-vscode.sh`
+
+This script expects the VS Code `code` command to be available on your `PATH`.
 
 #### JetBrains IDEs (From Source)
 
@@ -162,9 +164,9 @@ lanes delete my-feature
 
 ### Daemon & Web UI
 
-Lanes v2 introduces an HTTP daemon and a browser-based dashboard for managing sessions remotely — across multiple projects, from any browser.
+Lanes v2 introduces a machine-wide HTTP daemon and a browser-based dashboard for managing registered projects on the current machine.
 
-**Architecture:** Lanes keeps a machine-wide registry of projects and a lightweight gateway for discovery. Each project still runs its own local daemon process when active, but you can register repos globally first and start their daemon only when needed.
+**Architecture:** Lanes keeps a machine-wide project registry in `~/.lanes/projects.json` and a single local daemon process that serves registered projects by `projectId`. The web UI is served locally and connects to `127.0.0.1`, so remote access requires SSH tunneling or your own reverse proxy.
 
 #### 1. Register projects with the machine-wide gateway
 
@@ -178,17 +180,14 @@ lanes daemon register .
 
 Registered projects are stored in `~/.lanes/projects.json`.
 
-#### 2. Start a local daemon when you need one
+#### 2. Start the machine-wide daemon
 
 ```bash
 cd ~/projects/my-app
-lanes daemon start
-
-cd ~/projects/my-api
-lanes daemon start --port 9100   # optional: pick a specific port
+lanes daemon start              # optional: first start can choose --port 9100
 ```
 
-The daemon writes its PID, port, and auth token to `.lanes/` in the project root, registers itself in `~/.lanes/daemons.json`, and auto-registers the project in `~/.lanes/projects.json`.
+The daemon writes its PID, port, and auth token to `~/.lanes/daemon.pid`, `~/.lanes/daemon.port`, and `~/.lanes/daemon.token`. Starting it from a repo also auto-registers that repo in `~/.lanes/projects.json`. Once it is running, use `lanes daemon register .` in other repos you want the daemon to serve.
 
 #### 3. Launch the web UI
 
@@ -197,7 +196,7 @@ lanes web
 # → Serving at http://127.0.0.1:3847
 ```
 
-This starts a gateway that discovers all running daemons and serves the browser dashboard. Open the URL to see:
+This starts a local gateway that discovers registered projects and serves the browser dashboard. Open the URL on the same machine to see:
 
 - **Dashboard** — All projects as cards with health indicators, session counts, and uptime
 - **Project view** — Session list with real-time status updates via SSE; create, delete, pin/unpin sessions
@@ -219,8 +218,8 @@ lanes web --no-ui
 
 ```bash
 lanes daemon registered  # List all registered projects
-lanes daemon status   # Check if daemon is running (shows PID and port)
-lanes daemon stop     # Stop the daemon for the current project
+lanes daemon status      # Check if the machine-wide daemon is running
+lanes daemon stop        # Stop the machine-wide daemon
 lanes daemon unregister .  # Remove the current project from the global registry
 ```
 
@@ -232,30 +231,38 @@ You can route VS Code operations through the daemon instead of calling core serv
 2. Search for `lanes.useDaemon`
 3. Enable it (VS Code will prompt to reload)
 
-When enabled, session create/delete/diff/insights/pin operations go through the daemon REST API. The daemon auto-starts if not already running. If the daemon is unavailable, VS Code falls back to direct mode gracefully.
+When enabled, session create/delete/diff/insights/pin operations go through the daemon REST API. For now, this setup is best suited to single-root VS Code workspaces.
 
 #### REST API
 
-The daemon exposes a REST API at `http://127.0.0.1:<port>/api/v1/`. All endpoints (except `/health`) require a Bearer token from `.lanes/daemon.token`:
+The daemon exposes a REST API at `http://127.0.0.1:<port>/api/v1/`. All endpoints except `/health` require a Bearer token from `~/.lanes/daemon.token`. Project-specific operations use routes under `/api/v1/projects/:projectId/...`.
 
 ```bash
-TOKEN=$(cat .lanes/daemon.token)
-PORT=$(cat .lanes/daemon.port)
+TOKEN=$(cat ~/.lanes/daemon.token)
+PORT=$(cat ~/.lanes/daemon.port)
 
 # Health check (no auth required)
 curl http://127.0.0.1:$PORT/api/v1/health
 
-# List sessions
-curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/sessions
+# List registered projects and capture one projectId
+PROJECT_ID=$(
+  curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/projects \
+  | jq -r '.projects[0].projectId'
+)
 
-# Create a session
+# List sessions for a project
+curl -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:$PORT/api/v1/projects/$PROJECT_ID/sessions
+
+# Create a session for a project
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"sessionName":"my-feature","prompt":"Implement login"}' \
-  http://127.0.0.1:$PORT/api/v1/sessions
+  http://127.0.0.1:$PORT/api/v1/projects/$PROJECT_ID/sessions
 
-# Subscribe to real-time events (SSE)
-curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
+# Subscribe to real-time events (SSE) for a project
+curl -N -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:$PORT/api/v1/projects/$PROJECT_ID/events
 ```
 
 <details>
@@ -264,34 +271,35 @@ curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/v1/health` | Health check (no auth) |
-| GET | `/api/v1/discovery` | Project metadata, uptime, session count |
-| GET | `/api/v1/sessions` | List all sessions |
-| POST | `/api/v1/sessions` | Create a session |
-| DELETE | `/api/v1/sessions/:name` | Delete a session |
-| GET | `/api/v1/sessions/:name/status` | Session status |
-| POST | `/api/v1/sessions/:name/open` | Open/resume a session |
-| POST | `/api/v1/sessions/:name/clear` | Clear session state |
-| POST | `/api/v1/sessions/:name/pin` | Pin a session |
-| DELETE | `/api/v1/sessions/:name/pin` | Unpin a session |
-| GET | `/api/v1/sessions/:name/diff` | Unified diff (`?includeUncommitted`) |
-| GET | `/api/v1/sessions/:name/diff/files` | Changed file list (`?includeUncommitted`) |
-| GET | `/api/v1/sessions/:name/worktree` | Worktree info |
-| GET | `/api/v1/sessions/:name/workflow` | Workflow state |
-| GET | `/api/v1/sessions/:name/insights` | Session insights (`?includeAnalysis`) |
-| GET | `/api/v1/events` | SSE event stream |
-| GET | `/api/v1/agents` | List available agents |
-| GET | `/api/v1/agents/:name` | Agent details |
-| GET | `/api/v1/config` | All config values |
-| GET | `/api/v1/config/:key` | Single config value |
-| PUT | `/api/v1/config/:key` | Set a config value |
-| GET | `/api/v1/git/branches` | List branches (`?includeRemote`) |
-| POST | `/api/v1/git/repair` | Repair broken worktrees |
-| GET | `/api/v1/workflows` | List workflow templates (`?includeBuiltin&includeCustom`) |
-| POST | `/api/v1/workflows` | Create a workflow template |
-| POST | `/api/v1/workflows/validate` | Validate workflow YAML |
-| GET | `/api/v1/terminals` | List terminals (`?sessionName`) |
-| POST | `/api/v1/terminals` | Create a terminal |
-| POST | `/api/v1/terminals/:name/send` | Send input to a terminal |
+| GET | `/api/v1/projects` | List registered projects |
+| GET | `/api/v1/projects/:projectId/discovery` | Project metadata, uptime, session count |
+| GET | `/api/v1/projects/:projectId/sessions` | List sessions |
+| POST | `/api/v1/projects/:projectId/sessions` | Create a session |
+| DELETE | `/api/v1/projects/:projectId/sessions/:name` | Delete a session |
+| GET | `/api/v1/projects/:projectId/sessions/:name/status` | Session status |
+| POST | `/api/v1/projects/:projectId/sessions/:name/open` | Open or resume a session |
+| POST | `/api/v1/projects/:projectId/sessions/:name/clear` | Clear session state |
+| POST | `/api/v1/projects/:projectId/sessions/:name/pin` | Pin a session |
+| DELETE | `/api/v1/projects/:projectId/sessions/:name/pin` | Unpin a session |
+| GET | `/api/v1/projects/:projectId/sessions/:name/diff` | Unified diff (`?includeUncommitted`) |
+| GET | `/api/v1/projects/:projectId/sessions/:name/diff/files` | Changed file list (`?includeUncommitted`) |
+| GET | `/api/v1/projects/:projectId/sessions/:name/worktree` | Worktree info |
+| GET | `/api/v1/projects/:projectId/sessions/:name/workflow` | Workflow state |
+| GET | `/api/v1/projects/:projectId/sessions/:name/insights` | Session insights (`?includeAnalysis`) |
+| GET | `/api/v1/projects/:projectId/events` | SSE event stream |
+| GET | `/api/v1/projects/:projectId/agents` | List available agents |
+| GET | `/api/v1/projects/:projectId/agents/:name` | Agent details |
+| GET | `/api/v1/projects/:projectId/config` | All config values |
+| GET | `/api/v1/projects/:projectId/config/:key` | Single config value |
+| PUT | `/api/v1/projects/:projectId/config/:key` | Set a config value |
+| GET | `/api/v1/projects/:projectId/git/branches` | List branches (`?includeRemote`) |
+| POST | `/api/v1/projects/:projectId/git/repair` | Repair broken worktrees |
+| GET | `/api/v1/projects/:projectId/workflows` | List workflow templates (`?includeBuiltin&includeCustom`) |
+| POST | `/api/v1/projects/:projectId/workflows` | Create a workflow template |
+| POST | `/api/v1/projects/:projectId/workflows/validate` | Validate workflow YAML |
+| GET | `/api/v1/projects/:projectId/terminals` | List terminals (`?sessionName`) |
+| POST | `/api/v1/projects/:projectId/terminals` | Create a terminal |
+| POST | `/api/v1/projects/:projectId/terminals/:name/send` | Send input to a terminal |
 
 </details>
 
@@ -337,7 +345,7 @@ curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
 | `lanes status` | Show status of all sessions |
 | `lanes workflow <name>` | Run a workflow template |
 | `lanes config` | View/edit configuration |
-| `lanes daemon start` | Start HTTP daemon for the current project |
+| `lanes daemon start` | Start the machine-wide HTTP daemon and register the current project |
 | `lanes daemon register [path]` | Register a project with the machine-wide gateway |
 | `lanes daemon unregister [path]` | Remove a project from the machine-wide gateway |
 | `lanes daemon registered` | List globally registered projects |
@@ -369,7 +377,7 @@ curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:$PORT/api/v1/events
 - [x] JetBrains IDE plugin (beta)
 - [x] Standalone CLI
 - [x] HTTP daemon with REST API and SSE events
-- [x] Remote web UI dashboard
+- [x] Browser web UI dashboard
 - [ ] Windows support
 - [ ] Multi-repo support
 
