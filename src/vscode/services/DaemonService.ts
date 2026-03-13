@@ -47,7 +47,7 @@ export class DaemonService implements vscode.Disposable {
      */
     async initialize(): Promise<void> {
         try {
-            const running = await isDaemonRunning(this.workspaceRoot);
+            const running = await isDaemonRunning();
 
             if (!running) {
                 const serverPath = await this.resolveBundledServerPath();

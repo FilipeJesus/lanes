@@ -15,16 +15,24 @@ import * as http from 'http';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
-    type DaemonRegistryEntry,
     type RegisteredProjectEntry,
     listRegisteredProjects,
 } from './registry';
-import { isDaemonRunning, getDaemonPid, getDaemonPort } from './lifecycle';
-import { readTokenFile } from './auth';
+import { getMachineDaemonState } from './lifecycle';
+
+export type GatewayDaemonInfo = {
+    projectId: string;
+    workspaceRoot: string;
+    port: number;
+    pid: number;
+    token: string;
+    startedAt: string;
+    projectName: string;
+};
 
 export type GatewayProjectInfo = RegisteredProjectEntry & {
     status: 'running' | 'registered';
-    daemon: DaemonRegistryEntry | null;
+    daemon: GatewayDaemonInfo | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -83,26 +91,23 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 }
 
 async function listGatewayProjects(): Promise<GatewayProjectInfo[]> {
-    const [registeredProjects, running, pid, port, token] = await Promise.all([
+    const [registeredProjects, machineDaemon] = await Promise.all([
         listRegisteredProjects(),
-        isDaemonRunning(),
-        getDaemonPid(),
-        getDaemonPort(),
-        readTokenFile().catch(() => undefined),
+        getMachineDaemonState(),
     ]);
 
     return registeredProjects
         .map((project) => {
-            const daemon: DaemonRegistryEntry | null =
-                running && pid !== undefined && port !== undefined && token
+            const daemon: GatewayDaemonInfo | null =
+                machineDaemon
                     ? {
                         projectId: project.projectId,
                         workspaceRoot: project.workspaceRoot,
                         projectName: project.projectName,
-                        pid,
-                        port,
-                        token,
-                        startedAt: project.registeredAt,
+                        pid: machineDaemon.pid,
+                        port: machineDaemon.port,
+                        token: machineDaemon.token,
+                        startedAt: machineDaemon.startedAt,
                     }
                     : null;
 
@@ -195,7 +200,7 @@ export async function createGatewayServer(options: GatewayServerOptions = {}): P
                 const projects = await listGatewayProjects();
                 const daemons = projects
                     .map((project) => project.daemon)
-                    .filter((daemon): daemon is DaemonRegistryEntry => daemon !== null);
+                    .filter((daemon): daemon is GatewayDaemonInfo => daemon !== null);
                 sendJson(res, 200, daemons);
                 return;
             }

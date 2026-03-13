@@ -5,6 +5,7 @@ import * as path from 'path';
 import sinon from 'sinon';
 import * as gitService from '../../core/gitService';
 import * as launchSetupService from '../../core/services/AgentLaunchSetupService';
+import * as PreflightService from '../../core/services/PreflightService';
 import * as tmuxService from '../../core/services/TmuxService';
 import { ConfigStore } from '../../jetbrains-ide-bridge/config';
 import { NotificationEmitter } from '../../jetbrains-ide-bridge/notifications';
@@ -17,6 +18,7 @@ suite('Bridge session.create branch behavior', () => {
     let execGitStub: sinon.SinonStub;
     let prepareLaunchContextStub: sinon.SinonStub;
     let buildLaunchCommandStub: sinon.SinonStub;
+    let preflightStub: sinon.SinonStub;
     let isTmuxInstalledStub: sinon.SinonStub;
     let launchInTmuxStub: sinon.SinonStub;
 
@@ -40,6 +42,7 @@ suite('Bridge session.create branch behavior', () => {
             mode: 'start',
             command: 'claude --settings "/tmp/claude-settings.json"'
         });
+        preflightStub = sinon.stub(PreflightService, 'assertSessionLaunchPrerequisites').resolves();
         isTmuxInstalledStub = sinon.stub(tmuxService, 'isTmuxInstalled').resolves(false);
         launchInTmuxStub = sinon.stub(tmuxService, 'launchInTmux').resolves({
             tmuxSessionName: 'feat-command',
@@ -52,6 +55,7 @@ suite('Bridge session.create branch behavior', () => {
         execGitStub.restore();
         prepareLaunchContextStub.restore();
         buildLaunchCommandStub.restore();
+        preflightStub.restore();
         isTmuxInstalledStub.restore();
         launchInTmuxStub.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -142,6 +146,22 @@ suite('Bridge session.create branch behavior', () => {
         assert.strictEqual(result.command, 'claude --settings "/tmp/claude-settings.json"');
         sinon.assert.called(prepareLaunchContextStub);
         sinon.assert.called(buildLaunchCommandStub);
+    });
+
+    test('fails before creating the worktree when preflight detects missing prerequisites', async () => {
+        preflightStub.rejects(new Error('jq is required for session tracking and workflow hooks.'));
+
+        await assert.rejects(
+            handleRequest('session.create', {
+                name: 'feat-missing-jq',
+                branch: ''
+            }),
+            /jq is required/
+        );
+
+        sinon.assert.notCalled(execGitStub);
+        sinon.assert.notCalled(prepareLaunchContextStub);
+        sinon.assert.notCalled(buildLaunchCommandStub);
     });
 
     test('returns explicit tmux metadata when tmux mode is enabled on session.create', async () => {

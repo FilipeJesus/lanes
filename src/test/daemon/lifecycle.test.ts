@@ -2,7 +2,7 @@
  * Tests for daemon lifecycle module.
  *
  * Covers:
- *  - startDaemon() writes .lanes/daemon.pid and .lanes/daemon.port files
+ *  - startDaemon() writes machine-wide daemon state
  *  - stopDaemon() removes the PID/port files
  *  - isDaemonRunning() returns false when no PID file exists
  *  - getDaemonPort() / getDaemonPid() return values from files or undefined
@@ -25,6 +25,7 @@ import {
     getDaemonPort,
     getDaemonPid,
     getDaemonLogPath,
+    getMachineDaemonState,
 } from '../../daemon/lifecycle';
 
 // ---------------------------------------------------------------------------
@@ -81,7 +82,7 @@ suite('daemon lifecycle', () => {
         const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
         assert.ok(!isNaN(pid) && pid > 0, 'PID file should contain a positive integer');
 
-        await stopDaemon(tempDir);
+        await stopDaemon();
     });
 
     test('Given a call to startDaemon(), when the daemon starts, then the log file is created', async () => {
@@ -95,7 +96,7 @@ suite('daemon lifecycle', () => {
 
         assert.ok(fs.existsSync(getDaemonLogPath()), 'daemon log should be created by startDaemon()');
 
-        await stopDaemon(tempDir);
+        await stopDaemon();
     });
 
     test('Given the daemon process exits immediately, when startDaemon() is called, then it rejects with a startup error', async () => {
@@ -121,7 +122,7 @@ suite('daemon lifecycle', () => {
         const killStub = sinon.stub(process, 'kill');
 
         // Act
-        await stopDaemon(tempDir);
+        await stopDaemon();
 
         // Assert
         killStub.restore();
@@ -137,7 +138,7 @@ suite('daemon lifecycle', () => {
         const killStub = sinon.stub(process, 'kill');
 
         // Act
-        await stopDaemon(tempDir);
+        await stopDaemon();
 
         // Assert
         killStub.restore();
@@ -152,7 +153,7 @@ suite('daemon lifecycle', () => {
         const killStub = sinon.stub(process, 'kill');
 
         // Act
-        await stopDaemon(tempDir);
+        await stopDaemon();
 
         // Assert
         killStub.restore();
@@ -163,7 +164,7 @@ suite('daemon lifecycle', () => {
 
     test('Given no daemon files, when stopDaemon() is called, then it does not throw', async () => {
         // Act & Assert: should be a no-op when no PID file exists
-        await stopDaemon(tempDir);
+        await stopDaemon();
     });
 
     // -------------------------------------------------------------------------
@@ -171,7 +172,7 @@ suite('daemon lifecycle', () => {
     // -------------------------------------------------------------------------
 
     test('Given no .lanes/daemon.pid file, when isDaemonRunning is called, then it returns false', async () => {
-        const running = await isDaemonRunning(tempDir);
+        const running = await isDaemonRunning();
 
         assert.strictEqual(running, false);
     });
@@ -187,7 +188,7 @@ suite('daemon lifecycle', () => {
         );
 
         // Act
-        const running = await isDaemonRunning(tempDir);
+        const running = await isDaemonRunning();
 
         // Assert
         killStub.restore();
@@ -201,7 +202,7 @@ suite('daemon lifecycle', () => {
         fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(process.pid), 'utf-8');
 
         // Act
-        const running = await isDaemonRunning(tempDir);
+        const running = await isDaemonRunning();
 
         // Assert
         assert.strictEqual(running, true);
@@ -212,7 +213,7 @@ suite('daemon lifecycle', () => {
     // -------------------------------------------------------------------------
 
     test('Given no port file, when getDaemonPort is called, then it returns undefined', async () => {
-        const port = await getDaemonPort(tempDir);
+        const port = await getDaemonPort();
         assert.strictEqual(port, undefined);
     });
 
@@ -223,14 +224,14 @@ suite('daemon lifecycle', () => {
         fs.writeFileSync(path.join(lanesDir, 'daemon.port'), '3000', 'utf-8');
 
         // Act
-        const port = await getDaemonPort(tempDir);
+        const port = await getDaemonPort();
 
         // Assert
         assert.strictEqual(port, 3000);
     });
 
     test('Given no PID file, when getDaemonPid is called, then it returns undefined', async () => {
-        const pid = await getDaemonPid(tempDir);
+        const pid = await getDaemonPid();
         assert.strictEqual(pid, undefined);
     });
 
@@ -241,7 +242,7 @@ suite('daemon lifecycle', () => {
         fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), '12345', 'utf-8');
 
         // Act
-        const pid = await getDaemonPid(tempDir);
+        const pid = await getDaemonPid();
 
         // Assert
         assert.strictEqual(pid, 12345);
@@ -254,7 +255,7 @@ suite('daemon lifecycle', () => {
         fs.writeFileSync(path.join(lanesDir, 'daemon.port'), 'not-a-number', 'utf-8');
 
         // Act
-        const port = await getDaemonPort(tempDir);
+        const port = await getDaemonPort();
 
         // Assert
         assert.strictEqual(port, undefined);
@@ -267,9 +268,25 @@ suite('daemon lifecycle', () => {
         fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), 'not-a-number', 'utf-8');
 
         // Act
-        const pid = await getDaemonPid(tempDir);
+        const pid = await getDaemonPid();
 
         // Assert
         assert.strictEqual(pid, undefined);
+    });
+
+    test('Given a running daemon with legacy global files but no daemon.startedAt, when getMachineDaemonState is called, then it still returns daemon metadata', async () => {
+        const lanesDir = path.join(tempDir, '.lanes');
+        fs.mkdirSync(lanesDir, { recursive: true });
+        fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(process.pid), 'utf-8');
+        fs.writeFileSync(path.join(lanesDir, 'daemon.port'), '3000', 'utf-8');
+        fs.writeFileSync(path.join(lanesDir, 'daemon.token'), 'legacy-token', 'utf-8');
+
+        const state = await getMachineDaemonState();
+
+        assert.ok(state, 'Expected legacy daemon files to produce a machine daemon state');
+        assert.strictEqual(state?.pid, process.pid);
+        assert.strictEqual(state?.port, 3000);
+        assert.strictEqual(state?.token, 'legacy-token');
+        assert.ok(state?.startedAt, 'Compatibility state should synthesize a startedAt value');
     });
 });
