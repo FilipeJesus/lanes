@@ -80,6 +80,30 @@
     white-space: nowrap;
 }
 
+.actionBanner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3);
+    border-radius: var(--radius-lg);
+    background:
+        linear-gradient(180deg, rgba(56, 139, 253, 0.12), rgba(56, 139, 253, 0.04)),
+        var(--color-bg-overlay);
+    border: 1px solid rgba(88, 166, 255, 0.18);
+}
+
+.actionTitle {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.actionDescription {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+}
+
 /* Meta row */
 .cardMeta {
     display: flex;

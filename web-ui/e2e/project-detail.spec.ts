@@ -1,4 +1,4 @@
-import { test, expect, makeSessionInfo } from './fixtures/base';
+import { test, expect, makeProjectInfo, makeSessionInfo } from './fixtures/base';
 
 test.describe('Project Detail', () => {
     test('shows session list', async ({ page, mockApi }) => {
@@ -60,5 +60,24 @@ test.describe('Project Detail', () => {
         await page.goto(`/project/${mockApi.defaultProjectId}`);
         await page.getByRole('link', { name: 'Projects' }).click();
         await expect(page).toHaveURL('/');
+    });
+
+    test('registered offline projects show start, connect, and recovery guidance', async ({ page, mockApi }) => {
+        mockApi.withProjects([
+            makeProjectInfo({
+                projectId: 'project-offline-app',
+                projectName: 'offline-app',
+                workspaceRoot: '/home/user/projects/offline-app',
+                daemon: null,
+            }),
+        ]);
+        await mockApi.install();
+
+        await page.goto('/project/project-offline-app');
+
+        await expect(page.getByText(/daemon is offline/i)).toBeVisible();
+        await expect(page.getByText(/launch the project daemon/i)).toBeVisible();
+        await expect(page.getByText(/reconnect this page/i)).toBeVisible();
+        await expect(page.getByText(/repair stale registration/i)).toBeVisible();
     });
 });

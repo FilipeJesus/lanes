@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useDaemonConnection, __resetDaemonConnectionCacheForTests } from '../../hooks/useDaemonConnection';
 import type { DaemonInfo, GatewayProjectInfo } from '../../api/types';
 
@@ -85,6 +85,7 @@ describe('useDaemonConnection', () => {
         });
 
         expect(result.current.apiClient).not.toBeNull();
+        expect(result.current.projectState).toBe('connected');
     });
 
     it('Given a project ID that matches a known project, when the hook runs, then it returns a non-null sseClient', async () => {
@@ -110,6 +111,8 @@ describe('useDaemonConnection', () => {
 
         expect(result.current.apiClient).toBeNull();
         expect(result.current.sseClient).toBeNull();
+        expect(result.current.error).toBeNull();
+        expect(result.current.projectState).toBe('missing');
     });
 
     it('Given no project ID provided, when the hook runs, then no error is set and fetchProjects is not called', async () => {
@@ -120,6 +123,7 @@ describe('useDaemonConnection', () => {
         });
 
         expect(result.current.error).toBeNull();
+        expect(result.current.projectState).toBe('missing');
         expect(vi.mocked(fetchProjects)).not.toHaveBeenCalled();
     });
 
@@ -135,6 +139,24 @@ describe('useDaemonConnection', () => {
         });
 
         expect(result.current.daemonInfo?.projectName).toBe('api-service');
+    });
+
+    it('Given a registered project without a daemon, when the hook resolves, then it returns an offline state without an error', async () => {
+        vi.mocked(fetchProjects).mockResolvedValue([
+            makeProjectInfo({ status: 'registered', daemon: null }),
+        ]);
+
+        const { result } = renderHook(() => useDaemonConnection('project-123'));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.apiClient).toBeNull();
+        expect(result.current.sseClient).toBeNull();
+        expect(result.current.error).toBeNull();
+        expect(result.current.projectState).toBe('offline');
+        expect(result.current.daemonInfo?.projectName).toBe('my-app');
     });
 
     it('Given two hook mounts for the same project ID, when the second mount occurs within cache TTL, then fetchProjects is called once', async () => {
@@ -153,5 +175,55 @@ describe('useDaemonConnection', () => {
         second.unmount();
 
         expect(vi.mocked(fetchProjects)).toHaveBeenCalledTimes(1);
+    });
+
+    it('Given refresh() is called, when the project registry changed, then the hook refetches and updates the connection state', async () => {
+        vi.mocked(fetchProjects)
+            .mockResolvedValueOnce([makeProjectInfo({ status: 'registered', daemon: null })])
+            .mockResolvedValueOnce([makeProjectInfo()]);
+
+        const { result } = renderHook(() => useDaemonConnection('project-123'));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.projectState).toBe('offline');
+
+        result.current.refresh();
+
+        await waitFor(() => {
+            expect(result.current.projectState).toBe('connected');
+        });
+
+        expect(vi.mocked(fetchProjects)).toHaveBeenCalledTimes(2);
+    });
+
+    it('Given two mounted consumers, when one refreshes, then both hook instances reconnect from the shared invalidation', async () => {
+        vi.mocked(fetchProjects)
+            .mockResolvedValueOnce([makeProjectInfo({ status: 'registered', daemon: null })])
+            .mockResolvedValueOnce([makeProjectInfo()]);
+
+        const first = renderHook(() => useDaemonConnection('project-123'));
+        const second = renderHook(() => useDaemonConnection('project-123'));
+
+        await waitFor(() => {
+            expect(first.result.current.loading).toBe(false);
+            expect(second.result.current.loading).toBe(false);
+        });
+
+        expect(first.result.current.projectState).toBe('offline');
+        expect(second.result.current.projectState).toBe('offline');
+
+        act(() => {
+            first.result.current.refresh();
+        });
+
+        await waitFor(() => {
+            expect(first.result.current.projectState).toBe('connected');
+            expect(second.result.current.projectState).toBe('connected');
+        });
+
+        expect(vi.mocked(fetchProjects)).toHaveBeenCalledTimes(2);
     });
 });

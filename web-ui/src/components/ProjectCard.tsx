@@ -1,5 +1,5 @@
 /**
- * ProjectCard — displays a summary card for a single running Lanes daemon.
+ * ProjectCard — displays a summary card for a registered Lanes project.
  *
  * Shows the project name, git remote, session count, uptime, and a colour-coded
  * health indicator. Clicking the card navigates to the project detail view.
@@ -50,23 +50,20 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
     const navigate = useNavigate();
 
     const projectName = discovery?.projectName ?? daemon?.projectName ?? project.projectName;
-    const gitRemote = discovery?.gitRemote ?? null;
+    const secondaryLabel = discovery?.gitRemote ?? project.workspaceRoot;
     const sessionCount = discovery?.sessionCount ?? 0;
     const uptime = daemon ? formatUptime(uptimeSeconds(daemon.startedAt)) : 'Not running';
     const portLabel = daemon ? String(daemon.port) : 'Offline';
-    const isRunning = daemon !== null;
+    const statusLabel = daemon ? 'Live daemon' : 'Ready to start';
+    const statusDescription = daemon
+        ? 'Open this project to manage sessions.'
+        : 'Open setup, run lanes daemon start, then refresh the project.';
 
     function handleClick() {
-        if (!daemon) {
-            return;
-        }
         void navigate(`/project/${project.projectId}`);
     }
 
     function handleKeyDown(e: React.KeyboardEvent) {
-        if (!daemon) {
-            return;
-        }
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             void navigate(`/project/${project.projectId}`);
@@ -76,11 +73,11 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
     return (
         <div
             className={styles.card}
-            role={isRunning ? 'button' : 'article'}
-            tabIndex={isRunning ? 0 : undefined}
+            role="button"
+            tabIndex={0}
             onClick={handleClick}
             onKeyDown={handleKeyDown}
-            aria-label={isRunning ? `Open project ${projectName}` : `Registered project ${projectName}`}
+            aria-label={`Open project ${projectName}`}
         >
             <div className={styles.cardHeader}>
                 <h2 className={styles.projectName}>{projectName}</h2>
@@ -92,11 +89,16 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
                 />
             </div>
 
-            {gitRemote && (
-                <p className={styles.gitRemote} title={gitRemote}>
-                    {gitRemote}
+            {secondaryLabel && (
+                <p className={styles.gitRemote} title={secondaryLabel}>
+                    {secondaryLabel}
                 </p>
             )}
+
+            <div className={styles.actionBanner}>
+                <span className={styles.actionTitle}>{statusLabel}</span>
+                <span className={styles.actionDescription}>{statusDescription}</span>
+            </div>
 
             <div className={styles.cardMeta}>
                 <span className={styles.metaItem}>
