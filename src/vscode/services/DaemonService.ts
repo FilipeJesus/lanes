@@ -51,7 +51,7 @@ export class DaemonService implements vscode.Disposable {
             const running = await isDaemonRunning(this.workspaceRoot);
 
             if (!running) {
-                const serverPath = path.join(this.extensionPath, 'out', 'daemon', 'server.js');
+                const serverPath = path.join(this.extensionPath, 'out', 'daemon.js');
                 await startDaemon({ workspaceRoot: this.workspaceRoot, serverPath });
 
                 // Poll until the daemon writes its port file (it may need a moment)

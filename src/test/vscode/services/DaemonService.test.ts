@@ -105,7 +105,7 @@ suite('DaemonService', () => {
         assert.ok(startDaemonStub.calledOnce, 'startDaemon should be called when daemon is not running');
         const callArgs = startDaemonStub.firstCall.args[0] as lifecycle.StartDaemonOptions;
         assert.strictEqual(callArgs.workspaceRoot, tempDir, 'workspaceRoot should match');
-        const expectedServerPath = path.join(extensionPath, 'out', 'daemon', 'server.js');
+        const expectedServerPath = path.join(extensionPath, 'out', 'daemon.js');
         assert.strictEqual(callArgs.serverPath, expectedServerPath, 'serverPath should point to bundled server');
         assert.ok(service.getClient() !== undefined, 'getClient() should return a client after successful init');
 

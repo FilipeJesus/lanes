@@ -146,6 +146,19 @@ describe('Dashboard', () => {
         expect(screen.getByText(/lanes daemon register \./i)).toBeInTheDocument();
     });
 
+    it('Given empty state, then the onboarding copy explains that projects are registered first and daemons start later', () => {
+        mockUseDaemons.mockReturnValue({
+            daemons: [],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+        });
+
+        renderDashboard();
+
+        expect(screen.getByText(/register a repo first, then start its local daemon when you need it/i)).toBeInTheDocument();
+    });
+
     it('Given useDaemons returns 3 daemons, then 3 ProjectCard elements are rendered', () => {
         mockUseDaemons.mockReturnValue({
             daemons: [

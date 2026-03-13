@@ -4,8 +4,10 @@
  * Covers:
  *  - Constructor with port option
  *  - Constructor with baseUrl option (trailing slash stripped)
+ *  - Constructor with projectId prefixes project-scoped routes
  *  - Constructor throws when neither port nor baseUrl is given
  *  - fromWorkspace() static factory reads daemon.port and daemon.token files
+ *  - fromWorkspace() auto-registers the workspace and uses project-scoped routes
  *  - fromWorkspace() throws when port file is absent
  *  - health() sends GET /api/v1/health without Authorization header
  *  - All other methods include Authorization: Bearer <token>
@@ -52,6 +54,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { DaemonClient, DaemonHttpError } from '../../daemon/client';
+import { createProjectId, getProjectsRegistryPath } from '../../daemon/registry';
 import { ValidationError } from '../../core/errors/ValidationError';
 
 // ---------------------------------------------------------------------------
@@ -141,6 +144,10 @@ function makeClient(port: number): DaemonClient {
     return new DaemonClient({ port, token: TEST_TOKEN });
 }
 
+function makeProjectClient(port: number, projectId = 'project-123'): DaemonClient {
+    return new DaemonClient({ port, token: TEST_TOKEN, projectId });
+}
+
 // ---------------------------------------------------------------------------
 // Helper: decode a `?a=1&b=2` query string into an object
 // ---------------------------------------------------------------------------
@@ -203,6 +210,18 @@ suite('DaemonClient', () => {
         }
     });
 
+    test('Given projectId, when constructing DaemonClient, then project-scoped requests include /api/v1/projects/:projectId', async () => {
+        const helper = await startTestServer(() => ({ status: 200, body: { sessions: [] } }));
+        try {
+            const client = makeProjectClient(helper.port(), 'payments');
+            await client.listSessions();
+
+            assert.strictEqual(helper.captured[0].url, '/api/v1/projects/payments/sessions');
+        } finally {
+            await helper.close();
+        }
+    });
+
     test('Given neither port nor baseUrl, when constructing DaemonClient, then it throws', () => {
         assert.throws(
             () => new DaemonClient({ token: TEST_TOKEN } as never),
@@ -233,7 +252,7 @@ suite('DaemonClient', () => {
             fs.rmSync(tempDir, { recursive: true, force: true });
         });
 
-        test('Given global daemon.port and daemon.token plus a workspace, when fromWorkspace is called, then DaemonClient is constructed', async () => {
+        test('Given global daemon.port and daemon.token plus an unregistered workspace, when fromWorkspace is called, then it registers the workspace and constructs a project-scoped client', async () => {
             // Arrange
             const workspaceRoot = path.join(tempDir, 'workspace');
             fs.mkdirSync(workspaceRoot, { recursive: true });
@@ -245,8 +264,43 @@ suite('DaemonClient', () => {
             // Act
             const client = await DaemonClient.fromWorkspace(workspaceRoot);
 
-            // Assert — client should be a DaemonClient instance
+            // Assert — client should be a DaemonClient instance and register the workspace
             assert.ok(client instanceof DaemonClient, 'fromWorkspace should return a DaemonClient');
+
+            const projectsRegistryPath = getProjectsRegistryPath();
+            const rawRegistry = JSON.parse(fs.readFileSync(projectsRegistryPath, 'utf-8')) as Array<{
+                projectId: string;
+                projectName: string;
+                workspaceRoot: string;
+            }>;
+            assert.strictEqual(rawRegistry.length, 1, 'Workspace should be added to the global projects registry');
+            assert.strictEqual(rawRegistry[0].workspaceRoot, workspaceRoot);
+            assert.strictEqual(rawRegistry[0].projectName, 'workspace');
+            assert.strictEqual(rawRegistry[0].projectId, createProjectId(workspaceRoot));
+        });
+
+        test('Given fromWorkspace() returned a client, when it makes requests, then they use the registered projectId route prefix', async () => {
+            const workspaceRoot = path.join(tempDir, 'workspace');
+            fs.mkdirSync(workspaceRoot, { recursive: true });
+            const lanesDir = path.join(tempDir, '.lanes');
+            fs.mkdirSync(lanesDir, { recursive: true });
+            fs.writeFileSync(path.join(lanesDir, 'daemon.token'), TEST_TOKEN, 'utf-8');
+
+            const helper = await startTestServer(() => ({ status: 200, body: { sessions: [] } }));
+            fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(helper.port()), 'utf-8');
+
+            try {
+                const client = await DaemonClient.fromWorkspace(workspaceRoot);
+                await client.listSessions();
+
+                const expectedProjectId = createProjectId(workspaceRoot);
+                assert.strictEqual(
+                    helper.captured[0].url,
+                    `/api/v1/projects/${expectedProjectId}/sessions`
+                );
+            } finally {
+                await helper.close();
+            }
         });
 
         test('Given no global daemon.port file, when fromWorkspace is called, then it throws', async () => {
@@ -412,7 +466,13 @@ suite('DaemonClient', () => {
         test('Given opts, when createSession() is called, then POST /api/v1/sessions is made with that body', async () => {
             const helper = await startTestServer(() => ({
                 status: 200,
-                body: { sessionName: 'test' },
+                body: {
+                    sessionName: 'test',
+                    sessionId: 'session-123',
+                    worktreePath: '/tmp/test',
+                    command: 'lanes open test',
+                    terminalMode: 'vscode',
+                },
             }));
             try {
                 const client = makeClient(helper.port());
@@ -428,7 +488,13 @@ suite('DaemonClient', () => {
         });
 
         test('Given a 200 response, when createSession() resolves, then the result matches the response body', async () => {
-            const responseBody = { sessionName: 'test', worktreePath: '/tmp/test' };
+            const responseBody = {
+                sessionName: 'test',
+                sessionId: 'session-123',
+                worktreePath: '/tmp/test',
+                command: 'lanes open test',
+                terminalMode: 'vscode',
+            };
             const helper = await startTestServer(() => ({ status: 200, body: responseBody }));
             try {
                 const client = makeClient(helper.port());
@@ -497,7 +563,15 @@ suite('DaemonClient', () => {
 
     suite('openSession()', () => {
         test('Given session name, when openSession() is called, then POST /api/v1/sessions/:name/open is made', async () => {
-            const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
+            const helper = await startTestServer(() => ({
+                status: 200,
+                body: {
+                    success: true,
+                    worktreePath: '/tmp/my-session',
+                    command: 'lanes open my-session',
+                    terminalMode: 'vscode',
+                },
+            }));
             try {
                 const client = makeClient(helper.port());
                 await client.openSession('my-session');
@@ -510,7 +584,15 @@ suite('DaemonClient', () => {
         });
 
         test('Given session name and opts, when openSession() is called, then opts are sent as body', async () => {
-            const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
+            const helper = await startTestServer(() => ({
+                status: 200,
+                body: {
+                    success: true,
+                    worktreePath: '/tmp/my-session',
+                    command: 'lanes open my-session',
+                    terminalMode: 'vscode',
+                },
+            }));
             try {
                 const client = makeClient(helper.port());
                 await client.openSession('my-session', { newWindow: true });
@@ -645,7 +727,10 @@ suite('DaemonClient', () => {
 
     suite('repairWorktrees()', () => {
         test('Given a call to repairWorktrees(), then POST /api/v1/git/repair is made', async () => {
-            const helper = await startTestServer(() => ({ status: 200, body: { repaired: [] } }));
+            const helper = await startTestServer(() => ({
+                status: 200,
+                body: { broken: [], repairResult: { successCount: 0, failures: [] } },
+            }));
             try {
                 const client = makeClient(helper.port());
                 await client.repairWorktrees();
@@ -811,7 +896,7 @@ suite('DaemonClient', () => {
 
     suite('validateWorkflow()', () => {
         test('Given workflow content, when validateWorkflow() is called, then POST /api/v1/workflows/validate is made with body', async () => {
-            const helper = await startTestServer(() => ({ status: 200, body: { valid: true } }));
+            const helper = await startTestServer(() => ({ status: 200, body: { isValid: true, errors: [] } }));
             try {
                 const client = makeClient(helper.port());
                 const content = { name: 'my-workflow', steps: [] };
@@ -828,7 +913,7 @@ suite('DaemonClient', () => {
 
     suite('createWorkflow()', () => {
         test('Given name and content, when createWorkflow() is called, then POST /api/v1/workflows is made with { name, content }', async () => {
-            const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
+            const helper = await startTestServer(() => ({ status: 200, body: { path: '/tmp/my-wf.yaml' } }));
             try {
                 const client = makeClient(helper.port());
                 await client.createWorkflow('my-wf', { steps: ['a', 'b'] });
@@ -1014,7 +1099,10 @@ suite('DaemonClient', () => {
         test('Given opts, when createTerminal() is called, then POST /api/v1/terminals is made with body', async () => {
             const helper = await startTestServer(() => ({
                 status: 200,
-                body: { terminalName: 'term-1' },
+                body: {
+                    terminalName: 'term-1',
+                    attachCommand: 'tmux attach-session -t "term-1"',
+                },
             }));
             try {
                 const client = makeClient(helper.port());
@@ -1033,7 +1121,7 @@ suite('DaemonClient', () => {
     });
 
     suite('sendToTerminal()', () => {
-        test('Given name and text, when sendToTerminal() is called, then POST /api/v1/terminals/:name/send is made with { command: text }', async () => {
+        test('Given name and text, when sendToTerminal() is called, then POST /api/v1/terminals/:name/send is made with { text }', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
