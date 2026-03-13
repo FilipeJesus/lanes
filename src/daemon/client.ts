@@ -16,7 +16,7 @@
 import * as http from 'http';
 import { ValidationError } from '../core/errors/ValidationError';
 import { LanesError } from '../core/errors/LanesError';
-import { getDaemonPort } from './lifecycle';
+import { getDaemonPort, getDaemonLogPath } from './lifecycle';
 import { readTokenFile } from './auth';
 import { getRegisteredProjectByWorkspace, registerProject } from './registry';
 import type {
@@ -158,7 +158,9 @@ export class DaemonClient {
         const resolved = await ensureProjectRegistered(workspaceRoot);
         const port = await getDaemonPort();
         if (port === undefined) {
-            throw new Error('Daemon port file not found or invalid. Is the daemon running?');
+            throw new Error(
+                `Daemon port file not found or invalid. Is the daemon running? Log: ${getDaemonLogPath()}`
+            );
         }
         const token = await readTokenFile();
         return new DaemonClient({ port, token, projectId: resolved.projectId });

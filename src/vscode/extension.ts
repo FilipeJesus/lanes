@@ -194,21 +194,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (useDaemon && baseRepoPath) {
         daemonService = new DaemonService(baseRepoPath, context.extensionPath, () => sessionProvider.refresh());
         try {
-            await Promise.race([
-                daemonService.initialize(),
-                new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Daemon initialization timed out')), 5000))
-            ]);
+            await daemonService.initialize();
             // Wire daemon client into the session tree provider
             if (daemonService.isEnabled()) {
                 sessionProvider.setDaemonClient(daemonService.getClient());
                 sessionProvider.refresh();
+            } else {
+                const daemonError = daemonService.getLastError();
+                if (daemonError) {
+                    void showDaemonUnavailableMessage(daemonError);
+                }
             }
         } catch (err) {
-            const message = `Lanes daemon mode is enabled, but startup failed: ${getErrorMessage(err)}`;
-            console.error(message);
-            void vscode.window.showErrorMessage(
-                `${message}. Check ${getDaemonLogPath()} and reload the window after fixing it, or disable "Lanes: Use Daemon".`
-            );
+            console.error('Lanes: Failed to initialize daemon service:', getErrorMessage(err));
+            void showDaemonUnavailableMessage(getErrorMessage(err));
             daemonService = undefined;
         }
     }
@@ -579,4 +578,22 @@ export function deactivate(): void {
     clearProjectManagerCache();
     // Dispose all active polling trackers for hookless agents
     disposeAllPolling();
+}
+
+async function showDaemonUnavailableMessage(details: string): Promise<void> {
+    const selection = await vscode.window.showWarningMessage(
+        `Lanes daemon unavailable; using local mode. ${details}`,
+        'Open Log'
+    );
+
+    if (selection !== 'Open Log') {
+        return;
+    }
+
+    try {
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(getDaemonLogPath()));
+        await vscode.window.showTextDocument(document, { preview: false });
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to open daemon log: ${getErrorMessage(err)}`);
+    }
 }

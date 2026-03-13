@@ -54,6 +54,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { DaemonClient, DaemonHttpError } from '../../daemon/client';
+import { getDaemonLogPath } from '../../daemon/lifecycle';
 import { createProjectId, getProjectsRegistryPath } from '../../daemon/registry';
 import { ValidationError } from '../../core/errors/ValidationError';
 
@@ -327,6 +328,10 @@ suite('DaemonClient', () => {
             assert.ok(
                 (thrown as Error).message.includes('Daemon port file not found'),
                 'Error message should mention the port file'
+            );
+            assert.ok(
+                (thrown as Error).message.includes(getDaemonLogPath()),
+                'Error message should include the daemon log path'
             );
         });
     });

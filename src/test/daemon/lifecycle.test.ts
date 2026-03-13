@@ -1,16 +1,5 @@
 /**
  * Tests for daemon lifecycle module.
- *
- * Covers:
- *  - startDaemon() writes machine-wide daemon state
- *  - stopDaemon() removes the PID/port files
- *  - isDaemonRunning() returns false when no PID file exists
- *  - getDaemonPort() / getDaemonPid() return values from files or undefined
- *
- * NOTE: child_process.spawn is non-configurable in Node.js and cannot be
- * stubbed via Sinon directly.  For the startDaemon tests we launch a real
- * short-lived process (node --version) so the child gets a real PID.
- * For stopDaemon we simulate existing daemon files by writing them by hand.
  */
 
 import * as assert from 'assert';
@@ -19,20 +8,18 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import {
+    DaemonStartupError,
+    getDaemonErrorSummary,
+    getDaemonLogPath,
+    getDaemonPid,
+    getDaemonPort,
+    getMachineDaemonState,
+    isDaemonRunning,
+    readDaemonLogTail,
     startDaemon,
     stopDaemon,
-    isDaemonRunning,
-    getDaemonPort,
-    getDaemonPid,
-    getDaemonLogPath,
-    getMachineDaemonState,
 } from '../../daemon/lifecycle';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Write fake global daemon PID/port files to simulate a running daemon. */
 function writeFakeDaemonFiles(homeDir: string, pid: number, port: number): void {
     const lanesDir = path.join(homeDir, '.lanes');
     fs.mkdirSync(lanesDir, { recursive: true });
@@ -40,9 +27,47 @@ function writeFakeDaemonFiles(homeDir: string, pid: number, port: number): void 
     fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(port), 'utf-8');
 }
 
-// ---------------------------------------------------------------------------
-// Suite
-// ---------------------------------------------------------------------------
+function writeScript(tempDir: string, fileName: string, content: string): string {
+    const scriptPath = path.join(tempDir, fileName);
+    fs.writeFileSync(scriptPath, content, 'utf-8');
+    return scriptPath;
+}
+
+function createReadyDaemonScript(tempDir: string): string {
+    return writeScript(
+        tempDir,
+        'ready-daemon.js',
+        [
+            'const fs = require("fs");',
+            'const path = require("path");',
+            'const os = require("os");',
+            'const lanesDir = path.join(process.env.HOME || os.homedir(), ".lanes");',
+            'fs.mkdirSync(lanesDir, { recursive: true });',
+            'const portIndex = process.argv.indexOf("--port");',
+            'const requestedPort = portIndex >= 0 ? Number(process.argv[portIndex + 1]) : 0;',
+            'const port = requestedPort > 0 ? requestedPort : 4317;',
+            'const startedAt = new Date().toISOString();',
+            'fs.writeFileSync(path.join(lanesDir, "daemon.pid"), String(process.pid), "utf-8");',
+            'fs.writeFileSync(path.join(lanesDir, "daemon.port"), String(port), "utf-8");',
+            'fs.writeFileSync(path.join(lanesDir, "daemon.token"), "test-token", "utf-8");',
+            'fs.writeFileSync(path.join(lanesDir, "daemon.startedAt"), startedAt, "utf-8");',
+            'process.stderr.write(`[Daemon] ready on ${port}\\n`);',
+            'setInterval(() => {}, 1000);',
+            'process.on("SIGTERM", () => process.exit(0));',
+        ].join('\n')
+    );
+}
+
+function createFailingDaemonScript(tempDir: string): string {
+    return writeScript(
+        tempDir,
+        'failing-daemon.js',
+        [
+            'process.stderr.write("[Daemon] fatal bootstrap issue\\n");',
+            'process.exit(1);',
+        ].join('\n')
+    );
+}
 
 suite('daemon lifecycle', () => {
     let tempDir: string;
@@ -64,217 +89,136 @@ suite('daemon lifecycle', () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    // -------------------------------------------------------------------------
-    // daemon-lifecycle-pid-port-files
-    // -------------------------------------------------------------------------
-
-    test('Given a call to startDaemon(), when the daemon starts, then .lanes/daemon.pid is created', async () => {
-        const serverPath = path.join(tempDir, 'fake-daemon.js');
-        fs.writeFileSync(serverPath, 'setTimeout(() => process.exit(0), 5000);\n', 'utf-8');
-        await startDaemon({
+    test('startDaemon waits for readiness, writes lifecycle files, and reports the log path', async () => {
+        const serverPath = createReadyDaemonScript(tempDir);
+        const result = await startDaemon({
             workspaceRoot: tempDir,
             port: 4242,
             serverPath,
         });
 
-        const pidPath = path.join(tempDir, '.lanes', 'daemon.pid');
-        assert.ok(fs.existsSync(pidPath), '.lanes/daemon.pid should be created by startDaemon()');
-        const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
-        assert.ok(!isNaN(pid) && pid > 0, 'PID file should contain a positive integer');
+        try {
+            const pidPath = path.join(tempDir, '.lanes', 'daemon.pid');
+            const portPath = path.join(tempDir, '.lanes', 'daemon.port');
 
-        await stopDaemon();
+            assert.strictEqual(result.reusedExisting, false);
+            assert.strictEqual(result.port, 4242);
+            assert.strictEqual(result.logPath, getDaemonLogPath());
+            assert.ok(fs.existsSync(pidPath), 'daemon.pid should exist after successful startup');
+            assert.ok(fs.existsSync(portPath), 'daemon.port should exist after successful startup');
+            assert.strictEqual(await isDaemonRunning(), true);
+        } finally {
+            await stopDaemon();
+        }
     });
 
-    test('Given a call to startDaemon(), when the daemon starts, then the log file is created', async () => {
-        const serverPath = path.join(tempDir, 'fake-daemon.js');
-        fs.writeFileSync(serverPath, 'setTimeout(() => process.exit(0), 5000);\n', 'utf-8');
-        await startDaemon({
+    test('startDaemon reuses an already-running daemon and keeps the same lifecycle data', async () => {
+        const serverPath = createReadyDaemonScript(tempDir);
+        const first = await startDaemon({
             workspaceRoot: tempDir,
             port: 4242,
             serverPath,
         });
 
-        assert.ok(fs.existsSync(getDaemonLogPath()), 'daemon log should be created by startDaemon()');
+        try {
+            const second = await startDaemon({
+                workspaceRoot: tempDir,
+                port: 4242,
+                serverPath,
+            });
 
-        await stopDaemon();
+            assert.strictEqual(second.reusedExisting, true);
+            assert.strictEqual(second.pid, first.pid);
+            assert.strictEqual(second.port, first.port);
+            assert.strictEqual(second.logPath, first.logPath);
+        } finally {
+            await stopDaemon();
+        }
     });
 
-    test('Given the daemon process exits immediately, when startDaemon() is called, then it rejects with a startup error', async () => {
-        const serverPath = path.join(tempDir, 'failing-daemon.js');
-        fs.writeFileSync(serverPath, 'process.exit(1);\n', 'utf-8');
+    test('startDaemon surfaces recent log output when startup fails', async () => {
+        const serverPath = createFailingDaemonScript(tempDir);
 
         await assert.rejects(
-            () => startDaemon({ workspaceRoot: tempDir, port: 4242, serverPath }),
-            /exited before startup completed/
+            async () => startDaemon({ workspaceRoot: tempDir, port: 4242, serverPath }),
+            (err: unknown) => {
+                assert.ok(err instanceof DaemonStartupError);
+                assert.match(err.message, /Failed to start daemon:/);
+                assert.match(err.message, /fatal bootstrap issue/);
+                assert.match(getDaemonErrorSummary(err), /Log:/);
+                return true;
+            }
         );
 
-        const pidPath = path.join(tempDir, '.lanes', 'daemon.pid');
-        assert.ok(!fs.existsSync(pidPath), 'daemon.pid should be cleaned up when startup fails');
+        const logTail = await readDaemonLogTail(10);
+        assert.ok(
+            logTail.some((line) => line.includes('fatal bootstrap issue')),
+            'daemon log tail should include the startup failure'
+        );
     });
 
-    test('Given running daemon files, when stopDaemon() is called, then the PID file is removed', async () => {
-        // Arrange: write fake daemon files (pretend the daemon is the current process)
-        writeFakeDaemonFiles(tempDir, process.pid, 4242);
-        const pidPath = path.join(tempDir, '.lanes', 'daemon.pid');
-        assert.ok(fs.existsSync(pidPath), 'Precondition: PID file should exist');
+    test('readDaemonLogTail returns the requested number of recent lines', async () => {
+        const logPath = getDaemonLogPath();
+        fs.mkdirSync(path.dirname(logPath), { recursive: true });
+        fs.writeFileSync(logPath, ['one', 'two', 'three', 'four'].join('\n'), 'utf-8');
 
-        // Stub process.kill so we don't actually kill ourselves
-        const killStub = sinon.stub(process, 'kill');
+        const tail = await readDaemonLogTail(2);
 
-        // Act
-        await stopDaemon();
-
-        // Assert
-        killStub.restore();
-        assert.ok(!fs.existsSync(pidPath), 'PID file should be removed after stopDaemon()');
+        assert.deepStrictEqual(tail, ['three', 'four']);
     });
 
-    test('Given running daemon files, when stopDaemon() is called, then the port file is removed', async () => {
-        // Arrange
-        writeFakeDaemonFiles(tempDir, process.pid, 4242);
+    test('stopDaemon removes lifecycle files and sends SIGTERM to the daemon pid', async () => {
+        writeFakeDaemonFiles(tempDir, 12345, 4242);
+        const pidPath = path.join(tempDir, '.lanes', 'daemon.pid');
         const portPath = path.join(tempDir, '.lanes', 'daemon.port');
-        assert.ok(fs.existsSync(portPath), 'Precondition: port file should exist');
-
         const killStub = sinon.stub(process, 'kill');
 
-        // Act
         await stopDaemon();
 
-        // Assert
         killStub.restore();
-        assert.ok(!fs.existsSync(portPath), 'Port file should be removed after stopDaemon()');
+        assert.ok(killStub.calledOnce);
+        assert.strictEqual(killStub.firstCall.args[0], 12345);
+        assert.strictEqual(killStub.firstCall.args[1], 'SIGTERM');
+        assert.ok(!fs.existsSync(pidPath));
+        assert.ok(!fs.existsSync(portPath));
     });
 
-    test('Given running daemon files, when stopDaemon() is called, then process.kill is invoked with SIGTERM', async () => {
-        // Arrange
-        const fakePid = 12345;
-        writeFakeDaemonFiles(tempDir, fakePid, 4242);
-
-        const killStub = sinon.stub(process, 'kill');
-
-        // Act
-        await stopDaemon();
-
-        // Assert
-        killStub.restore();
-        assert.ok(killStub.calledOnce, 'process.kill should be called once');
-        assert.strictEqual(killStub.firstCall.args[0], fakePid, 'process.kill should be called with the PID from the file');
-        assert.strictEqual(killStub.firstCall.args[1], 'SIGTERM', 'process.kill should be called with SIGTERM');
+    test('isDaemonRunning returns false when the pid file is missing', async () => {
+        assert.strictEqual(await isDaemonRunning(), false);
     });
 
-    test('Given no daemon files, when stopDaemon() is called, then it does not throw', async () => {
-        // Act & Assert: should be a no-op when no PID file exists
-        await stopDaemon();
-    });
-
-    // -------------------------------------------------------------------------
-    // daemon-lifecycle-is-running
-    // -------------------------------------------------------------------------
-
-    test('Given no .lanes/daemon.pid file, when isDaemonRunning is called, then it returns false', async () => {
-        const running = await isDaemonRunning();
-
-        assert.strictEqual(running, false);
-    });
-
-    test('Given a PID file with a non-existent PID, when isDaemonRunning is called, then it returns false', async () => {
-        // Arrange: write a PID file and stub process.kill to throw ESRCH
-        const lanesDir = path.join(tempDir, '.lanes');
-        fs.mkdirSync(lanesDir, { recursive: true });
-        fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), '999999999', 'utf-8');
-
+    test('isDaemonRunning returns false and clears stale lifecycle files for a dead pid', async () => {
+        writeFakeDaemonFiles(tempDir, 999999999, 4242);
         const killStub = sinon.stub(process, 'kill').throws(
             Object.assign(new Error('kill ESRCH 999999999'), { code: 'ESRCH' })
         );
 
-        // Act
         const running = await isDaemonRunning();
 
-        // Assert
         killStub.restore();
         assert.strictEqual(running, false);
+        assert.strictEqual(fs.existsSync(path.join(tempDir, '.lanes', 'daemon.pid')), false);
+        assert.strictEqual(fs.existsSync(path.join(tempDir, '.lanes', 'daemon.port')), false);
     });
 
-    test('Given a PID file with the current process PID, when isDaemonRunning is called, then it returns true', async () => {
-        // Arrange: write the current process's PID — it is definitely alive
-        const lanesDir = path.join(tempDir, '.lanes');
-        fs.mkdirSync(lanesDir, { recursive: true });
-        fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(process.pid), 'utf-8');
+    test('getDaemonPort and getDaemonPid return parsed values from lifecycle files', async () => {
+        writeFakeDaemonFiles(tempDir, 12345, 3000);
 
-        // Act
-        const running = await isDaemonRunning();
-
-        // Assert
-        assert.strictEqual(running, true);
+        assert.strictEqual(await getDaemonPort(), 3000);
+        assert.strictEqual(await getDaemonPid(), 12345);
     });
 
-    // -------------------------------------------------------------------------
-    // getDaemonPort / getDaemonPid
-    // -------------------------------------------------------------------------
-
-    test('Given no port file, when getDaemonPort is called, then it returns undefined', async () => {
-        const port = await getDaemonPort();
-        assert.strictEqual(port, undefined);
-    });
-
-    test('Given a port file with value 3000, when getDaemonPort is called, then it returns 3000', async () => {
-        // Arrange
-        const lanesDir = path.join(tempDir, '.lanes');
-        fs.mkdirSync(lanesDir, { recursive: true });
-        fs.writeFileSync(path.join(lanesDir, 'daemon.port'), '3000', 'utf-8');
-
-        // Act
-        const port = await getDaemonPort();
-
-        // Assert
-        assert.strictEqual(port, 3000);
-    });
-
-    test('Given no PID file, when getDaemonPid is called, then it returns undefined', async () => {
-        const pid = await getDaemonPid();
-        assert.strictEqual(pid, undefined);
-    });
-
-    test('Given a PID file with value 12345, when getDaemonPid is called, then it returns 12345', async () => {
-        // Arrange
-        const lanesDir = path.join(tempDir, '.lanes');
-        fs.mkdirSync(lanesDir, { recursive: true });
-        fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), '12345', 'utf-8');
-
-        // Act
-        const pid = await getDaemonPid();
-
-        // Assert
-        assert.strictEqual(pid, 12345);
-    });
-
-    test('Given a port file with non-numeric content, when getDaemonPort is called, then it returns undefined', async () => {
-        // Arrange
+    test('getDaemonPort and getDaemonPid return undefined for invalid content', async () => {
         const lanesDir = path.join(tempDir, '.lanes');
         fs.mkdirSync(lanesDir, { recursive: true });
         fs.writeFileSync(path.join(lanesDir, 'daemon.port'), 'not-a-number', 'utf-8');
-
-        // Act
-        const port = await getDaemonPort();
-
-        // Assert
-        assert.strictEqual(port, undefined);
-    });
-
-    test('Given a PID file with non-numeric content, when getDaemonPid is called, then it returns undefined', async () => {
-        // Arrange
-        const lanesDir = path.join(tempDir, '.lanes');
-        fs.mkdirSync(lanesDir, { recursive: true });
         fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), 'not-a-number', 'utf-8');
 
-        // Act
-        const pid = await getDaemonPid();
-
-        // Assert
-        assert.strictEqual(pid, undefined);
+        assert.strictEqual(await getDaemonPort(), undefined);
+        assert.strictEqual(await getDaemonPid(), undefined);
     });
 
-    test('Given a running daemon with legacy global files but no daemon.startedAt, when getMachineDaemonState is called, then it still returns daemon metadata', async () => {
+    test('getMachineDaemonState returns metadata for legacy lifecycle files without daemon.startedAt', async () => {
         const lanesDir = path.join(tempDir, '.lanes');
         fs.mkdirSync(lanesDir, { recursive: true });
         fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(process.pid), 'utf-8');

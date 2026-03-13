@@ -1,5 +1,7 @@
 package com.lanes.jetbrainsIde.startup
 
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
@@ -41,6 +43,13 @@ class LanesStartupActivity : ProjectActivity {
             logger.info("Lanes bridge started successfully for project: ${project.name}")
         } catch (e: Exception) {
             logger.error("Failed to start Lanes bridge for project: ${project.name}", e)
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Lanes Notifications")
+                .createNotification(
+                    "Lanes bridge unavailable. ${e.message ?: "Check the IDE log for details."}",
+                    NotificationType.WARNING
+                )
+                .notify(project)
         }
     }
 }

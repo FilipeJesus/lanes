@@ -21,6 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.ArrayDeque
 
 /**
  * JSON-RPC 2.0 client for communicating with the Node.js bridge process.
@@ -61,6 +62,7 @@ class BridgeClient(
 
     private val isRestarting = AtomicBoolean(false)
     private val restartAttempts = AtomicInteger(0)
+    private val recentStderrLines = ArrayDeque<String>()
 
     /**
      * Start the bridge process and initialize the connection.
@@ -77,6 +79,7 @@ class BridgeClient(
         }
 
         try {
+            clearRecentStderr()
             process = startProcess()
             stdoutReader = BufferedReader(InputStreamReader(process!!.inputStream))
             stdinWriter = BufferedWriter(OutputStreamWriter(process!!.outputStream))
@@ -110,9 +113,10 @@ class BridgeClient(
             isInitialized = true
 
         } catch (e: Exception) {
-            logger.error("Failed to start bridge process", e)
+            val wrapped = BridgeStartupException(buildStartupFailureMessage(e), e)
+            logger.error("Failed to start bridge process", wrapped)
             cleanup()
-            throw e
+            throw wrapped
         }
     }
 
@@ -312,6 +316,7 @@ class BridgeClient(
             val stderrReader = BufferedReader(InputStreamReader(process!!.errorStream))
             while (isRunning() && !isDisposed) {
                 val line = stderrReader.readLine() ?: break
+                recordStderr(line)
                 logger.info("Bridge stderr: $line")
             }
         } catch (e: IOException) {
@@ -469,11 +474,45 @@ class BridgeClient(
 
     companion object {
         private const val MAX_RESTART_ATTEMPTS = 5
+        private const val MAX_STDERR_LINES = 10
     }
 
     /**
      * Clean up resources.
      */
+    private fun buildStartupFailureMessage(error: Exception): String {
+        val parts = mutableListOf<String>()
+        parts += error.message ?: "Unknown bridge startup error"
+
+        recentStderrSummary()?.let { stderrSummary ->
+            parts += "Recent bridge stderr:\n$stderrSummary"
+        }
+
+        return parts.joinToString("\n")
+    }
+
+    @Synchronized
+    private fun clearRecentStderr() {
+        recentStderrLines.clear()
+    }
+
+    @Synchronized
+    private fun recordStderr(line: String) {
+        if (recentStderrLines.size >= MAX_STDERR_LINES) {
+            recentStderrLines.removeFirst()
+        }
+        recentStderrLines.addLast(line)
+    }
+
+    @Synchronized
+    private fun recentStderrSummary(): String? {
+        if (recentStderrLines.isEmpty()) {
+            return null
+        }
+
+        return recentStderrLines.joinToString("\n")
+    }
+
     private fun cleanup() {
         try {
             stdinWriter?.close()
@@ -571,3 +610,8 @@ class JsonRpcException(
     override val message: String,
     val data: JsonElement?
 ) : Exception("JSON-RPC error $code: $message")
+
+class BridgeStartupException(
+    override val message: String,
+    cause: Throwable? = null
+) : IOException(message, cause)
