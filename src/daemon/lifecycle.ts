@@ -8,6 +8,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as syncFs from 'fs';
 import { spawn } from 'child_process';
 import { readTokenFile, removeTokenFile } from './auth';
 import { registerProject } from './registry';
@@ -15,6 +16,8 @@ import { registerProject } from './registry';
 const LANES_DIR = '.lanes';
 const PID_FILE = 'daemon.pid';
 const PORT_FILE = 'daemon.port';
+const LOG_FILE = 'daemon.log';
+const EARLY_EXIT_GRACE_MS = 300;
 const STARTED_AT_FILE = 'daemon.startedAt';
 
 function getGlobalLanesDir(): string {
@@ -23,6 +26,10 @@ function getGlobalLanesDir(): string {
 
 function getGlobalFilePath(fileName: string): string {
     return path.join(getGlobalLanesDir(), fileName);
+}
+
+export function getDaemonLogPath(): string {
+    return getGlobalFilePath(LOG_FILE);
 }
 
 export interface StartDaemonOptions {
@@ -54,21 +61,31 @@ export async function startDaemon(options: StartDaemonOptions): Promise<void> {
     await fs.mkdir(getGlobalLanesDir(), { recursive: true });
 
     const args = [serverPath, '--port', String(port)];
+    const logFd = syncFs.openSync(getDaemonLogPath(), 'a');
     const child = spawn(process.execPath, args, {
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', logFd, logFd],
         env: { ...process.env },
     });
-    child.unref();
+
+    syncFs.closeSync(logFd);
 
     if (child.pid === undefined) {
         throw new Error('Failed to start daemon: child process has no PID');
     }
 
     await fs.writeFile(getGlobalFilePath(PID_FILE), String(child.pid), 'utf-8');
-    if (port > 0) {
-        await fs.writeFile(getGlobalFilePath(PORT_FILE), String(port), 'utf-8');
+    try {
+        await waitForEarlyExit(child.pid, child);
+    } catch (err) {
+        await removeGlobalFile(PID_FILE);
+        await removeGlobalFile(PORT_FILE);
+        await removeGlobalFile(STARTED_AT_FILE);
+        await removeTokenFile();
+        throw err;
     }
+
+    child.unref();
 
     if (workspaceRoot) {
         await registerProjectForDaemon(workspaceRoot);
@@ -107,6 +124,23 @@ export async function isDaemonRunning(): Promise<boolean> {
         await removeTokenFile();
         return false;
     }
+}
+
+export async function waitForDaemonReady(timeoutMs = 5000, pollDelayMs = 200): Promise<number> {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        const port = await getDaemonPort();
+        if (port !== undefined && port > 0) {
+            return port;
+        }
+
+        await delay(pollDelayMs);
+    }
+
+    throw new Error(
+        `Daemon did not become ready within ${timeoutMs}ms. Check ${getDaemonLogPath()} for details.`
+    );
 }
 
 export async function getDaemonPort(): Promise<number | undefined> {
@@ -194,4 +228,41 @@ async function removeGlobalFile(fileName: string): Promise<void> {
             throw err;
         }
     }
+}
+
+async function waitForEarlyExit(pid: number, child: import('child_process').ChildProcess): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+            cleanup();
+            resolve();
+        }, EARLY_EXIT_GRACE_MS);
+
+        const handleError = (err: Error) => {
+            cleanup();
+            reject(err);
+        };
+
+        const handleExit = (code: number | null, signal: NodeJS.Signals | null) => {
+            cleanup();
+            reject(
+                new Error(
+                    `Daemon process ${pid} exited before startup completed ` +
+                    `(code=${code ?? 'null'}, signal=${signal ?? 'null'}). Check ${getDaemonLogPath()} for details.`
+                )
+            );
+        };
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            child.off('error', handleError);
+            child.off('exit', handleExit);
+        };
+
+        child.once('error', handleError);
+        child.once('exit', handleExit);
+    });
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
