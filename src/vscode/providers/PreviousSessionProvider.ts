@@ -83,7 +83,7 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
     readonly onDidChangeTreeData: vscode.Event<PreviousSessionItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
     // The effective root for finding sessions - either baseRepoPath (if in worktree) or workspaceRoot
-    private readonly sessionsRoot: string | undefined;
+    private sessionsRoot: string | undefined;
 
     /**
      * Create a new PreviousSessionProvider.
@@ -95,6 +95,11 @@ export class PreviousSessionProvider implements vscode.TreeDataProvider<Previous
         baseRepoPath?: string
     ) {
         // Use baseRepoPath for finding sessions if provided, otherwise fall back to workspaceRoot
+        this.sessionsRoot = baseRepoPath || workspaceRoot;
+    }
+
+    updateRoots(workspaceRoot: string | undefined, baseRepoPath?: string): void {
+        this.workspaceRoot = workspaceRoot;
         this.sessionsRoot = baseRepoPath || workspaceRoot;
     }
 

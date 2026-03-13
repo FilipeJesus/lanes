@@ -191,6 +191,31 @@ suite('Session Form', () => {
 		});
 	});
 
+	suite('Workspace Restrictions', () => {
+		test('Session form shows restriction banner and disables submission when workspace is unsupported', () => {
+			provider.setWorkspaceRestrictionMessage('Lanes supports single-folder VS Code windows only.');
+
+			const html = getFormHtml(provider);
+
+			assert.ok(
+				html.includes('class="workspace-notice"'),
+				'Form should show a workspace restriction banner'
+			);
+			assert.ok(
+				html.includes('Lanes supports single-folder VS Code windows only.'),
+				'Form should render the restriction message'
+			);
+			assert.ok(
+				html.includes('id="submitBtn" disabled aria-disabled="true"'),
+				'Submit button should be disabled when the workspace is unsupported'
+			);
+			assert.ok(
+				html.includes('const formDisabled = true;'),
+				'Client script should treat the form as disabled'
+			);
+		});
+	});
+
 	suite('Workflow Callback', () => {
 		test('Session form passes workflow to callback', async () => {
 			// Arrange

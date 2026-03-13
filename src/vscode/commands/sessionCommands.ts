@@ -44,23 +44,17 @@ export function registerSessionCommands(
     context: vscode.ExtensionContext,
     services: ServiceContainer
 ): void {
-    const {
-        sessionProvider,
-        baseRepoPath,
-        codeAgent,
-        daemonClient,
-        daemonModeEnabled,
-    } = services;
+    const { sessionProvider, codeAgent } = services;
 
     const warnedMergeBaseBranches = new Set<string>();
 
     function getActiveDaemonClient() {
-        if (!daemonModeEnabled) {
-            return daemonClient;
+        if (!services.daemonModeEnabled) {
+            return services.daemonClient;
         }
 
-        if (daemonClient) {
-            return daemonClient;
+        if (services.daemonClient) {
+            return services.daemonClient;
         }
 
         void vscode.window.showErrorMessage(
@@ -159,6 +153,11 @@ export function registerSessionCommands(
     const createDisposable = vscode.commands.registerCommand('lanes.createSession', async () => {
         console.log("Create Session Command Triggered!");
 
+        if (!services.workspaceSupport.isSupported) {
+            vscode.window.showErrorMessage(services.workspaceSupport.requirementMessage);
+            return;
+        }
+
         const name = await vscode.window.showInputBox({
             prompt: "Session Name (creates new branch)",
             placeHolder: "fix-login"
@@ -178,10 +177,10 @@ export function registerSessionCommands(
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to create session via daemon: ${getErrorMessage(err)}`);
             }
-        } else if (daemonModeEnabled) {
+        } else if (services.daemonModeEnabled) {
             return;
         } else {
-            await createSession(name, '', 'acceptEdits', '', null, [], baseRepoPath, sessionProvider, codeAgent);
+            await createSession(name, '', 'acceptEdits', '', null, [], services.baseRepoPath, sessionProvider, codeAgent, services.workspaceSupport.requirementMessage);
         }
     });
 
@@ -204,10 +203,10 @@ export function registerSessionCommands(
             }
             return;
         }
-        if (daemonModeEnabled) {
+        if (services.daemonModeEnabled) {
             return;
         }
-        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
+        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, services.baseRepoPath);
     });
 
     // Command: Delete a session
@@ -244,12 +243,12 @@ export function registerSessionCommands(
             if (activeDaemonClient) {
                 // Route git/fs deletion through the daemon
                 await activeDaemonClient.deleteSession(item.label);
-            } else if (daemonModeEnabled) {
+            } else if (services.daemonModeEnabled) {
                 return;
             } else {
                 // Direct path: remove worktree via git
-                if (baseRepoPath) {
-                    await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
+                if (services.baseRepoPath) {
+                    await execGit(['worktree', 'remove', item.worktreePath, '--force'], services.baseRepoPath);
                 }
             }
 
@@ -325,7 +324,7 @@ export function registerSessionCommands(
                 const diffResult = await activeDaemonClient.getSessionDiff(item.label, { includeUncommitted });
                 diffContent = diffResult.diff;
                 baseBranch = diffResult.baseBranch;
-            } else if (daemonModeEnabled) {
+            } else if (services.daemonModeEnabled) {
                 return;
             } else {
                 baseBranch = await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
@@ -399,8 +398,8 @@ export function registerSessionCommands(
         }
 
         try {
-            if (baseRepoPath) {
-                const repoName = SettingsService.getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
+            if (services.baseRepoPath) {
+                const repoName = SettingsService.getRepoName(services.baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
                 const projectName = `${repoName}-${item.label}`;
                 await addProject(projectName, item.worktreePath, ['lanes']);
             }
@@ -490,18 +489,18 @@ export function registerSessionCommands(
 
                 await new Promise(resolve => setTimeout(resolve, TERMINAL_CLOSE_DELAY_MS));
 
-                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, clearAgent, baseRepoPath, true);
+                await openAgentTerminal(sessionName, item.worktreePath, undefined, undefined, undefined, clearAgent, services.baseRepoPath, true);
 
                 vscode.window.showInformationMessage(`Session '${sessionName}' cleared with fresh context.`);
             } else {
                 // Terminal not in this window — write a clear request file
                 // for the owning window's file watcher to pick up
-                if (!baseRepoPath) {
+                if (!services.baseRepoPath) {
                     vscode.window.showErrorMessage('Cannot clear session: no base repository path.');
                     return;
                 }
 
-                const clearDir = path.join(baseRepoPath, '.lanes', 'clear-requests');
+                const clearDir = path.join(services.baseRepoPath, '.lanes', 'clear-requests');
                 await ensureDir(clearDir);
 
                 const config = {
@@ -571,7 +570,7 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!daemonModeEnabled && !daemonClient && !(await fileExists(item.worktreePath))) {
+        if (!services.daemonModeEnabled && !services.daemonClient && !(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
@@ -593,7 +592,7 @@ export function registerSessionCommands(
                 await vscode.window.showTextDocument(document, { preview: false });
                 return;
             }
-            if (daemonModeEnabled) {
+            if (services.daemonModeEnabled) {
                 return;
             }
 
@@ -658,7 +657,7 @@ export function registerSessionCommands(
                     language: 'markdown'
                 });
                 await vscode.window.showTextDocument(document, { preview: false });
-            } else if (daemonModeEnabled) {
+            } else if (services.daemonModeEnabled) {
                 return;
             } else {
                 const insights = await vscode.window.withProgress(
@@ -692,7 +691,7 @@ export function registerSessionCommands(
             const activeDaemonClient = getActiveDaemonClient();
             if (activeDaemonClient) {
                 await activeDaemonClient.pinSession(item.label);
-            } else if (daemonModeEnabled) {
+            } else if (services.daemonModeEnabled) {
                 return;
             } else {
                 await sessionProvider.pinSession(item.worktreePath);
@@ -714,7 +713,7 @@ export function registerSessionCommands(
             const activeDaemonClient = getActiveDaemonClient();
             if (activeDaemonClient) {
                 await activeDaemonClient.unpinSession(item.label);
-            } else if (daemonModeEnabled) {
+            } else if (services.daemonModeEnabled) {
                 return;
             } else {
                 await sessionProvider.unpinSession(item.worktreePath);

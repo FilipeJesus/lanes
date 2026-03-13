@@ -46,6 +46,7 @@ import { createSession } from './services/SessionService';
 import { openAgentTerminal, openDaemonSessionTerminal } from './services/TerminalService';
 import { VscodeConfigProvider } from './adapters/VscodeConfigProvider';
 import { DaemonService } from './services/DaemonService';
+import { resolveWorkspaceSupport } from './workspaceSupport';
 import { getDaemonLogPath } from '../daemon/lifecycle';
 
 /**
@@ -72,11 +73,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Initialize Project Manager service with extension context
     initializeProjectManagerService(context);
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const workspaceSupport = resolveWorkspaceSupport();
+    const workspaceRoot = workspaceSupport.workspaceRoot;
 
-    // Debug: Check if we found a workspace
+    if (workspaceSupport.warningMessage) {
+        vscode.window.showWarningMessage(workspaceSupport.warningMessage);
+    }
+
+    // Debug: Check if we found a supported workspace
     if (!workspaceRoot) {
-        console.error("No workspace detected!");
+        console.error(`Lanes: ${workspaceSupport.requirementMessage}`);
     } else {
         console.log(`Workspace detected: ${workspaceRoot}`);
     }
@@ -95,7 +101,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Initialize the unified settings bridge.
     // This ensures VS Code settings changes are written to .lanes/settings.yaml
     // so that CLI and JetBrains adapters see the same configuration.
-    const configProvider = new VscodeConfigProvider();
+    let configProvider = new VscodeConfigProvider();
     if (baseRepoPath) {
         try {
             await configProvider.initialize(baseRepoPath);
@@ -205,9 +211,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             );
             daemonService = undefined;
         }
-        if (daemonService) {
-            context.subscriptions.push(daemonService);
-        }
     }
 
     // Update chime and workflow context keys when session selection changes
@@ -233,6 +236,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize Session Form Provider (webview in sidebar)
     const sessionFormProvider = new SessionFormProvider(context.extensionUri);
+    sessionFormProvider.setWorkspaceRestrictionMessage(
+        workspaceSupport.isSupported ? undefined : workspaceSupport.requirementMessage
+    );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             SessionFormProvider.viewType,
@@ -249,6 +255,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Handle form submission - creates a new session with optional prompt
     // Use baseRepoPath for creating sessions to ensure worktrees are created in the main repo
     sessionFormProvider.setOnSubmit(async (name: string, agent: string, prompt: string, sourceBranch: string, permissionMode: PermissionMode, workflow: string | null, attachments: string[]) => {
+        if (!services.workspaceSupport.isSupported) {
+            vscode.window.showErrorMessage(services.workspaceSupport.requirementMessage);
+            throw new Error(services.workspaceSupport.requirementMessage);
+        }
+
         // Resolve agent name to CodeAgent instance
         const selectedAgent = getAgent(agent) || codeAgent;
 
@@ -263,7 +274,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             throw new Error(`CLI not available`);
         }
 
-        if (useDaemon) {
+        if (services.daemonModeEnabled) {
             const daemonClient = getActiveDaemonClient();
             if (!daemonClient) {
                 vscode.window.showErrorMessage(
@@ -287,7 +298,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             return;
         }
 
-        await createSession(name, prompt, permissionMode, sourceBranch, workflow, attachments, baseRepoPath, sessionProvider, selectedAgent);
+        await createSession(
+            name,
+            prompt,
+            permissionMode,
+            sourceBranch,
+            workflow,
+            attachments,
+            services.baseRepoPath,
+            sessionProvider,
+            selectedAgent,
+            services.workspaceSupport.requirementMessage
+        );
     });
 
     // Handle auto-prompt request - improve prompt using the selected agent
@@ -343,9 +365,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await refreshWorkflows();
     });
 
-    // Initial workflow load
-    refreshWorkflows();
-
     // Create service container for dependency injection
     const services: ServiceContainer = {
         extensionContext: context,
@@ -355,15 +374,125 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         workflowsProvider,
         workspaceRoot,
         baseRepoPath,
+        workspaceSupport,
         extensionPath: context.extensionPath,
         codeAgent,
         daemonModeEnabled: useDaemon,
         daemonClient: daemonService?.getClient()
     };
 
-    // Register all file system watchers
-    // This includes watchers for status files, session files, prompts, workflows, worktrees, and MCP requests
-    registerWatchers(context, services, refreshWorkflows, validateWorkflowService);
+    let watcherRegistration: vscode.Disposable | undefined;
+    context.subscriptions.push({
+        dispose: () => {
+            watcherRegistration?.dispose();
+        }
+    });
+    context.subscriptions.push({
+        dispose: () => {
+            daemonService?.dispose();
+        }
+    });
+
+    async function reinitializeConfigProvider(repoPath: string | undefined): Promise<void> {
+        configProvider.dispose();
+        configProvider = new VscodeConfigProvider();
+        if (repoPath) {
+            try {
+                await configProvider.initialize(repoPath);
+            } catch (err) {
+                console.error('Lanes: Failed to initialize settings bridge:', getErrorMessage(err));
+            }
+        }
+        initializeGlobalStorageContext(context.globalStorageUri, repoPath, codeAgent, context, configProvider);
+    }
+
+    async function resetDaemonService(): Promise<void> {
+        daemonService?.dispose();
+        daemonService = undefined;
+        services.daemonClient = undefined;
+        sessionProvider.setDaemonClient(undefined);
+
+        const daemonEnabled = vscode.workspace.getConfiguration('lanes').get<boolean>('useDaemon', false);
+        if (!daemonEnabled || !services.baseRepoPath) {
+            return;
+        }
+
+        const nextDaemonService = new DaemonService(
+            services.baseRepoPath,
+            context.extensionPath,
+            () => sessionProvider.refresh()
+        );
+        try {
+            await Promise.race([
+                nextDaemonService.initialize(),
+                new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Daemon initialization timed out')), 5000))
+            ]);
+            if (nextDaemonService.isEnabled()) {
+                daemonService = nextDaemonService;
+                services.daemonClient = nextDaemonService.getClient();
+                sessionProvider.setDaemonClient(services.daemonClient);
+                sessionProvider.refresh();
+            }
+        } catch (err) {
+            const message = `Lanes daemon mode is enabled, but startup failed: ${getErrorMessage(err)}`;
+            console.error(message);
+            void vscode.window.showErrorMessage(
+                `${message}. Check ${getDaemonLogPath()} and reload the window after fixing it, or disable "Lanes: Use Daemon".`
+            );
+        }
+    }
+
+    function resetWatchers(): void {
+        watcherRegistration?.dispose();
+        watcherRegistration = registerWatchers(services, refreshWorkflows, validateWorkflowService);
+    }
+
+    let workspaceRefreshCounter = 0;
+    async function refreshWorkspaceState(options?: { showWarning?: boolean }): Promise<void> {
+        const refreshId = ++workspaceRefreshCounter;
+        const nextWorkspaceSupport = resolveWorkspaceSupport();
+        const nextWorkspaceRoot = nextWorkspaceSupport.workspaceRoot;
+        const nextBaseRepoPath = nextWorkspaceRoot
+            ? await SettingsService.getBaseRepoPath(nextWorkspaceRoot)
+            : undefined;
+
+        if (refreshId !== workspaceRefreshCounter) {
+            return;
+        }
+
+        services.workspaceSupport = nextWorkspaceSupport;
+        services.workspaceRoot = nextWorkspaceRoot;
+        services.baseRepoPath = nextBaseRepoPath;
+
+        if (options?.showWarning && nextWorkspaceSupport.warningMessage) {
+            vscode.window.showWarningMessage(nextWorkspaceSupport.warningMessage);
+        }
+
+        if (!nextWorkspaceRoot) {
+            console.error(`Lanes: ${nextWorkspaceSupport.requirementMessage}`);
+        } else {
+            console.log(`Workspace detected: ${nextWorkspaceRoot}`);
+        }
+
+        sessionProvider.updateRoots(nextWorkspaceRoot, nextBaseRepoPath);
+        previousSessionProvider.updateRoots(nextWorkspaceRoot, nextBaseRepoPath);
+        workflowsProvider.updateWorkspaceRoot(nextWorkspaceRoot);
+        sessionFormProvider.setWorkspaceRestrictionMessage(
+            nextWorkspaceSupport.isSupported ? undefined : nextWorkspaceSupport.requirementMessage
+        );
+
+        await reinitializeConfigProvider(nextBaseRepoPath);
+        await resetDaemonService();
+        resetWatchers();
+        await refreshWorkflows();
+        sessionProvider.refresh();
+        previousSessionProvider.refresh();
+        workflowsProvider.refresh();
+    }
+
+    // Initial workflow load and watcher setup
+    await refreshWorkflows();
+    resetWatchers();
 
     // Listen for configuration changes
     const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
@@ -387,6 +516,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
 
     context.subscriptions.push(configChangeDisposable);
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            void refreshWorkspaceState({ showWarning: true });
+        })
+    );
 
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);
