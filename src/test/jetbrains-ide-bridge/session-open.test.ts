@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import * as launchSetupService from '../../core/services/AgentLaunchSetupService';
+import * as PreflightService from '../../core/services/PreflightService';
 import * as tmuxService from '../../core/services/TmuxService';
 import { ConfigStore } from '../../jetbrains-ide-bridge/config';
 import { NotificationEmitter } from '../../jetbrains-ide-bridge/notifications';
@@ -15,6 +16,7 @@ suite('Bridge session.open', () => {
     let tempDir: string;
     let prepareLaunchContextStub: sinon.SinonStub;
     let buildLaunchCommandStub: sinon.SinonStub;
+    let preflightStub: sinon.SinonStub;
     let isTmuxInstalledStub: sinon.SinonStub;
     let launchInTmuxStub: sinon.SinonStub;
 
@@ -36,6 +38,7 @@ suite('Bridge session.open', () => {
             mode: 'start',
             command: 'claude --settings "/tmp/claude-settings.json"'
         });
+        preflightStub = sinon.stub(PreflightService, 'assertSessionLaunchPrerequisites').resolves();
         isTmuxInstalledStub = sinon.stub(tmuxService, 'isTmuxInstalled').resolves(false);
         launchInTmuxStub = sinon.stub(tmuxService, 'launchInTmux').resolves({
             tmuxSessionName: 'feat-open',
@@ -47,6 +50,7 @@ suite('Bridge session.open', () => {
     teardown(() => {
         prepareLaunchContextStub.restore();
         buildLaunchCommandStub.restore();
+        preflightStub.restore();
         isTmuxInstalledStub.restore();
         launchInTmuxStub.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -167,5 +171,19 @@ suite('Bridge session.open', () => {
         assert.strictEqual(result.terminalMode, 'vscode');
         assert.strictEqual(result.attachCommand, undefined);
         sinon.assert.notCalled(launchInTmuxStub);
+    });
+
+    test('fails before launch preparation when preflight detects missing prerequisites', async () => {
+        preflightStub.rejects(new Error('tmux is required when lanes.terminalMode is set to tmux.'));
+
+        await assert.rejects(
+            handleRequest('session.open', {
+                sessionName: 'feat-missing-tmux'
+            }),
+            /tmux is required/
+        );
+
+        sinon.assert.notCalled(prepareLaunchContextStub);
+        sinon.assert.notCalled(buildLaunchCommandStub);
     });
 });
