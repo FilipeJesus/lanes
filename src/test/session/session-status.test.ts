@@ -3,10 +3,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import sinon from 'sinon';
+import * as codeAgents from '../../core/codeAgents';
 import { getAgentStatus, initializeGlobalStorageContext } from '../../vscode/providers/AgentSessionProvider';
 
 suite('Session Status', () => {
-
 	let tempDir: string;
 	let globalStorageDir: string;
 
@@ -17,6 +18,7 @@ suite('Session Status', () => {
 	});
 
 	teardown(() => {
+		sinon.restore();
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		fs.rmSync(globalStorageDir, { recursive: true, force: true });
 	});
@@ -27,6 +29,13 @@ suite('Session Status', () => {
 		const statusDir = path.join(tempDir, '.lanes', 'current-sessions', sessionName);
 		fs.mkdirSync(statusDir, { recursive: true });
 		fs.writeFileSync(path.join(statusDir, '.claude-status'), JSON.stringify(statusData));
+	}
+
+	function createSessionFile(worktreePath: string, sessionData: Record<string, unknown>): void {
+		const sessionName = path.basename(worktreePath);
+		const sessionDir = path.join(tempDir, '.lanes', 'current-sessions', sessionName);
+		fs.mkdirSync(sessionDir, { recursive: true });
+		fs.writeFileSync(path.join(sessionDir, '.claude-session'), JSON.stringify(sessionData));
 	}
 
 	suite('getAgentStatus', () => {
@@ -113,6 +122,34 @@ suite('Session Status', () => {
 			assert.strictEqual(result.status, 'waiting_for_user');
 			assert.strictEqual(result.timestamp, '2025-12-21T10:30:00Z');
 			assert.strictEqual(result.message, 'Waiting for user confirmation');
+		});
+
+		test('should prefer the session agent parser over the global agent when agentName is stored', async () => {
+			initializeGlobalStorageContext(
+				vscode.Uri.file(globalStorageDir),
+				tempDir,
+				codeAgents.getAgent('claude') ?? undefined
+			);
+
+			createSessionFile(tempDir, { agentName: 'codex', sessionId: 'placeholder-session' });
+			createStatusFile(tempDir, { status: 'codex-special' });
+
+			const fakeCodexAgent = {
+				parseStatus: (content: string) => JSON.parse(content),
+				getValidStatusStates: () => ['codex-special'],
+			};
+
+			sinon.stub(codeAgents, 'getAgent').callsFake((agentName: string) => {
+				if (agentName === 'codex') {
+					return fakeCodexAgent as any;
+				}
+				return null;
+			});
+
+			const result = await getAgentStatus(tempDir);
+
+			assert.ok(result, 'Result should not be null');
+			assert.strictEqual(result?.status, 'codex-special');
 		});
 	});
 });

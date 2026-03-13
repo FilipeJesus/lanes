@@ -12,7 +12,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { fileExists, ensureDir, writeJson, readJson } from '../../core/services/FileService';
-import { SessionItem, getStatusFilePath, getSessionFilePath } from '../providers/AgentSessionProvider';
+import { SessionItem, getStatusFilePath, getSessionFilePath, getSessionId } from '../providers/AgentSessionProvider';
 import { PermissionMode, isValidPermissionMode } from '../providers/SessionFormProvider';
 import { CodeAgent, McpConfig } from '../../core/codeAgents';
 import * as TmuxService from '../../core/services/TmuxService';
@@ -35,6 +35,8 @@ export interface DaemonSessionLaunchResult {
     terminalMode?: string;
     attachCommand?: string;
     tmuxSessionName?: string;
+    sessionId?: string;
+    success?: true;
 }
 
 // Track hookless agent terminals for lifecycle-based status updates
@@ -101,6 +103,56 @@ export async function trackHooklessTerminal(terminal: vscode.Terminal, worktreeP
     }
 }
 
+async function restoreHooklessPolling(
+    terminal: vscode.Terminal,
+    worktreePath: string,
+    codeAgent: CodeAgent,
+    options?: {
+        beforeStartTimestamp?: Date;
+        waitForPersistedLogPath?: boolean;
+    }
+): Promise<void> {
+    await trackHooklessTerminal(terminal, worktreePath);
+
+    const sessionData = await getSessionId(worktreePath, codeAgent);
+    if (sessionData?.logPath) {
+        startPolling(terminal, sessionData.logPath, worktreePath);
+        return;
+    }
+
+    if (options?.beforeStartTimestamp) {
+        void captureHooklessSessionId(codeAgent, worktreePath, options.beforeStartTimestamp, terminal);
+        return;
+    }
+
+    if (options?.waitForPersistedLogPath) {
+        void waitForHooklessLogPath(worktreePath, codeAgent, terminal);
+    }
+}
+
+async function waitForHooklessLogPath(
+    worktreePath: string,
+    codeAgent: CodeAgent,
+    terminal: vscode.Terminal,
+    timeoutMs: number = 15000,
+    pollIntervalMs: number = 500
+): Promise<void> {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        try {
+            const sessionData = await getSessionId(worktreePath, codeAgent);
+            if (sessionData?.logPath) {
+                startPolling(terminal, sessionData.logPath, worktreePath);
+                return;
+            }
+        } catch {
+            // Best effort retry while session metadata settles.
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+}
 
 /**
  * Count existing terminals for a session to determine the next terminal number.
@@ -229,6 +281,12 @@ export async function openDaemonSessionTerminal(
             color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
         terminal.show();
+
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            await restoreHooklessPolling(terminal, worktreePath, codeAgent, {
+                waitForPersistedLogPath: true,
+            });
+        }
         return;
     }
 
@@ -244,7 +302,13 @@ export async function openDaemonSessionTerminal(
     terminal.show();
 
     if (codeAgent && !codeAgent.supportsHooks()) {
-        await trackHooklessTerminal(terminal, worktreePath);
+        const shouldCaptureAfterStart = Boolean(launchResult.sessionId) && launchResult.success !== true;
+        const beforeStartTimestamp = shouldCaptureAfterStart ? new Date() : undefined;
+
+        await restoreHooklessPolling(terminal, worktreePath, codeAgent, {
+            beforeStartTimestamp,
+            waitForPersistedLogPath: !shouldCaptureAfterStart,
+        });
     }
 
     if (launchResult.command) {
@@ -300,6 +364,12 @@ async function openClaudeTerminalTmux(
             color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
         terminal.show();
+
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            await restoreHooklessPolling(terminal, worktreePath, codeAgent, {
+                waitForPersistedLogPath: true,
+            });
+        }
         return;
     }
 
@@ -332,11 +402,16 @@ async function openClaudeTerminalTmux(
         });
 
         let shouldStartFresh = true;
+        let hooklessBeforeStartTimestamp: Date | undefined;
 
         if (launch.sessionData?.sessionId) {
             // Try to resume existing session
             if (codeAgent) {
                 try {
+                    if (!codeAgent.supportsHooks()) {
+                        hooklessBeforeStartTimestamp = new Date();
+                    }
+
                     // Use CodeAgent to build resume command
                     const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
                         settingsPath: launch.settingsPath,
@@ -359,6 +434,10 @@ async function openClaudeTerminalTmux(
         }
 
         if (shouldStartFresh) {
+            if (codeAgent && !codeAgent.supportsHooks()) {
+                hooklessBeforeStartTimestamp = new Date();
+            }
+
             // Validate permissionMode to prevent command injection from untrusted webview input
             const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
@@ -427,6 +506,13 @@ async function openClaudeTerminalTmux(
         });
 
         terminal.show();
+
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            await restoreHooklessPolling(terminal, worktreePath, codeAgent, {
+                beforeStartTimestamp: hooklessBeforeStartTimestamp,
+                waitForPersistedLogPath: !hooklessBeforeStartTimestamp,
+            });
+        }
     } catch (err) {
         // Clean up orphaned tmux session on failure
         await TmuxService.killSession(tmuxSessionName).catch(() => {});
@@ -523,7 +609,7 @@ export async function openAgentTerminal(
 
     // B2. Track hookless agent terminals for lifecycle-based status updates
     if (codeAgent && !codeAgent.supportsHooks()) {
-        await trackHooklessTerminal(terminal, worktreePath);
+        await restoreHooklessPolling(terminal, worktreePath, codeAgent);
     }
 
     const launch = await prepareAgentLaunchContext({
@@ -564,8 +650,12 @@ export async function openAgentTerminal(
                 shouldStartFresh = false;
 
                 // For hookless agents resuming, start polling if we have a saved logPath
-                if (!codeAgent.supportsHooks() && launch.sessionData.logPath) {
-                    startPolling(terminal, launch.sessionData.logPath, worktreePath);
+                if (!codeAgent.supportsHooks()) {
+                    if (launch.sessionData.logPath) {
+                        startPolling(terminal, launch.sessionData.logPath, worktreePath);
+                    } else {
+                        void waitForHooklessLogPath(worktreePath, codeAgent, terminal);
+                    }
                 }
             } catch (err) {
                 // Invalid session ID format - log and start fresh session

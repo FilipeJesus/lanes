@@ -50,7 +50,7 @@ import { discoverWorkflows } from '../workflow/discovery';
 import { validateWorkflow } from './WorkflowService';
 import { assemblePrompt, writePromptFile } from './PromptService';
 import { getAgent, getAvailableAgents } from '../codeAgents';
-import { readJson } from './FileService';
+import { readJson, writeJson } from './FileService';
 import { buildAgentLaunchCommand, prepareAgentLaunchContext } from './AgentLaunchSetupService';
 import * as PreflightService from './PreflightService';
 import { IHandlerContext } from '../interfaces/IHandlerContext';
@@ -205,7 +205,8 @@ export class SessionHandlerService {
         sessionName: string,
         worktreePath: string,
         agentCommand: string,
-        preferredTerminalMode?: string | null
+        preferredTerminalMode?: string | null,
+        codeAgent?: ReturnType<typeof getAgent>
     ): Promise<{
         terminalMode: 'vscode' | 'tmux';
         command: string;
@@ -222,6 +223,7 @@ export class SessionHandlerService {
                 throw new Error('tmux is not installed. Install tmux or switch lanes.terminalMode to vscode.');
             }
 
+            const beforeLaunchTimestamp = codeAgent && !codeAgent.supportsHooks() ? new Date() : undefined;
             const tmuxResult = await TmuxService.launchInTmux({
                 sessionName,
                 worktreePath,
@@ -229,6 +231,9 @@ export class SessionHandlerService {
             });
             await saveSessionTerminalMode(worktreePath, 'tmux');
             await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
+            if (codeAgent && !codeAgent.supportsHooks() && beforeLaunchTimestamp) {
+                this.captureHooklessTmuxSession(worktreePath, codeAgent, beforeLaunchTimestamp);
+            }
             return {
                 terminalMode: 'tmux',
                 command: tmuxResult.attachCommand,
@@ -242,6 +247,37 @@ export class SessionHandlerService {
             terminalMode: 'vscode',
             command: agentCommand,
         };
+    }
+
+    private captureHooklessTmuxSession(
+        worktreePath: string,
+        codeAgent: NonNullable<ReturnType<typeof getAgent>>,
+        beforeTimestamp: Date
+    ): void {
+        void (async () => {
+            try {
+                const result = await codeAgent.captureSessionId(beforeTimestamp);
+                if (!result) {
+                    return;
+                }
+
+                const sessionFilePath = getSessionFilePath(worktreePath);
+                let existingData: Record<string, unknown> = {};
+                const parsed = await readJson<Record<string, unknown>>(sessionFilePath);
+                if (parsed) {
+                    existingData = parsed;
+                }
+
+                await writeJson(sessionFilePath, {
+                    ...existingData,
+                    sessionId: result.sessionId,
+                    logPath: result.logPath,
+                    timestamp: new Date().toISOString(),
+                });
+            } catch (err) {
+                console.warn('Lanes: Failed to capture tmux session metadata for hookless agent:', err);
+            }
+        })();
     }
 
     private buildCreateSessionPrompt(
@@ -628,7 +664,9 @@ export class SessionHandlerService {
             const terminalLaunch = await this.prepareTerminalLaunch(
                 name,
                 worktreePath,
-                launch.command
+                launch.command,
+                undefined,
+                launchContext.codeAgent
             );
 
             this.ctx.notificationEmitter.sessionCreated(name, worktreePath);
@@ -801,7 +839,8 @@ export class SessionHandlerService {
             sessionName,
             worktreePath,
             launch.command,
-            savedTerminalMode
+            savedTerminalMode,
+            launchContext.codeAgent
         );
 
         return {
