@@ -133,4 +133,53 @@ suite('daemon index', () => {
             'cleanStaleEntries should be exported as a function'
         );
     });
+
+    test('Given an import from src/daemon/index, then createRouter is exported', () => {
+        assert.ok(
+            typeof daemonIndex.createRouter === 'function',
+            'createRouter should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then project registry helpers are exported', () => {
+        assert.ok(
+            typeof daemonIndex.createProjectId === 'function',
+            'createProjectId should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.getProjectsRegistryPath === 'function',
+            'getProjectsRegistryPath should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.registerProject === 'function',
+            'registerProject should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.deregisterProject === 'function',
+            'deregisterProject should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.listRegisteredProjects === 'function',
+            'listRegisteredProjects should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.getRegisteredProjectById === 'function',
+            'getRegisteredProjectById should be exported as a function'
+        );
+        assert.ok(
+            typeof daemonIndex.getRegisteredProjectByWorkspace === 'function',
+            'getRegisteredProjectByWorkspace should be exported as a function'
+        );
+    });
+
+    test('Given an import from src/daemon/index, then DaemonClient and DaemonHttpError are exported', () => {
+        assert.ok(
+            typeof daemonIndex.DaemonClient === 'function',
+            'DaemonClient should be exported as a class/constructor'
+        );
+        assert.ok(
+            typeof daemonIndex.DaemonHttpError === 'function',
+            'DaemonHttpError should be exported as a class/constructor'
+        );
+    });
 });
