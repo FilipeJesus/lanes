@@ -1,6 +1,7 @@
 import { SessionHandlerService } from '../core/services/SessionHandlerService';
-import { getWorktreesFolder } from '../core/session/SessionDataService';
+import { getWorktreesFolder, initializeGlobalStorageContext } from '../core/session/SessionDataService';
 import type { IHandlerContext } from '../core/interfaces/IHandlerContext';
+import { getAgent } from '../core/codeAgents';
 import { DaemonConfigStore } from './config';
 import { DaemonNotificationEmitter } from './notifications';
 import { DaemonFileWatchManager } from './fileWatcher';
@@ -43,6 +44,8 @@ export class GlobalDaemonProjectManager {
         const project = await this.getProject(projectId);
         const configStore = new DaemonConfigStore(project.workspaceRoot);
         await configStore.initialize();
+        const defaultAgentName = (configStore.get('lanes.defaultAgent') as string | undefined) ?? 'claude';
+        initializeGlobalStorageContext('', project.workspaceRoot, getAgent(defaultAgentName) ?? getAgent('claude') ?? undefined);
 
         const notificationEmitter = new DaemonNotificationEmitter();
         const fileWatchManager = new DaemonFileWatchManager(notificationEmitter);

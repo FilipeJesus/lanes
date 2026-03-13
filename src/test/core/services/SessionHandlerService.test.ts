@@ -23,6 +23,7 @@ import {
 import {
     getSessionChimeEnabled,
     getWorktreesFolder,
+    initializeGlobalStorageContext,
 } from '../../../core/session/SessionDataService';
 import type {
     IHandlerContext,
@@ -211,6 +212,7 @@ suite('SessionHandlerService', () => {
         const service = new SessionHandlerService(ctx);
         const worktreePath = path.join(tempDir, '.worktrees', 'codex-lane');
         const sessionFilePath = path.join(tempDir, '.lanes', 'current-sessions', 'codex-lane', '.claude-session');
+        initializeGlobalStorageContext('', tempDir);
         fs.mkdirSync(path.dirname(sessionFilePath), { recursive: true });
         fs.writeFileSync(sessionFilePath, JSON.stringify({ agentName: 'codex', sessionId: 'placeholder' }));
 
@@ -239,9 +241,15 @@ suite('SessionHandlerService', () => {
 
         assert.strictEqual(result.terminalMode, 'tmux');
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        let savedSession = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (savedSession.sessionId === '12345678-abcd-1234-ef00-123456789abc') {
+                break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            savedSession = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
+        }
 
-        const savedSession = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
         assert.strictEqual(savedSession.sessionId, '12345678-abcd-1234-ef00-123456789abc');
         assert.strictEqual(savedSession.logPath, '/tmp/codex-session.jsonl');
         assert.ok(fakeAgent.captureSessionId.calledOnce, 'captureSessionId should be called for hookless tmux launches');

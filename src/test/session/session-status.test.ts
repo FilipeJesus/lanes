@@ -134,17 +134,10 @@ suite('Session Status', () => {
 			createSessionFile(tempDir, { agentName: 'codex', sessionId: 'placeholder-session' });
 			createStatusFile(tempDir, { status: 'codex-special' });
 
-			const fakeCodexAgent = {
-				parseStatus: (content: string) => JSON.parse(content),
-				getValidStatusStates: () => ['codex-special'],
-			};
-
-			sinon.stub(codeAgents, 'getAgent').callsFake((agentName: string) => {
-				if (agentName === 'codex') {
-					return fakeCodexAgent as any;
-				}
-				return null;
-			});
+			const codexAgent = codeAgents.getAgent('codex');
+			assert.ok(codexAgent, 'Codex agent should exist');
+			sinon.stub(codexAgent!, 'parseStatus').callsFake((content: string) => JSON.parse(content));
+			sinon.stub(codexAgent!, 'getValidStatusStates').returns(['codex-special']);
 
 			const result = await getAgentStatus(tempDir);
 
