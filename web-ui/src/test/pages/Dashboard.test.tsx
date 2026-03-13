@@ -78,6 +78,22 @@ function makeEnrichedDaemon(port: number, projectName: string): EnrichedDaemon {
     };
 }
 
+function makeRegisteredProject(projectName: string): EnrichedDaemon {
+    return {
+        project: makeProjectInfo({
+            projectId: `project-${projectName}`,
+            workspaceRoot: `/projects/${projectName}`,
+            projectName,
+            status: 'registered',
+            daemon: null,
+        }),
+        daemon: null,
+        discovery: null,
+        health: 'registered',
+        healthResponse: null,
+    };
+}
+
 function renderDashboard() {
     return render(
         <MemoryRouter>
@@ -191,6 +207,23 @@ describe('Dashboard', () => {
 
         const projectCards = screen.getAllByRole('button', { name: /open project/i });
         expect(projectCards).toHaveLength(1);
+    });
+
+    it('Given a registered offline project, then its card still opens the guided setup route', async () => {
+        const user = userEvent.setup();
+        mockUseDaemons.mockReturnValue({
+            daemons: [makeRegisteredProject('project-a')],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+        });
+
+        renderDashboard();
+
+        expect(screen.getByText(/ready to start/i)).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: /open project project-a/i }));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/project/project-project-a');
     });
 
     it('Given useDaemons returns an error, then an error message is displayed', () => {

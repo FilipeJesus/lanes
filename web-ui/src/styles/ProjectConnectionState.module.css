@@ -1,0 +1,187 @@
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-5);
+    padding: var(--spacing-6);
+    border: 1px solid rgba(88, 166, 255, 0.18);
+    border-radius: var(--radius-xl);
+    background:
+        radial-gradient(circle at top right, rgba(56, 139, 253, 0.16), transparent 30%),
+        linear-gradient(180deg, rgba(13, 17, 23, 0.88), rgba(13, 17, 23, 0.96));
+}
+
+.hero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.eyebrow {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #7ee787;
+}
+
+.title {
+    font-size: 30px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: var(--color-text-primary);
+    max-width: 22ch;
+}
+
+.description {
+    max-width: 64ch;
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+}
+
+.facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-3);
+}
+
+.fact {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3);
+    border-radius: var(--radius-lg);
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.factLabel {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.factValue {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+}
+
+.factCode {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    overflow-wrap: anywhere;
+}
+
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-4);
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    border-radius: var(--radius-xl);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+        var(--color-bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cardStep {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-primary-hover);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.cardTitle {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.cardDescription {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+}
+
+.command {
+    display: block;
+    padding: var(--spacing-3);
+    border-radius: var(--radius-lg);
+    background-color: rgba(13, 17, 23, 0.7);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.primaryButton,
+.secondaryLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+}
+
+.primaryButton {
+    padding: var(--spacing-2) var(--spacing-4);
+    border: none;
+    background: linear-gradient(135deg, #7ee787, #56d364);
+    color: #04130b;
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.helperText {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.footer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+.secondaryLink {
+    padding: var(--spacing-2) var(--spacing-3);
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+}
+
+.secondaryLink:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-emphasis);
+    background-color: var(--color-bg-hover);
+}
+
+@media (max-width: 1024px) {
+    .cardGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .panel {
+        padding: var(--spacing-4);
+    }
+
+    .title {
+        font-size: 24px;
+    }
+
+    .footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
