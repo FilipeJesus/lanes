@@ -22,17 +22,16 @@ import { getPromptsDir } from './providers/PreviousSessionProvider';
 /**
  * Register all file system watchers for the extension.
  *
- * @param context - VS Code extension context for subscriptions
  * @param services - Service container with all dependencies
  * @param refreshWorkflows - Callback to refresh workflow views
  * @param validateWorkflow - Optional function to validate workflows (for pending sessions)
  */
 export function registerWatchers(
-    context: vscode.ExtensionContext,
     services: ServiceContainer,
     refreshWorkflows: () => Promise<void>,
     validateWorkflow?: any
-): void {
+): vscode.Disposable {
+    const disposables: vscode.Disposable[] = [];
     const { sessionProvider, previousSessionProvider, workflowsProvider, workspaceRoot, baseRepoPath, extensionPath, codeAgent } = services;
 
     // Determine which path to watch (base repo or workspace root)
@@ -51,7 +50,7 @@ export function registerWatchers(
         statusWatcher.onDidCreate(() => sessionProvider.refresh());
         statusWatcher.onDidDelete(() => sessionProvider.refresh());
 
-        context.subscriptions.push(statusWatcher);
+        disposables.push(statusWatcher);
 
         // ============================================
         // 2. Watch for session file changes
@@ -64,7 +63,7 @@ export function registerWatchers(
         sessionWatcher.onDidCreate(() => sessionProvider.refresh());
         sessionWatcher.onDidDelete(() => sessionProvider.refresh());
 
-        context.subscriptions.push(sessionWatcher);
+        disposables.push(sessionWatcher);
     }
 
     // ============================================
@@ -81,7 +80,7 @@ export function registerWatchers(
             promptsWatcher.onDidCreate(() => previousSessionProvider.refresh());
             promptsWatcher.onDidDelete(() => previousSessionProvider.refresh());
 
-            context.subscriptions.push(promptsWatcher);
+            disposables.push(promptsWatcher);
         }
     }
 
@@ -101,7 +100,7 @@ export function registerWatchers(
         workflowsWatcher.onDidCreate(() => refreshWorkflows());
         workflowsWatcher.onDidDelete(() => refreshWorkflows());
 
-        context.subscriptions.push(workflowsWatcher);
+        disposables.push(workflowsWatcher);
     }
 
     // ============================================
@@ -123,7 +122,7 @@ export function registerWatchers(
             previousSessionProvider.refresh();
         });
 
-        context.subscriptions.push(worktreeFolderWatcher);
+        disposables.push(worktreeFolderWatcher);
     }
 
     // ============================================
@@ -139,7 +138,7 @@ export function registerWatchers(
         customWorkflowsWatcher.onDidCreate(() => workflowsProvider.refresh());
         customWorkflowsWatcher.onDidDelete(() => workflowsProvider.refresh());
 
-        context.subscriptions.push(customWorkflowsWatcher);
+        disposables.push(customWorkflowsWatcher);
     }
 
     // ============================================
@@ -161,7 +160,7 @@ export function registerWatchers(
             await checkPendingSessions(baseRepoPath, extensionPath, sessionProvider, codeAgent, validateWorkflow);
         });
 
-        context.subscriptions.push(pendingSessionWatcher);
+        disposables.push(pendingSessionWatcher);
     }
 
     // Check for any pending sessions on startup (outside the if block)
@@ -191,6 +190,14 @@ export function registerWatchers(
             await checkClearRequests(uri.fsPath, codeAgent, baseRepoPath, sessionProvider, undefined, workspaceRoot);
         });
 
-        context.subscriptions.push(clearRequestWatcher);
+        disposables.push(clearRequestWatcher);
     }
+
+    return {
+        dispose: () => {
+            for (const disposable of disposables) {
+                disposable.dispose();
+            }
+        }
+    };
 }

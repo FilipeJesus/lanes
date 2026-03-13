@@ -212,10 +212,15 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
     private static readonly PINNED_SESSIONS_KEY = 'lanes.pinnedSessions';
     private _onDidChangeTreeData: vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void> = new vscode.EventEmitter<SessionItem | SessionDetailItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
-    private readonly sessionsRoot: string | undefined;
+    private sessionsRoot: string | undefined;
     private daemonClient: DaemonClient | undefined;
 
     constructor(private workspaceRoot: string | undefined, baseRepoPath?: string, private codeAgent?: CodeAgent, private extensionContext?: vscode.ExtensionContext) {
+        this.sessionsRoot = baseRepoPath || workspaceRoot;
+    }
+
+    updateRoots(workspaceRoot: string | undefined, baseRepoPath?: string): void {
+        this.workspaceRoot = workspaceRoot;
         this.sessionsRoot = baseRepoPath || workspaceRoot;
     }
 

@@ -20,7 +20,7 @@ export function registerWorkflowCommands(
     services: ServiceContainer,
     refreshWorkflows: () => Promise<void>
 ): void {
-    const { extensionPath, workspaceRoot } = services;
+    const { extensionPath } = services;
 
     /**
      * Creates a new workflow template by copying from an existing template or creating from scratch.
@@ -33,10 +33,11 @@ export function registerWorkflowCommands(
      */
     async function createWorkflow(): Promise<void> {
         // 1. Check workspace root
-        if (!workspaceRoot) {
-            vscode.window.showErrorMessage('Please open a workspace folder first.');
+        if (!services.workspaceRoot) {
+            vscode.window.showErrorMessage(services.workspaceSupport.requirementMessage || 'Please open a workspace folder first.');
             return;
         }
+        const workspaceRoot = services.workspaceRoot;
 
         // 2. Discover available templates for selection
         const config = vscode.workspace.getConfiguration('lanes');

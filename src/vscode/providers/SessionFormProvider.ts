@@ -65,6 +65,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     private _defaultAgentChanged = false;
     private _attachmentsTempDir?: string;
     private _autoPromptInProgress = false;
+    private _workspaceRestrictionMessage?: string;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -136,6 +137,17 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Set or clear the workspace restriction message shown above the form.
+     * When set, the form is rendered read-only so multi-root behavior is explicit.
+     */
+    public setWorkspaceRestrictionMessage(message: string | undefined): void {
+        this._workspaceRestrictionMessage = message?.trim() || undefined;
+        if (this._view) {
+            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+        }
+    }
+
+    /**
      * Generate HTML options for workflow dropdown
      * Only shows custom workflows (built-in workflows are filtered out)
      * Uses the full path as the value so MCP server can find the workflow file
@@ -174,9 +186,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
      * Default agent is determined by the lanes.defaultAgent global setting.
      * Agent data (name, displayName, logoSvg) is derived from CodeAgent instances.
      */
-    private _getAgentSelectorHtml(): string {
+    private _getAgentSelectorHtml(disabled = false): string {
         const agentNames = getAvailableAgents();
         const agents = agentNames.map(name => getAgent(name)).filter(a => a !== null);
+        const disabledAttr = disabled ? ' disabled aria-disabled="true"' : '';
 
         // Find the default agent for the trigger button
         const defaultAgent = agents.find(a => a.name === this._defaultAgent) ?? agents[0];
@@ -186,11 +199,11 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         let itemsHtml = '';
         for (const agent of agents) {
             const active = agent.name === this._defaultAgent ? ' active' : '';
-            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}">${agent.logoSvg}<span>${this._escapeHtml(agent.displayName)}</span></button>`;
+            itemsHtml += `<button type="button" class="agent-dropdown-item${active}" data-agent="${this._escapeHtml(agent.name)}"${disabledAttr}>${agent.logoSvg}<span>${this._escapeHtml(agent.displayName)}</span></button>`;
         }
 
         return `<div class="agent-dropdown" id="agentDropdown">` +
-            `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultAgent.displayName)}" aria-haspopup="true" aria-expanded="false">${defaultAgent.logoSvg}</button>` +
+            `<button type="button" class="agent-dropdown-trigger" id="agentTrigger" title="${this._escapeHtml(defaultAgent.displayName)}" aria-haspopup="true" aria-expanded="false"${disabledAttr}>${defaultAgent.logoSvg}</button>` +
             `<div class="agent-dropdown-menu" id="agentMenu">${itemsHtml}</div>` +
             `</div>`;
     }
@@ -396,6 +409,11 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         // Read the configured chime sound from settings
         const config = vscode.workspace.getConfiguration('lanes');
         const configuredChime = config.get<string>('chimeSound', 'chime');
+        const workspaceRestricted = Boolean(this._workspaceRestrictionMessage);
+        const disabledAttr = workspaceRestricted ? ' disabled aria-disabled="true"' : '';
+        const workspaceNoticeHtml = workspaceRestricted
+            ? `<div class="workspace-notice" role="alert">${this._escapeHtml(this._workspaceRestrictionMessage || '')}</div>`
+            : '';
 
         // Validate the configured chime sound
         let selectedChime: ChimeSound = 'chime'; // Default fallback
@@ -436,6 +454,15 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         .form-group {
             margin-bottom: 12px;
+        }
+
+        .workspace-notice {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-left: 3px solid var(--vscode-inputValidation-warningBorder, #cca700);
+            background-color: var(--vscode-editorWarning-background, rgba(204, 167, 0, 0.12));
+            color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+            line-height: 1.4;
         }
 
         label {
@@ -834,6 +861,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
     </style>
 </head>
 <body>
+    ${workspaceNoticeHtml}
     <form id="sessionForm">
         <div class="form-group">
             <label for="name">Session Name</label>
@@ -845,8 +873,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                     placeholder="fix-login-bug"
                     required
                     autocomplete="off"
+                    ${disabledAttr}
                 />
-                ${this._getAgentSelectorHtml()}
+                ${this._getAgentSelectorHtml(workspaceRestricted)}
             </div>
             <div class="hint">Used as the Git branch name</div>
         </div>
@@ -859,6 +888,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
                 name="sourceBranch"
                 placeholder="main"
                 autocomplete="off"
+                ${disabledAttr}
             />
             <div class="hint">Leave empty to branch from current HEAD. Use "origin/<branch_name>" to branch from a remote branch.</div>
         </div>
@@ -866,16 +896,17 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         <div class="form-group">
             <div class="prompt-label-row">
                 <label for="prompt">Starting Prompt (optional)</label>
-                <button type="button" class="auto-prompt-btn" id="autoPromptBtn" title="Improve prompt with AI" aria-label="Improve prompt with AI"><svg width="14" height="14" viewBox="0 0 36 36" fill="currentColor"><path d="m34.347 16.893-8.899-3.294-3.323-10.891a1 1 0 0 0-1.912 0l-3.322 10.891-8.9 3.294a1 1 0 0 0 0 1.876l8.895 3.293 3.324 11.223a1 1 0 0 0 1.918-.001l3.324-11.223 8.896-3.293a.998.998 0 0 0-.001-1.875"/><path d="m14.347 27.894-2.314-.856-.9-3.3a.998.998 0 0 0-1.929-.001l-.9 3.3-2.313.856a1 1 0 0 0 0 1.876l2.301.853.907 3.622a1 1 0 0 0 1.94-.001l.907-3.622 2.301-.853a.997.997 0 0 0 0-1.874M10.009 6.231l-2.364-.875-.876-2.365a.999.999 0 0 0-1.876 0l-.875 2.365-2.365.875a1 1 0 0 0 0 1.876l2.365.875.875 2.365a1 1 0 0 0 1.876 0l.875-2.365 2.365-.875a1 1 0 0 0 0-1.876"/></svg></button>
+                <button type="button" class="auto-prompt-btn" id="autoPromptBtn" title="Improve prompt with AI" aria-label="Improve prompt with AI"${disabledAttr}><svg width="14" height="14" viewBox="0 0 36 36" fill="currentColor"><path d="m34.347 16.893-8.899-3.294-3.323-10.891a1 1 0 0 0-1.912 0l-3.322 10.891-8.9 3.294a1 1 0 0 0 0 1.876l8.895 3.293 3.324 11.223a1 1 0 0 0 1.918-.001l3.324-11.223 8.896-3.293a.998.998 0 0 0-.001-1.875"/><path d="m14.347 27.894-2.314-.856-.9-3.3a.998.998 0 0 0-1.929-.001l-.9 3.3-2.313.856a1 1 0 0 0 0 1.876l2.301.853.907 3.622a1 1 0 0 0 1.94-.001l.907-3.622 2.301-.853a.997.997 0 0 0 0-1.874M10.009 6.231l-2.364-.875-.876-2.365a.999.999 0 0 0-1.876 0l-.875 2.365-2.365.875a1 1 0 0 0 0 1.876l2.365.875.875 2.365a1 1 0 0 0 1.876 0l.875-2.365 2.365-.875a1 1 0 0 0 0-1.876"/></svg></button>
             </div>
             <div class="textarea-wrapper">
                 <textarea
                     id="prompt"
                     name="prompt"
                     placeholder="Describe the task for the agent..."
+                    ${disabledAttr}
                 ></textarea>
-                <button type="button" class="attach-btn" id="attachBtn" title="Attach files" aria-label="Attach files"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.9 3.1a2.5 2.5 0 0 0-3.536 0L3.586 6.878a4 4 0 0 0 5.657 5.657l3.778-3.778-.707-.707-3.778 3.778a3 3 0 1 1-4.243-4.243L8.07 3.808a1.5 1.5 0 0 1 2.122 2.121L6.414 9.707a.5.5 0 0 1-.707-.707l3.778-3.778-.707-.707L4.999 8.293a1.5 1.5 0 0 0 2.122 2.121l3.778-3.778A2.5 2.5 0 0 0 10.9 3.1z"/></svg></button>
-                <input type="file" id="fileInput" multiple style="display:none" />
+                <button type="button" class="attach-btn" id="attachBtn" title="Attach files" aria-label="Attach files"${disabledAttr}><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.9 3.1a2.5 2.5 0 0 0-3.536 0L3.586 6.878a4 4 0 0 0 5.657 5.657l3.778-3.778-.707-.707-3.778 3.778a3 3 0 1 1-4.243-4.243L8.07 3.808a1.5 1.5 0 0 1 2.122 2.121L6.414 9.707a.5.5 0 0 1-.707-.707l3.778-3.778-.707-.707L4.999 8.293a1.5 1.5 0 0 0 2.122 2.121l3.778-3.778A2.5 2.5 0 0 0 10.9 3.1z"/></svg></button>
+                <input type="file" id="fileInput" multiple style="display:none" ${disabledAttr} />
             </div>
             <div class="attachment-chips" id="attachmentChips"></div>
             <div class="attachment-progress" id="attachmentProgress" aria-live="polite" style="display:none;">
@@ -888,18 +919,18 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         <div class="form-group">
             <label for="workflow">Workflow Template</label>
             <div class="workflow-control">
-                <select id="workflow" name="workflow">
+                <select id="workflow" name="workflow"${disabledAttr}>
                     <option value="" selected>None (ad-hoc mode)</option>
                     ${this._getWorkflowOptionsHtml()}
                 </select>
-                <button type="button" id="refreshWorkflowBtn" title="Refresh workflow list" aria-label="Refresh workflow list">↻</button>
+                <button type="button" id="refreshWorkflowBtn" title="Refresh workflow list" aria-label="Refresh workflow list"${disabledAttr}>↻</button>
             </div>
             <div class="hint">Optional: Select a workflow to guide the agent through structured phases</div>
         </div>
 
         <div class="submit-row">
-            <button type="button" id="bypassPermissionsBtn" class="bypass-btn" title="bypassPermissions" aria-label="Toggle bypass permissions" aria-pressed="false">&#9888;</button>
-            <button type="submit" id="submitBtn">Create Session</button>
+            <button type="button" id="bypassPermissionsBtn" class="bypass-btn" title="bypassPermissions" aria-label="Toggle bypass permissions" aria-pressed="false"${disabledAttr}>&#9888;</button>
+            <button type="submit" id="submitBtn"${disabledAttr}>Create Session</button>
         </div>
     </form>
 
@@ -929,6 +960,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         let bypassPermissions = false;
         let selectedAgent = '${this._escapeHtml(this._defaultAgent)}';
         const defaultAgentChanged = ${this._defaultAgentChanged ? 'true' : 'false'};
+        const formDisabled = ${workspaceRestricted ? 'true' : 'false'};
         let attachments = [];
         const MAX_FILES = 20;
 
@@ -1228,6 +1260,10 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
+
+            if (formDisabled) {
+                return;
+            }
 
             const name = nameInput.value.trim();
             const agent = selectedAgent;
