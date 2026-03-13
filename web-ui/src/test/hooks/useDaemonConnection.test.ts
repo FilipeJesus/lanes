@@ -50,13 +50,14 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
 }
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    const projectId = overrides.projectId ?? 'project-123';
     return {
-        projectId: 'project-123',
+        projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
         status: 'running',
-        daemon: makeDaemonInfo(),
+        daemon: makeDaemonInfo({ projectId }),
         ...overrides,
     };
 }

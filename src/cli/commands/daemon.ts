@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, initCliGit, resolveRepoRootFromPath, exitWithError } from '../utils';
+import { initCliGit, resolveRepoRoot, resolveRepoRootFromPath, exitWithError } from '../utils';
 import {
     startDaemon,
     stopDaemon,
@@ -30,8 +30,15 @@ export function registerDaemonCommand(program: Command): void {
         .option('--port <port>', 'Port for the daemon to listen on (default: OS-assigned)', '0')
         .action(async (options) => {
             try {
-                const { repoRoot } = await initCli();
+                await initCliGit();
                 const port = parseInt(options.port, 10);
+                let repoRoot: string | undefined;
+
+                try {
+                    repoRoot = await resolveRepoRoot();
+                } catch {
+                    repoRoot = undefined;
+                }
 
                 if (isNaN(port) || port < 0 || port > 65535) {
                     exitWithError(`Invalid port: ${options.port}. Must be a number between 0 and 65535.`);
@@ -49,9 +56,9 @@ export function registerDaemonCommand(program: Command): void {
                 // Wait briefly for the daemon to start up and write its port file
                 await new Promise<void>((resolve) => setTimeout(resolve, 500));
 
-                const running = await isDaemonRunning(repoRoot);
+                const running = await isDaemonRunning();
                 if (running) {
-                    const actualPort = await getDaemonPort(repoRoot);
+                    const actualPort = await getDaemonPort();
                     console.log(`Daemon started successfully on port ${actualPort}.`);
                 } else {
                     console.error('Daemon did not start within the expected time. Check daemon logs for details.');
@@ -130,15 +137,13 @@ export function registerDaemonCommand(program: Command): void {
         .description('Stop the running daemon process')
         .action(async () => {
             try {
-                const { repoRoot } = await initCli();
-
-                const running = await isDaemonRunning(repoRoot);
+                const running = await isDaemonRunning();
                 if (!running) {
                     console.log('Daemon is not running.');
                     return;
                 }
 
-                await stopDaemon(repoRoot);
+                await stopDaemon();
                 console.log('Daemon stopped successfully.');
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
@@ -151,16 +156,14 @@ export function registerDaemonCommand(program: Command): void {
         .description('Show daemon status')
         .action(async () => {
             try {
-                const { repoRoot } = await initCli();
-
-                const running = await isDaemonRunning(repoRoot);
+                const running = await isDaemonRunning();
                 if (!running) {
                     console.log('Daemon status: stopped');
                     return;
                 }
 
-                const pid = await getDaemonPid(repoRoot);
-                const port = await getDaemonPort(repoRoot);
+                const pid = await getDaemonPid();
+                const port = await getDaemonPort();
                 console.log('Daemon status: running');
                 if (pid !== undefined) {
                     console.log(`  PID:  ${pid}`);

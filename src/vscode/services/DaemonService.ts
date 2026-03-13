@@ -48,10 +48,10 @@ export class DaemonService implements vscode.Disposable {
      */
     async initialize(): Promise<void> {
         try {
-            const running = await isDaemonRunning(this.workspaceRoot);
+            const running = await isDaemonRunning();
 
             if (!running) {
-                const serverPath = path.join(this.extensionPath, 'out', 'daemon', 'server.js');
+                const serverPath = path.join(this.extensionPath, 'out', 'daemon.js');
                 await startDaemon({ workspaceRoot: this.workspaceRoot, serverPath });
 
                 // Poll until the daemon writes its port file (it may need a moment)
@@ -106,7 +106,7 @@ export class DaemonService implements vscode.Disposable {
      */
     private async waitForPortFile(): Promise<void> {
         for (let attempt = 0; attempt < PORT_POLL_ATTEMPTS; attempt++) {
-            const port = await getDaemonPort(this.workspaceRoot);
+            const port = await getDaemonPort();
             if (port !== undefined && port > 0) {
                 return;
             }

@@ -1,9 +1,12 @@
 /**
- * Global daemon and project registries.
+ * Global registry helpers.
  *
- * `~/.lanes/daemons.json` tracks live per-workspace daemon processes.
- * `~/.lanes/projects.json` tracks known workspaces that were explicitly
- * registered with the machine-wide gateway.
+ * `~/.lanes/projects.json` is the source of truth for workspaces served by the
+ * machine-wide daemon.
+ *
+ * `~/.lanes/daemons.json` remains available only as a compatibility registry
+ * for older tooling and tests; active daemon lifecycle now lives in the
+ * machine-wide `~/.lanes/daemon.*` files instead.
  */
 
 import * as path from 'path';
@@ -16,7 +19,7 @@ import * as os from 'os';
 // ---------------------------------------------------------------------------
 
 /**
- * A single entry in the global daemon registry.
+ * A single entry in the legacy daemon registry.
  */
 export type DaemonRegistryEntry = {
     /** Optional project identifier when a daemon entry is associated with a project. */

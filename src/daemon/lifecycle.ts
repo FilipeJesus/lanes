@@ -9,12 +9,13 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { spawn } from 'child_process';
-import { removeTokenFile } from './auth';
+import { readTokenFile, removeTokenFile } from './auth';
 import { registerProject } from './registry';
 
 const LANES_DIR = '.lanes';
 const PID_FILE = 'daemon.pid';
 const PORT_FILE = 'daemon.port';
+const STARTED_AT_FILE = 'daemon.startedAt';
 
 function getGlobalLanesDir(): string {
     return path.join(process.env.HOME || os.homedir(), LANES_DIR);
@@ -31,6 +32,13 @@ export interface StartDaemonOptions {
     port?: number;
     /** Absolute path to the daemon server entry-point script. */
     serverPath: string;
+}
+
+export interface MachineDaemonState {
+    pid: number;
+    port: number;
+    token: string;
+    startedAt: string;
 }
 
 export async function startDaemon(options: StartDaemonOptions): Promise<void> {
@@ -58,14 +66,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<void> {
     }
 
     await fs.writeFile(getGlobalFilePath(PID_FILE), String(child.pid), 'utf-8');
-    await fs.writeFile(getGlobalFilePath(PORT_FILE), String(port), 'utf-8');
+    if (port > 0) {
+        await fs.writeFile(getGlobalFilePath(PORT_FILE), String(port), 'utf-8');
+    }
 
     if (workspaceRoot) {
         await registerProjectForDaemon(workspaceRoot);
     }
 }
 
-export async function stopDaemon(_workspaceRoot?: string): Promise<void> {
+export async function stopDaemon(): Promise<void> {
     const pid = await getDaemonPid();
     if (pid !== undefined && !isNaN(pid)) {
         try {
@@ -77,10 +87,11 @@ export async function stopDaemon(_workspaceRoot?: string): Promise<void> {
 
     await removeGlobalFile(PID_FILE);
     await removeGlobalFile(PORT_FILE);
+    await removeGlobalFile(STARTED_AT_FILE);
     await removeTokenFile();
 }
 
-export async function isDaemonRunning(_workspaceRoot?: string): Promise<boolean> {
+export async function isDaemonRunning(): Promise<boolean> {
     const pid = await getDaemonPid();
     if (pid === undefined || isNaN(pid)) {
         return false;
@@ -92,11 +103,13 @@ export async function isDaemonRunning(_workspaceRoot?: string): Promise<boolean>
     } catch {
         await removeGlobalFile(PID_FILE);
         await removeGlobalFile(PORT_FILE);
+        await removeGlobalFile(STARTED_AT_FILE);
+        await removeTokenFile();
         return false;
     }
 }
 
-export async function getDaemonPort(_workspaceRoot?: string): Promise<number | undefined> {
+export async function getDaemonPort(): Promise<number | undefined> {
     try {
         const content = await fs.readFile(getGlobalFilePath(PORT_FILE), 'utf-8');
         const port = parseInt(content.trim(), 10);
@@ -106,11 +119,58 @@ export async function getDaemonPort(_workspaceRoot?: string): Promise<number | u
     }
 }
 
-export async function getDaemonPid(_workspaceRoot?: string): Promise<number | undefined> {
+export async function getDaemonPid(): Promise<number | undefined> {
     try {
         const content = await fs.readFile(getGlobalFilePath(PID_FILE), 'utf-8');
         const pid = parseInt(content.trim(), 10);
         return isNaN(pid) ? undefined : pid;
+    } catch {
+        return undefined;
+    }
+}
+
+export async function getDaemonStartedAt(): Promise<string | undefined> {
+    try {
+        const content = await fs.readFile(getGlobalFilePath(STARTED_AT_FILE), 'utf-8');
+        const startedAt = content.trim();
+        return startedAt || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+async function getCompatibleDaemonStartedAt(): Promise<string> {
+    const startedAt = await getDaemonStartedAt();
+    if (startedAt !== undefined) {
+        return startedAt;
+    }
+
+    try {
+        const stat = await fs.stat(getGlobalFilePath(PID_FILE));
+        return stat.mtime.toISOString();
+    } catch {
+        return new Date().toISOString();
+    }
+}
+
+export async function getMachineDaemonState(): Promise<MachineDaemonState | undefined> {
+    if (!(await isDaemonRunning())) {
+        return undefined;
+    }
+
+    const [pid, port, startedAt] = await Promise.all([
+        getDaemonPid(),
+        getDaemonPort(),
+        getCompatibleDaemonStartedAt(),
+    ]);
+
+    if (pid === undefined || port === undefined) {
+        return undefined;
+    }
+
+    try {
+        const token = await readTokenFile();
+        return { pid, port, token, startedAt };
     } catch {
         return undefined;
     }
