@@ -9,9 +9,9 @@
 import type { DaemonInfo, GatewayProjectInfo } from './types';
 
 /**
- * Fetch the list of all currently running Lanes daemons from the gateway server.
- * Returns an array of DaemonInfo objects, each containing the daemon's port,
- * token, workspace root, and project name.
+ * Fetch the legacy list of running project connections from the gateway server.
+ * Each entry contains the machine-wide daemon connection details projected onto
+ * a specific registered project.
  *
  * The gateway automatically filters out stale (dead) daemon entries.
  */

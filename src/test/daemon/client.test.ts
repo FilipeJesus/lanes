@@ -9,17 +9,17 @@
  *  - fromWorkspace() throws when port file is absent
  *  - health() sends GET /api/v1/health without Authorization header
  *  - All other methods include Authorization: Bearer <token>
- *  - listSessions() GET /api/v1/sessions
- *  - createSession() POST /api/v1/sessions with body
- *  - deleteSession() DELETE /api/v1/sessions/:name with URI encoding
- *  - getSessionStatus() GET /api/v1/sessions/:name/status
- *  - openSession() POST /api/v1/sessions/:name/open
- *  - clearSession() POST /api/v1/sessions/:name/clear
- *  - pinSession() POST /api/v1/sessions/:name/pin
- *  - unpinSession() DELETE /api/v1/sessions/:name/pin
+ *  - listSessions() GET /api/v1/projects/:projectId/sessions
+ *  - createSession() POST /api/v1/projects/:projectId/sessions with body
+ *  - deleteSession() DELETE /api/v1/projects/:projectId/sessions/:name with URI encoding
+ *  - getSessionStatus() GET /api/v1/projects/:projectId/sessions/:name/status
+ *  - openSession() POST /api/v1/projects/:projectId/sessions/:name/open
+ *  - clearSession() POST /api/v1/projects/:projectId/sessions/:name/clear
+ *  - pinSession() POST /api/v1/projects/:projectId/sessions/:name/pin
+ *  - unpinSession() DELETE /api/v1/projects/:projectId/sessions/:name/pin
  *  - getSessionInsights() with and without includeAnalysis query param
  *  - listBranches() with includeRemote query param
- *  - repairWorktrees() POST /api/v1/git/repair
+ *  - repairWorktrees() POST /api/v1/projects/:projectId/git/repair
  *  - getSessionDiff() with query param
  *  - getSessionDiffFiles() with query param
  *  - getWorktreeInfo()
@@ -41,7 +41,7 @@
  *  - HTTP 500 → DaemonHttpError (statusCode 500)
  *  - HTTP error message extracted from JSON body { error: '...' }
  *  - HTTP error falls back to 'HTTP <statusCode>' when no error field
- *  - subscribeEvents() connects to /api/v1/events, fires onConnected
+ *  - subscribeEvents() connects to /api/v1/projects/:projectId/events, fires onConnected
  *  - subscribeEvents() parses SSE events and calls the right callback
  *  - subscribeEvents() close() destroys the connection
  */
@@ -136,9 +136,14 @@ async function startTestServer(
 // ---------------------------------------------------------------------------
 
 const TEST_TOKEN = 'test-bearer-token-xyz';
+const TEST_PROJECT_ID = 'project-test-123';
 
 function makeClient(port: number): DaemonClient {
-    return new DaemonClient({ port, token: TEST_TOKEN });
+    return new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
+}
+
+function projectPath(suffix: string): string {
+    return `/api/v1/projects/${encodeURIComponent(TEST_PROJECT_ID)}${suffix}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,14 +382,14 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('listSessions()', () => {
-        test('Given a mock server, when listSessions() is called, then GET /api/v1/sessions is made', async () => {
+        test('Given a mock server, when listSessions() is called, then GET /api/v1/projects/:projectId/sessions is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { sessions: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.listSessions();
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions'));
             } finally {
                 await helper.close();
             }
@@ -409,7 +414,7 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('createSession()', () => {
-        test('Given opts, when createSession() is called, then POST /api/v1/sessions is made with that body', async () => {
+        test('Given opts, when createSession() is called, then POST /api/v1/projects/:projectId/sessions is made with that body', async () => {
             const helper = await startTestServer(() => ({
                 status: 200,
                 body: { sessionName: 'test' },
@@ -420,7 +425,7 @@ suite('DaemonClient', () => {
                 await client.createSession(opts);
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), opts);
             } finally {
                 await helper.close();
@@ -446,7 +451,7 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('deleteSession()', () => {
-        test('Given session name "my session", when deleteSession() is called, then DELETE /api/v1/sessions/my%20session is requested', async () => {
+        test('Given session name "my session", when deleteSession() is called, then DELETE /api/v1/projects/:projectId/sessions/my%20session is requested', async () => {
             const helper = await startTestServer(() => ({
                 status: 200,
                 body: { success: true },
@@ -456,7 +461,7 @@ suite('DaemonClient', () => {
                 await client.deleteSession('my session');
 
                 assert.strictEqual(helper.captured[0].method, 'DELETE');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my%20session');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my%20session'));
             } finally {
                 await helper.close();
             }
@@ -481,14 +486,14 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('getSessionStatus()', () => {
-        test('Given session name, when getSessionStatus() is called, then GET /api/v1/sessions/:name/status is made', async () => {
+        test('Given session name, when getSessionStatus() is called, then GET /api/v1/projects/:projectId/sessions/:name/status is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { status: 'idle' } }));
             try {
                 const client = makeClient(helper.port());
                 await client.getSessionStatus('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/status');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/status'));
             } finally {
                 await helper.close();
             }
@@ -496,14 +501,14 @@ suite('DaemonClient', () => {
     });
 
     suite('openSession()', () => {
-        test('Given session name, when openSession() is called, then POST /api/v1/sessions/:name/open is made', async () => {
+        test('Given session name, when openSession() is called, then POST /api/v1/projects/:projectId/sessions/:name/open is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.openSession('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/open');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/open'));
             } finally {
                 await helper.close();
             }
@@ -523,14 +528,14 @@ suite('DaemonClient', () => {
     });
 
     suite('clearSession()', () => {
-        test('Given session name, when clearSession() is called, then POST /api/v1/sessions/:name/clear is made', async () => {
+        test('Given session name, when clearSession() is called, then POST /api/v1/projects/:projectId/sessions/:name/clear is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.clearSession('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/clear');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/clear'));
             } finally {
                 await helper.close();
             }
@@ -538,27 +543,27 @@ suite('DaemonClient', () => {
     });
 
     suite('pinSession() / unpinSession()', () => {
-        test('Given session name, when pinSession() is called, then POST /api/v1/sessions/:name/pin is made', async () => {
+        test('Given session name, when pinSession() is called, then POST /api/v1/projects/:projectId/sessions/:name/pin is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.pinSession('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/pin');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/pin'));
             } finally {
                 await helper.close();
             }
         });
 
-        test('Given session name, when unpinSession() is called, then DELETE /api/v1/sessions/:name/pin is made', async () => {
+        test('Given session name, when unpinSession() is called, then DELETE /api/v1/projects/:projectId/sessions/:name/pin is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.unpinSession('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'DELETE');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/pin');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/pin'));
             } finally {
                 await helper.close();
             }
@@ -630,13 +635,13 @@ suite('DaemonClient', () => {
             }
         });
 
-        test('Given no opts, when listBranches() is called, then GET /api/v1/git/branches is requested without query string', async () => {
+        test('Given no opts, when listBranches() is called, then GET /api/v1/projects/:projectId/git/branches is requested without query string', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { branches: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.listBranches();
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/git/branches');
+                assert.strictEqual(helper.captured[0].url, projectPath('/git/branches'));
             } finally {
                 await helper.close();
             }
@@ -644,14 +649,14 @@ suite('DaemonClient', () => {
     });
 
     suite('repairWorktrees()', () => {
-        test('Given a call to repairWorktrees(), then POST /api/v1/git/repair is made', async () => {
+        test('Given a call to repairWorktrees(), then POST /api/v1/projects/:projectId/git/repair is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { repaired: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.repairWorktrees();
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/git/repair');
+                assert.strictEqual(helper.captured[0].url, projectPath('/git/repair'));
             } finally {
                 await helper.close();
             }
@@ -711,14 +716,14 @@ suite('DaemonClient', () => {
     });
 
     suite('getSessionDiffFiles()', () => {
-        test('Given a session name, when getSessionDiffFiles() is called, then GET /api/v1/sessions/:name/diff/files is made', async () => {
+        test('Given a session name, when getSessionDiffFiles() is called, then GET /api/v1/projects/:projectId/sessions/:name/diff/files is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { files: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.getSessionDiffFiles('feat-session');
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.ok(helper.captured[0].url.startsWith('/api/v1/sessions/feat-session/diff/files'));
+                assert.ok(helper.captured[0].url.startsWith(projectPath('/sessions/feat-session/diff/files')));
             } finally {
                 await helper.close();
             }
@@ -763,14 +768,14 @@ suite('DaemonClient', () => {
     });
 
     suite('getWorktreeInfo()', () => {
-        test('Given a session name, when getWorktreeInfo() is called, then GET /api/v1/sessions/:name/worktree is made', async () => {
+        test('Given a session name, when getWorktreeInfo() is called, then GET /api/v1/projects/:projectId/sessions/:name/worktree is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { path: '/tmp' } }));
             try {
                 const client = makeClient(helper.port());
                 await client.getWorktreeInfo('my-session');
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/my-session/worktree');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/worktree'));
             } finally {
                 await helper.close();
             }
@@ -796,13 +801,13 @@ suite('DaemonClient', () => {
             }
         });
 
-        test('Given no opts, when listWorkflows() is called, then GET /api/v1/workflows is requested without query string', async () => {
+        test('Given no opts, when listWorkflows() is called, then GET /api/v1/projects/:projectId/workflows is requested without query string', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { workflows: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.listWorkflows();
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/workflows');
+                assert.strictEqual(helper.captured[0].url, projectPath('/workflows'));
             } finally {
                 await helper.close();
             }
@@ -810,7 +815,7 @@ suite('DaemonClient', () => {
     });
 
     suite('validateWorkflow()', () => {
-        test('Given workflow content, when validateWorkflow() is called, then POST /api/v1/workflows/validate is made with body', async () => {
+        test('Given workflow content, when validateWorkflow() is called, then POST /api/v1/projects/:projectId/workflows/validate is made with body', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { valid: true } }));
             try {
                 const client = makeClient(helper.port());
@@ -818,7 +823,7 @@ suite('DaemonClient', () => {
                 await client.validateWorkflow(content);
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/workflows/validate');
+                assert.strictEqual(helper.captured[0].url, projectPath('/workflows/validate'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), content);
             } finally {
                 await helper.close();
@@ -827,14 +832,14 @@ suite('DaemonClient', () => {
     });
 
     suite('createWorkflow()', () => {
-        test('Given name and content, when createWorkflow() is called, then POST /api/v1/workflows is made with { name, content }', async () => {
+        test('Given name and content, when createWorkflow() is called, then POST /api/v1/projects/:projectId/workflows is made with { name, content }', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.createWorkflow('my-wf', { steps: ['a', 'b'] });
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/workflows');
+                assert.strictEqual(helper.captured[0].url, projectPath('/workflows'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), {
                     name: 'my-wf',
                     content: { steps: ['a', 'b'] },
@@ -846,14 +851,14 @@ suite('DaemonClient', () => {
     });
 
     suite('getWorkflowState()', () => {
-        test('Given session name, when getWorkflowState() is called, then GET /api/v1/sessions/:name/workflow is made', async () => {
+        test('Given session name, when getWorkflowState() is called, then GET /api/v1/projects/:projectId/sessions/:name/workflow is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { state: null } }));
             try {
                 const client = makeClient(helper.port());
                 await client.getWorkflowState('wf-session');
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/sessions/wf-session/workflow');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/wf-session/workflow'));
             } finally {
                 await helper.close();
             }
@@ -865,14 +870,14 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('listAgents()', () => {
-        test('Given a call to listAgents(), then GET /api/v1/agents is made', async () => {
+        test('Given a call to listAgents(), then GET /api/v1/projects/:projectId/agents is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { agents: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.listAgents();
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/agents');
+                assert.strictEqual(helper.captured[0].url, projectPath('/agents'));
             } finally {
                 await helper.close();
             }
@@ -886,7 +891,7 @@ suite('DaemonClient', () => {
                 const client = makeClient(helper.port());
                 await client.getAgentConfig('claude code');
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/agents/claude%20code');
+                assert.strictEqual(helper.captured[0].url, projectPath('/agents/claude%20code'));
             } finally {
                 await helper.close();
             }
@@ -898,14 +903,14 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('getAllConfig()', () => {
-        test('Given a call to getAllConfig(), then GET /api/v1/config is made', async () => {
+        test('Given a call to getAllConfig(), then GET /api/v1/projects/:projectId/config is made', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { config: {} } }));
             try {
                 const client = makeClient(helper.port());
                 await client.getAllConfig();
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/config');
+                assert.strictEqual(helper.captured[0].url, projectPath('/config'));
             } finally {
                 await helper.close();
             }
@@ -917,7 +922,7 @@ suite('DaemonClient', () => {
                 const client = makeClient(helper.port());
                 await client.getAllConfig('global');
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/config?scope=global');
+                assert.strictEqual(helper.captured[0].url, `${projectPath('/config')}?scope=global`);
             } finally {
                 await helper.close();
             }
@@ -931,7 +936,7 @@ suite('DaemonClient', () => {
                 const client = makeClient(helper.port());
                 await client.getConfig('lanes.agent/name');
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/config/lanes.agent%2Fname');
+                assert.strictEqual(helper.captured[0].url, projectPath('/config/lanes.agent%2Fname'));
             } finally {
                 await helper.close();
             }
@@ -943,7 +948,7 @@ suite('DaemonClient', () => {
                 const client = makeClient(helper.port());
                 await client.getConfig('lanes.defaultAgent', 'local');
 
-                assert.strictEqual(helper.captured[0].url, '/api/v1/config/lanes.defaultAgent?scope=local');
+                assert.strictEqual(helper.captured[0].url, `${projectPath('/config/lanes.defaultAgent')}?scope=local`);
             } finally {
                 await helper.close();
             }
@@ -951,14 +956,14 @@ suite('DaemonClient', () => {
     });
 
     suite('setConfig()', () => {
-        test('Given key and value, when setConfig() is called, then PUT /api/v1/config/:key is made with { value }', async () => {
+        test('Given key and value, when setConfig() is called, then PUT /api/v1/projects/:projectId/config/:key is made with { value }', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.setConfig('agentName', 'claude');
 
                 assert.strictEqual(helper.captured[0].method, 'PUT');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/config/agentName');
+                assert.strictEqual(helper.captured[0].url, projectPath('/config/agentName'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { value: 'claude' });
             } finally {
                 await helper.close();
@@ -983,14 +988,14 @@ suite('DaemonClient', () => {
     // -------------------------------------------------------------------------
 
     suite('listTerminals()', () => {
-        test('Given no opts, when listTerminals() is called, then GET /api/v1/terminals is requested without query string', async () => {
+        test('Given no opts, when listTerminals() is called, then GET /api/v1/projects/:projectId/terminals is requested without query string', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { terminals: [] } }));
             try {
                 const client = makeClient(helper.port());
                 await client.listTerminals();
 
                 assert.strictEqual(helper.captured[0].method, 'GET');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/terminals');
+                assert.strictEqual(helper.captured[0].url, projectPath('/terminals'));
             } finally {
                 await helper.close();
             }
@@ -1011,7 +1016,7 @@ suite('DaemonClient', () => {
     });
 
     suite('createTerminal()', () => {
-        test('Given opts, when createTerminal() is called, then POST /api/v1/terminals is made with body', async () => {
+        test('Given opts, when createTerminal() is called, then POST /api/v1/projects/:projectId/terminals is made with body', async () => {
             const helper = await startTestServer(() => ({
                 status: 200,
                 body: { terminalName: 'term-1' },
@@ -1021,7 +1026,7 @@ suite('DaemonClient', () => {
                 await client.createTerminal({ sessionName: 'feat', shell: 'bash' });
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/terminals');
+                assert.strictEqual(helper.captured[0].url, projectPath('/terminals'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), {
                     sessionName: 'feat',
                     shell: 'bash',
@@ -1033,14 +1038,14 @@ suite('DaemonClient', () => {
     });
 
     suite('sendToTerminal()', () => {
-        test('Given name and text, when sendToTerminal() is called, then POST /api/v1/terminals/:name/send is made with { command: text }', async () => {
+        test('Given name and text, when sendToTerminal() is called, then POST /api/v1/projects/:projectId/terminals/:name/send is made with { command: text }', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { success: true } }));
             try {
                 const client = makeClient(helper.port());
                 await client.sendToTerminal('term-1', 'ls -la');
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
-                assert.strictEqual(helper.captured[0].url, '/api/v1/terminals/term-1/send');
+                assert.strictEqual(helper.captured[0].url, projectPath('/terminals/term-1/send'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), { text: 'ls -la' });
             } finally {
                 await helper.close();
@@ -1205,10 +1210,10 @@ suite('DaemonClient SSE', () => {
     // daemon-client-subscribe-events
     // -------------------------------------------------------------------------
 
-    test('Given a mock SSE server, when subscribeEvents() is called, then a GET request to /api/v1/events is made', (done) => {
+    test('Given a mock SSE server, when subscribeEvents() is called, then a GET request to /api/v1/projects/:projectId/events is made', (done) => {
         // Create a minimal SSE server that closes immediately after receiving the request
         const server = http.createServer((req, res) => {
-            if (req.url === '/api/v1/events') {
+            if (req.url === projectPath('/events')) {
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
@@ -1224,7 +1229,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             let requestReceived = false;
 
@@ -1232,7 +1237,7 @@ suite('DaemonClient SSE', () => {
             server.once('request', (req) => {
                 requestReceived = true;
                 assert.strictEqual(req.method, 'GET');
-                assert.strictEqual(req.url, '/api/v1/events');
+                assert.strictEqual(req.url, projectPath('/events'));
             });
 
             const sub = client.subscribeEvents({
@@ -1249,7 +1254,7 @@ suite('DaemonClient SSE', () => {
             setTimeout(() => {
                 sub.close();
                 server.close(() => {
-                    assert.ok(requestReceived, 'A request to /api/v1/events should have been made');
+                    assert.ok(requestReceived, `A request to ${projectPath('/events')} should have been made`);
                     done();
                 });
             }, 500);
@@ -1269,7 +1274,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             const sub = client.subscribeEvents({});
 
@@ -1299,7 +1304,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             let callbackCalled = false;
 
@@ -1342,7 +1347,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             let callbackCalled = false;
 
@@ -1382,7 +1387,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             let callbackCalled = false;
 
@@ -1422,7 +1427,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: TEST_TOKEN });
+            const client = new DaemonClient({ port, token: TEST_TOKEN, projectId: TEST_PROJECT_ID });
 
             let callbackCalled = false;
 
@@ -1462,7 +1467,7 @@ suite('DaemonClient SSE', () => {
 
         server.listen(0, '127.0.0.1', () => {
             const port = (server.address() as { port: number }).port;
-            const client = new DaemonClient({ port, token: 'sse-token-test' });
+            const client = new DaemonClient({ port, token: 'sse-token-test', projectId: TEST_PROJECT_ID });
 
             const sub = client.subscribeEvents({
                 onConnected: () => {

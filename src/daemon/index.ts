@@ -12,13 +12,15 @@ export {
     removeTokenFile,
     validateAuthHeader,
 } from './auth';
-export type { StartDaemonOptions } from './lifecycle';
+export type { StartDaemonOptions, MachineDaemonState } from './lifecycle';
 export {
     startDaemon,
     stopDaemon,
     isDaemonRunning,
     getDaemonPort,
     getDaemonPid,
+    getDaemonStartedAt,
+    getMachineDaemonState,
 } from './lifecycle';
 export { DaemonNotificationEmitter } from './notifications';
 export type { FileWatchOptions } from './fileWatcher';
