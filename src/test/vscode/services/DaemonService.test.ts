@@ -55,11 +55,15 @@ suite('DaemonService', () => {
     // daemon-service-reuse-running-daemon
     // -------------------------------------------------------------------------
 
-    test('Given daemon is already running, when initialize() is called, then startDaemon is NOT invoked', async () => {
-        // Arrange: write fake daemon files and stub isDaemonRunning to return true
+    test('Given daemon is already running, when initialize() is called, then startDaemon reuses it', async () => {
+        // Arrange: write fake daemon files and stub startDaemon to report reuse
         writeFakeDaemonFiles(tempDir, process.pid, 4299);
-        const isDaemonRunningStub = sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
-        const startDaemonStub = sinon.stub(lifecycle, 'startDaemon').resolves();
+        const startDaemonStub = sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4299,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         // Stub DaemonClient.fromWorkspace to return a minimal mock client
         const fakeClient = {
@@ -72,8 +76,7 @@ suite('DaemonService', () => {
         await service.initialize();
 
         // Assert
-        assert.ok(isDaemonRunningStub.calledOnce, 'isDaemonRunning should be checked');
-        assert.ok(startDaemonStub.notCalled, 'startDaemon should NOT be called when daemon is already running');
+        assert.ok(startDaemonStub.calledOnce, 'startDaemon should be called to reuse the existing daemon');
         assert.ok(service.isEnabled(), 'service should be enabled after successful init');
 
         service.dispose();
@@ -85,10 +88,12 @@ suite('DaemonService', () => {
 
     test('Given daemon is not running, when initialize() is called, then startDaemon is invoked with correct options', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(false);
-        const startDaemonStub = sinon.stub(lifecycle, 'startDaemon').resolves();
-        // getDaemonPort returns a valid port immediately on first poll
-        sinon.stub(lifecycle, 'getDaemonPort').resolves(4300);
+        const startDaemonStub = sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: 1234,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: false,
+        });
 
         const fakeClient = {
             subscribeEvents: sinon.stub().returns({ close: () => {} }),
@@ -118,7 +123,12 @@ suite('DaemonService', () => {
 
     test('Given an active SSE subscription, when sessionCreated event fires, then onRefresh is called', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
@@ -143,7 +153,12 @@ suite('DaemonService', () => {
 
     test('Given an active SSE subscription, when sessionDeleted event fires, then onRefresh is called', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
@@ -168,7 +183,12 @@ suite('DaemonService', () => {
 
     test('Given an active SSE subscription, when sessionStatusChanged event fires, then onRefresh is called', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
@@ -197,7 +217,12 @@ suite('DaemonService', () => {
 
     test('Given an active SSE subscription, when dispose() is called, then subscription.close() is invoked', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         let closeCalled = false;
         const fakeSubscription: SseSubscription = { close: () => { closeCalled = true; } };
@@ -225,7 +250,6 @@ suite('DaemonService', () => {
 
     test('Given startDaemon throws, when initialize() is called, then error is handled gracefully', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(false);
         sinon.stub(lifecycle, 'startDaemon').rejects(new Error('startDaemon failed'));
 
         const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
@@ -238,11 +262,17 @@ suite('DaemonService', () => {
         // Assert
         assert.strictEqual(service.getClient(), undefined, 'getClient() should be undefined after failed init');
         assert.strictEqual(service.isEnabled(), false, 'isEnabled() should be false after failed init');
+        assert.match(service.getLastError() ?? '', /startDaemon failed/);
     });
 
     test('Given DaemonClient.fromWorkspace throws, when initialize() is called, then error is handled gracefully', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').rejects(new Error('port file not found'));
 
         const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
@@ -267,7 +297,12 @@ suite('DaemonService', () => {
 
     test('Given initialize() completed successfully, when isEnabled() is called, then true is returned', async () => {
         // Arrange
-        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+        sinon.stub(lifecycle, 'startDaemon').resolves({
+            pid: process.pid,
+            port: 4300,
+            logPath: path.join(tempDir, '.lanes', 'daemon.log'),
+            reusedExisting: true,
+        });
 
         const fakeClient = {
             subscribeEvents: sinon.stub().returns({ close: () => {} }),

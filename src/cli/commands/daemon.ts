@@ -11,13 +11,15 @@ import {
     isDaemonRunning,
     getDaemonPort,
     getDaemonPid,
+    getDaemonLogPath,
+    readDaemonLogTail,
+    getDaemonErrorSummary,
 } from '../../daemon/lifecycle';
 import {
     registerProject,
     deregisterProject,
     listRegisteredProjects,
 } from '../../daemon/registry';
-import { getErrorMessage } from '../../core/utils';
 
 export function registerDaemonCommand(program: Command): void {
     const daemon = program
@@ -44,21 +46,13 @@ export function registerDaemonCommand(program: Command): void {
                 // At runtime __dirname is the out/ directory.
                 const serverPath = path.resolve(__dirname, 'daemon.js');
 
-                await startDaemon({ workspaceRoot: repoRoot, port, serverPath });
-
-                // Wait briefly for the daemon to start up and write its port file
-                await new Promise<void>((resolve) => setTimeout(resolve, 500));
-
-                const running = await isDaemonRunning(repoRoot);
-                if (running) {
-                    const actualPort = await getDaemonPort(repoRoot);
-                    console.log(`Daemon started successfully on port ${actualPort}.`);
-                } else {
-                    console.error('Daemon did not start within the expected time. Check daemon logs for details.');
-                }
+                const result = await startDaemon({ workspaceRoot: repoRoot, port, serverPath });
+                const action = result.reusedExisting ? 'Daemon already running' : 'Daemon started successfully';
+                console.log(`${action} on port ${result.port}.`);
+                console.log(`Log: ${result.logPath}`);
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
@@ -82,7 +76,7 @@ export function registerDaemonCommand(program: Command): void {
                 console.log(`Registered project "${projectName}" at ${workspaceRoot}.`);
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
@@ -100,7 +94,7 @@ export function registerDaemonCommand(program: Command): void {
                 console.log(`Unregistered project at ${workspaceRoot}.`);
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
@@ -121,7 +115,7 @@ export function registerDaemonCommand(program: Command): void {
                 }
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
@@ -130,19 +124,17 @@ export function registerDaemonCommand(program: Command): void {
         .description('Stop the running daemon process')
         .action(async () => {
             try {
-                const { repoRoot } = await initCli();
-
-                const running = await isDaemonRunning(repoRoot);
+                const running = await isDaemonRunning();
                 if (!running) {
                     console.log('Daemon is not running.');
                     return;
                 }
 
-                await stopDaemon(repoRoot);
+                await stopDaemon();
                 console.log('Daemon stopped successfully.');
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
@@ -151,16 +143,16 @@ export function registerDaemonCommand(program: Command): void {
         .description('Show daemon status')
         .action(async () => {
             try {
-                const { repoRoot } = await initCli();
-
-                const running = await isDaemonRunning(repoRoot);
+                const running = await isDaemonRunning();
                 if (!running) {
                     console.log('Daemon status: stopped');
+                    console.log(`  Log:  ${getDaemonLogPath()}`);
                     return;
                 }
 
-                const pid = await getDaemonPid(repoRoot);
-                const port = await getDaemonPort(repoRoot);
+                const pid = await getDaemonPid();
+                const port = await getDaemonPort();
+                const logPath = getDaemonLogPath();
                 console.log('Daemon status: running');
                 if (pid !== undefined) {
                     console.log(`  PID:  ${pid}`);
@@ -168,17 +160,38 @@ export function registerDaemonCommand(program: Command): void {
                 if (port !== undefined) {
                     console.log(`  Port: ${port}`);
                 }
+                console.log(`  Log:  ${logPath}`);
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
-                exitWithError(getErrorMessage(err));
+                exitWithError(getDaemonErrorSummary(err));
             }
         });
 
     daemon
         .command('logs')
-        .description('Show information about daemon logs')
-        .action(() => {
-            console.log('Daemon logs are written to stderr of the daemon process.');
-            console.log('To capture logs, start the daemon with output redirection.');
+        .description('Show the daemon log path and recent log lines')
+        .option('--lines <count>', 'Number of log lines to show', '50')
+        .action(async (options) => {
+            try {
+                const lines = parseInt(options.lines, 10);
+                if (isNaN(lines) || lines <= 0) {
+                    exitWithError(`Invalid line count: ${options.lines}. Must be a positive number.`);
+                }
+
+                const logPath = getDaemonLogPath();
+                const tail = await readDaemonLogTail(lines);
+                console.log(`Daemon log: ${logPath}`);
+                if (tail.length === 0) {
+                    console.log('No daemon log output is available yet.');
+                    return;
+                }
+
+                for (const line of tail) {
+                    console.log(line);
+                }
+            } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                exitWithError(getDaemonErrorSummary(err));
+            }
         });
 }

@@ -64,6 +64,11 @@
         <!-- Startup activity to initialize bridge on project open -->
         <projectActivity
             implementation="com.lanes.jetbrainsIde.startup.LanesStartupActivity"/>
+
+        <notificationGroup
+            id="Lanes Notifications"
+            displayType="BALLOON"
+            isLogByDefault="true"/>
     </extensions>
 
     <!-- Plugin lifecycle listener -->

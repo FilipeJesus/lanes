@@ -11,18 +11,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { DaemonClient, type SseSubscription } from '../../daemon/client';
-import { startDaemon, isDaemonRunning, getDaemonPort } from '../../daemon/lifecycle';
+import { startDaemon, getDaemonErrorSummary } from '../../daemon/lifecycle';
 import { getErrorMessage } from '../../core/utils';
-
-/** Maximum number of attempts to poll for the daemon port file after starting. */
-const PORT_POLL_ATTEMPTS = 10;
-/** Delay in milliseconds between each port-file poll attempt. */
-const PORT_POLL_DELAY_MS = 300;
 
 export class DaemonService implements vscode.Disposable {
     private client: DaemonClient | undefined;
     private sseSubscription: SseSubscription | undefined;
     private enabled = false;
+    private lastError: string | undefined;
 
     /**
      * @param workspaceRoot - Absolute path to the repository root.
@@ -37,33 +33,27 @@ export class DaemonService implements vscode.Disposable {
 
     /**
      * Initialize the daemon service:
-     * 1. Checks if the daemon is already running.
-     * 2. If not, starts it using the bundled server script.
-     * 3. Waits for the port file to be written (polls a few times).
-     * 4. Creates a DaemonClient from workspace files.
-     * 5. Subscribes to SSE events that trigger onRefresh().
+     * 1. Routes lifecycle through startDaemon(), which either reuses a running
+     *    daemon or starts a new one and waits for readiness.
+     * 2. Creates a DaemonClient from workspace files.
+     * 3. Subscribes to SSE events that trigger onRefresh().
      *
      * Errors are logged but not re-thrown — a failure leaves the service
      * disabled so the extension can fall back to direct service calls.
      */
     async initialize(): Promise<void> {
         try {
-            const running = await isDaemonRunning(this.workspaceRoot);
-
-            if (!running) {
-                const serverPath = path.join(this.extensionPath, 'out', 'daemon', 'server.js');
-                await startDaemon({ workspaceRoot: this.workspaceRoot, serverPath });
-
-                // Poll until the daemon writes its port file (it may need a moment)
-                await this.waitForPortFile();
-            }
+            const serverPath = path.join(this.extensionPath, 'out', 'daemon', 'server.js');
+            await startDaemon({ workspaceRoot: this.workspaceRoot, serverPath });
 
             this.client = await DaemonClient.fromWorkspace(this.workspaceRoot);
             this.enabled = true;
+            this.lastError = undefined;
 
             this.subscribeToEvents();
         } catch (err) {
-            console.error('Lanes: DaemonService initialization failed:', getErrorMessage(err));
+            this.lastError = getDaemonErrorSummary(err);
+            console.error('Lanes: DaemonService initialization failed:', this.lastError);
             this.client = undefined;
             this.enabled = false;
         }
@@ -83,6 +73,10 @@ export class DaemonService implements vscode.Disposable {
         return this.enabled && this.client !== undefined;
     }
 
+    getLastError(): string | undefined {
+        return this.lastError;
+    }
+
     /**
      * Clean up: close the SSE subscription.
      * The daemon process itself is left running so other windows can use it.
@@ -94,28 +88,6 @@ export class DaemonService implements vscode.Disposable {
         }
         this.client = undefined;
         this.enabled = false;
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Poll for the daemon port file up to PORT_POLL_ATTEMPTS times.
-     * Resolves when a valid port is found; rejects if the timeout is exceeded.
-     */
-    private async waitForPortFile(): Promise<void> {
-        for (let attempt = 0; attempt < PORT_POLL_ATTEMPTS; attempt++) {
-            const port = await getDaemonPort(this.workspaceRoot);
-            if (port !== undefined && port > 0) {
-                return;
-            }
-            await delay(PORT_POLL_DELAY_MS);
-        }
-        throw new Error(
-            `Daemon port file not available after ${PORT_POLL_ATTEMPTS * PORT_POLL_DELAY_MS}ms. ` +
-            'The daemon may have failed to start.'
-        );
     }
 
     /**
@@ -145,9 +117,5 @@ export class DaemonService implements vscode.Disposable {
             },
         });
     }
-}
 
-/** Simple promise-based delay. */
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }

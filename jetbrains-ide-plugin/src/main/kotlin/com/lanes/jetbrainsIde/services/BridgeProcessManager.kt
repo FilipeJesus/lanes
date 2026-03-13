@@ -38,7 +38,10 @@ class BridgeProcessManager : Disposable {
             withContext(Dispatchers.IO) { client.start() }
         } catch (e: Exception) {
             logger.error("Failed to start BridgeClient for workspace: $workspaceRoot", e)
-            throw e
+            throw IllegalStateException(
+                "Failed to start Lanes bridge for '$workspaceRoot': ${e.message ?: "unknown error"}",
+                e
+            )
         }
         clients[workspaceRoot] = client
         client
