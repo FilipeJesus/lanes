@@ -36,7 +36,7 @@ export function generateToken(): string {
 /**
  * Write the authentication token to `~/.lanes/daemon.token`.
  */
-export async function writeTokenFile(_workspaceRoot: string | undefined, token: string): Promise<void> {
+export async function writeTokenFile(token: string): Promise<void> {
     const lanesDir = getGlobalLanesDir();
     await fs.mkdir(lanesDir, { recursive: true });
     await fs.writeFile(getGlobalTokenPath(), token, { encoding: 'utf-8', mode: 0o600 });
@@ -46,7 +46,7 @@ export async function writeTokenFile(_workspaceRoot: string | undefined, token: 
  * Read the authentication token from `~/.lanes/daemon.token`.
  * Throws if the file does not exist or cannot be read.
  */
-export async function readTokenFile(_workspaceRoot?: string): Promise<string> {
+export async function readTokenFile(): Promise<string> {
     const content = await fs.readFile(getGlobalTokenPath(), 'utf-8');
     return content.trim();
 }
@@ -55,7 +55,7 @@ export async function readTokenFile(_workspaceRoot?: string): Promise<string> {
  * Remove the token file from `~/.lanes/daemon.token`.
  * Does not throw if the file does not exist.
  */
-export async function removeTokenFile(_workspaceRoot?: string): Promise<void> {
+export async function removeTokenFile(): Promise<void> {
     try {
         await fs.unlink(getGlobalTokenPath());
     } catch (err) {

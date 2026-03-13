@@ -68,8 +68,8 @@ suite('daemon auth', () => {
         const token = generateToken();
 
         // Act
-        await writeTokenFile(tempDir, token);
-        const readBack = await readTokenFile(tempDir);
+        await writeTokenFile(token);
+        const readBack = await readTokenFile();
 
         // Assert
         assert.strictEqual(readBack, token);
@@ -81,7 +81,7 @@ suite('daemon auth', () => {
         const expectedPath = path.join(tempDir, '.lanes', 'daemon.token');
 
         // Act
-        await writeTokenFile(tempDir, token);
+        await writeTokenFile(token);
 
         // Assert
         assert.ok(fs.existsSync(expectedPath), '.lanes/daemon.token should exist after writeTokenFile');
@@ -90,12 +90,12 @@ suite('daemon auth', () => {
     test('Given a written global token file, when removeTokenFile is called, then the file no longer exists', async () => {
         // Arrange
         const token = generateToken();
-        await writeTokenFile(tempDir, token);
+        await writeTokenFile(token);
         const tokenPath = path.join(tempDir, '.lanes', 'daemon.token');
         assert.ok(fs.existsSync(tokenPath), 'Precondition: token file should exist before removal');
 
         // Act
-        await removeTokenFile(tempDir);
+        await removeTokenFile();
 
         // Assert
         assert.ok(!fs.existsSync(tokenPath), 'Token file should not exist after removeTokenFile');
@@ -103,19 +103,19 @@ suite('daemon auth', () => {
 
     test('Given no token file exists, when removeTokenFile is called, then it does not throw', async () => {
         // Act & Assert: should not throw even though the file is absent
-        await removeTokenFile(tempDir);
+        await removeTokenFile();
     });
 
     test('Given a removed token file, when readTokenFile is called, then it throws', async () => {
         // Arrange: write then remove
         const token = generateToken();
-        await writeTokenFile(tempDir, token);
-        await removeTokenFile(tempDir);
+        await writeTokenFile(token);
+        await removeTokenFile();
 
         // Act & Assert
         let thrown: unknown;
         try {
-            await readTokenFile(tempDir);
+            await readTokenFile();
         } catch (err) {
             thrown = err;
         }

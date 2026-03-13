@@ -25,6 +25,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
     return {
+        projectId: 'project-123',
         workspaceRoot: '/projects/my-app',
         port: 3942,
         pid: 1234,
@@ -50,13 +51,14 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
 }
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    const projectId = overrides.projectId ?? 'project-123';
     return {
-        projectId: 'project-123',
+        projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
         status: 'running',
-        daemon: makeDaemonInfo(),
+        daemon: makeDaemonInfo({ projectId }),
         ...overrides,
     };
 }

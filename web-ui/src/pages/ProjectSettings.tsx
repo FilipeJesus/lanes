@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDaemonConnection } from '../hooks/useDaemonConnection';
+import { ProjectConnectionState } from '../components/ProjectConnectionState';
 import styles from '../styles/ProjectSettings.module.css';
 
 type InputType = 'string' | 'number' | 'boolean' | 'select';
@@ -190,7 +191,14 @@ function renderInput(
 
 export function ProjectSettings() {
     const { projectId } = useParams<{ projectId: string }>();
-    const { apiClient, daemonInfo, loading: connectionLoading, error: connectionError } =
+    const {
+        apiClient,
+        daemonInfo,
+        loading: connectionLoading,
+        error: connectionError,
+        projectState,
+        refresh: refreshConnection,
+    } =
         useDaemonConnection(projectId);
 
     const [loading, setLoading] = useState(false);
@@ -252,6 +260,10 @@ export function ProjectSettings() {
         () => daemonInfo?.projectName ?? projectId ?? 'project',
         [daemonInfo?.projectName, projectId],
     );
+
+    const handleRefresh = useCallback(() => {
+        refreshConnection();
+    }, [refreshConnection]);
 
     const saveSetting = useCallback(async (definition: SettingDefinition, scope: 'global' | 'local') => {
         if (!apiClient) {
@@ -333,7 +345,7 @@ export function ProjectSettings() {
                     <button
                         type="button"
                         className={styles.secondaryButton}
-                        onClick={() => void loadSettings()}
+                        onClick={handleRefresh}
                     >
                         Refresh
                     </button>
@@ -377,7 +389,18 @@ export function ProjectSettings() {
                 </div>
             )}
 
-            {!isLoading && !pageError && (
+            {!connectionError && !connectionLoading && (projectState === 'offline' || projectState === 'missing') && (
+                <ProjectConnectionState
+                    state={projectState}
+                    projectId={projectId}
+                    projectName={projectName}
+                    workspaceRoot={daemonInfo?.workspaceRoot}
+                    registeredAt={daemonInfo?.registeredAt}
+                    onRefresh={handleRefresh}
+                />
+            )}
+
+            {!isLoading && !pageError && projectState === 'connected' && (
                 <div className={styles.settingsList}>
                     {SETTINGS.map((definition) => {
                         const localOverrideActive = Object.prototype.hasOwnProperty.call(localConfig, definition.key);

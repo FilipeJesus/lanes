@@ -10,14 +10,15 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { DaemonClient, type SseSubscription } from '../../daemon/client';
-import { startDaemon, isDaemonRunning, getDaemonPort } from '../../daemon/lifecycle';
+import {
+    startDaemon,
+    isDaemonRunning,
+    waitForDaemonReady,
+    getDaemonLogPath,
+} from '../../daemon/lifecycle';
 import { getErrorMessage } from '../../core/utils';
-
-/** Maximum number of attempts to poll for the daemon port file after starting. */
-const PORT_POLL_ATTEMPTS = 10;
-/** Delay in milliseconds between each port-file poll attempt. */
-const PORT_POLL_DELAY_MS = 300;
 
 export class DaemonService implements vscode.Disposable {
     private client: DaemonClient | undefined;
@@ -43,29 +44,31 @@ export class DaemonService implements vscode.Disposable {
      * 4. Creates a DaemonClient from workspace files.
      * 5. Subscribes to SSE events that trigger onRefresh().
      *
-     * Errors are logged but not re-thrown — a failure leaves the service
-     * disabled so the extension can fall back to direct service calls.
      */
     async initialize(): Promise<void> {
         try {
-            const running = await isDaemonRunning(this.workspaceRoot);
+            const running = await isDaemonRunning();
 
             if (!running) {
-                const serverPath = path.join(this.extensionPath, 'out', 'daemon', 'server.js');
+                const serverPath = await this.resolveBundledServerPath();
                 await startDaemon({ workspaceRoot: this.workspaceRoot, serverPath });
-
-                // Poll until the daemon writes its port file (it may need a moment)
-                await this.waitForPortFile();
+                await waitForDaemonReady();
             }
 
             this.client = await DaemonClient.fromWorkspace(this.workspaceRoot);
+            await this.client.discovery();
             this.enabled = true;
 
             this.subscribeToEvents();
         } catch (err) {
-            console.error('Lanes: DaemonService initialization failed:', getErrorMessage(err));
             this.client = undefined;
             this.enabled = false;
+            this.sseSubscription?.close();
+            this.sseSubscription = undefined;
+            throw new Error(
+                `Daemon initialization failed: ${getErrorMessage(err)}. ` +
+                `Check ${getDaemonLogPath()} for details.`
+            );
         }
     }
 
@@ -101,24 +104,6 @@ export class DaemonService implements vscode.Disposable {
     // -------------------------------------------------------------------------
 
     /**
-     * Poll for the daemon port file up to PORT_POLL_ATTEMPTS times.
-     * Resolves when a valid port is found; rejects if the timeout is exceeded.
-     */
-    private async waitForPortFile(): Promise<void> {
-        for (let attempt = 0; attempt < PORT_POLL_ATTEMPTS; attempt++) {
-            const port = await getDaemonPort(this.workspaceRoot);
-            if (port !== undefined && port > 0) {
-                return;
-            }
-            await delay(PORT_POLL_DELAY_MS);
-        }
-        throw new Error(
-            `Daemon port file not available after ${PORT_POLL_ATTEMPTS * PORT_POLL_DELAY_MS}ms. ` +
-            'The daemon may have failed to start.'
-        );
-    }
-
-    /**
      * Subscribe to SSE events from the daemon.
      * Fires onRefresh() for session lifecycle events (created, deleted, status changed).
      */
@@ -145,9 +130,24 @@ export class DaemonService implements vscode.Disposable {
             },
         });
     }
-}
 
-/** Simple promise-based delay. */
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    private async resolveBundledServerPath(): Promise<string> {
+        const candidatePaths = [
+            path.join(this.extensionPath, 'out', 'daemon.js'),
+            path.join(this.extensionPath, 'out', 'daemon', 'server.js'),
+        ];
+
+        for (const candidate of candidatePaths) {
+            try {
+                await fs.access(candidate);
+                return candidate;
+            } catch {
+                // Try the next known bundle location.
+            }
+        }
+
+        throw new Error(
+            `Bundled daemon entrypoint not found. Tried: ${candidatePaths.join(', ')}`
+        );
+    }
 }

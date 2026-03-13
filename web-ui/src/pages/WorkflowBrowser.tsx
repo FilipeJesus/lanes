@@ -16,6 +16,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useDaemonConnection } from '../hooks/useDaemonConnection';
 import { useWorkflows } from '../hooks/useWorkflows';
 import { WorkflowDetail } from '../components/WorkflowDetail';
+import { ProjectConnectionState } from '../components/ProjectConnectionState';
 import type { WorkflowInfo } from '../api/types';
 import styles from '../styles/WorkflowBrowser.module.css';
 
@@ -32,7 +33,14 @@ type FilterMode = 'all' | 'builtin' | 'custom';
 export function WorkflowBrowser() {
     const { projectId } = useParams<{ projectId: string }>();
 
-    const { apiClient, daemonInfo, loading: connectionLoading, error: connectionError } =
+    const {
+        apiClient,
+        daemonInfo,
+        loading: connectionLoading,
+        error: connectionError,
+        projectState,
+        refresh: refreshConnection,
+    } =
         useDaemonConnection(projectId);
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
@@ -49,7 +57,6 @@ export function WorkflowBrowser() {
         workflows,
         loading: workflowsLoading,
         error: workflowsError,
-        refresh,
     } = useWorkflows(apiClient, workflowOptions);
 
     // Filter by search query
@@ -65,6 +72,10 @@ export function WorkflowBrowser() {
 
     const isLoading = connectionLoading || workflowsLoading;
     const error = connectionError ?? workflowsError;
+    const projectName = daemonInfo?.projectName ?? projectId ?? 'project';
+    const handleRefresh = () => {
+        refreshConnection();
+    };
 
     // ---------------------------------------------------------------------------
     // Render
@@ -82,7 +93,7 @@ export function WorkflowBrowser() {
                     </nav>
                     <h1 className={styles.title}>Workflows</h1>
                     <span className={styles.subtitle}>
-                        {daemonInfo?.projectName ?? projectId}
+                        {projectName}
                     </span>
                 </div>
 
@@ -113,7 +124,7 @@ export function WorkflowBrowser() {
                     <button
                         type="button"
                         className={styles.secondaryButton}
-                        onClick={() => refresh()}
+                        onClick={handleRefresh}
                         disabled={isLoading}
                         aria-label="Refresh workflow list"
                     >
@@ -138,8 +149,19 @@ export function WorkflowBrowser() {
                 </div>
             )}
 
+            {!connectionError && !connectionLoading && (projectState === 'offline' || projectState === 'missing') && (
+                <ProjectConnectionState
+                    state={projectState}
+                    projectId={projectId}
+                    projectName={projectName}
+                    workspaceRoot={daemonInfo?.workspaceRoot}
+                    registeredAt={daemonInfo?.registeredAt}
+                    onRefresh={handleRefresh}
+                />
+            )}
+
             {/* Content */}
-            {!isLoading && !error && (
+            {!isLoading && !error && projectState === 'connected' && (
                 <div className={styles.contentLayout}>
                     {/* Left panel: workflow list */}
                     <div className={styles.listPanel}>

@@ -43,10 +43,11 @@ import { registerAllCommands } from './commands';
 import { registerWatchers } from './watchers';
 import { validateWorkflow as validateWorkflowService } from '../core/services/WorkflowService';
 import { createSession } from './services/SessionService';
-import { openAgentTerminal } from './services/TerminalService';
+import { openAgentTerminal, openDaemonSessionTerminal } from './services/TerminalService';
 import { VscodeConfigProvider } from './adapters/VscodeConfigProvider';
 import { DaemonService } from './services/DaemonService';
 import { resolveWorkspaceSupport } from './workspaceSupport';
+import { getDaemonLogPath } from '../daemon/lifecycle';
 
 /**
  * Activate the extension.
@@ -180,6 +181,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Initialize Tree Data Provider with the base repo path
     // This ensures sessions are always listed from the main repository
     const sessionProvider = new AgentSessionProvider(workspaceRoot, baseRepoPath, codeAgent, context);
+    sessionProvider.setDaemonModeEnabled(useDaemon);
     const sessionTreeView = vscode.window.createTreeView('lanesSessionsView', {
         treeDataProvider: sessionProvider,
         showCollapseAll: false
@@ -199,9 +201,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             // Wire daemon client into the session tree provider
             if (daemonService.isEnabled()) {
                 sessionProvider.setDaemonClient(daemonService.getClient());
+                sessionProvider.refresh();
             }
         } catch (err) {
-            console.error('Lanes: Failed to initialize daemon service:', getErrorMessage(err));
+            const message = `Lanes daemon mode is enabled, but startup failed: ${getErrorMessage(err)}`;
+            console.error(message);
+            void vscode.window.showErrorMessage(
+                `${message}. Check ${getDaemonLogPath()} and reload the window after fixing it, or disable "Lanes: Use Daemon".`
+            );
             daemonService = undefined;
         }
     }
@@ -240,6 +247,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
+    const getActiveDaemonClient = () => daemonService?.getClient();
+
     // Set default agent for the form dropdown
     sessionFormProvider.setDefaultAgent(defaultAgentName);
 
@@ -263,6 +272,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 `Tip: You can change the default agent in Settings > Lanes > Default Agent.`
             );
             throw new Error(`CLI not available`);
+        }
+
+        if (services.daemonModeEnabled) {
+            const daemonClient = getActiveDaemonClient();
+            if (!daemonClient) {
+                vscode.window.showErrorMessage(
+                    'Lanes daemon mode is enabled, but the daemon is unavailable. ' +
+                    'Reload the window after fixing daemon startup, or disable "Lanes: Use Daemon".'
+                );
+                throw new Error('Daemon mode enabled but daemon client is unavailable');
+            }
+
+            const result = await daemonClient.createSession({
+                name,
+                agent: selectedAgent.name,
+                prompt,
+                sourceBranch,
+                permissionMode,
+                workflow,
+                attachments,
+            });
+            sessionProvider.refresh();
+            await openDaemonSessionTerminal(result.sessionName, result.worktreePath, result, selectedAgent);
+            return;
         }
 
         await createSession(
@@ -344,6 +377,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         workspaceSupport,
         extensionPath: context.extensionPath,
         codeAgent,
+        daemonModeEnabled: useDaemon,
         daemonClient: daemonService?.getClient()
     };
 
@@ -397,9 +431,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 daemonService = nextDaemonService;
                 services.daemonClient = nextDaemonService.getClient();
                 sessionProvider.setDaemonClient(services.daemonClient);
+                sessionProvider.refresh();
             }
         } catch (err) {
-            console.error('Lanes: Failed to initialize daemon service:', getErrorMessage(err));
+            const message = `Lanes daemon mode is enabled, but startup failed: ${getErrorMessage(err)}`;
+            console.error(message);
+            void vscode.window.showErrorMessage(
+                `${message}. Check ${getDaemonLogPath()} and reload the window after fixing it, or disable "Lanes: Use Daemon".`
+            );
         }
     }
 

@@ -48,6 +48,22 @@ export function registerSessionCommands(
 
     const warnedMergeBaseBranches = new Set<string>();
 
+    function getActiveDaemonClient() {
+        if (!services.daemonModeEnabled) {
+            return services.daemonClient;
+        }
+
+        if (services.daemonClient) {
+            return services.daemonClient;
+        }
+
+        void vscode.window.showErrorMessage(
+            'Lanes daemon mode is enabled, but the daemon is unavailable. ' +
+            'Reload the window after fixing daemon startup, or disable "Lanes: Use Daemon".'
+        );
+        return undefined;
+    }
+
     /**
      * Helper: Check if branch exists in git
      */
@@ -152,14 +168,17 @@ export function registerSessionCommands(
             return;
         }
 
-        if (services.daemonClient) {
+        const activeDaemonClient = getActiveDaemonClient();
+        if (activeDaemonClient) {
             try {
-                const result = await services.daemonClient.createSession({ name, agent: codeAgent.name });
+                const result = await activeDaemonClient.createSession({ name, agent: codeAgent.name });
                 sessionProvider.refresh();
                 await openDaemonSessionTerminal(result.sessionName, result.worktreePath, result, codeAgent);
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to create session via daemon: ${getErrorMessage(err)}`);
             }
+        } else if (services.daemonModeEnabled) {
+            return;
         } else {
             await createSession(name, '', 'acceptEdits', '', null, [], services.baseRepoPath, sessionProvider, codeAgent, services.workspaceSupport.requirementMessage);
         }
@@ -169,9 +188,10 @@ export function registerSessionCommands(
     const openDisposable = vscode.commands.registerCommand('lanes.openSession', async (item: SessionItem) => {
         const agentName = await getSessionAgentName(item.worktreePath);
         const sessionAgent = getAgent(agentName) || codeAgent;
-        if (services.daemonClient) {
+        const activeDaemonClient = getActiveDaemonClient();
+        if (activeDaemonClient) {
             try {
-                const result = await services.daemonClient.openSession(item.label);
+                const result = await activeDaemonClient.openSession(item.label);
                 await openDaemonSessionTerminal(
                     item.label,
                     result.worktreePath,
@@ -181,6 +201,9 @@ export function registerSessionCommands(
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to open session via daemon: ${getErrorMessage(err)}`);
             }
+            return;
+        }
+        if (services.daemonModeEnabled) {
             return;
         }
         await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, services.baseRepoPath);
@@ -216,9 +239,12 @@ export function registerSessionCommands(
             // Remove from Project Manager
             await removeProject(item.worktreePath);
 
-            if (services.daemonClient) {
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
                 // Route git/fs deletion through the daemon
-                await services.daemonClient.deleteSession(item.label);
+                await activeDaemonClient.deleteSession(item.label);
+            } else if (services.daemonModeEnabled) {
+                return;
             } else {
                 // Direct path: remove worktree via git
                 if (services.baseRepoPath) {
@@ -291,12 +317,15 @@ export function registerSessionCommands(
             let diffContent: string;
             let baseBranch: string;
 
-            if (services.daemonClient) {
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
                 const config = vscode.workspace.getConfiguration('lanes');
                 const includeUncommitted = config.get<boolean>('includeUncommittedChanges', true);
-                const diffResult = await services.daemonClient.getSessionDiff(item.label, { includeUncommitted });
+                const diffResult = await activeDaemonClient.getSessionDiff(item.label, { includeUncommitted });
                 diffContent = diffResult.diff;
                 baseBranch = diffResult.baseBranch;
+            } else if (services.daemonModeEnabled) {
+                return;
             } else {
                 baseBranch = await DiffService.getBaseBranch(item.worktreePath, vscode.workspace.getConfiguration('lanes').get<string>('baseBranch', ''));
                 diffContent = await generateDiffContent(item.worktreePath, baseBranch);
@@ -541,14 +570,15 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!services.daemonClient && !(await fileExists(item.worktreePath))) {
+        if (!services.daemonModeEnabled && !services.daemonClient && !(await fileExists(item.worktreePath))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
 
         try {
-            if (services.daemonClient) {
-                const result = await services.daemonClient.getWorkflowState(item.label) as { state?: unknown } | undefined;
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
+                const result = await activeDaemonClient.getWorkflowState(item.label) as { state?: unknown } | undefined;
                 const state = result?.state ?? null;
                 if (!state) {
                     vscode.window.showInformationMessage(`No active workflow for session '${item.label}'. The workflow state is created when a workflow is started.`);
@@ -560,6 +590,9 @@ export function registerSessionCommands(
                     language: 'json',
                 });
                 await vscode.window.showTextDocument(document, { preview: false });
+                return;
+            }
+            if (services.daemonModeEnabled) {
                 return;
             }
 
@@ -613,16 +646,19 @@ export function registerSessionCommands(
         }
 
         try {
-            if (services.daemonClient) {
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
                 const insightsResult = await vscode.window.withProgress(
                     { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
-                    () => services.daemonClient!.getSessionInsights(item.label, { includeAnalysis: true })
+                    () => activeDaemonClient.getSessionInsights(item.label, { includeAnalysis: true })
                 );
                 const document = await vscode.workspace.openTextDocument({
                     content: insightsResult.insights,
                     language: 'markdown'
                 });
                 await vscode.window.showTextDocument(document, { preview: false });
+            } else if (services.daemonModeEnabled) {
+                return;
             } else {
                 const insights = await vscode.window.withProgress(
                     { location: vscode.ProgressLocation.Notification, title: 'Generating insights...' },
@@ -652,8 +688,11 @@ export function registerSessionCommands(
         }
 
         try {
-            if (services.daemonClient) {
-                await services.daemonClient.pinSession(item.label);
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
+                await activeDaemonClient.pinSession(item.label);
+            } else if (services.daemonModeEnabled) {
+                return;
             } else {
                 await sessionProvider.pinSession(item.worktreePath);
             }
@@ -671,8 +710,11 @@ export function registerSessionCommands(
         }
 
         try {
-            if (services.daemonClient) {
-                await services.daemonClient.unpinSession(item.label);
+            const activeDaemonClient = getActiveDaemonClient();
+            if (activeDaemonClient) {
+                await activeDaemonClient.unpinSession(item.label);
+            } else if (services.daemonModeEnabled) {
+                return;
             } else {
                 await sessionProvider.unpinSession(item.worktreePath);
             }

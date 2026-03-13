@@ -214,6 +214,8 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
     readonly onDidChangeTreeData: vscode.Event<SessionItem | SessionDetailItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private sessionsRoot: string | undefined;
     private daemonClient: DaemonClient | undefined;
+    private daemonModeEnabled = false;
+    private lastDaemonError: string | undefined;
 
     constructor(private workspaceRoot: string | undefined, baseRepoPath?: string, private codeAgent?: CodeAgent, private extensionContext?: vscode.ExtensionContext) {
         this.sessionsRoot = baseRepoPath || workspaceRoot;
@@ -230,6 +232,10 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
      */
     setDaemonClient(client: DaemonClient | undefined): void {
         this.daemonClient = client;
+    }
+
+    setDaemonModeEnabled(enabled: boolean): void {
+        this.daemonModeEnabled = enabled;
     }
 
     dispose(): void { this._onDidChangeTreeData.dispose(); }
@@ -265,7 +271,14 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
             return [];
         }
 
-        if (this.daemonClient) {
+        if (this.daemonModeEnabled) {
+            if (!this.daemonClient) {
+                this.reportDaemonError(
+                    'Lanes daemon mode is enabled, but the daemon client is unavailable. ' +
+                    'Reload the window after fixing daemon startup, or disable "Lanes: Use Daemon".'
+                );
+                return [];
+            }
             return this.getSessionsFromDaemon();
         }
 
@@ -286,6 +299,7 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
 
         try {
             const result = await this.daemonClient.listSessions();
+            this.lastDaemonError = undefined;
             const items: SessionItem[] = [];
 
             for (const session of result.sessions) {
@@ -315,9 +329,20 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
             const unpinnedItems = items.filter(item => item.contextValue !== 'sessionItemPinned');
             return [...pinnedItems, ...unpinnedItems];
         } catch (err) {
-            console.error('Lanes: Failed to list sessions from daemon:', err);
+            const message = `Failed to list sessions from daemon: ${err instanceof Error ? err.message : String(err)}`;
+            console.error(`Lanes: ${message}`);
+            this.reportDaemonError(message);
             return [];
         }
+    }
+
+    private reportDaemonError(message: string): void {
+        if (this.lastDaemonError === message) {
+            return;
+        }
+
+        this.lastDaemonError = message;
+        void vscode.window.showErrorMessage(message);
     }
 
     private async getSessionsInDir(dirPath: string): Promise<SessionItem[]> {

@@ -24,9 +24,9 @@ import type { SseCallbacks, SseSubscription } from '../../../daemon/client';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Write fake daemon PID/port/token files to simulate a running daemon. */
-function writeFakeDaemonFiles(workspaceRoot: string, pid: number, port: number): void {
-    const lanesDir = path.join(workspaceRoot, '.lanes');
+/** Write fake machine-wide daemon PID/port/token files to simulate a running daemon. */
+function writeFakeDaemonFiles(homeDir: string, pid: number, port: number): void {
+    const lanesDir = path.join(homeDir, '.lanes');
     fs.mkdirSync(lanesDir, { recursive: true });
     fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(pid), 'utf-8');
     fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(port), 'utf-8');
@@ -39,15 +39,23 @@ function writeFakeDaemonFiles(workspaceRoot: string, pid: number, port: number):
 
 suite('DaemonService', () => {
     let tempDir: string;
+    let originalHome: string | undefined;
     let onRefreshStub: sinon.SinonSpy;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-service-test-'));
+        originalHome = process.env.HOME;
+        process.env.HOME = tempDir;
         onRefreshStub = sinon.spy();
     });
 
     teardown(() => {
         sinon.restore();
+        if (originalHome !== undefined) {
+            process.env.HOME = originalHome;
+        } else {
+            delete process.env.HOME;
+        }
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -63,6 +71,7 @@ suite('DaemonService', () => {
 
         // Stub DaemonClient.fromWorkspace to return a minimal mock client
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().returns({ close: () => {} }),
         } as unknown as clientModule.DaemonClient;
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
@@ -87,15 +96,17 @@ suite('DaemonService', () => {
         // Arrange
         sinon.stub(lifecycle, 'isDaemonRunning').resolves(false);
         const startDaemonStub = sinon.stub(lifecycle, 'startDaemon').resolves();
-        // getDaemonPort returns a valid port immediately on first poll
-        sinon.stub(lifecycle, 'getDaemonPort').resolves(4300);
+        sinon.stub(lifecycle, 'waitForDaemonReady').resolves(4300);
 
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().returns({ close: () => {} }),
         } as unknown as clientModule.DaemonClient;
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
 
-        const extensionPath = '/fake/extension';
+        const extensionPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-service-ext-'));
+        fs.mkdirSync(path.join(extensionPath, 'out'), { recursive: true });
+        fs.writeFileSync(path.join(extensionPath, 'out', 'daemon.js'), '', 'utf-8');
 
         // Act
         const service = new DaemonService(tempDir, extensionPath, onRefreshStub);
@@ -105,7 +116,7 @@ suite('DaemonService', () => {
         assert.ok(startDaemonStub.calledOnce, 'startDaemon should be called when daemon is not running');
         const callArgs = startDaemonStub.firstCall.args[0] as lifecycle.StartDaemonOptions;
         assert.strictEqual(callArgs.workspaceRoot, tempDir, 'workspaceRoot should match');
-        const expectedServerPath = path.join(extensionPath, 'out', 'daemon', 'server.js');
+        const expectedServerPath = path.join(extensionPath, 'out', 'daemon.js');
         assert.strictEqual(callArgs.serverPath, expectedServerPath, 'serverPath should point to bundled server');
         assert.ok(service.getClient() !== undefined, 'getClient() should return a client after successful init');
 
@@ -122,6 +133,7 @@ suite('DaemonService', () => {
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().callsFake((callbacks: SseCallbacks) => {
                 capturedCallbacks = callbacks;
                 return { close: () => {} };
@@ -129,7 +141,10 @@ suite('DaemonService', () => {
         } as unknown as clientModule.DaemonClient;
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
 
-        const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
+        const extensionPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-daemon-service-ext-'));
+        fs.mkdirSync(path.join(extensionPath, 'out'), { recursive: true });
+        fs.writeFileSync(path.join(extensionPath, 'out', 'daemon.js'), '', 'utf-8');
+        const service = new DaemonService(tempDir, extensionPath, onRefreshStub);
         await service.initialize();
 
         // Act: simulate SSE event
@@ -147,6 +162,7 @@ suite('DaemonService', () => {
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().callsFake((callbacks: SseCallbacks) => {
                 capturedCallbacks = callbacks;
                 return { close: () => {} };
@@ -172,6 +188,7 @@ suite('DaemonService', () => {
 
         let capturedCallbacks: SseCallbacks = {};
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().callsFake((callbacks: SseCallbacks) => {
                 capturedCallbacks = callbacks;
                 return { close: () => {} };
@@ -202,6 +219,7 @@ suite('DaemonService', () => {
         let closeCalled = false;
         const fakeSubscription: SseSubscription = { close: () => { closeCalled = true; } };
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().returns(fakeSubscription),
         } as unknown as clientModule.DaemonClient;
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
@@ -223,32 +241,37 @@ suite('DaemonService', () => {
     // daemon-service-graceful-error
     // -------------------------------------------------------------------------
 
-    test('Given startDaemon throws, when initialize() is called, then error is handled gracefully', async () => {
+    test('Given startDaemon throws, when initialize() is called, then it rejects and leaves the service disabled', async () => {
         // Arrange
         sinon.stub(lifecycle, 'isDaemonRunning').resolves(false);
         sinon.stub(lifecycle, 'startDaemon').rejects(new Error('startDaemon failed'));
 
-        const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
+        const extensionPath = path.join(tempDir, 'extension');
+        fs.mkdirSync(path.join(extensionPath, 'out'), { recursive: true });
+        fs.writeFileSync(path.join(extensionPath, 'out', 'daemon.js'), '', 'utf-8');
+        const service = new DaemonService(tempDir, extensionPath, onRefreshStub);
 
-        // Act: should not throw
-        await assert.doesNotReject(async () => {
-            await service.initialize();
-        }, 'initialize() should not throw even if daemon fails to start');
+        await assert.rejects(
+            () => service.initialize(),
+            /Daemon initialization failed: startDaemon failed/
+        );
 
         // Assert
         assert.strictEqual(service.getClient(), undefined, 'getClient() should be undefined after failed init');
         assert.strictEqual(service.isEnabled(), false, 'isEnabled() should be false after failed init');
     });
 
-    test('Given DaemonClient.fromWorkspace throws, when initialize() is called, then error is handled gracefully', async () => {
+    test('Given DaemonClient.fromWorkspace throws, when initialize() is called, then it rejects and leaves the service disabled', async () => {
         // Arrange
         sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').rejects(new Error('port file not found'));
 
         const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
 
-        // Act
-        await service.initialize();
+        await assert.rejects(
+            () => service.initialize(),
+            /Daemon initialization failed: port file not found/
+        );
 
         // Assert
         assert.strictEqual(service.getClient(), undefined, 'getClient() should be undefined after failed init');
@@ -270,6 +293,7 @@ suite('DaemonService', () => {
         sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
 
         const fakeClient = {
+            discovery: sinon.stub().resolves({ projectId: 'proj-1' }),
             subscribeEvents: sinon.stub().returns({ close: () => {} }),
         } as unknown as clientModule.DaemonClient;
         sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
@@ -302,10 +326,29 @@ suite('DaemonService', () => {
             baseRepoPath: '/tmp/test',
             extensionPath: '/fake/ext',
             codeAgent: {} as import('../../../core/codeAgents').CodeAgent,
+            daemonModeEnabled: false,
             // daemonClient intentionally omitted
         };
 
         // No daemonClient — accessing it should return undefined
         assert.strictEqual((container as Record<string, unknown>).daemonClient, undefined);
+    });
+
+    test('Given the daemon client cannot complete discovery, when initialize() is called, then it rejects', async () => {
+        sinon.stub(lifecycle, 'isDaemonRunning').resolves(true);
+
+        const fakeClient = {
+            discovery: sinon.stub().rejects(new Error('Unauthorized: invalid token')),
+            subscribeEvents: sinon.stub().returns({ close: () => {} }),
+        } as unknown as clientModule.DaemonClient;
+        sinon.stub(clientModule.DaemonClient, 'fromWorkspace').resolves(fakeClient);
+
+        const service = new DaemonService(tempDir, '/fake/ext', onRefreshStub);
+
+        await assert.rejects(
+            () => service.initialize(),
+            /Daemon initialization failed: Unauthorized: invalid token/
+        );
+        assert.strictEqual(service.isEnabled(), false);
     });
 });

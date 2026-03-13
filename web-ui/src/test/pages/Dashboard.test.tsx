@@ -30,6 +30,7 @@ vi.mock('../../hooks/useDaemons', () => ({
 
 function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
     return {
+        projectId: 'project-123',
         workspaceRoot: '/projects/my-app',
         port: 3942,
         pid: 1234,
@@ -55,13 +56,14 @@ function makeDiscovery(overrides: Partial<DiscoveryInfo> = {}): DiscoveryInfo {
 }
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    const projectId = overrides.projectId ?? 'project-123';
     return {
-        projectId: 'project-123',
+        projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
         status: 'running',
-        daemon: makeDaemonInfo(),
+        daemon: makeDaemonInfo({ projectId }),
         ...overrides,
     };
 }
@@ -73,6 +75,22 @@ function makeEnrichedDaemon(port: number, projectName: string): EnrichedDaemon {
         discovery: makeDiscovery({ port, projectName }),
         health: 'healthy',
         healthResponse: { status: 'ok', version: '1.0.0' },
+    };
+}
+
+function makeRegisteredProject(projectName: string): EnrichedDaemon {
+    return {
+        project: makeProjectInfo({
+            projectId: `project-${projectName}`,
+            workspaceRoot: `/projects/${projectName}`,
+            projectName,
+            status: 'registered',
+            daemon: null,
+        }),
+        daemon: null,
+        discovery: null,
+        health: 'registered',
+        healthResponse: null,
     };
 }
 
@@ -146,6 +164,19 @@ describe('Dashboard', () => {
         expect(screen.getByText(/lanes daemon register \./i)).toBeInTheDocument();
     });
 
+    it('Given empty state, then the onboarding copy explains that projects are registered first and daemons start later', () => {
+        mockUseDaemons.mockReturnValue({
+            daemons: [],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+        });
+
+        renderDashboard();
+
+        expect(screen.getByText(/register a repo first, then start its local daemon when you need it/i)).toBeInTheDocument();
+    });
+
     it('Given useDaemons returns 3 daemons, then 3 ProjectCard elements are rendered', () => {
         mockUseDaemons.mockReturnValue({
             daemons: [
@@ -176,6 +207,23 @@ describe('Dashboard', () => {
 
         const projectCards = screen.getAllByRole('button', { name: /open project/i });
         expect(projectCards).toHaveLength(1);
+    });
+
+    it('Given a registered offline project, then its card still opens the guided setup route', async () => {
+        const user = userEvent.setup();
+        mockUseDaemons.mockReturnValue({
+            daemons: [makeRegisteredProject('project-a')],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+        });
+
+        renderDashboard();
+
+        expect(screen.getByText(/ready to start/i)).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: /open project project-a/i }));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/project/project-project-a');
     });
 
     it('Given useDaemons returns an error, then an error message is displayed', () => {

@@ -14,6 +14,7 @@ import {
     initializeGlobalStorageContext,
 } from '../../core/session/SessionDataService';
 import { createSessionWorktree } from '../../core/services/SessionCreationService';
+import * as PreflightService from '../../core/services/PreflightService';
 import { execIntoAgent } from './open';
 
 export function registerCreateCommand(program: Command): void {
@@ -68,6 +69,12 @@ export function registerCreateCommand(program: Command): void {
                 // Create worktree via core service
                 console.log(`Creating session '${sanitizedName}'...`);
                 const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
+                const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
+
+                await PreflightService.assertSessionLaunchPrerequisites({
+                    codeAgent,
+                    terminalMode: useTmux ? 'tmux' : 'vscode',
+                });
 
                 const { worktreePath } = await createSessionWorktree({
                     repoRoot,
@@ -96,7 +103,7 @@ export function registerCreateCommand(program: Command): void {
                     prompt: options.prompt,
                     permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
                     workflow: options.workflow,
-                    useTmux: options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux',
+                    useTmux,
                     isNewSession: true,
                 });
             } catch (err) {

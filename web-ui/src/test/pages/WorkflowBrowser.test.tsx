@@ -41,6 +41,22 @@ function makeApiClient(workflows: WorkflowInfo[] = [builtinWorkflow, customWorkf
     } as unknown as DaemonApiClient;
 }
 
+function makeConnectedDaemonConnection(apiClient: DaemonApiClient) {
+    return {
+        apiClient,
+        sseClient: null,
+        daemonInfo: {
+            projectName: 'my-app',
+            workspaceRoot: '/projects/my-app',
+            registeredAt: new Date().toISOString(),
+        },
+        loading: false,
+        error: null,
+        projectState: 'connected',
+        refresh: vi.fn(),
+    };
+}
+
 function renderWithProject(projectId: string = 'project-123') {
     return render(
         <MemoryRouter initialEntries={[`/project/${projectId}/workflows`]}>
@@ -62,12 +78,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given a project param and workflows returned from API, then workflow cards are rendered', async () => {
         const apiClient = makeApiClient();
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -79,12 +90,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given workflow cards rendered, then their names are visible', async () => {
         const apiClient = makeApiClient();
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -96,12 +102,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given a builtin workflow, then the builtin badge is shown on its card', async () => {
         const apiClient = makeApiClient([builtinWorkflow]);
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -113,12 +114,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given a workflow card is clicked, then its detail panel is shown', async () => {
         const apiClient = makeApiClient();
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -138,8 +134,11 @@ describe('WorkflowBrowser', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient: null,
             sseClient: null,
+            daemonInfo: null,
             loading: true,
             error: null,
+            projectState: 'missing',
+            refresh: vi.fn(),
         });
 
         renderWithProject('project-123');
@@ -151,8 +150,11 @@ describe('WorkflowBrowser', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient: null,
             sseClient: null,
+            daemonInfo: null,
             loading: false,
             error: new Error('Connection refused'),
+            projectState: 'missing',
+            refresh: vi.fn(),
         });
 
         renderWithProject('project-123');
@@ -163,12 +165,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given a search query entered, then only matching workflows are shown', async () => {
         const apiClient = makeApiClient();
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -187,12 +184,7 @@ describe('WorkflowBrowser', () => {
 
     it('Given clicking a selected workflow card again, then the detail panel is closed', async () => {
         const apiClient = makeApiClient();
-        mockUseDaemonConnection.mockReturnValue({
-            apiClient,
-            sseClient: null,
-            loading: false,
-            error: null,
-        });
+        mockUseDaemonConnection.mockReturnValue(makeConnectedDaemonConnection(apiClient));
 
         renderWithProject('project-123');
 
@@ -213,5 +205,26 @@ describe('WorkflowBrowser', () => {
         await waitFor(() => {
             expect(screen.queryByTestId('workflow-detail')).not.toBeInTheDocument();
         });
+    });
+
+    it('Given a registered project without a running daemon, then onboarding guidance is shown', () => {
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: null,
+            sseClient: null,
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
+            loading: false,
+            error: null,
+            projectState: 'offline',
+            refresh: vi.fn(),
+        });
+
+        renderWithProject('project-123');
+
+        expect(screen.getByText(/daemon is offline/i)).toBeInTheDocument();
+        expect(screen.queryByText(/failed to load workflows/i)).not.toBeInTheDocument();
     });
 });
