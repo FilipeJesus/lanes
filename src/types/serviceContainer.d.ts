@@ -28,6 +28,9 @@ export interface ServiceContainer {
     // Code agent
     codeAgent: CodeAgent;
 
+    // Whether daemon mode is configured on for this window.
+    daemonModeEnabled: boolean;
+
     // Optional daemon client (present only when lanes.useDaemon is true and daemon is reachable)
     daemonClient?: DaemonClient;
 }

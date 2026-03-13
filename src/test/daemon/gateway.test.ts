@@ -20,7 +20,7 @@ import * as path from 'path';
 import sinon from 'sinon';
 import { createGatewayServer } from '../../daemon/gateway';
 import { registerProject } from '../../daemon/registry';
-import type { DaemonRegistryEntry } from '../../daemon/registry';
+import type { GatewayDaemonInfo } from '../../daemon/gateway';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,9 +57,10 @@ function request(
     });
 }
 
-/** Create a minimal valid registry entry for testing. */
-function makeEntry(overrides: Partial<DaemonRegistryEntry> = {}): DaemonRegistryEntry {
+/** Create a minimal valid machine-wide daemon projection for testing. */
+function makeEntry(overrides: Partial<GatewayDaemonInfo> = {}): GatewayDaemonInfo {
     return {
+        projectId: 'project-test-123',
         workspaceRoot: '/tmp/test-workspace',
         port: 3000,
         pid: process.pid,
@@ -70,12 +71,13 @@ function makeEntry(overrides: Partial<DaemonRegistryEntry> = {}): DaemonRegistry
     };
 }
 
-function writeGlobalDaemonFiles(homeDir: string, entry: DaemonRegistryEntry): void {
+function writeGlobalDaemonFiles(homeDir: string, entry: GatewayDaemonInfo): void {
     const lanesDir = path.join(homeDir, '.lanes');
     fs.mkdirSync(lanesDir, { recursive: true });
     fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(entry.pid), 'utf-8');
     fs.writeFileSync(path.join(lanesDir, 'daemon.port'), String(entry.port), 'utf-8');
     fs.writeFileSync(path.join(lanesDir, 'daemon.token'), entry.token, 'utf-8');
+    fs.writeFileSync(path.join(lanesDir, 'daemon.startedAt'), entry.startedAt, 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +143,7 @@ suite('GatewayServer', () => {
 
         // Assert
         assert.strictEqual(res.status, 200, 'Should return HTTP 200');
-        const body = JSON.parse(res.body) as DaemonRegistryEntry[];
+        const body = JSON.parse(res.body) as GatewayDaemonInfo[];
         assert.ok(Array.isArray(body), 'Response body should be an array');
         assert.ok(body.length >= 1, 'Should contain at least one live daemon entry');
         const found = body.find((d) => d.workspaceRoot === '/workspace/running');
@@ -178,7 +180,7 @@ suite('GatewayServer', () => {
 
         // Assert
         assert.strictEqual(res.status, 200, 'Should return HTTP 200');
-        const body = JSON.parse(res.body) as DaemonRegistryEntry[];
+        const body = JSON.parse(res.body) as GatewayDaemonInfo[];
         assert.ok(Array.isArray(body), 'Response body should be an array');
         assert.strictEqual(body.length, 0, 'Stale global daemon should not produce daemon entries');
     });
@@ -205,7 +207,7 @@ suite('GatewayServer', () => {
         const body = JSON.parse(res.body) as Array<{
             workspaceRoot: string;
             status: string;
-            daemon: DaemonRegistryEntry | null;
+            daemon: GatewayDaemonInfo | null;
         }>;
         const found = body.find((project) => project.workspaceRoot === '/workspace/registered-only');
         assert.ok(found, 'Registered project should appear in the response');
@@ -233,7 +235,7 @@ suite('GatewayServer', () => {
         const body = JSON.parse(res.body) as Array<{
             workspaceRoot: string;
             status: string;
-            daemon: DaemonRegistryEntry | null;
+            daemon: GatewayDaemonInfo | null;
         }>;
         const found = body.find((project) => project.workspaceRoot === workspaceRoot);
         assert.ok(found, 'Running project should appear in the response');

@@ -32,6 +32,7 @@ import { fetchProjects } from '../../api/gateway';
 
 function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
     return {
+        projectId: 'project-123',
         workspaceRoot: '/projects/my-app',
         port: 3942,
         pid: 1234,
@@ -43,13 +44,14 @@ function makeDaemonInfo(overrides: Partial<DaemonInfo> = {}): DaemonInfo {
 }
 
 function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayProjectInfo {
+    const projectId = overrides.projectId ?? 'project-123';
     return {
-        projectId: 'project-123',
+        projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
         status: 'running',
-        daemon: makeDaemonInfo(),
+        daemon: makeDaemonInfo({ projectId }),
         ...overrides,
     };
 }
@@ -214,6 +216,35 @@ describe('useDaemons', () => {
         });
 
         expect(result.current.daemons).toHaveLength(2);
+    });
+
+    it('Given two projects share one machine-wide daemon, when the hook loads, then both projects remain independently addressable', async () => {
+        const sharedDaemon = makeDaemonInfo({
+            projectId: 'project-123',
+            port: 3942,
+            pid: 7777,
+            token: 'shared-token',
+        });
+        mockFetchProjects.mockResolvedValue([
+            makeProjectInfo({ projectId: 'project-123', daemon: sharedDaemon }),
+            makeProjectInfo({
+                projectId: 'project-456',
+                workspaceRoot: '/projects/my-api',
+                projectName: 'my-api',
+                daemon: { ...sharedDaemon, projectId: 'project-456', workspaceRoot: '/projects/my-api', projectName: 'my-api' },
+            }),
+        ]);
+
+        const { result } = renderHook(() => useDaemons());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.daemons).toHaveLength(2);
+        expect(result.current.daemons[0].daemon?.port).toBe(3942);
+        expect(result.current.daemons[1].daemon?.port).toBe(3942);
+        expect(result.current.daemons.map((entry) => entry.project.projectId)).toEqual(['project-123', 'project-456']);
     });
 
     it('Given fetchProjects throws, then error is set in state', async () => {

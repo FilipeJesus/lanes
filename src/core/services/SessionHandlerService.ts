@@ -39,6 +39,7 @@ import {
     setSessionChimeEnabled,
     getSessionTmuxName,
     getSessionTerminalMode,
+    getSessionAgentName,
 } from '../session/SessionDataService';
 import { ValidationError } from '../errors/ValidationError';
 import * as TmuxService from './TmuxService';
@@ -51,11 +52,13 @@ import { assemblePrompt, writePromptFile } from './PromptService';
 import { getAgent, getAvailableAgents } from '../codeAgents';
 import { readJson } from './FileService';
 import { buildAgentLaunchCommand, prepareAgentLaunchContext } from './AgentLaunchSetupService';
+import * as PreflightService from './PreflightService';
 import { IHandlerContext } from '../interfaces/IHandlerContext';
 import { validateSessionName as coreValidateSessionName, validateComparisonRef } from '../validation';
 import { generateInsights, formatInsightsReport, SessionInsights } from './InsightsService';
 import { analyzeInsights } from './InsightsAnalyzer';
 import type { SettingsScope, SettingsView } from './UnifiedSettingsService';
+import { CodeAgent } from '../codeAgents/CodeAgent';
 
 const MAX_SESSION_FORM_ATTACHMENTS = 20;
 const MAX_PROMPT_IMPROVE_STDOUT = 1024 * 1024;
@@ -173,6 +176,31 @@ export class SessionHandlerService {
         return mode ?? 'vscode';
     }
 
+    private getDefaultAgentName(): string {
+        return (this.ctx.config.get('lanes.defaultAgent') as string | undefined) ?? 'claude';
+    }
+
+    private resolveLaunchAgent(agentName?: string): CodeAgent {
+        const defaultAgentName = this.getDefaultAgentName();
+        return getAgent(agentName ?? defaultAgentName)
+            ?? getAgent(defaultAgentName)
+            ?? getAgent('claude')!;
+    }
+
+    private async assertSessionLaunchPrerequisites(
+        codeAgent: CodeAgent,
+        preferredTerminalMode?: string | null
+    ): Promise<void> {
+        const terminalMode = this.normalizeTerminalMode(
+            preferredTerminalMode ?? this.ctx.config.get('lanes.terminalMode') as string | undefined
+        );
+
+        await PreflightService.assertSessionLaunchPrerequisites({
+            codeAgent,
+            terminalMode,
+        });
+    }
+
     private async prepareTerminalLaunch(
         sessionName: string,
         worktreePath: string,
@@ -190,21 +218,23 @@ export class SessionHandlerService {
 
         if (TmuxService.isTmuxMode(terminalMode)) {
             const tmuxInstalled = await TmuxService.isTmuxInstalled();
-            if (tmuxInstalled) {
-                const tmuxResult = await TmuxService.launchInTmux({
-                    sessionName,
-                    worktreePath,
-                    command: agentCommand,
-                });
-                await saveSessionTerminalMode(worktreePath, 'tmux');
-                await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
-                return {
-                    terminalMode: 'tmux',
-                    command: tmuxResult.attachCommand,
-                    attachCommand: tmuxResult.attachCommand,
-                    tmuxSessionName: tmuxResult.tmuxSessionName,
-                };
+            if (!tmuxInstalled) {
+                throw new Error('tmux is not installed. Install tmux or switch lanes.terminalMode to vscode.');
             }
+
+            const tmuxResult = await TmuxService.launchInTmux({
+                sessionName,
+                worktreePath,
+                command: agentCommand,
+            });
+            await saveSessionTerminalMode(worktreePath, 'tmux');
+            await saveSessionTmuxName(worktreePath, tmuxResult.tmuxSessionName);
+            return {
+                terminalMode: 'tmux',
+                command: tmuxResult.attachCommand,
+                attachCommand: tmuxResult.attachCommand,
+                tmuxSessionName: tmuxResult.tmuxSessionName,
+            };
         }
 
         await saveSessionTerminalMode(worktreePath, 'vscode');
@@ -514,6 +544,9 @@ export class SessionHandlerService {
 
         const worktreesFolder = getWorktreesFolder();
         const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, name);
+        const codeAgent = this.resolveLaunchAgent(agent);
+
+        await this.assertSessionLaunchPrerequisites(codeAgent);
 
         const worktreeArgs = ['worktree', 'add'];
         if (branch) {
@@ -533,8 +566,7 @@ export class SessionHandlerService {
                 workflow: workflow ?? null,
                 permissionMode,
                 agentName: agent,
-                defaultAgentName:
-                    (this.ctx.config.get('lanes.defaultAgent') as string) ?? 'claude',
+                defaultAgentName: this.getDefaultAgentName(),
                 repoRoot: this.ctx.workspaceRoot,
                 workflowResolver: (name: string) => this.resolveWorkflowPath(name),
             });
@@ -746,18 +778,24 @@ export class SessionHandlerService {
 
         const worktreesFolder = getWorktreesFolder();
         const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
+        const savedTerminalMode = await getSessionTerminalMode(worktreePath);
+        const sessionAgentName = await getSessionAgentName(worktreePath);
+
+        await this.assertSessionLaunchPrerequisites(
+            this.resolveLaunchAgent(sessionAgentName),
+            savedTerminalMode
+        );
 
         const launchContext = await prepareAgentLaunchContext({
             worktreePath,
             workflow: null,
             permissionMode: undefined,
-            defaultAgentName:
-                (this.ctx.config.get('lanes.defaultAgent') as string) ?? 'claude',
+            agentName: sessionAgentName,
+            defaultAgentName: this.getDefaultAgentName(),
             repoRoot: this.ctx.workspaceRoot,
             workflowResolver: (name: string) => this.resolveWorkflowPath(name),
         });
         const launch = await buildAgentLaunchCommand(launchContext);
-        const savedTerminalMode = await getSessionTerminalMode(worktreePath);
 
         const terminalLaunch = await this.prepareTerminalLaunch(
             sessionName,

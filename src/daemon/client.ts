@@ -156,11 +156,11 @@ export class DaemonClient {
      */
     static async fromWorkspace(workspaceRoot: string): Promise<DaemonClient> {
         const resolved = await ensureProjectRegistered(workspaceRoot);
-        const port = await getDaemonPort(workspaceRoot);
+        const port = await getDaemonPort();
         if (port === undefined) {
             throw new Error('Daemon port file not found or invalid. Is the daemon running?');
         }
-        const token = await readTokenFile(workspaceRoot);
+        const token = await readTokenFile();
         return new DaemonClient({ port, token, projectId: resolved.projectId });
     }
 
