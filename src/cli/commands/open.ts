@@ -22,6 +22,7 @@ import { CodeAgent } from '../../core/codeAgents/CodeAgent';
 import type { McpConfig } from '../../core/codeAgents/CodeAgent';
 import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
 import * as TmuxService from '../../core/services/TmuxService';
+import * as PreflightService from '../../core/services/PreflightService';
 
 /**
  * Shared function used by both `lanes open` and `lanes create` to exec into an agent.
@@ -171,6 +172,12 @@ export function registerOpenCommand(program: Command): void {
                     repoRoot,
                     codeAgent
                 );
+                const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
+
+                await PreflightService.assertSessionLaunchPrerequisites({
+                    codeAgent,
+                    terminalMode: useTmux ? 'tmux' : 'vscode',
+                });
 
                 await execIntoAgent({
                     sessionName,
@@ -178,7 +185,7 @@ export function registerOpenCommand(program: Command): void {
                     repoRoot,
                     codeAgent,
                     config,
-                    useTmux: options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux',
+                    useTmux,
                     isNewSession: false,
                 });
             } catch (err) {
