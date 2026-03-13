@@ -54,7 +54,7 @@ export interface SessionInfo {
 // ---------------------------------------------------------------------------
 
 export interface DaemonInfo {
-    projectId?: string;
+    projectId: string;
     workspaceRoot: string;
     port: number;
     pid: number;

@@ -119,6 +119,7 @@ suite('AgentSessionProvider', () => {
 
 	test('should use daemon session payload without filesystem-backed status reads', async () => {
 		const provider = new AgentSessionProvider(tempDir);
+		provider.setDaemonModeEnabled(true);
 		const getAgentStatusStub = sinon.stub(SessionDataService, 'getAgentStatus').rejects(new Error('unexpected status read'));
 		const getWorkflowStatusStub = sinon.stub(SessionDataService, 'getWorkflowStatus').rejects(new Error('unexpected workflow read'));
 		const getSessionChimeEnabledStub = sinon.stub(SessionDataService, 'getSessionChimeEnabled').rejects(new Error('unexpected chime read'));
@@ -150,5 +151,34 @@ suite('AgentSessionProvider', () => {
 		assert.ok(getAgentStatusStub.notCalled);
 		assert.ok(getWorkflowStatusStub.notCalled);
 		assert.ok(getSessionChimeEnabledStub.notCalled);
+	});
+
+	test('should show an error and avoid filesystem fallback when daemon mode is enabled but no client is available', async () => {
+		const provider = new AgentSessionProvider(tempDir);
+		provider.setDaemonModeEnabled(true);
+		const showErrorStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+		const children = await provider.getChildren();
+
+		assert.deepStrictEqual(children, []);
+		assert.ok(showErrorStub.calledOnce);
+	});
+
+	test('should show an error when daemon session loading fails', async () => {
+		const provider = new AgentSessionProvider(tempDir);
+		provider.setDaemonModeEnabled(true);
+		const showErrorStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+		provider.setDaemonClient({
+			listSessions: async () => {
+				throw new Error('connection refused');
+			},
+		} as any);
+
+		const children = await provider.getChildren();
+
+		assert.deepStrictEqual(children, []);
+		assert.ok(showErrorStub.calledOnce);
+		assert.match(showErrorStub.firstCall.args[0], /Failed to list sessions from daemon: connection refused/);
 	});
 });

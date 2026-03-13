@@ -51,4 +51,26 @@ test.describe('Dashboard', () => {
         await page.getByRole('button', { name: /open project my-app/i }).click();
         await expect(page).toHaveURL(/\/project\/project-my-app$/);
     });
+
+    test('registered offline projects route to actionable setup guidance', async ({ page, mockApi }) => {
+        mockApi.withProjects([
+            makeProjectInfo({
+                projectId: 'project-offline-app',
+                projectName: 'offline-app',
+                workspaceRoot: '/home/user/projects/offline-app',
+                daemon: null,
+            }),
+        ]);
+        await mockApi.install();
+
+        await page.goto('/');
+        await expect(page.getByRole('button', { name: /open project offline-app/i })).toBeVisible();
+        await expect(page.getByText(/ready to start/i)).toBeVisible();
+
+        await page.getByRole('button', { name: /open project offline-app/i }).click();
+
+        await expect(page).toHaveURL(/\/project\/project-offline-app$/);
+        await expect(page.getByText(/daemon is offline/i)).toBeVisible();
+        await expect(page.getByRole('button', { name: /refresh connection/i })).toBeVisible();
+    });
 });

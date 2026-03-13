@@ -112,13 +112,14 @@ async function createSession(
     attachments: string[],
     workspaceRoot: string | undefined,
     sessionProvider: AgentSessionProvider,
-    codeAgent?: CodeAgent
+    codeAgent?: CodeAgent,
+    workspaceRequirementMessage?: string
 ): Promise<void> {
     console.log("Create Session triggered!");
 
     // 1. Check Workspace (early check, outside queue for fast feedback)
     if (!workspaceRoot) {
-        const errorMsg = "Error: You must open a folder/workspace first!";
+        const errorMsg = workspaceRequirementMessage || "Error: You must open a folder/workspace first!";
         vscode.window.showErrorMessage(errorMsg);
         throw new Error(errorMsg);
     }

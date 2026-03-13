@@ -1,3 +1,7 @@
+/**
+ * Tests for daemon lifecycle module.
+ */
+
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -9,6 +13,7 @@ import {
     getDaemonLogPath,
     getDaemonPid,
     getDaemonPort,
+    getMachineDaemonState,
     isDaemonRunning,
     readDaemonLogTail,
     startDaemon,
@@ -41,9 +46,11 @@ function createReadyDaemonScript(tempDir: string): string {
             'const portIndex = process.argv.indexOf("--port");',
             'const requestedPort = portIndex >= 0 ? Number(process.argv[portIndex + 1]) : 0;',
             'const port = requestedPort > 0 ? requestedPort : 4317;',
+            'const startedAt = new Date().toISOString();',
             'fs.writeFileSync(path.join(lanesDir, "daemon.pid"), String(process.pid), "utf-8");',
             'fs.writeFileSync(path.join(lanesDir, "daemon.port"), String(port), "utf-8");',
             'fs.writeFileSync(path.join(lanesDir, "daemon.token"), "test-token", "utf-8");',
+            'fs.writeFileSync(path.join(lanesDir, "daemon.startedAt"), startedAt, "utf-8");',
             'process.stderr.write(`[Daemon] ready on ${port}\\n`);',
             'setInterval(() => {}, 1000);',
             'process.on("SIGTERM", () => process.exit(0));',
@@ -209,5 +216,21 @@ suite('daemon lifecycle', () => {
 
         assert.strictEqual(await getDaemonPort(), undefined);
         assert.strictEqual(await getDaemonPid(), undefined);
+    });
+
+    test('getMachineDaemonState returns metadata for legacy lifecycle files without daemon.startedAt', async () => {
+        const lanesDir = path.join(tempDir, '.lanes');
+        fs.mkdirSync(lanesDir, { recursive: true });
+        fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(process.pid), 'utf-8');
+        fs.writeFileSync(path.join(lanesDir, 'daemon.port'), '3000', 'utf-8');
+        fs.writeFileSync(path.join(lanesDir, 'daemon.token'), 'legacy-token', 'utf-8');
+
+        const state = await getMachineDaemonState();
+
+        assert.ok(state, 'Expected legacy daemon files to produce a machine daemon state');
+        assert.strictEqual(state?.pid, process.pid);
+        assert.strictEqual(state?.port, 3000);
+        assert.strictEqual(state?.token, 'legacy-token');
+        assert.ok(state?.startedAt, 'Compatibility state should synthesize a startedAt value');
     });
 });

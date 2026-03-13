@@ -53,8 +53,12 @@ export class WorkflowsProvider implements vscode.TreeDataProvider<WorkflowItem>,
 
     constructor(
         private readonly extensionPath: string,
-        private readonly workspaceRoot: string | undefined
+        private workspaceRoot: string | undefined
     ) {}
+
+    updateWorkspaceRoot(workspaceRoot: string | undefined): void {
+        this.workspaceRoot = workspaceRoot;
+    }
 
     /**
      * Dispose of resources.
@@ -87,6 +91,7 @@ export class WorkflowsProvider implements vscode.TreeDataProvider<WorkflowItem>,
         }
 
         if (!this.workspaceRoot) {
+            this.workflows = [];
             return [];
         }
 
@@ -104,6 +109,7 @@ export class WorkflowsProvider implements vscode.TreeDataProvider<WorkflowItem>,
             return this.workflows.filter(wf => !wf.isBuiltIn).map(wf => new WorkflowItem(wf));
         } catch (err) {
             console.error('Lanes: Failed to discover workflows:', err);
+            this.workflows = [];
             return [];
         }
     }

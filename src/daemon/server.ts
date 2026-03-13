@@ -50,7 +50,8 @@ async function main(): Promise<void> {
     const { port } = parseArgs(process.argv.slice(2));
     const projectManager = new GlobalDaemonProjectManager();
     const authToken = generateToken();
-    await writeTokenFile(undefined, authToken);
+    const startedAt = new Date().toISOString();
+    await writeTokenFile(authToken);
 
     const routerContext = { port: 0 };
     const requestHandler = createRouter(projectManager, authToken, routerContext);
@@ -67,6 +68,7 @@ async function main(): Promise<void> {
 
     await writeGlobalFile('daemon.pid', String(process.pid));
     await writeGlobalFile('daemon.port', String(actualPort));
+    await writeGlobalFile('daemon.startedAt', startedAt);
 
     process.stderr.write(
         `[Daemon] Started. pid=${process.pid} port=${actualPort}\n`
@@ -97,6 +99,7 @@ async function main(): Promise<void> {
         projectManager.dispose();
         await removeGlobalFile('daemon.pid');
         await removeGlobalFile('daemon.port');
+        await removeGlobalFile('daemon.startedAt');
         await removeTokenFile();
 
         process.stderr.write('[Daemon] Shutdown complete.\n');

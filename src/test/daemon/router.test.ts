@@ -36,10 +36,21 @@ import * as gitService from '../../core/gitService';
 function makeHandlerService() {
     return {
         handleSessionList: sinon.stub().resolves({ sessions: [] }),
-        handleSessionCreate: sinon.stub().resolves({ sessionName: 'new-session' }),
+        handleSessionCreate: sinon.stub().resolves({
+            sessionName: 'new-session',
+            sessionId: 'session-123',
+            worktreePath: '/test/workspace/.worktrees/new-session',
+            command: 'lanes open new-session',
+            terminalMode: 'vscode',
+        }),
         handleSessionDelete: sinon.stub().resolves({ success: true }),
-        handleSessionGetStatus: sinon.stub().resolves({ status: 'idle' }),
-        handleSessionOpen: sinon.stub().resolves({ success: true }),
+        handleSessionGetStatus: sinon.stub().resolves({ status: 'idle', workflowStatus: null }),
+        handleSessionOpen: sinon.stub().resolves({
+            success: true,
+            worktreePath: '/test/workspace/.worktrees/new-session',
+            command: 'lanes open new-session',
+            terminalMode: 'vscode',
+        }),
         handleSessionClear: sinon.stub().resolves({ success: true }),
         handleSessionPin: sinon.stub().resolves({ success: true }),
         handleSessionUnpin: sinon.stub().resolves({ success: true }),
@@ -52,18 +63,20 @@ function makeHandlerService() {
         handleConfigGet: sinon.stub().resolves({ value: 'claude' }),
         handleConfigSet: sinon.stub().resolves({ success: true }),
         handleConfigGetAll: sinon.stub().resolves({ config: {} }),
-        // New handler methods wired in the extended router
         handleGitListBranches: sinon.stub().resolves({ branches: [] }),
-        handleGitRepairWorktrees: sinon.stub().resolves({ repaired: [] }),
-        handleGitGetDiff: sinon.stub().resolves({ diff: '' }),
-        handleGitGetDiffFiles: sinon.stub().resolves({ files: [] }),
-        handleGitGetWorktreeInfo: sinon.stub().resolves({ path: '/some/path' }),
+        handleGitRepairWorktrees: sinon.stub().resolves({ broken: [], repairResult: null }),
+        handleGitGetDiff: sinon.stub().resolves({ diff: '', baseBranch: 'main' }),
+        handleGitGetDiffFiles: sinon.stub().resolves({ files: [], baseBranch: 'main' }),
+        handleGitGetWorktreeInfo: sinon.stub().resolves({ worktree: null }),
         handleWorkflowGetState: sinon.stub().resolves({ state: null }),
-        handleSessionInsights: sinon.stub().resolves({ insights: null, analysis: null }),
+        handleSessionInsights: sinon.stub().resolves({ insights: '', analysis: null, sessionName: 'new-session' }),
         handleWorkflowList: sinon.stub().resolves({ workflows: [] }),
-        handleWorkflowValidate: sinon.stub().resolves({ valid: true }),
-        handleWorkflowCreate: sinon.stub().resolves({ success: true }),
-        handleTerminalCreate: sinon.stub().resolves({ terminalName: 'term-1' }),
+        handleWorkflowValidate: sinon.stub().resolves({ isValid: true, errors: [] }),
+        handleWorkflowCreate: sinon.stub().resolves({ path: '/test/workspace/.lanes/workflows/new-workflow.yaml' }),
+        handleTerminalCreate: sinon.stub().resolves({
+            terminalName: 'term-1',
+            attachCommand: 'tmux attach-session -t "term-1"',
+        }),
         handleTerminalSend: sinon.stub().resolves({ success: true }),
         handleTerminalList: sinon.stub().resolves({ terminals: [] }),
     };
@@ -171,27 +184,32 @@ const PROJECT_ID = 'project-test-1';
 suite('daemon router', () => {
     let handlerService: ReturnType<typeof makeHandlerService>;
     let notificationEmitter: ReturnType<typeof makeNotificationEmitter>;
+    let projectManager: {
+        listProjects: sinon.SinonStub;
+        getRuntime: sinon.SinonStub;
+    };
     let server: http.Server;
 
     setup((done) => {
         handlerService = makeHandlerService();
         notificationEmitter = makeNotificationEmitter();
+        projectManager = {
+            listProjects: sinon.stub().resolves([]),
+            getRuntime: sinon.stub().resolves({
+                project: {
+                    projectId: PROJECT_ID,
+                    workspaceRoot: '/test/workspace',
+                    projectName: 'workspace',
+                    registeredAt: new Date().toISOString(),
+                },
+                startedAt: new Date().toISOString(),
+                handlerService,
+                notificationEmitter,
+            }),
+        };
 
         const handler = createRouter(
-            {
-                listProjects: sinon.stub().resolves([]),
-                getRuntime: sinon.stub().resolves({
-                    project: {
-                        projectId: PROJECT_ID,
-                        workspaceRoot: '/test/workspace',
-                        projectName: 'workspace',
-                        registeredAt: new Date().toISOString(),
-                    },
-                    startedAt: new Date().toISOString(),
-                    handlerService,
-                    notificationEmitter,
-                }),
-            } as never,
+            projectManager as never,
             AUTH_TOKEN,
             { port: 0 }
         );
@@ -258,6 +276,27 @@ suite('daemon router', () => {
 
         // Assert
         assert.strictEqual(res.status, 200);
+    });
+
+    test('Given GET /api/v1/projects with valid auth, when called, then it returns the registered project list without requiring a project-scoped route', async () => {
+        const project = {
+            projectId: PROJECT_ID,
+            workspaceRoot: '/test/workspace',
+            projectName: 'workspace',
+            registeredAt: new Date().toISOString(),
+        };
+        projectManager.listProjects.resolves([project]);
+
+        const res = await makeRequest(server, {
+            path: '/api/v1/projects',
+            headers: { Authorization: BEARER },
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(projectManager.listProjects.calledOnce, 'listProjects should be called once');
+        assert.deepStrictEqual(res.body, {
+            projects: [project],
+        });
     });
 
     // -------------------------------------------------------------------------

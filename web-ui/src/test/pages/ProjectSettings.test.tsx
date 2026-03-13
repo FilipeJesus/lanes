@@ -55,9 +55,15 @@ describe('ProjectSettings', () => {
         const apiClient = makeApiClient();
         mockUseDaemonConnection.mockReturnValue({
             apiClient,
-            daemonInfo: { projectName: 'my-app' },
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
             loading: false,
             error: null,
+            projectState: 'connected',
+            refresh: vi.fn(),
         });
 
         renderProjectSettings();
@@ -95,9 +101,15 @@ describe('ProjectSettings', () => {
 
         mockUseDaemonConnection.mockReturnValue({
             apiClient,
-            daemonInfo: { projectName: 'my-app' },
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
             loading: false,
             error: null,
+            projectState: 'connected',
+            refresh: vi.fn(),
         });
 
         renderProjectSettings();
@@ -110,5 +122,25 @@ describe('ProjectSettings', () => {
         await waitFor(() => {
             expect(apiClient.setConfig).toHaveBeenCalledWith('lanes.defaultAgent', 'gemini', 'global');
         });
+    });
+
+    it('shows onboarding guidance when the project is registered but offline', () => {
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: null,
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
+            loading: false,
+            error: null,
+            projectState: 'offline',
+            refresh: vi.fn(),
+        });
+
+        renderProjectSettings();
+
+        expect(screen.getByText(/daemon is offline/i)).toBeInTheDocument();
+        expect(screen.queryByText(/failed to load settings/i)).not.toBeInTheDocument();
     });
 });

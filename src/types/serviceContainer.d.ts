@@ -5,6 +5,7 @@ import type { PreviousSessionProvider } from '../vscode/providers/PreviousSessio
 import type { WorkflowsProvider } from '../vscode/providers/WorkflowsProvider';
 import type { CodeAgent } from '../core/codeAgents';
 import type { DaemonClient } from '../daemon/client';
+import type { WorkspaceSupportState } from '../vscode/workspaceSupport';
 
 /**
  * Service container for dependency injection.
@@ -23,10 +24,14 @@ export interface ServiceContainer {
     // Paths
     workspaceRoot: string | undefined;
     baseRepoPath: string | undefined;
+    workspaceSupport: WorkspaceSupportState;
     extensionPath: string;
 
     // Code agent
     codeAgent: CodeAgent;
+
+    // Whether daemon mode is configured on for this window.
+    daemonModeEnabled: boolean;
 
     // Optional daemon client (present only when lanes.useDaemon is true and daemon is reachable)
     daemonClient?: DaemonClient;

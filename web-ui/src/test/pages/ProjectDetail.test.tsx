@@ -68,8 +68,11 @@ function setupDefaultMocks(sessions: SessionInfo[] = []) {
     mockUseDaemonConnection.mockReturnValue({
         apiClient,
         sseClient: null,
+        daemonInfo: { projectName: 'my-app', workspaceRoot: '/projects/my-app', registeredAt: new Date().toISOString() },
         loading: false,
         error: null,
+        projectState: 'connected',
+        refresh: vi.fn(),
     });
 
     mockUseSessions.mockReturnValue({
@@ -157,8 +160,11 @@ describe('ProjectDetail', () => {
         mockUseDaemonConnection.mockReturnValue({
             apiClient,
             sseClient: null,
+            daemonInfo: { projectName: 'my-app', workspaceRoot: '/projects/my-app', registeredAt: new Date().toISOString() },
             loading: false,
             error: null,
+            projectState: 'connected',
+            refresh: vi.fn(),
         });
 
         mockUseSessions.mockReturnValue({
@@ -191,6 +197,116 @@ describe('ProjectDetail', () => {
         renderProjectDetail('project-123');
 
         expect(screen.getByText(/no sessions yet/i)).toBeInTheDocument();
+    });
+
+    it('Given a registered project without a running daemon, then onboarding guidance is shown instead of a hard error', () => {
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: null,
+            sseClient: null,
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
+            loading: false,
+            error: null,
+            projectState: 'offline',
+            refresh: vi.fn(),
+        });
+
+        mockUseSessions.mockReturnValue({
+            sessions: [],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+            createSession: vi.fn(),
+            improveSessionPrompt: vi.fn(),
+            uploadSessionAttachments: vi.fn(),
+            deleteSession: vi.fn(),
+            pinSession: vi.fn(),
+            unpinSession: vi.fn(),
+            enableSessionNotifications: vi.fn(),
+            disableSessionNotifications: vi.fn(),
+        });
+
+        renderProjectDetail('project-123');
+
+        expect(screen.getByText(/daemon is offline/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /refresh connection/i })).toBeInTheDocument();
+        expect(screen.queryByText(/failed to load sessions/i)).not.toBeInTheDocument();
+    });
+
+    it('Given the refresh action is used, then only the connection refresh runs immediately', async () => {
+        const user = userEvent.setup();
+        const refreshConnection = vi.fn();
+        const refreshSessions = vi.fn();
+
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: makeApiClient(),
+            sseClient: null,
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+            },
+            loading: false,
+            error: null,
+            projectState: 'connected',
+            refresh: refreshConnection,
+        });
+
+        mockUseSessions.mockReturnValue({
+            sessions: [],
+            loading: false,
+            error: null,
+            refresh: refreshSessions,
+            createSession: vi.fn(),
+            improveSessionPrompt: vi.fn(),
+            uploadSessionAttachments: vi.fn(),
+            deleteSession: vi.fn(),
+            pinSession: vi.fn(),
+            unpinSession: vi.fn(),
+            enableSessionNotifications: vi.fn(),
+            disableSessionNotifications: vi.fn(),
+        });
+
+        renderProjectDetail('project-123');
+
+        await user.click(screen.getByRole('button', { name: /refresh session list/i }));
+
+        expect(refreshConnection).toHaveBeenCalledTimes(1);
+        expect(refreshSessions).not.toHaveBeenCalled();
+    });
+
+    it('Given a stale project route without workspace information, then the recovery command remains actionable', () => {
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: null,
+            sseClient: null,
+            daemonInfo: null,
+            loading: false,
+            error: null,
+            projectState: 'missing',
+            refresh: vi.fn(),
+        });
+
+        mockUseSessions.mockReturnValue({
+            sessions: [],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+            createSession: vi.fn(),
+            improveSessionPrompt: vi.fn(),
+            uploadSessionAttachments: vi.fn(),
+            deleteSession: vi.fn(),
+            pinSession: vi.fn(),
+            unpinSession: vi.fn(),
+            enableSessionNotifications: vi.fn(),
+            disableSessionNotifications: vi.fn(),
+        });
+
+        renderProjectDetail('project-123');
+
+        expect(screen.getByText('lanes daemon unregister /absolute/path/to/repo')).toBeInTheDocument();
     });
 
     it('When user clicks Create Session, then the CreateSessionDialog opens', async () => {

@@ -152,6 +152,8 @@ lanes --help
 
 Click any session to resume it. Click the trash icon to delete (branch is preserved for merging).
 
+VS Code currently uses a single-project model per window. Open one repository folder in its own window when using the VS Code extension. For multi-project management, use separate VS Code windows or the web UI.
+
 ### CLI
 
 ```bash
@@ -231,7 +233,7 @@ You can route VS Code operations through the daemon instead of calling core serv
 2. Search for `lanes.useDaemon`
 3. Enable it (VS Code will prompt to reload)
 
-When enabled, session create/delete/diff/insights/pin operations go through the daemon REST API. For now, this setup is best suited to single-root VS Code workspaces.
+When enabled, session create/delete/diff/insights/pin operations go through the daemon REST API. VS Code daemon mode supports single-folder windows only.
 
 #### REST API
 

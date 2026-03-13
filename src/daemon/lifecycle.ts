@@ -10,13 +10,14 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
-import { removeTokenFile } from './auth';
+import { readTokenFile, removeTokenFile } from './auth';
 import { registerProject } from './registry';
 
 const LANES_DIR = '.lanes';
 const PID_FILE = 'daemon.pid';
 const PORT_FILE = 'daemon.port';
 const LOG_FILE = 'daemon.log';
+const STARTED_AT_FILE = 'daemon.startedAt';
 const STARTUP_TIMEOUT_MS = 5_000;
 const STARTUP_POLL_INTERVAL_MS = 100;
 const DEFAULT_LOG_TAIL_LINES = 25;
@@ -27,6 +28,10 @@ function getGlobalLanesDir(): string {
 
 function getGlobalFilePath(fileName: string): string {
     return path.join(getGlobalLanesDir(), fileName);
+}
+
+export function getDaemonLogPath(): string {
+    return getGlobalFilePath(LOG_FILE);
 }
 
 export interface StartDaemonOptions {
@@ -45,6 +50,13 @@ export interface StartDaemonResult {
     port: number;
     logPath: string;
     reusedExisting: boolean;
+}
+
+export interface MachineDaemonState {
+    pid: number;
+    port: number;
+    token: string;
+    startedAt: string;
 }
 
 export interface DaemonDiagnostics {
@@ -92,7 +104,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<StartDae
     const { workspaceRoot, port = 0, serverPath, startupTimeoutMs = STARTUP_TIMEOUT_MS } = options;
 
     if (await isDaemonRunning()) {
-        const runningState = await waitForDaemonReady({ timeoutMs: startupTimeoutMs });
+        const runningState = await waitForDaemonStartup({ timeoutMs: startupTimeoutMs });
         if (workspaceRoot) {
             await registerProjectForDaemon(workspaceRoot);
         }
@@ -106,10 +118,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<StartDae
     }
 
     await fs.mkdir(getGlobalLanesDir(), { recursive: true });
-    const logPath = getDaemonLogPath();
 
     const args = [serverPath, '--port', String(port)];
-    const logFd = fsSync.openSync(logPath, 'a');
+    const logFd = fsSync.openSync(getDaemonLogPath(), 'a');
     const child: ChildProcess = (() => {
         try {
             return spawn(process.execPath, args, {
@@ -131,27 +142,27 @@ export async function startDaemon(options: StartDaemonOptions): Promise<StartDae
         child.once('error', reject);
     });
 
-    const readyState = await waitForDaemonReady({
+    const readyState = await waitForDaemonStartup({
         timeoutMs: startupTimeoutMs,
         expectedPid: child.pid,
         exitPromise,
     });
 
+    child.unref();
+
     if (workspaceRoot) {
         await registerProjectForDaemon(workspaceRoot);
     }
 
-    child.unref();
-
     return {
         pid: readyState.pid,
         port: readyState.port,
-        logPath,
+        logPath: getDaemonLogPath(),
         reusedExisting: false,
     };
 }
 
-export async function stopDaemon(_workspaceRoot?: string): Promise<void> {
+export async function stopDaemon(): Promise<void> {
     const pid = await getDaemonPid();
     if (pid !== undefined && !isNaN(pid)) {
         try {
@@ -161,16 +172,10 @@ export async function stopDaemon(_workspaceRoot?: string): Promise<void> {
         }
     }
 
-    await removeGlobalFile(PID_FILE);
-    await removeGlobalFile(PORT_FILE);
-    await removeTokenFile().catch((err: unknown) => {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            throw err;
-        }
-    });
+    await cleanupDaemonRuntimeFiles();
 }
 
-export async function isDaemonRunning(_workspaceRoot?: string): Promise<boolean> {
+export async function isDaemonRunning(): Promise<boolean> {
     const pid = await getDaemonPid();
     if (pid === undefined || isNaN(pid)) {
         return false;
@@ -180,13 +185,29 @@ export async function isDaemonRunning(_workspaceRoot?: string): Promise<boolean>
         process.kill(pid, 0);
         return true;
     } catch {
-        await removeGlobalFile(PID_FILE);
-        await removeGlobalFile(PORT_FILE);
+        await cleanupDaemonRuntimeFiles();
         return false;
     }
 }
 
-export async function getDaemonPort(_workspaceRoot?: string): Promise<number | undefined> {
+export async function waitForDaemonReady(timeoutMs = 5000, pollDelayMs = 200): Promise<number> {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        const port = await getDaemonPort();
+        if (port !== undefined && port > 0) {
+            return port;
+        }
+
+        await delay(pollDelayMs);
+    }
+
+    throw new Error(
+        `Daemon did not become ready within ${timeoutMs}ms. Check ${getDaemonLogPath()} for details.`
+    );
+}
+
+export async function getDaemonPort(): Promise<number | undefined> {
     try {
         const content = await fs.readFile(getGlobalFilePath(PORT_FILE), 'utf-8');
         const port = parseInt(content.trim(), 10);
@@ -196,7 +217,7 @@ export async function getDaemonPort(_workspaceRoot?: string): Promise<number | u
     }
 }
 
-export async function getDaemonPid(_workspaceRoot?: string): Promise<number | undefined> {
+export async function getDaemonPid(): Promise<number | undefined> {
     try {
         const content = await fs.readFile(getGlobalFilePath(PID_FILE), 'utf-8');
         const pid = parseInt(content.trim(), 10);
@@ -206,8 +227,14 @@ export async function getDaemonPid(_workspaceRoot?: string): Promise<number | un
     }
 }
 
-export function getDaemonLogPath(): string {
-    return getGlobalFilePath(LOG_FILE);
+export async function getDaemonStartedAt(): Promise<string | undefined> {
+    try {
+        const content = await fs.readFile(getGlobalFilePath(STARTED_AT_FILE), 'utf-8');
+        const startedAt = content.trim();
+        return startedAt || undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 export async function readDaemonLogTail(maxLines = DEFAULT_LOG_TAIL_LINES): Promise<string[]> {
@@ -242,6 +269,43 @@ export async function getDaemonDiagnostics(maxLogLines = DEFAULT_LOG_TAIL_LINES)
     };
 }
 
+async function getCompatibleDaemonStartedAt(): Promise<string> {
+    const startedAt = await getDaemonStartedAt();
+    if (startedAt !== undefined) {
+        return startedAt;
+    }
+
+    try {
+        const stat = await fs.stat(getGlobalFilePath(PID_FILE));
+        return stat.mtime.toISOString();
+    } catch {
+        return new Date().toISOString();
+    }
+}
+
+export async function getMachineDaemonState(): Promise<MachineDaemonState | undefined> {
+    if (!(await isDaemonRunning())) {
+        return undefined;
+    }
+
+    const [pid, port, startedAt] = await Promise.all([
+        getDaemonPid(),
+        getDaemonPort(),
+        getCompatibleDaemonStartedAt(),
+    ]);
+
+    if (pid === undefined || port === undefined) {
+        return undefined;
+    }
+
+    try {
+        const token = await readTokenFile();
+        return { pid, port, token, startedAt };
+    } catch {
+        return undefined;
+    }
+}
+
 async function registerProjectForDaemon(workspaceRoot: string): Promise<void> {
     const resolved = path.resolve(workspaceRoot);
     await registerProject({
@@ -262,7 +326,7 @@ async function removeGlobalFile(fileName: string): Promise<void> {
     }
 }
 
-async function waitForDaemonReady(options: {
+async function waitForDaemonStartup(options: {
     timeoutMs: number;
     expectedPid?: number;
     exitPromise?: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
@@ -357,6 +421,7 @@ async function cleanupDaemonRuntimeFiles(): Promise<void> {
     await Promise.all([
         removeGlobalFile(PID_FILE),
         removeGlobalFile(PORT_FILE),
+        removeGlobalFile(STARTED_AT_FILE),
         removeTokenFile().catch((err: unknown) => {
             if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
                 throw err;

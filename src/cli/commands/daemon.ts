@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, initCliGit, resolveRepoRootFromPath, exitWithError } from '../utils';
+import { initCliGit, resolveRepoRoot, resolveRepoRootFromPath, exitWithError } from '../utils';
 import {
     startDaemon,
     stopDaemon,
@@ -32,20 +32,21 @@ export function registerDaemonCommand(program: Command): void {
         .option('--port <port>', 'Port for the daemon to listen on (default: OS-assigned)', '0')
         .action(async (options) => {
             try {
-                const { repoRoot } = await initCli();
+                await initCliGit();
                 const port = parseInt(options.port, 10);
+                let repoRoot: string | undefined;
+
+                try {
+                    repoRoot = await resolveRepoRoot();
+                } catch {
+                    repoRoot = undefined;
+                }
 
                 if (isNaN(port) || port < 0 || port > 65535) {
                     exitWithError(`Invalid port: ${options.port}. Must be a number between 0 and 65535.`);
                 }
 
-                // Resolve the daemon server path relative to this bundled CLI.
-                // Both CLI and daemon bundle to the same out/ directory:
-                //   CLI    -> out/cli.js
-                //   Daemon -> out/daemon.js
-                // At runtime __dirname is the out/ directory.
                 const serverPath = path.resolve(__dirname, 'daemon.js');
-
                 const result = await startDaemon({ workspaceRoot: repoRoot, port, serverPath });
                 const action = result.reusedExisting ? 'Daemon already running' : 'Daemon started successfully';
                 console.log(`${action} on port ${result.port}.`);

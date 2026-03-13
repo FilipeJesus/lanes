@@ -14,16 +14,14 @@ export function registerRepairCommands(
     context: vscode.ExtensionContext,
     services: ServiceContainer
 ): void {
-    const { baseRepoPath } = services;
-
     // Command: Check for and repair broken worktrees
     const repairBrokenWorktreesDisposable = vscode.commands.registerCommand('lanes.repairBrokenWorktrees', async () => {
-        if (!baseRepoPath) {
-            vscode.window.showErrorMessage('No workspace folder open');
+        if (!services.baseRepoPath) {
+            vscode.window.showErrorMessage(services.workspaceSupport.requirementMessage || 'No workspace folder open');
             return;
         }
 
-        const brokenWorktrees = await BrokenWorktreeService.detectBrokenWorktrees(baseRepoPath, getWorktreesFolder());
+        const brokenWorktrees = await BrokenWorktreeService.detectBrokenWorktrees(services.baseRepoPath, getWorktreesFolder());
 
         if (brokenWorktrees.length === 0) {
             vscode.window.showInformationMessage('No broken worktrees found.');
@@ -44,7 +42,7 @@ export function registerRepairCommands(
             return;
         }
 
-        const result = await BrokenWorktreeService.repairBrokenWorktrees(baseRepoPath, brokenWorktrees);
+        const result = await BrokenWorktreeService.repairBrokenWorktrees(services.baseRepoPath, brokenWorktrees);
 
         if (result.failures.length === 0) {
             vscode.window.showInformationMessage(
