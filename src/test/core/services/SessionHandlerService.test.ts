@@ -14,6 +14,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import sinon from 'sinon';
 import {
     SessionHandlerService,
     JsonRpcHandlerError,
@@ -22,6 +23,7 @@ import {
 import {
     getSessionChimeEnabled,
     getWorktreesFolder,
+    initializeGlobalStorageContext,
 } from '../../../core/session/SessionDataService';
 import type {
     IHandlerContext,
@@ -31,6 +33,7 @@ import type {
 } from '../../../core/interfaces/IHandlerContext';
 import { getAvailableAgents } from '../../../core/codeAgents';
 import type { SettingsScope, SettingsView } from '../../../core/services/UnifiedSettingsService';
+import * as TmuxService from '../../../core/services/TmuxService';
 
 // ---------------------------------------------------------------------------
 // Minimal stub implementations
@@ -134,6 +137,7 @@ suite('SessionHandlerService', () => {
     });
 
     teardown(() => {
+        sinon.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -201,6 +205,54 @@ suite('SessionHandlerService', () => {
             31,
             'Expected exactly 31 handler methods'
         );
+    });
+
+    test('prepareTerminalLaunch captures hookless session metadata for tmux launches', async () => {
+        const ctx = makeContext(tempDir, { 'lanes.terminalMode': 'tmux' });
+        const service = new SessionHandlerService(ctx);
+        const worktreePath = path.join(tempDir, '.worktrees', 'codex-lane');
+        const sessionFilePath = path.join(tempDir, '.lanes', 'current-sessions', 'codex-lane', '.claude-session');
+        initializeGlobalStorageContext('', tempDir);
+        fs.mkdirSync(path.dirname(sessionFilePath), { recursive: true });
+        fs.writeFileSync(sessionFilePath, JSON.stringify({ agentName: 'codex', sessionId: 'placeholder' }));
+
+        sinon.stub(TmuxService, 'isTmuxInstalled').resolves(true);
+        sinon.stub(TmuxService, 'launchInTmux').resolves({
+            tmuxSessionName: 'codex-lane',
+            attachCommand: 'tmux attach-session -t codex-lane',
+            wasExisting: false,
+        });
+
+        const fakeAgent = {
+            supportsHooks: () => false,
+            captureSessionId: sinon.stub().resolves({
+                sessionId: '12345678-abcd-1234-ef00-123456789abc',
+                logPath: '/tmp/codex-session.jsonl',
+            }),
+        };
+
+        const result = await (service as any).prepareTerminalLaunch(
+            'codex-lane',
+            worktreePath,
+            'codex',
+            'tmux',
+            fakeAgent
+        );
+
+        assert.strictEqual(result.terminalMode, 'tmux');
+
+        let savedSession = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (savedSession.sessionId === '12345678-abcd-1234-ef00-123456789abc') {
+                break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            savedSession = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
+        }
+
+        assert.strictEqual(savedSession.sessionId, '12345678-abcd-1234-ef00-123456789abc');
+        assert.strictEqual(savedSession.logPath, '/tmp/codex-session.jsonl');
+        assert.ok(fakeAgent.captureSessionId.calledOnce, 'captureSessionId should be called for hookless tmux launches');
     });
 });
 

@@ -390,10 +390,24 @@ export async function getAgentStatus(worktreePath: string): Promise<AgentSession
         const exists = await fileExists(statusPath);
         if (!exists) { return null; }
         const content = await readFile(statusPath);
-        if (globalCodeAgent) {
-            const agentStatus = globalCodeAgent.parseStatus(content);
+        let statusAgent = globalCodeAgent;
+        try {
+            const sessionPath = await resolveSessionFilePath(worktreePath);
+            const sessionData = await readJson<Record<string, unknown>>(sessionPath);
+            if (typeof sessionData?.agentName === 'string' && sessionData.agentName.trim() !== '') {
+                const resolvedAgent = getAgent(sessionData.agentName);
+                if (resolvedAgent) {
+                    statusAgent = resolvedAgent;
+                }
+            }
+        } catch {
+            // Fall back to the global/default agent when session metadata is unavailable.
+        }
+
+        if (statusAgent) {
+            const agentStatus = statusAgent.parseStatus(content);
             if (!agentStatus) { return null; }
-            const validStates = globalCodeAgent.getValidStatusStates();
+            const validStates = statusAgent.getValidStatusStates();
             if (!validStates.includes(agentStatus.status)) { return null; }
             return { status: agentStatus.status as AgentStatusState, timestamp: agentStatus.timestamp, message: agentStatus.message };
         }
