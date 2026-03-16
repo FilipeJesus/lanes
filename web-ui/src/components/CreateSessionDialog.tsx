@@ -89,16 +89,25 @@ export function CreateSessionDialog({
 
     const loadData = useCallback(async () => {
         try {
-            const [agentsRes, workflowsRes, branchesRes] = await Promise.allSettled([
+            const [agentsRes, workflowsRes, branchesRes, configRes] = await Promise.allSettled([
                 apiClient.listAgents(),
                 apiClient.listWorkflows(),
                 apiClient.getGitBranches(),
+                apiClient.getAllConfig(),
             ]);
+
+            const configuredDefaultAgent =
+                configRes.status === 'fulfilled' && typeof configRes.value.config['lanes.defaultAgent'] === 'string'
+                    ? configRes.value.config['lanes.defaultAgent']
+                    : null;
 
             if (agentsRes.status === 'fulfilled') {
                 setAgents(agentsRes.value.agents);
                 if (agentsRes.value.agents.length > 0) {
-                    setAgent(agentsRes.value.agents[0].name);
+                    const preferredAgent = configuredDefaultAgent
+                        ? agentsRes.value.agents.find((entry) => entry.name === configuredDefaultAgent)?.name
+                        : null;
+                    setAgent(preferredAgent ?? agentsRes.value.agents[0].name);
                 }
             }
 
@@ -118,6 +127,7 @@ export function CreateSessionDialog({
         if (!isOpen) return;
 
         setName('');
+        setAgent('');
         setWorkflow('');
         setBranch('');
         setPrompt('');

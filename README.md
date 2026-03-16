@@ -85,7 +85,7 @@ Visit [our website](https://lanes.pro) for more information.
 npm install -g @anthropic-ai/claude-code
 claude login
 
-# Install jq (required for status tracking)
+# Install jq (required for Lanes)
 brew install jq          # macOS
 sudo apt-get install jq  # Ubuntu/Debian
 

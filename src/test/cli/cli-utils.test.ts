@@ -1,9 +1,11 @@
 import * as assert from 'assert';
 import sinon from 'sinon';
+import { CliGitPathResolver } from '../../cli/adapters/CliGitPathResolver';
 import * as gitService from '../../core/gitService';
 import * as FileService from '../../core/services/FileService';
+import * as PreflightService from '../../core/services/PreflightService';
 import * as SettingsService from '../../core/services/SettingsService';
-import { resolveRepoRoot, getBranchesInWorktrees, getPackageRoot } from '../../cli/utils';
+import { getBranchesInWorktrees, getPackageRoot, initCliGit, resolveRepoRoot } from '../../cli/utils';
 
 suite('CLI utils', () => {
     suite('resolveRepoRoot', () => {
@@ -123,6 +125,43 @@ suite('CLI utils', () => {
             assert.ok(typeof root === 'string');
             // Should be an absolute path
             assert.ok(root.startsWith('/') || /^[a-zA-Z]:/.test(root));
+        });
+    });
+
+    suite('initCliGit', () => {
+        let resolveGitPathStub: sinon.SinonStub;
+        let isCommandAvailableStub: sinon.SinonStub;
+        let originalGitPath: string;
+
+        setup(() => {
+            originalGitPath = gitService.getGitPath();
+            resolveGitPathStub = sinon.stub(CliGitPathResolver.prototype, 'resolveGitPath').resolves('/usr/bin/git');
+            isCommandAvailableStub = sinon.stub(PreflightService.preflightDeps, 'isCommandAvailable').resolves(true);
+        });
+
+        teardown(() => {
+            resolveGitPathStub.restore();
+            isCommandAvailableStub.restore();
+            gitService.initializeGitPath(originalGitPath);
+        });
+
+        test('checks jq before resolving git path', async () => {
+            await initCliGit();
+
+            sinon.assert.calledWith(isCommandAvailableStub, 'jq');
+            sinon.assert.calledOnce(resolveGitPathStub);
+            assert.strictEqual(gitService.getGitPath(), '/usr/bin/git');
+        });
+
+        test('throws when jq is missing', async () => {
+            isCommandAvailableStub.resolves(false);
+
+            await assert.rejects(
+                () => initCliGit(),
+                /jq is required for Lanes/
+            );
+
+            sinon.assert.notCalled(resolveGitPathStub);
         });
     });
 });

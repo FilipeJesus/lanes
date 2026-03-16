@@ -13,6 +13,7 @@
 
 import * as http from 'http';
 import * as path from 'path';
+import { PrerequisiteError } from '../core/errors';
 import { JsonRpcHandlerError } from '../core/services/SessionHandlerService';
 import { validateAuthHeader } from './auth';
 import { execGit } from '../core/gitService';
@@ -70,6 +71,10 @@ function sendError(res: http.ServerResponse, err: unknown): void {
             sendJson(res, 404, { error: err.message });
             return;
         }
+    }
+    if (err instanceof PrerequisiteError) {
+        sendJson(res, 400, { error: err.message });
+        return;
     }
     const message = err instanceof Error ? err.message : String(err);
     sendJson(res, 500, { error: message });
