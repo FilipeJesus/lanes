@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import { fileExists } from '../../core/services/FileService';
 import { generateInsights, formatInsightsReport } from '../../core/services/InsightsService';
 import { analyzeInsights } from '../../core/services/InsightsAnalyzer';
@@ -13,13 +13,29 @@ import { getAgent } from '../../core/codeAgents';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerInsightsCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('insights <session-name>')
         .description('Generate conversation insights for a session')
-        .option('--json', 'Output as JSON')
+        .option('--json', 'Output as JSON'))
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const result = await client.getSessionInsights(sessionName, {
+                        includeAnalysis: options.json,
+                    });
+
+                    if (options.json) {
+                        console.log(JSON.stringify(result, null, 2));
+                        return;
+                    }
+
+                    console.log(result.insights);
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
                 const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 

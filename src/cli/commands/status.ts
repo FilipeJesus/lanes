@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import {
     getAgentStatus,
     getSessionAgentName,
@@ -15,13 +15,63 @@ import { getErrorMessage } from '../../core/utils';
 import { fileExists } from '../../core/services/FileService';
 
 export function registerStatusCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('status [session-name]')
         .description('Show session status')
-        .option('--json', 'Output as JSON')
+        .option('--json', 'Output as JSON'))
         .action(async (sessionName: string | undefined, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    if (!sessionName) {
+                        console.log('Tip: Use "lanes list --host <url>" to see all sessions, or "lanes status <name> --host <url>" for details.');
+                        return;
+                    }
+
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const listResponse = await client.listSessions();
+                    const session = listResponse.sessions.find((entry) => entry.name === sessionName);
+                    if (!session) {
+                        exitWithError(`Session '${sessionName}' not found.`);
+                    }
+
+                    const statusResponse = await client.getSessionStatus(sessionName);
+                    const result = {
+                        name: sessionName,
+                        agent: session.data?.agentName || '',
+                        status: statusResponse.status?.status || 'idle',
+                        sessionId: session.data?.sessionId || null,
+                        timestamp: statusResponse.status?.timestamp || session.status?.timestamp || null,
+                        workflow: statusResponse.workflowStatus,
+                    };
+
+                    if (options.json) {
+                        console.log(JSON.stringify(result, null, 2));
+                        return;
+                    }
+
+                    console.log(`Session:   ${result.name}`);
+                    console.log(`Agent:     ${result.agent}`);
+                    console.log(`Status:    ${result.status}`);
+                    if (result.sessionId) {
+                        console.log(`Session ID: ${result.sessionId}`);
+                    }
+                    if (result.timestamp) {
+                        console.log(`Updated:   ${result.timestamp}`);
+                    }
+                    if (result.workflow) {
+                        console.log(`Workflow:  ${result.workflow.workflow || 'active'}`);
+                        if (result.workflow.step) {
+                            console.log(`Step:      ${result.workflow.step}`);
+                        }
+                        if (result.workflow.summary) {
+                            console.log(`Summary:   ${result.workflow.summary}`);
+                        }
+                    }
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
 
                 if (!sessionName) {

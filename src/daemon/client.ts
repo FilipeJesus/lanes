@@ -30,6 +30,7 @@ import type {
     DaemonDiffResponse,
     DaemonDiscoveryResponse,
     DaemonHealthResponse,
+    DaemonProjectListResponse,
     DaemonRepairWorktreesResponse,
     DaemonSessionCreateResponse,
     DaemonSessionInsightsResponse,
@@ -282,6 +283,11 @@ export class DaemonClient {
     /** GET /api/v1/discovery */
     discovery(): Promise<DaemonDiscoveryResponse> {
         return this.request('GET', this.projectUrl('/discovery'));
+    }
+
+    /** GET /api/v1/projects */
+    listProjects(): Promise<DaemonProjectListResponse> {
+        return this.request<DaemonProjectListResponse>('GET', '/api/v1/projects');
     }
 
     // -------------------------------------------------------------------------

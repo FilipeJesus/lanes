@@ -26,11 +26,14 @@ export { DaemonNotificationEmitter } from './notifications';
 export type { FileWatchOptions } from './fileWatcher';
 export { DaemonFileWatchManager } from './fileWatcher';
 export { createRouter } from './router';
-export type { DaemonRegistryEntry, RegisteredProjectEntry } from './registry';
+export type { DaemonRegistryEntry, RegisteredProjectEntry, RegisteredRemoteDaemonEntry } from './registry';
 export {
     createProjectId,
+    createRemoteDaemonRegistrationId,
     getRegistryPath,
     getProjectsRegistryPath,
+    getRemoteDaemonsRegistryPath,
+    normalizeDaemonBaseUrl,
     registerDaemon,
     deregisterDaemon,
     listRegisteredDaemons,
@@ -40,6 +43,9 @@ export {
     listRegisteredProjects,
     getRegisteredProjectById,
     getRegisteredProjectByWorkspace,
+    registerRemoteDaemon,
+    deregisterRemoteDaemon,
+    listRegisteredRemoteDaemons,
 } from './registry';
 export type { DaemonClientOptions, SseCallbacks, SseSubscription } from './client';
 export { DaemonClient, DaemonHttpError } from './client';

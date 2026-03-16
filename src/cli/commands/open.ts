@@ -5,7 +5,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { initCli, exitWithError, getPackageRoot } from '../utils';
+import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError, getPackageRoot } from '../utils';
 import { CliConfigProvider } from '../adapters/CliConfigProvider';
 import { fileExists } from '../../core/services/FileService';
 import { getErrorMessage } from '../../core/utils';
@@ -146,13 +146,22 @@ export async function execIntoAgent(opts: {
 }
 
 export function registerOpenCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('open <session-name>')
         .description('Open/resume a session')
-        .option('--tmux', 'Use tmux backend')
+        .option('--tmux', 'Use tmux backend'))
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const result = await client.openSession(sessionName);
+                    console.log(`Session '${sessionName}' opened on ${options.host}.`);
+                    await attachCliToRemoteSession(client, sessionName, result, options);
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
                 const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 

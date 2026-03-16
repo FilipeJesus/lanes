@@ -28,6 +28,7 @@ import sinon from 'sinon';
 import {
     getRegistryPath,
     getProjectsRegistryPath,
+    getRemoteDaemonsRegistryPath,
     registerDaemon,
     deregisterDaemon,
     listRegisteredDaemons,
@@ -35,8 +36,16 @@ import {
     registerProject,
     deregisterProject,
     listRegisteredProjects,
+    registerRemoteDaemon,
+    deregisterRemoteDaemon,
+    listRegisteredRemoteDaemons,
+    normalizeDaemonBaseUrl,
 } from '../../daemon/registry';
-import type { DaemonRegistryEntry, RegisteredProjectEntry } from '../../daemon/registry';
+import type {
+    DaemonRegistryEntry,
+    RegisteredProjectEntry,
+    RegisteredRemoteDaemonEntry,
+} from '../../daemon/registry';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,6 +69,16 @@ function makeProject(overrides: Partial<RegisteredProjectEntry> = {}): Registere
         projectId: 'proj-test-123',
         workspaceRoot: '/tmp/test-project',
         projectName: 'test-project',
+        registeredAt: new Date().toISOString(),
+        ...overrides,
+    };
+}
+
+function makeRemoteDaemon(overrides: Partial<RegisteredRemoteDaemonEntry> = {}): RegisteredRemoteDaemonEntry {
+    return {
+        registrationId: 'remote-test-123',
+        baseUrl: 'http://127.0.0.1:9100',
+        token: 'remote-token-123',
         registeredAt: new Date().toISOString(),
         ...overrides,
     };
@@ -108,6 +127,13 @@ suite('daemon registry', () => {
 
         const expected = path.join(tempDir, '.lanes', 'projects.json');
         assert.strictEqual(result, expected, `Expected projects registry path to be ${expected}`);
+    });
+
+    test('Given HOME is set to tempDir, when getRemoteDaemonsRegistryPath() is called, then it returns <tempDir>/.lanes/remote-daemons.json', () => {
+        const result = getRemoteDaemonsRegistryPath();
+
+        const expected = path.join(tempDir, '.lanes', 'remote-daemons.json');
+        assert.strictEqual(result, expected, `Expected remote daemon registry path to be ${expected}`);
     });
 
     // -------------------------------------------------------------------------
@@ -460,5 +486,49 @@ suite('daemon registry', () => {
         const result = await listRegisteredProjects();
 
         assert.strictEqual(result.length, 0, 'Projects registry should be empty after deregistration');
+    });
+
+    test('Given no remote daemon registry file exists, when listRegisteredRemoteDaemons() is called, then it returns an empty array', async () => {
+        const result = await listRegisteredRemoteDaemons();
+
+        assert.ok(Array.isArray(result), 'listRegisteredRemoteDaemons should return an array');
+        assert.strictEqual(result.length, 0, 'Should return empty array when no remote daemon registry file exists');
+    });
+
+    test('Given no existing remote daemon registry, when registerRemoteDaemon() is called, then the entry appears in listRegisteredRemoteDaemons()', async () => {
+        const daemon = makeRemoteDaemon({ baseUrl: 'http://127.0.0.1:9200/' });
+
+        await registerRemoteDaemon(daemon);
+        const result = await listRegisteredRemoteDaemons();
+
+        assert.strictEqual(result.length, 1, 'Remote daemon registry should contain exactly one entry');
+        assert.strictEqual(result[0].baseUrl, 'http://127.0.0.1:9200');
+        assert.strictEqual(result[0].token, daemon.token);
+        assert.ok(result[0].registrationId.length > 0, 'Registration ID should be populated');
+    });
+
+    test('Given an existing remote daemon registration, when registerRemoteDaemon() is called with the same host URL, then it is replaced (upsert)', async () => {
+        await registerRemoteDaemon(makeRemoteDaemon({ baseUrl: 'http://127.0.0.1:9300', token: 'before' }));
+        await registerRemoteDaemon(makeRemoteDaemon({ baseUrl: 'http://127.0.0.1:9300/', token: 'after' }));
+
+        const result = await listRegisteredRemoteDaemons();
+        assert.strictEqual(result.length, 1, 'Remote daemon upsert should not create duplicates');
+        assert.strictEqual(result[0].baseUrl, 'http://127.0.0.1:9300');
+        assert.strictEqual(result[0].token, 'after');
+    });
+
+    test('Given a registered remote daemon, when deregisterRemoteDaemon() is called, then listRegisteredRemoteDaemons() no longer includes it', async () => {
+        await registerRemoteDaemon(makeRemoteDaemon({ baseUrl: 'http://127.0.0.1:9400' }));
+
+        await deregisterRemoteDaemon('http://127.0.0.1:9400/');
+        const result = await listRegisteredRemoteDaemons();
+
+        assert.strictEqual(result.length, 0, 'Remote daemon registry should be empty after deregistration');
+    });
+
+    test('Given a daemon host URL with trailing slash, when normalizeDaemonBaseUrl() is called, then the trailing slash is removed', () => {
+        const result = normalizeDaemonBaseUrl('http://127.0.0.1:9500/');
+
+        assert.strictEqual(result, 'http://127.0.0.1:9500');
     });
 });

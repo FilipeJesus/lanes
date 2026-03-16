@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import { validateSessionName } from '../../core/validation';
 import { validateBranchName, sanitizeSessionName, getErrorMessage } from '../../core/utils';
 import { validateAndGetAgent, getAvailableAgents } from '../../core/codeAgents';
@@ -18,7 +18,7 @@ import * as PreflightService from '../../core/services/PreflightService';
 import { execIntoAgent } from './open';
 
 export function registerCreateCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('create')
         .description('Create a new session and open it')
         .requiredOption('--name <name>', 'Session name (used as branch name)')
@@ -27,7 +27,7 @@ export function registerCreateCommand(program: Command): void {
         .option('--prompt <text>', 'Starting prompt for the agent')
         .option('--workflow <name>', 'Workflow template name')
         .option('--permission-mode <mode>', 'Permission mode for the agent')
-        .option('--tmux', 'Use tmux backend')
+        .option('--tmux', 'Use tmux backend'))
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
@@ -64,6 +64,22 @@ export function registerCreateCommand(program: Command): void {
                 const branchValidation = validateBranchName(sanitizedName);
                 if (!branchValidation.valid) {
                     exitWithError(branchValidation.error || 'Invalid branch name.');
+                }
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const result = await client.createSession({
+                        name: sanitizedName,
+                        branch: options.branch,
+                        agent: codeAgent.name,
+                        prompt: options.prompt,
+                        workflow: options.workflow || undefined,
+                        permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
+                    });
+
+                    console.log(`Session '${sanitizedName}' created on ${options.host}.`);
+                    await attachCliToRemoteSession(client, sanitizedName, result, options);
+                    return;
                 }
 
                 // Create worktree via core service

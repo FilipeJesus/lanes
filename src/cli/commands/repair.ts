@@ -3,18 +3,52 @@
  */
 
 import { Command } from 'commander';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import * as BrokenWorktreeService from '../../core/services/BrokenWorktreeService';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerRepairCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('repair')
         .description('Detect and repair broken worktrees')
-        .option('--dry-run', 'Only detect broken worktrees, do not repair')
+        .option('--dry-run', 'Only detect broken worktrees, do not repair'))
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const result = await client.repairWorktrees({
+                        dryRun: Boolean(options.dryRun),
+                    });
+
+                    if (result.broken.length === 0) {
+                        console.log('No broken worktrees found.');
+                        return;
+                    }
+
+                    console.log(`Found ${result.broken.length} broken worktree(s):`);
+                    for (const worktree of result.broken) {
+                        console.log(`  - ${worktree.sessionName} (${worktree.reason})`);
+                    }
+
+                    if (options.dryRun) {
+                        return;
+                    }
+
+                    const repairResult = result.repairResult;
+                    if (!repairResult) {
+                        return;
+                    }
+
+                    for (const failure of repairResult.failures) {
+                        console.error(`  Failed: ${failure}`);
+                    }
+
+                    console.log(`\nDone: ${repairResult.successCount} repaired, ${repairResult.failures.length} failed.`);
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
 
                 const broken = await BrokenWorktreeService.detectBrokenWorktrees(repoRoot, worktreesFolder);

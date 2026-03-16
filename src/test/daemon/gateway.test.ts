@@ -19,8 +19,8 @@ import * as os from 'os';
 import * as path from 'path';
 import sinon from 'sinon';
 import { createGatewayServer } from '../../daemon/gateway';
-import { registerProject } from '../../daemon/registry';
-import type { GatewayDaemonInfo } from '../../daemon/gateway';
+import { registerProject, registerRemoteDaemon } from '../../daemon/registry';
+import type { GatewayDaemonInfo, GatewayProjectInfo } from '../../daemon/gateway';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,21 +57,25 @@ function request(
     });
 }
 
+type LocalDaemonFiles = {
+    pid: number;
+    port: number;
+    token: string;
+    startedAt: string;
+};
+
 /** Create a minimal valid machine-wide daemon projection for testing. */
-function makeEntry(overrides: Partial<GatewayDaemonInfo> = {}): GatewayDaemonInfo {
+function makeLocalDaemonFiles(overrides: Partial<LocalDaemonFiles> = {}): LocalDaemonFiles {
     return {
-        projectId: 'project-test-123',
-        workspaceRoot: '/tmp/test-workspace',
-        port: 3000,
         pid: process.pid,
+        port: 3000,
         token: 'abc123',
         startedAt: new Date().toISOString(),
-        projectName: 'test-project',
         ...overrides,
     };
 }
 
-function writeGlobalDaemonFiles(homeDir: string, entry: GatewayDaemonInfo): void {
+function writeGlobalDaemonFiles(homeDir: string, entry: LocalDaemonFiles): void {
     const lanesDir = path.join(homeDir, '.lanes');
     fs.mkdirSync(lanesDir, { recursive: true });
     fs.writeFileSync(path.join(lanesDir, 'daemon.pid'), String(entry.pid), 'utf-8');
@@ -87,6 +91,7 @@ function writeGlobalDaemonFiles(homeDir: string, entry: GatewayDaemonInfo): void
 suite('GatewayServer', () => {
     let server: http.Server;
     let gatewayPort: number;
+    let remoteServer: http.Server | undefined;
     let tempDir: string;
     let originalHome: string | undefined;
 
@@ -110,6 +115,14 @@ suite('GatewayServer', () => {
                 if (err) { reject(err); } else { resolve(); }
             });
         });
+        if (remoteServer) {
+            await new Promise<void>((resolve, reject) => {
+                remoteServer!.close((err) => {
+                    if (err) { reject(err); } else { resolve(); }
+                });
+            });
+            remoteServer = undefined;
+        }
         // Restore HOME
         if (originalHome !== undefined) {
             process.env.HOME = originalHome;
@@ -125,15 +138,13 @@ suite('GatewayServer', () => {
 
     test('Given running daemons in registry, when GET /api/gateway/daemons is called, then returns array of DaemonInfo', async () => {
         // Arrange: create a registered project and live global daemon state
-        const entry = makeEntry({
-            workspaceRoot: '/workspace/running',
-            projectName: 'running-project',
+        const entry = makeLocalDaemonFiles({
             pid: process.pid,
         });
         await registerProject({
             projectId: '',
-            workspaceRoot: entry.workspaceRoot,
-            projectName: entry.projectName,
+            workspaceRoot: '/workspace/running',
+            projectName: 'running-project',
             registeredAt: new Date().toISOString(),
         });
         writeGlobalDaemonFiles(tempDir, entry);
@@ -146,23 +157,21 @@ suite('GatewayServer', () => {
         const body = JSON.parse(res.body) as GatewayDaemonInfo[];
         assert.ok(Array.isArray(body), 'Response body should be an array');
         assert.ok(body.length >= 1, 'Should contain at least one live daemon entry');
-        const found = body.find((d) => d.workspaceRoot === '/workspace/running');
+        const found = body.find((d) => d.source === 'local');
         assert.ok(found, 'Registered live daemon should appear in the response');
-        assert.strictEqual(found!.projectName, 'running-project');
+        assert.strictEqual(found!.baseUrl, `http://127.0.0.1:${entry.port}`);
     });
 
     test('Given stale daemons in registry, when GET /api/gateway/daemons is called, then stale entries are excluded', async () => {
         // Arrange: create a stale global daemon state
         const deadPid = 999999999;
-        const staleEntry = makeEntry({
-            workspaceRoot: '/workspace/stale',
-            projectName: 'stale-project',
+        const staleEntry = makeLocalDaemonFiles({
             pid: deadPid,
         });
         await registerProject({
             projectId: '',
-            workspaceRoot: staleEntry.workspaceRoot,
-            projectName: staleEntry.projectName,
+            workspaceRoot: '/workspace/stale',
+            projectName: 'stale-project',
             registeredAt: new Date().toISOString(),
         });
         writeGlobalDaemonFiles(tempDir, staleEntry);
@@ -223,25 +232,83 @@ suite('GatewayServer', () => {
             projectName: 'running-project',
             registeredAt: new Date().toISOString(),
         });
-        writeGlobalDaemonFiles(tempDir, makeEntry({
-            workspaceRoot,
-            projectName: 'running-project',
+        writeGlobalDaemonFiles(tempDir, makeLocalDaemonFiles({
             pid: process.pid,
         }));
 
         const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/projects' });
 
         assert.strictEqual(res.status, 200, 'Should return HTTP 200');
-        const body = JSON.parse(res.body) as Array<{
-            workspaceRoot: string;
-            status: string;
-            daemon: GatewayDaemonInfo | null;
-        }>;
+        const body = JSON.parse(res.body) as GatewayProjectInfo[];
         const found = body.find((project) => project.workspaceRoot === workspaceRoot);
         assert.ok(found, 'Running project should appear in the response');
         assert.strictEqual(found!.status, 'running');
         assert.ok(found!.daemon, 'Running project should include daemon info');
-        assert.strictEqual(found!.daemon?.workspaceRoot, workspaceRoot);
+        assert.strictEqual(found!.daemon?.source, 'local');
+        assert.strictEqual(found!.daemonProjectId, found!.projectId);
+    });
+
+    test('Given a registered remote daemon, when GET /api/gateway/projects is called, then remote daemon projects are included with remote connection metadata', async () => {
+        remoteServer = http.createServer((req, res) => {
+            if (req.headers.authorization !== 'Bearer remote-token') {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Unauthorized' }));
+                return;
+            }
+
+            if (req.method === 'GET' && req.url === '/api/v1/projects') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    projects: [
+                        {
+                            projectId: 'remote-proj-1',
+                            workspaceRoot: '/srv/remote/repo-one',
+                            projectName: 'repo-one',
+                            registeredAt: '2026-03-15T12:00:00.000Z',
+                        },
+                        {
+                            projectId: 'remote-proj-2',
+                            workspaceRoot: '/srv/remote/repo-two',
+                            projectName: 'repo-two',
+                            registeredAt: '2026-03-15T13:00:00.000Z',
+                        },
+                    ],
+                }));
+                return;
+            }
+
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Not Found' }));
+        });
+        const remotePort = await new Promise<number>((resolve, reject) => {
+            remoteServer!.once('error', reject);
+            remoteServer!.listen(0, '127.0.0.1', () => {
+                const address = remoteServer!.address();
+                if (typeof address === 'object' && address !== null) {
+                    resolve(address.port);
+                    return;
+                }
+                reject(new Error('Remote test server failed to bind'));
+            });
+        });
+
+        await registerRemoteDaemon({
+            registrationId: '',
+            baseUrl: `http://127.0.0.1:${remotePort}`,
+            token: 'remote-token',
+            registeredAt: new Date().toISOString(),
+        });
+
+        const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/projects' });
+
+        assert.strictEqual(res.status, 200, 'Should return HTTP 200');
+        const body = JSON.parse(res.body) as GatewayProjectInfo[];
+        const found = body.find((project) => project.daemonProjectId === 'remote-proj-1');
+        assert.ok(found, 'Remote daemon project should appear in the response');
+        assert.ok(found!.daemon, 'Remote project should include daemon connection metadata');
+        assert.strictEqual(found!.daemon?.source, 'remote');
+        assert.strictEqual(found!.daemon?.baseUrl, `http://127.0.0.1:${remotePort}`);
+        assert.notStrictEqual(found!.projectId, found!.daemonProjectId, 'Gateway ID should be namespaced from daemon project ID');
     });
 
     // -----------------------------------------------------------------------

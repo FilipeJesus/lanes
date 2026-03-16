@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import { execGit } from '../../core/gitService';
 import {
     getAgentStatus,
@@ -14,14 +14,47 @@ import {
 import { getErrorMessage } from '../../core/utils';
 
 export function registerListCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('list')
         .alias('ls')
         .description('List active sessions')
-        .option('--json', 'Output as JSON')
+        .option('--json', 'Output as JSON'))
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    const response = await client.listSessions();
+                    const sessions = response.sessions.map((session) => ({
+                        name: session.name,
+                        branch: session.branch,
+                        path: session.worktreePath,
+                        status: session.status?.status || 'idle',
+                        agent: session.data?.agentName || '',
+                        workflow: session.workflowStatus?.workflow,
+                    }));
+
+                    if (options.json) {
+                        console.log(JSON.stringify(sessions, null, 2));
+                        return;
+                    }
+
+                    if (sessions.length === 0) {
+                        console.log('No active sessions.');
+                        return;
+                    }
+
+                    console.log(`${'NAME'.padEnd(25)} ${'STATUS'.padEnd(12)} ${'AGENT'.padEnd(10)} ${'BRANCH'.padEnd(30)} WORKFLOW`);
+                    console.log('-'.repeat(90));
+                    for (const session of sessions) {
+                        console.log(
+                            `${session.name.padEnd(25)} ${session.status.padEnd(12)} ${session.agent.padEnd(10)} ${session.branch.padEnd(30)} ${session.workflow || ''}`
+                        );
+                    }
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
                 const worktreesDir = path.join(repoRoot, worktreesFolder);
 

@@ -5,7 +5,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import { execGit } from '../../core/gitService';
 import { fileExists } from '../../core/services/FileService';
 import * as TmuxService from '../../core/services/TmuxService';
@@ -13,14 +13,28 @@ import { getSessionTerminalMode } from '../../core/session/SessionDataService';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerDeleteCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('delete <session-name>')
         .alias('rm')
         .description('Delete a session and its worktree')
-        .option('--force', 'Force deletion without confirmation')
+        .option('--force', 'Force deletion without confirmation'))
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    if (!options.force) {
+                        console.log(`This will delete session '${sessionName}' from ${options.host}.`);
+                        console.log('Use --force to skip this message.');
+                        exitWithError('Deletion cancelled. Use --force to confirm.');
+                    }
+
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    await client.deleteSession(sessionName);
+                    console.log(`Session '${sessionName}' deleted.`);
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
                 const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 

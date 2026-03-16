@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { initCliGit, resolveRepoRoot, resolveRepoRootFromPath, exitWithError } from '../utils';
+import { DaemonClient } from '../../daemon/client';
 import {
     startDaemon,
     stopDaemon,
@@ -16,10 +17,17 @@ import {
     getDaemonErrorSummary,
 } from '../../daemon/lifecycle';
 import {
+    deregisterRemoteDaemon,
     registerProject,
+    registerRemoteDaemon,
     deregisterProject,
     listRegisteredProjects,
+    listRegisteredRemoteDaemons,
 } from '../../daemon/registry';
+
+function isRemoteRegistration(options: { host?: string; token?: string }): boolean {
+    return typeof options.host === 'string' && options.host.trim().length > 0;
+}
 
 export function registerDaemonCommand(program: Command): void {
     const daemon = program
@@ -61,12 +69,32 @@ export function registerDaemonCommand(program: Command): void {
         .command('register')
         .description('Register a project with the machine-wide Lanes gateway')
         .argument('[workspace]', 'Workspace to register (default: current directory)', '.')
-        .action(async (workspaceArg: string) => {
+        .option('--host <url>', 'Register a remote daemon by base URL instead of a local workspace')
+        .option('--token <token>', 'Bearer token for the remote daemon when using --host')
+        .action(async (workspaceArg: string, options: { host?: string; token?: string }) => {
             try {
+                if (isRemoteRegistration(options)) {
+                    if (!options.token) {
+                        exitWithError('Remote daemon registration requires --token.');
+                    }
+                    const client = new DaemonClient({
+                        baseUrl: options.host!,
+                        token: options.token,
+                    });
+                    await client.listProjects();
+                    await registerRemoteDaemon({
+                        registrationId: '',
+                        baseUrl: options.host!,
+                        token: options.token,
+                        registeredAt: new Date().toISOString(),
+                    });
+                    console.log(`Registered remote daemon ${options.host!}.`);
+                    return;
+                }
+
                 await initCliGit();
                 const workspaceRoot = await resolveRepoRootFromPath(workspaceArg);
                 const projectName = path.basename(workspaceRoot);
-
                 await registerProject({
                     projectId: '',
                     workspaceRoot,
@@ -85,8 +113,15 @@ export function registerDaemonCommand(program: Command): void {
         .command('unregister')
         .description('Remove a project from the machine-wide Lanes gateway')
         .argument('[workspace]', 'Workspace to unregister (default: current directory)', '.')
-        .action(async (workspaceArg: string) => {
+        .option('--host <url>', 'Unregister a remote daemon by base URL instead of a local workspace')
+        .action(async (workspaceArg: string, options: { host?: string }) => {
             try {
+                if (isRemoteRegistration(options)) {
+                    await deregisterRemoteDaemon(options.host!);
+                    console.log(`Unregistered remote daemon ${options.host!}.`);
+                    return;
+                }
+
                 await initCliGit();
                 const workspaceRoot = await resolveRepoRootFromPath(workspaceArg);
 
@@ -104,15 +139,22 @@ export function registerDaemonCommand(program: Command): void {
         .description('List projects registered with the machine-wide Lanes gateway')
         .action(async () => {
             try {
-                const projects = await listRegisteredProjects();
+                const [projects, remoteDaemons] = await Promise.all([
+                    listRegisteredProjects(),
+                    listRegisteredRemoteDaemons(),
+                ]);
 
-                if (projects.length === 0) {
-                    console.log('No projects registered.');
+                if (projects.length === 0 && remoteDaemons.length === 0) {
+                    console.log('No projects or remote daemons registered.');
                     return;
                 }
 
                 for (const project of projects.sort((a, b) => a.projectName.localeCompare(b.projectName))) {
-                    console.log(`${project.projectName}\t${project.workspaceRoot}`);
+                    console.log(`project\t${project.projectName}\t${project.workspaceRoot}`);
+                }
+
+                for (const remoteDaemon of remoteDaemons.sort((a, b) => a.baseUrl.localeCompare(b.baseUrl))) {
+                    console.log(`remote\t${remoteDaemon.baseUrl}`);
                 }
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}

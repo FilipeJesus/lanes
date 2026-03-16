@@ -16,10 +16,12 @@ const mockClientMethods = {
     getDiscovery: vi.fn<() => Promise<DiscoveryInfo>>(),
     getHealth: vi.fn<() => Promise<HealthResponse>>(),
 };
+const clientCtorSpy = vi.fn<(opts: { baseUrl: string; token: string; projectId?: string }) => void>();
 
 vi.mock('../../api/client', () => ({
     // Use a named function so TypeScript sees it as a constructor
-    DaemonApiClient: function DaemonApiClientMock() {
+    DaemonApiClient: function DaemonApiClientMock(opts: { baseUrl: string; token: string; projectId?: string }) {
+        clientCtorSpy(opts);
         return mockClientMethods;
     },
 }));
@@ -47,6 +49,7 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
     const projectId = overrides.projectId ?? 'project-123';
     return {
         projectId,
+        daemonProjectId: projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -86,6 +89,7 @@ describe('useDaemons', () => {
         mockFetchProjects = vi.mocked(fetchProjects);
         mockClientMethods.getDiscovery.mockResolvedValue(makeDiscovery());
         mockClientMethods.getHealth.mockResolvedValue(makeHealth());
+        clientCtorSpy.mockClear();
     });
 
     afterEach(() => {
@@ -216,6 +220,35 @@ describe('useDaemons', () => {
         });
 
         expect(result.current.daemons).toHaveLength(2);
+    });
+
+    it('Given a remote project entry, when the hook enriches it, then the daemon base URL and daemon project ID are used', async () => {
+        mockFetchProjects.mockResolvedValue([
+            makeProjectInfo({
+                projectId: 'gateway:remote-project-123',
+                daemonProjectId: 'remote-project-123',
+                daemon: makeDaemonInfo({
+                    projectId: 'remote-project-123',
+                    baseUrl: 'https://remote.example.test',
+                    port: null,
+                    pid: null,
+                    startedAt: null,
+                }),
+            }),
+        ]);
+
+        const { result } = renderHook(() => useDaemons());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(clientCtorSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                baseUrl: 'https://remote.example.test',
+                projectId: 'remote-project-123',
+            })
+        );
     });
 
     it('Given two projects share one machine-wide daemon, when the hook loads, then both projects remain independently addressable', async () => {

@@ -50,11 +50,16 @@ const HEALTH_POLL_INTERVAL_MS = 30_000;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildClient(daemon: DaemonInfo): DaemonApiClient {
+function getProjectTargetId(project: GatewayProjectInfo): string {
+    return project.daemonProjectId ?? project.projectId;
+}
+
+function buildClient(project: GatewayProjectInfo, daemon: DaemonInfo): DaemonApiClient {
+    const baseUrl = daemon.baseUrl ?? `http://127.0.0.1:${daemon.port}`;
     return new DaemonApiClient({
-        baseUrl: `http://127.0.0.1:${daemon.port}`,
+        baseUrl,
         token: daemon.token,
-        projectId: daemon.projectId,
+        projectId: getProjectTargetId(project),
     });
 }
 
@@ -71,7 +76,7 @@ async function enrichDaemon(project: GatewayProjectInfo): Promise<EnrichedDaemon
         };
     }
 
-    const client = buildClient(daemon);
+    const client = buildClient(project, daemon);
 
     let discovery: DiscoveryInfo | null = null;
     let health: HealthState = 'unreachable';
@@ -109,7 +114,7 @@ async function pollHealth(enriched: EnrichedDaemon): Promise<EnrichedDaemon> {
         return enriched;
     }
 
-    const client = buildClient(enriched.daemon);
+    const client = buildClient(enriched.project, enriched.daemon);
 
     try {
         const healthResponse = await client.getHealth();

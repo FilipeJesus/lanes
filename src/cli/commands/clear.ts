@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { initCli, exitWithError } from '../utils';
+import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError } from '../utils';
 import { fileExists } from '../../core/services/FileService';
 import {
     clearSessionId,
@@ -18,13 +18,23 @@ import { getErrorMessage } from '../../core/utils';
 import { execIntoAgent } from './open';
 
 export function registerClearCommand(program: Command): void {
-    program
+    addDaemonHostOption(program
         .command('clear <session-name>')
         .description('Clear a session and restart with fresh context')
-        .option('--tmux', 'Use tmux backend')
+        .option('--tmux', 'Use tmux backend'))
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+
+                if (options.host) {
+                    const client = await createCliDaemonClient(repoRoot, options);
+                    await client.clearSession(sessionName);
+                    const launch = await client.openSession(sessionName);
+                    console.log(`Session '${sessionName}' cleared on ${options.host}.`);
+                    await attachCliToRemoteSession(client, sessionName, launch, options);
+                    return;
+                }
+
                 const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
                 const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 

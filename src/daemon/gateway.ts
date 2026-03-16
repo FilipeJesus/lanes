@@ -16,21 +16,30 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
     type RegisteredProjectEntry,
+    type RegisteredRemoteDaemonEntry,
+    createRemoteDaemonRegistrationId,
     listRegisteredProjects,
+    listRegisteredRemoteDaemons,
 } from './registry';
 import { getMachineDaemonState } from './lifecycle';
+import { DaemonClient } from './client';
 
 export type GatewayDaemonInfo = {
-    projectId: string;
-    workspaceRoot: string;
-    port: number;
-    pid: number;
+    registrationId: string;
+    source: 'local' | 'remote';
+    baseUrl: string;
+    port: number | null;
+    pid: number | null;
     token: string;
-    startedAt: string;
-    projectName: string;
+    startedAt: string | null;
 };
 
-export type GatewayProjectInfo = RegisteredProjectEntry & {
+export type GatewayProjectInfo = {
+    projectId: string;
+    daemonProjectId: string;
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
     status: 'running' | 'registered';
     daemon: GatewayDaemonInfo | null;
 };
@@ -90,33 +99,102 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
     res.end(payload);
 }
 
+function buildLocalDaemonInfo(machineDaemon: NonNullable<Awaited<ReturnType<typeof getMachineDaemonState>>>): GatewayDaemonInfo {
+    return {
+        registrationId: 'local-machine-daemon',
+        source: 'local',
+        baseUrl: `http://127.0.0.1:${machineDaemon.port}`,
+        pid: machineDaemon.pid,
+        port: machineDaemon.port,
+        token: machineDaemon.token,
+        startedAt: machineDaemon.startedAt,
+    };
+}
+
+function createGatewayProjectInfo(
+    project: RegisteredProjectEntry,
+    daemon: GatewayDaemonInfo | null
+): GatewayProjectInfo {
+    return {
+        projectId: project.projectId,
+        daemonProjectId: project.projectId,
+        workspaceRoot: project.workspaceRoot,
+        projectName: project.projectName,
+        registeredAt: project.registeredAt,
+        status: daemon ? 'running' : 'registered',
+        daemon,
+    };
+}
+
+function createRemoteGatewayProjectId(registrationId: string, daemonProjectId: string): string {
+    return `${registrationId}:${daemonProjectId}`;
+}
+
+function parsePortFromBaseUrl(baseUrl: string): number | null {
+    try {
+        const parsed = new URL(baseUrl);
+        if (parsed.port) {
+            const port = Number.parseInt(parsed.port, 10);
+            return Number.isNaN(port) ? null : port;
+        }
+        return parsed.protocol === 'https:' ? 443 : 80;
+    } catch {
+        return null;
+    }
+}
+
+async function listRemoteGatewayProjects(
+    registrations: RegisteredRemoteDaemonEntry[]
+): Promise<GatewayProjectInfo[]> {
+    const results = await Promise.all(
+        registrations.map(async (registration) => {
+            try {
+                const client = new DaemonClient({
+                    baseUrl: registration.baseUrl,
+                    token: registration.token,
+                });
+                const { projects } = await client.listProjects();
+                const daemon: GatewayDaemonInfo = {
+                    registrationId: registration.registrationId || createRemoteDaemonRegistrationId(registration.baseUrl),
+                    source: 'remote',
+                    baseUrl: registration.baseUrl,
+                    pid: null,
+                    port: parsePortFromBaseUrl(registration.baseUrl),
+                    token: registration.token,
+                    startedAt: null,
+                };
+
+                return projects.map((project) => ({
+                    projectId: createRemoteGatewayProjectId(daemon.registrationId, project.projectId),
+                    daemonProjectId: project.projectId,
+                    workspaceRoot: project.workspaceRoot,
+                    projectName: project.projectName,
+                    registeredAt: project.registeredAt,
+                    status: 'running' as const,
+                    daemon,
+                }));
+            } catch {
+                return [];
+            }
+        })
+    );
+
+    return results.flat();
+}
+
 async function listGatewayProjects(): Promise<GatewayProjectInfo[]> {
-    const [registeredProjects, machineDaemon] = await Promise.all([
+    const [registeredProjects, registeredRemoteDaemons, machineDaemon] = await Promise.all([
         listRegisteredProjects(),
+        listRegisteredRemoteDaemons(),
         getMachineDaemonState(),
     ]);
 
-    return registeredProjects
-        .map((project) => {
-            const daemon: GatewayDaemonInfo | null =
-                machineDaemon
-                    ? {
-                        projectId: project.projectId,
-                        workspaceRoot: project.workspaceRoot,
-                        projectName: project.projectName,
-                        pid: machineDaemon.pid,
-                        port: machineDaemon.port,
-                        token: machineDaemon.token,
-                        startedAt: machineDaemon.startedAt,
-                    }
-                    : null;
+    const localDaemon = machineDaemon ? buildLocalDaemonInfo(machineDaemon) : null;
+    const remoteProjects = await listRemoteGatewayProjects(registeredRemoteDaemons);
 
-            return {
-                ...project,
-                status: daemon ? 'running' as const : 'registered' as const,
-                daemon,
-            };
-        })
+    return registeredProjects
+        .map((project) => createGatewayProjectInfo(project, localDaemon))
+        .concat(remoteProjects)
         .sort((a, b) => a.projectName.localeCompare(b.projectName));
 }
 

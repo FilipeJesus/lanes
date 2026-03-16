@@ -2,7 +2,7 @@
  * DaemonApiClient
  *
  * Typed fetch wrapper for all Lanes daemon REST API endpoints.
- * The daemon runs on 127.0.0.1:<port> and requires Bearer token authentication.
+ * The daemon may be local or remote and requires Bearer token authentication.
  */
 
 import type {
@@ -57,7 +57,7 @@ export class ApiClientError extends Error {
 // ---------------------------------------------------------------------------
 
 export interface DaemonApiClientOptions {
-    /** Base URL of the daemon, e.g. "http://127.0.0.1:3942" */
+    /** Base URL of the daemon, e.g. "http://127.0.0.1:3942" or "https://remote.example" */
     baseUrl: string;
     /** Bearer token for authentication */
     token: string;
