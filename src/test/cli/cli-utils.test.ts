@@ -1,18 +1,16 @@
 import * as assert from 'assert';
 import sinon from 'sinon';
-import { Command } from 'commander';
 import * as gitService from '../../core/gitService';
 import * as FileService from '../../core/services/FileService';
 import * as SettingsService from '../../core/services/SettingsService';
 import * as registry from '../../daemon/registry';
 import * as daemonClientModule from '../../daemon/client';
 import {
-    addDaemonHostOption,
-    createCliDaemonClient,
     resolveRepoRoot,
     getBranchesInWorktrees,
     getPackageRoot,
 } from '../../cli/utils';
+import { createCliDaemonClient, withCliDaemonTarget } from '../../cli/targeting';
 
 suite('CLI utils', () => {
     suite('resolveRepoRoot', () => {
@@ -132,17 +130,6 @@ suite('CLI utils', () => {
             assert.ok(typeof root === 'string');
             // Should be an absolute path
             assert.ok(root.startsWith('/') || /^[a-zA-Z]:/.test(root));
-        });
-    });
-
-    suite('addDaemonHostOption', () => {
-        test('adds a --host option to a command', () => {
-            const command = new Command('list');
-
-            addDaemonHostOption(command);
-
-            const optionNames = command.options.map((option) => option.long);
-            assert.ok(optionNames.includes('--host'));
         });
     });
 
@@ -279,6 +266,81 @@ suite('CLI utils', () => {
                 () => createCliDaemonClient('/repo', { host: 'https://remote.example.test' }),
                 /Failed to inspect projects on remote daemon .*Unauthorized/
             );
+        });
+    });
+
+    suite('withCliDaemonTarget', () => {
+        let listRegisteredRemoteDaemonsStub: sinon.SinonStub;
+        let execGitStub: sinon.SinonStub;
+        let listProjectsStub: sinon.SinonStub;
+        let discoveryStub: sinon.SinonStub;
+
+        setup(() => {
+            listRegisteredRemoteDaemonsStub = sinon.stub(registry, 'listRegisteredRemoteDaemons');
+            execGitStub = sinon.stub(gitService, 'execGit');
+            listProjectsStub = sinon.stub(daemonClientModule.DaemonClient.prototype, 'listProjects');
+            discoveryStub = sinon.stub(daemonClientModule.DaemonClient.prototype, 'discovery');
+        });
+
+        teardown(() => {
+            listRegisteredRemoteDaemonsStub.restore();
+            execGitStub.restore();
+            listProjectsStub.restore();
+            discoveryStub.restore();
+        });
+
+        test('uses the local handler when --host is omitted', async () => {
+            const result = await withCliDaemonTarget('/repo', {}, {
+                local: async () => 'local',
+                daemon: async () => 'remote',
+            });
+
+            assert.strictEqual(result, 'local');
+        });
+
+        test('uses the daemon handler when --host is provided', async () => {
+            const registration = {
+                registrationId: 'remote-1',
+                baseUrl: 'https://remote.example.test',
+                token: 'secret',
+                registeredAt: '2026-03-16T00:00:00.000Z',
+            };
+            listRegisteredRemoteDaemonsStub.resolves([registration]);
+            execGitStub.resolves('git@github.com:org/repo.git\n');
+            listProjectsStub.resolves({
+                projects: [
+                    {
+                        projectId: 'project-123',
+                        workspaceRoot: '/srv/repo',
+                        projectName: 'repo',
+                        registeredAt: '2026-03-16T00:00:00.000Z',
+                    },
+                ],
+            });
+            discoveryStub.resolves({
+                projectId: 'project-123',
+                projectName: 'repo',
+                gitRemote: 'git@github.com:org/repo.git',
+                sessionCount: 0,
+                uptime: 0,
+                workspaceRoot: '/srv/repo',
+                port: 9100,
+                apiVersion: '1',
+            });
+
+            const result = await withCliDaemonTarget('/repo', { host: 'https://remote.example.test/' }, {
+                local: async () => 'local',
+                daemon: async (target) => {
+                    assert.strictEqual(target.host, 'https://remote.example.test');
+                    assert.ok(target.client instanceof daemonClientModule.DaemonClient);
+                    return 'remote';
+                },
+            });
+
+            assert.strictEqual(result, 'remote');
+            sinon.assert.calledOnce(listRegisteredRemoteDaemonsStub);
+            sinon.assert.calledOnce(listProjectsStub);
+            sinon.assert.calledOnce(discoveryStub);
         });
     });
 });

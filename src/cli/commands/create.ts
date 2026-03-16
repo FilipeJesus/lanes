@@ -4,7 +4,8 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError } from '../utils';
+import { initCli, exitWithError } from '../utils';
+import { attachCliToRemoteSession, withCliDaemonTarget } from '../targeting';
 import { validateSessionName } from '../../core/validation';
 import { validateBranchName, sanitizeSessionName, getErrorMessage } from '../../core/utils';
 import { validateAndGetAgent, getAvailableAgents } from '../../core/codeAgents';
@@ -18,7 +19,7 @@ import * as PreflightService from '../../core/services/PreflightService';
 import { execIntoAgent } from './open';
 
 export function registerCreateCommand(program: Command): void {
-    addDaemonHostOption(program
+    program
         .command('create')
         .description('Create a new session and open it')
         .requiredOption('--name <name>', 'Session name (used as branch name)')
@@ -27,7 +28,7 @@ export function registerCreateCommand(program: Command): void {
         .option('--prompt <text>', 'Starting prompt for the agent')
         .option('--workflow <name>', 'Workflow template name')
         .option('--permission-mode <mode>', 'Permission mode for the agent')
-        .option('--tmux', 'Use tmux backend'))
+        .option('--tmux', 'Use tmux backend')
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
@@ -65,62 +66,60 @@ export function registerCreateCommand(program: Command): void {
                 if (!branchValidation.valid) {
                     exitWithError(branchValidation.error || 'Invalid branch name.');
                 }
+                await withCliDaemonTarget(repoRoot, options, {
+                    daemon: async (target) => {
+                        const { client, host } = target;
+                        const result = await client.createSession({
+                            name: sanitizedName,
+                            branch: options.branch,
+                            agent: codeAgent.name,
+                            prompt: options.prompt,
+                            workflow: options.workflow || undefined,
+                            permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
+                        });
 
-                if (options.host) {
-                    const client = await createCliDaemonClient(repoRoot, options);
-                    const result = await client.createSession({
-                        name: sanitizedName,
-                        branch: options.branch,
-                        agent: codeAgent.name,
-                        prompt: options.prompt,
-                        workflow: options.workflow || undefined,
-                        permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
-                    });
+                        console.log(`Session '${sanitizedName}' created on ${host}.`);
+                        await attachCliToRemoteSession(client, sanitizedName, result, target);
+                    },
+                    local: async () => {
+                        console.log(`Creating session '${sanitizedName}'...`);
+                        const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
+                        const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
 
-                    console.log(`Session '${sanitizedName}' created on ${options.host}.`);
-                    await attachCliToRemoteSession(client, sanitizedName, result, options);
-                    return;
-                }
+                        await PreflightService.assertSessionLaunchPrerequisites({
+                            codeAgent,
+                            terminalMode: useTmux ? 'tmux' : 'vscode',
+                        });
 
-                // Create worktree via core service
-                console.log(`Creating session '${sanitizedName}'...`);
-                const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
-                const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
+                        const { worktreePath } = await createSessionWorktree({
+                            repoRoot,
+                            sessionName: sanitizedName,
+                            sourceBranch: options.branch,
+                            worktreesFolder,
+                            codeAgent,
+                            localSettingsPropagation: propagationMode,
+                            onWarning: (msg) => console.warn(`Warning: ${msg}`),
+                        });
 
-                await PreflightService.assertSessionLaunchPrerequisites({
-                    codeAgent,
-                    terminalMode: useTmux ? 'tmux' : 'vscode',
-                });
+                        if (options.workflow) {
+                            await saveSessionWorkflow(worktreePath, options.workflow);
+                        }
 
-                const { worktreePath } = await createSessionWorktree({
-                    repoRoot,
-                    sessionName: sanitizedName,
-                    sourceBranch: options.branch,
-                    worktreesFolder,
-                    codeAgent,
-                    localSettingsPropagation: propagationMode,
-                    onWarning: (msg) => console.warn(`Warning: ${msg}`),
-                });
+                        console.log(`Session '${sanitizedName}' created.`);
 
-                // Save workflow if specified
-                if (options.workflow) {
-                    await saveSessionWorkflow(worktreePath, options.workflow);
-                }
-
-                console.log(`Session '${sanitizedName}' created.`);
-
-                // Exec into the agent
-                await execIntoAgent({
-                    sessionName: sanitizedName,
-                    worktreePath,
-                    repoRoot,
-                    codeAgent,
-                    config,
-                    prompt: options.prompt,
-                    permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
-                    workflow: options.workflow,
-                    useTmux,
-                    isNewSession: true,
+                        await execIntoAgent({
+                            sessionName: sanitizedName,
+                            worktreePath,
+                            repoRoot,
+                            codeAgent,
+                            config,
+                            prompt: options.prompt,
+                            permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
+                            workflow: options.workflow,
+                            useTmux,
+                            isNewSession: true,
+                        });
+                    },
                 });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}

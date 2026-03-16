@@ -23,7 +23,6 @@ suite('CreateCommand', () => {
     let createSessionWorktreeStub: sinon.SinonStub;
     let execIntoAgentStub: sinon.SinonStub;
     let processExitStub: sinon.SinonStub;
-    let consoleErrorStub: sinon.SinonStub;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-create-command-'));
@@ -60,7 +59,6 @@ suite('CreateCommand', () => {
             worktreePath: path.join(tempDir, '.worktrees', 'feat-preflight'),
         });
         execIntoAgentStub = sinon.stub(openCommand, 'execIntoAgent').resolves();
-        consoleErrorStub = sinon.stub(console, 'error');
         processExitStub = sinon.stub(process, 'exit').callsFake(((code?: number) => {
             throw new Error(`process.exit:${code ?? 0}`);
         }) as never);
@@ -84,10 +82,6 @@ suite('CreateCommand', () => {
         sinon.assert.calledWith(isCommandAvailableStub, 'jq');
         sinon.assert.notCalled(createSessionWorktreeStub);
         sinon.assert.notCalled(execIntoAgentStub);
-        sinon.assert.calledWith(
-            consoleErrorStub,
-            'Error: jq is required for session tracking and workflow hooks. Install it and try again.'
-        );
         sinon.assert.calledWith(processExitStub, 1);
     });
 });

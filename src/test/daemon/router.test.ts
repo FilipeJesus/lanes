@@ -124,7 +124,10 @@ function makeRequest(
         const address = server.address() as { port: number };
         const { method = 'GET', path = '/', headers = {}, body } = options;
         const requestPath =
-            path.startsWith('/api/v1/') && path !== '/api/v1/health'
+            path.startsWith('/api/v1/')
+            && path !== '/api/v1/health'
+            && path !== '/api/v1/projects'
+            && !path.startsWith('/api/v1/projects/')
                 ? `/api/v1/projects/${PROJECT_ID}${path.slice('/api/v1'.length)}`
                 : path;
 

@@ -11,6 +11,7 @@ import { registerOpenCommand } from '../../cli/commands/open';
 import { registerRepairCommand } from '../../cli/commands/repair';
 import { registerStatusCommand } from '../../cli/commands/status';
 import { registerWorkflowCommand } from '../../cli/commands/workflow';
+import { applyCliDaemonTargeting } from '../../cli/targeting';
 
 function makeProgram(): Command {
     const program = new Command();
@@ -30,10 +31,26 @@ function assertCommandHasHostOption(command: Command, label: string): void {
     );
 }
 
+function makeTargetedProgram(): Command {
+    const program = makeProgram();
+    registerCreateCommand(program);
+    registerListCommand(program);
+    registerStatusCommand(program);
+    registerDeleteCommand(program);
+    registerOpenCommand(program);
+    registerClearCommand(program);
+    registerDiffCommand(program);
+    registerInsightsCommand(program);
+    registerConfigCommand(program);
+    registerRepairCommand(program);
+    registerWorkflowCommand(program);
+    applyCliDaemonTargeting(program);
+    return program;
+}
+
 suite('CLI daemon host options', () => {
     test('create command exposes --host', () => {
-        const program = makeProgram();
-        registerCreateCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'create');
         assert.ok(command);
@@ -41,8 +58,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('list command exposes --host', () => {
-        const program = makeProgram();
-        registerListCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'list');
         assert.ok(command);
@@ -50,8 +66,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('status command exposes --host', () => {
-        const program = makeProgram();
-        registerStatusCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'status');
         assert.ok(command);
@@ -59,8 +74,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('delete command exposes --host', () => {
-        const program = makeProgram();
-        registerDeleteCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'delete');
         assert.ok(command);
@@ -68,8 +82,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('open command exposes --host', () => {
-        const program = makeProgram();
-        registerOpenCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'open');
         assert.ok(command);
@@ -77,8 +90,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('clear command exposes --host', () => {
-        const program = makeProgram();
-        registerClearCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'clear');
         assert.ok(command);
@@ -86,8 +98,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('diff command exposes --host', () => {
-        const program = makeProgram();
-        registerDiffCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'diff');
         assert.ok(command);
@@ -95,8 +106,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('insights command exposes --host', () => {
-        const program = makeProgram();
-        registerInsightsCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'insights');
         assert.ok(command);
@@ -104,8 +114,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('config command exposes --host', () => {
-        const program = makeProgram();
-        registerConfigCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'config');
         assert.ok(command);
@@ -113,8 +122,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('repair command exposes --host', () => {
-        const program = makeProgram();
-        registerRepairCommand(program);
+        const program = makeTargetedProgram();
 
         const command = program.commands.find((entry) => entry.name() === 'repair');
         assert.ok(command);
@@ -122,8 +130,7 @@ suite('CLI daemon host options', () => {
     });
 
     test('workflow list exposes --host', () => {
-        const program = makeProgram();
-        registerWorkflowCommand(program);
+        const program = makeTargetedProgram();
 
         const workflow = program.commands.find((entry) => entry.name() === 'workflow');
         assert.ok(workflow);

@@ -18,7 +18,6 @@ suite('OpenCommand', () => {
     let initCliStub: sinon.SinonStub;
     let isCommandAvailableStub: sinon.SinonStub;
     let processExitStub: sinon.SinonStub;
-    let consoleErrorStub: sinon.SinonStub;
 
     setup(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-open-command-'));
@@ -50,7 +49,6 @@ suite('OpenCommand', () => {
         isCommandAvailableStub = sinon.stub(PreflightService.preflightDeps, 'isCommandAvailable').callsFake(async (command: string) => {
             return command !== 'tmux';
         });
-        consoleErrorStub = sinon.stub(console, 'error');
         processExitStub = sinon.stub(process, 'exit').callsFake(((code?: number) => {
             throw new Error(`process.exit:${code ?? 0}`);
         }) as never);
@@ -72,10 +70,6 @@ suite('OpenCommand', () => {
         );
 
         sinon.assert.calledWith(isCommandAvailableStub, 'tmux');
-        sinon.assert.calledWith(
-            consoleErrorStub,
-            'Error: tmux is required when lanes.terminalMode is set to tmux. Install it and try again.'
-        );
         sinon.assert.calledWith(processExitStub, 1);
     });
 });

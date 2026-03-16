@@ -4,7 +4,8 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError } from '../utils';
+import { initCli, exitWithError } from '../utils';
+import { attachCliToRemoteSession, withCliDaemonTarget } from '../targeting';
 import { fileExists } from '../../core/services/FileService';
 import {
     clearSessionId,
@@ -18,63 +19,60 @@ import { getErrorMessage } from '../../core/utils';
 import { execIntoAgent } from './open';
 
 export function registerClearCommand(program: Command): void {
-    addDaemonHostOption(program
+    program
         .command('clear <session-name>')
         .description('Clear a session and restart with fresh context')
-        .option('--tmux', 'Use tmux backend'))
+        .option('--tmux', 'Use tmux backend')
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+                await withCliDaemonTarget(repoRoot, options, {
+                    daemon: async (target) => {
+                        const { client, host } = target;
+                        await client.clearSession(sessionName);
+                        const launch = await client.openSession(sessionName);
+                        console.log(`Session '${sessionName}' cleared on ${host}.`);
+                        await attachCliToRemoteSession(client, sessionName, launch, target);
+                    },
+                    local: async () => {
+                        const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
+                        const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 
-                if (options.host) {
-                    const client = await createCliDaemonClient(repoRoot, options);
-                    await client.clearSession(sessionName);
-                    const launch = await client.openSession(sessionName);
-                    console.log(`Session '${sessionName}' cleared on ${options.host}.`);
-                    await attachCliToRemoteSession(client, sessionName, launch, options);
-                    return;
-                }
+                        if (!await fileExists(worktreePath)) {
+                            exitWithError(`Session '${sessionName}' not found.`);
+                        }
 
-                const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
-                const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
+                        const terminalMode = await getSessionTerminalMode(worktreePath);
+                        if (terminalMode === 'tmux') {
+                            const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
+                            await TmuxService.killSession(tmuxSessionName).catch(() => {});
+                        }
 
-                if (!await fileExists(worktreePath)) {
-                    exitWithError(`Session '${sessionName}' not found.`);
-                }
+                        await clearSessionId(worktreePath);
 
-                // Kill tmux session if applicable
-                const terminalMode = await getSessionTerminalMode(worktreePath);
-                if (terminalMode === 'tmux') {
-                    const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
-                    await TmuxService.killSession(tmuxSessionName).catch(() => {});
-                }
+                        const agentName = await getSessionAgentName(worktreePath);
+                        const { agent: codeAgent, warning } = await validateAndGetAgent(agentName);
+                        if (warning) {exitWithError(warning);}
+                        if (!codeAgent) {exitWithError(`Agent '${agentName}' not available.`);}
 
-                // Clear session ID
-                await clearSessionId(worktreePath);
+                        initializeGlobalStorageContext(
+                            path.join(repoRoot, '.lanes'),
+                            repoRoot,
+                            codeAgent
+                        );
 
-                // Resolve agent
-                const agentName = await getSessionAgentName(worktreePath);
-                const { agent: codeAgent, warning } = await validateAndGetAgent(agentName);
-                if (warning) {exitWithError(warning);}
-                if (!codeAgent) {exitWithError(`Agent '${agentName}' not available.`);}
+                        console.log(`Session '${sessionName}' cleared. Starting fresh...`);
 
-                initializeGlobalStorageContext(
-                    path.join(repoRoot, '.lanes'),
-                    repoRoot,
-                    codeAgent
-                );
-
-                console.log(`Session '${sessionName}' cleared. Starting fresh...`);
-
-                // Exec into agent with fresh session
-                await execIntoAgent({
-                    sessionName,
-                    worktreePath,
-                    repoRoot,
-                    codeAgent,
-                    config,
-                    useTmux: options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux',
-                    isNewSession: true,
+                        await execIntoAgent({
+                            sessionName,
+                            worktreePath,
+                            repoRoot,
+                            codeAgent,
+                            config,
+                            useTmux: options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux',
+                            isNewSession: true,
+                        });
+                    },
                 });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}

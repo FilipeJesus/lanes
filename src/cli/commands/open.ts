@@ -5,7 +5,8 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { addDaemonHostOption, attachCliToRemoteSession, createCliDaemonClient, initCli, exitWithError, getPackageRoot } from '../utils';
+import { initCli, exitWithError, getPackageRoot } from '../utils';
+import { attachCliToRemoteSession, withCliDaemonTarget } from '../targeting';
 import { CliConfigProvider } from '../adapters/CliConfigProvider';
 import { fileExists } from '../../core/services/FileService';
 import { getErrorMessage } from '../../core/utils';
@@ -146,56 +147,55 @@ export async function execIntoAgent(opts: {
 }
 
 export function registerOpenCommand(program: Command): void {
-    addDaemonHostOption(program
+    program
         .command('open <session-name>')
         .description('Open/resume a session')
-        .option('--tmux', 'Use tmux backend'))
+        .option('--tmux', 'Use tmux backend')
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
+                await withCliDaemonTarget(repoRoot, options, {
+                    daemon: async (target) => {
+                        const { client, host } = target;
+                        const result = await client.openSession(sessionName);
+                        console.log(`Session '${sessionName}' opened on ${host}.`);
+                        await attachCliToRemoteSession(client, sessionName, result, target);
+                    },
+                    local: async () => {
+                        const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
+                        const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
 
-                if (options.host) {
-                    const client = await createCliDaemonClient(repoRoot, options);
-                    const result = await client.openSession(sessionName);
-                    console.log(`Session '${sessionName}' opened on ${options.host}.`);
-                    await attachCliToRemoteSession(client, sessionName, result, options);
-                    return;
-                }
+                        if (!await fileExists(worktreePath)) {
+                            exitWithError(`Session '${sessionName}' not found.`);
+                        }
 
-                const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
-                const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
+                        const agentName = await getSessionAgentName(worktreePath);
+                        const { agent: codeAgent, warning } = await validateAndGetAgent(agentName);
+                        if (warning) {exitWithError(warning);}
+                        if (!codeAgent) {exitWithError(`Agent '${agentName}' not available.`);}
 
-                if (!await fileExists(worktreePath)) {
-                    exitWithError(`Session '${sessionName}' not found.`);
-                }
+                        initializeGlobalStorageContext(
+                            path.join(repoRoot, '.lanes'),
+                            repoRoot,
+                            codeAgent
+                        );
+                        const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
 
-                // Resolve agent from session metadata
-                const agentName = await getSessionAgentName(worktreePath);
-                const { agent: codeAgent, warning } = await validateAndGetAgent(agentName);
-                if (warning) {exitWithError(warning);}
-                if (!codeAgent) {exitWithError(`Agent '${agentName}' not available.`);}
+                        await PreflightService.assertSessionLaunchPrerequisites({
+                            codeAgent,
+                            terminalMode: useTmux ? 'tmux' : 'vscode',
+                        });
 
-                // Re-initialize storage context with session's agent
-                initializeGlobalStorageContext(
-                    path.join(repoRoot, '.lanes'),
-                    repoRoot,
-                    codeAgent
-                );
-                const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
-
-                await PreflightService.assertSessionLaunchPrerequisites({
-                    codeAgent,
-                    terminalMode: useTmux ? 'tmux' : 'vscode',
-                });
-
-                await execIntoAgent({
-                    sessionName,
-                    worktreePath,
-                    repoRoot,
-                    codeAgent,
-                    config,
-                    useTmux,
-                    isNewSession: false,
+                        await execIntoAgent({
+                            sessionName,
+                            worktreePath,
+                            repoRoot,
+                            codeAgent,
+                            config,
+                            useTmux,
+                            isNewSession: false,
+                        });
+                    },
                 });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
