@@ -52,6 +52,13 @@ export type RegisteredProjectEntry = {
     registeredAt: string;
 };
 
+export type RegisteredRemoteProjectEntry = {
+    projectId: string;
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
+};
+
 /**
  * A remote daemon registered with the local gateway.
  */
@@ -64,6 +71,10 @@ export type RegisteredRemoteDaemonEntry = {
     token: string;
     /** ISO-8601 timestamp of when the remote daemon was registered locally. */
     registeredAt: string;
+    /** Cached project list from the last successful discovery against this remote daemon. */
+    discoveredProjects?: RegisteredRemoteProjectEntry[];
+    /** ISO-8601 timestamp of the last successful project discovery refresh. */
+    lastSeenAt?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -200,6 +211,7 @@ async function readRemoteDaemonsRegistry(): Promise<RegisteredRemoteDaemonEntry[
             ...entry,
             baseUrl: normalizedBaseUrl,
             registrationId: entry.registrationId || createRemoteDaemonRegistrationId(normalizedBaseUrl),
+            discoveredProjects: Array.isArray(entry.discoveredProjects) ? entry.discoveredProjects : [],
         };
     });
 }
@@ -349,4 +361,23 @@ export async function deregisterRemoteDaemon(baseUrl: string): Promise<void> {
  */
 export async function listRegisteredRemoteDaemons(): Promise<RegisteredRemoteDaemonEntry[]> {
     return readRemoteDaemonsRegistry();
+}
+
+export async function updateRemoteDaemonProjects(
+    baseUrl: string,
+    discoveredProjects: RegisteredRemoteProjectEntry[]
+): Promise<void> {
+    const normalizedBaseUrl = normalizeDaemonBaseUrl(baseUrl);
+    const existing = await readRemoteDaemonsRegistry();
+    const index = existing.findIndex((daemon) => daemon.baseUrl === normalizedBaseUrl);
+    if (index === -1) {
+        return;
+    }
+
+    existing[index] = {
+        ...existing[index],
+        discoveredProjects,
+        lastSeenAt: new Date().toISOString(),
+    };
+    await writeRemoteDaemonsRegistry(existing);
 }

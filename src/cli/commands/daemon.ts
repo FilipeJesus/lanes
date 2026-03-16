@@ -81,12 +81,14 @@ export function registerDaemonCommand(program: Command): void {
                         baseUrl: options.host!,
                         token: options.token,
                     });
-                    await client.listProjects();
+                    const { projects } = await client.listProjects();
                     await registerRemoteDaemon({
                         registrationId: '',
                         baseUrl: options.host!,
                         token: options.token,
                         registeredAt: new Date().toISOString(),
+                        discoveredProjects: projects,
+                        lastSeenAt: new Date().toISOString(),
                     });
                     console.log(`Registered remote daemon ${options.host!}.`);
                     return;

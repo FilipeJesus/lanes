@@ -40,11 +40,13 @@ import {
     deregisterRemoteDaemon,
     listRegisteredRemoteDaemons,
     normalizeDaemonBaseUrl,
+    updateRemoteDaemonProjects,
 } from '../../daemon/registry';
 import type {
     DaemonRegistryEntry,
     RegisteredProjectEntry,
     RegisteredRemoteDaemonEntry,
+    RegisteredRemoteProjectEntry,
 } from '../../daemon/registry';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +81,17 @@ function makeRemoteDaemon(overrides: Partial<RegisteredRemoteDaemonEntry> = {}):
         registrationId: 'remote-test-123',
         baseUrl: 'http://127.0.0.1:9100',
         token: 'remote-token-123',
+        registeredAt: new Date().toISOString(),
+        discoveredProjects: [],
+        ...overrides,
+    };
+}
+
+function makeRemoteProject(overrides: Partial<RegisteredRemoteProjectEntry> = {}): RegisteredRemoteProjectEntry {
+    return {
+        projectId: 'remote-proj-1',
+        workspaceRoot: '/srv/remote/repo-one',
+        projectName: 'repo-one',
         registeredAt: new Date().toISOString(),
         ...overrides,
     };
@@ -505,6 +518,7 @@ suite('daemon registry', () => {
         assert.strictEqual(result[0].baseUrl, 'http://127.0.0.1:9200');
         assert.strictEqual(result[0].token, daemon.token);
         assert.ok(result[0].registrationId.length > 0, 'Registration ID should be populated');
+        assert.deepStrictEqual(result[0].discoveredProjects, []);
     });
 
     test('Given an existing remote daemon registration, when registerRemoteDaemon() is called with the same host URL, then it is replaced (upsert)', async () => {
@@ -530,5 +544,19 @@ suite('daemon registry', () => {
         const result = normalizeDaemonBaseUrl('http://127.0.0.1:9500/');
 
         assert.strictEqual(result, 'http://127.0.0.1:9500');
+    });
+
+    test('Given a registered remote daemon, when updateRemoteDaemonProjects() is called, then the cached project list and lastSeenAt are updated', async () => {
+        await registerRemoteDaemon(makeRemoteDaemon({ baseUrl: 'http://127.0.0.1:9600' }));
+
+        await updateRemoteDaemonProjects('http://127.0.0.1:9600/', [
+            makeRemoteProject(),
+            makeRemoteProject({ projectId: 'remote-proj-2', projectName: 'repo-two' }),
+        ]);
+
+        const result = await listRegisteredRemoteDaemons();
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].discoveredProjects?.length, 2);
+        assert.ok(result[0].lastSeenAt, 'lastSeenAt should be set after updating remote projects');
     });
 });

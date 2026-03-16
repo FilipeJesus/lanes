@@ -311,6 +311,34 @@ suite('GatewayServer', () => {
         assert.notStrictEqual(found!.projectId, found!.daemonProjectId, 'Gateway ID should be namespaced from daemon project ID');
     });
 
+    test('Given a registered remote daemon with cached projects and the remote is unreachable, when GET /api/gateway/projects is called, then cached remote projects are still returned', async () => {
+        await registerRemoteDaemon({
+            registrationId: '',
+            baseUrl: 'http://127.0.0.1:65530',
+            token: 'remote-token',
+            registeredAt: new Date().toISOString(),
+            lastSeenAt: '2026-03-16T10:00:00.000Z',
+            discoveredProjects: [
+                {
+                    projectId: 'cached-remote-proj-1',
+                    workspaceRoot: '/srv/remote/repo-cached',
+                    projectName: 'repo-cached',
+                    registeredAt: '2026-03-15T12:00:00.000Z',
+                },
+            ],
+        });
+
+        const res = await request(gatewayPort, { method: 'GET', path: '/api/gateway/projects' });
+
+        assert.strictEqual(res.status, 200, 'Should return HTTP 200');
+        const body = JSON.parse(res.body) as GatewayProjectInfo[];
+        const found = body.find((project) => project.daemonProjectId === 'cached-remote-proj-1');
+        assert.ok(found, 'Cached remote project should appear in the response');
+        assert.ok(found!.daemon, 'Cached remote project should still include daemon metadata');
+        assert.strictEqual(found!.daemon?.source, 'remote');
+        assert.strictEqual(found!.daemon?.baseUrl, 'http://127.0.0.1:65530');
+    });
+
     // -----------------------------------------------------------------------
     // gateway-server-cors
     // -----------------------------------------------------------------------

@@ -20,6 +20,7 @@ import {
     createRemoteDaemonRegistrationId,
     listRegisteredProjects,
     listRegisteredRemoteDaemons,
+    updateRemoteDaemonProjects,
 } from './registry';
 import { getMachineDaemonState } from './lifecycle';
 import { DaemonClient } from './client';
@@ -148,23 +149,23 @@ async function listRemoteGatewayProjects(
 ): Promise<GatewayProjectInfo[]> {
     const results = await Promise.all(
         registrations.map(async (registration) => {
-            try {
-                const client = new DaemonClient({
-                    baseUrl: registration.baseUrl,
-                    token: registration.token,
-                });
-                const { projects } = await client.listProjects();
-                const daemon: GatewayDaemonInfo = {
-                    registrationId: registration.registrationId || createRemoteDaemonRegistrationId(registration.baseUrl),
-                    source: 'remote',
-                    baseUrl: registration.baseUrl,
-                    pid: null,
-                    port: parsePortFromBaseUrl(registration.baseUrl),
-                    token: registration.token,
-                    startedAt: null,
-                };
+            const daemon: GatewayDaemonInfo = {
+                registrationId: registration.registrationId || createRemoteDaemonRegistrationId(registration.baseUrl),
+                source: 'remote',
+                baseUrl: registration.baseUrl,
+                pid: null,
+                port: parsePortFromBaseUrl(registration.baseUrl),
+                token: registration.token,
+                startedAt: registration.lastSeenAt ?? null,
+            };
 
-                return projects.map((project) => ({
+            const toGatewayProjects = (projects: Array<{
+                projectId: string;
+                workspaceRoot: string;
+                projectName: string;
+                registeredAt: string;
+            }>): GatewayProjectInfo[] => (
+                projects.map((project) => ({
                     projectId: createRemoteGatewayProjectId(daemon.registrationId, project.projectId),
                     daemonProjectId: project.projectId,
                     workspaceRoot: project.workspaceRoot,
@@ -172,8 +173,22 @@ async function listRemoteGatewayProjects(
                     registeredAt: project.registeredAt,
                     status: 'running' as const,
                     daemon,
-                }));
+                }))
+            );
+
+            try {
+                const client = new DaemonClient({
+                    baseUrl: registration.baseUrl,
+                    token: registration.token,
+                    timeoutMs: 5_000,
+                });
+                const { projects } = await client.listProjects();
+                await updateRemoteDaemonProjects(registration.baseUrl, projects).catch(() => {});
+                return toGatewayProjects(projects);
             } catch {
+                if (registration.discoveredProjects && registration.discoveredProjects.length > 0) {
+                    return toGatewayProjects(registration.discoveredProjects);
+                }
                 return [];
             }
         })
