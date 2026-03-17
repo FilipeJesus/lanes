@@ -53,6 +53,7 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
     const projectId = overrides.projectId ?? 'project-123';
     return {
         projectId,
+        daemonProjectId: projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -142,6 +143,37 @@ describe('useDaemonConnection', () => {
         expect(result.current.daemonInfo?.projectName).toBe('api-service');
     });
 
+    it('Given a remote project entry, when the hook resolves, then it targets the daemon base URL and daemon project ID', async () => {
+        vi.mocked(fetchProjects).mockResolvedValue([
+            makeProjectInfo({
+                projectId: 'gateway:remote-project-123',
+                daemonProjectId: 'remote-project-123',
+                daemon: makeDaemonInfo({
+                    projectId: 'remote-project-123',
+                    baseUrl: 'https://remote.example.test',
+                    port: null,
+                    pid: null,
+                    startedAt: null,
+                }),
+            }),
+        ]);
+
+        const { result } = renderHook(() => useDaemonConnection('gateway:remote-project-123'));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.apiClient).toMatchObject({
+            _baseUrl: 'https://remote.example.test',
+            _projectId: 'remote-project-123',
+        });
+        expect(result.current.sseClient).toMatchObject({
+            _baseUrl: 'https://remote.example.test',
+            _projectId: 'remote-project-123',
+        });
+    });
+
     it('Given a registered project without a daemon, when the hook resolves, then it returns an offline state without an error', async () => {
         vi.mocked(fetchProjects).mockResolvedValue([
             makeProjectInfo({ status: 'registered', daemon: null }),
@@ -191,7 +223,9 @@ describe('useDaemonConnection', () => {
 
         expect(result.current.projectState).toBe('offline');
 
-        result.current.refresh();
+        act(() => {
+            result.current.refresh();
+        });
 
         await waitFor(() => {
             expect(result.current.projectState).toBe('connected');

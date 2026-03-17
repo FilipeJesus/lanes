@@ -54,6 +54,7 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
     const projectId = overrides.projectId ?? 'project-123';
     return {
         projectId,
+        daemonProjectId: projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -171,6 +172,24 @@ describe('ProjectCard', () => {
         await user.click(card);
 
         expect(mockNavigate).toHaveBeenCalledWith('/project/project-123');
+    });
+
+    it('Given a remote daemon, then the card shows its base URL instead of a port', () => {
+        const enriched = makeEnrichedDaemon({
+            daemon: makeDaemonInfo({
+                source: 'remote',
+                baseUrl: 'https://remote.example.test',
+                port: null,
+                pid: null,
+                startedAt: null,
+            }),
+        });
+
+        renderCard(enriched);
+
+        expect(screen.getByText('Remote daemon')).toBeInTheDocument();
+        expect(screen.getByText('https://remote.example.test')).toBeInTheDocument();
+        expect(screen.getByText('Daemon')).toBeInTheDocument();
     });
 
     it('Given a registered project without a running daemon, then the card is not clickable and shows offline state', () => {

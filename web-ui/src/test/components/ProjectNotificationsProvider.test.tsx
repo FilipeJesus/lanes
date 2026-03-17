@@ -49,6 +49,8 @@ function makeConnection(listSessions: ReturnType<typeof vi.fn>): DaemonConnectio
         },
         loading: false,
         error: null,
+        projectState: 'connected',
+        refresh: vi.fn(),
     };
 }
 

@@ -79,6 +79,40 @@ suite('Daemon CLI Command', () => {
         );
     });
 
+    test('Given the daemon register subcommand, when inspecting its options, then remote registration flags are present', () => {
+        registerDaemonCommand(program);
+        const daemonCommand = program.commands.find((c) => c.name() === 'daemon');
+        assert.ok(daemonCommand, 'daemon command should exist');
+        const registerCommand = daemonCommand!.commands.find((c) => c.name() === 'register');
+        assert.ok(registerCommand, 'register subcommand should exist');
+
+        const optionNames = registerCommand!.options.map((o) => o.long);
+
+        assert.ok(
+            optionNames.includes('--host'),
+            `Expected --host option on register subcommand, found: ${optionNames.join(', ')}`
+        );
+        assert.ok(
+            optionNames.includes('--token'),
+            `Expected --token option on register subcommand, found: ${optionNames.join(', ')}`
+        );
+    });
+
+    test('Given the daemon unregister subcommand, when inspecting its options, then --host option is present', () => {
+        registerDaemonCommand(program);
+        const daemonCommand = program.commands.find((c) => c.name() === 'daemon');
+        assert.ok(daemonCommand, 'daemon command should exist');
+        const unregisterCommand = daemonCommand!.commands.find((c) => c.name() === 'unregister');
+        assert.ok(unregisterCommand, 'unregister subcommand should exist');
+
+        const optionNames = unregisterCommand!.options.map((o) => o.long);
+
+        assert.ok(
+            optionNames.includes('--host'),
+            `Expected --host option on unregister subcommand, found: ${optionNames.join(', ')}`
+        );
+    });
+
     test('Given the daemon command, when checking descriptions, then the daemon command has a description', () => {
         // Arrange
         registerDaemonCommand(program);

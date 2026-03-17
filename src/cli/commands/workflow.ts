@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { initCli, exitWithError, getPackageRoot } from '../utils';
+import { withCliOperations } from '../operations';
 import { discoverWorkflows, loadWorkflowTemplateFromString, WorkflowValidationError } from '../../core/workflow';
 import { BLANK_WORKFLOW_TEMPLATE } from '../../core/services/WorkflowService';
 import { getErrorMessage } from '../../core/utils';
@@ -22,31 +23,29 @@ export function registerWorkflowCommand(program: Command): void {
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                const customWorkflowsFolder = config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows');
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const templates = await operations.listWorkflows();
 
-                const templates = await discoverWorkflows({
-                    extensionPath: getPackageRoot(),
-                    workspaceRoot: repoRoot,
-                    customWorkflowsFolder,
+                    if (options.json) {
+                        console.log(JSON.stringify(templates, null, 2));
+                        return;
+                    }
+
+                    if (templates.length === 0) {
+                        console.log('No workflow templates found.');
+                        if (operations.targetKind === 'local') {
+                            console.log(`Create one in ${config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows')}/`);
+                        }
+                        return;
+                    }
+
+                    console.log(`${'NAME'.padEnd(25)} ${'SOURCE'.padEnd(12)} DESCRIPTION`);
+                    console.log('-'.repeat(70));
+                    for (const template of templates) {
+                        const source = template.isBuiltin ? 'built-in' : 'custom';
+                        console.log(`${template.name.padEnd(25)} ${source.padEnd(12)} ${template.description || ''}`);
+                    }
                 });
-
-                if (options.json) {
-                    console.log(JSON.stringify(templates, null, 2));
-                    return;
-                }
-
-                if (templates.length === 0) {
-                    console.log('No workflow templates found.');
-                    console.log(`Create one in ${customWorkflowsFolder}/`);
-                    return;
-                }
-
-                console.log(`${'NAME'.padEnd(25)} ${'SOURCE'.padEnd(12)} DESCRIPTION`);
-                console.log('-'.repeat(70));
-                for (const t of templates) {
-                    const source = t.isBuiltIn ? 'built-in' : 'custom';
-                    console.log(`${t.name.padEnd(25)} ${source.padEnd(12)} ${t.description || ''}`);
-                }
             } catch (err) {
                 exitWithError(getErrorMessage(err));
             }

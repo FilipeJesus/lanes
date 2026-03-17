@@ -74,7 +74,7 @@ describe('ProjectSettings', () => {
             expect(apiClient.getAllConfig).toHaveBeenNthCalledWith(3, 'local');
         });
 
-        expect(screen.getByText(/edit the machine-wide defaults/i)).toBeInTheDocument();
+        expect(screen.getByText(/edit daemon-wide defaults/i)).toBeInTheDocument();
         expect(screen.getAllByText(/default agent/i)[0]).toBeInTheDocument();
     });
 

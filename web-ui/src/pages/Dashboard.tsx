@@ -18,7 +18,7 @@ export function Dashboard() {
                 <div>
                     <h1 className={styles.title}>Projects</h1>
                     <p className={styles.subtitle}>
-                        Registered Lanes projects on this machine, with live daemon status
+                        Registered Lanes projects from local and remote daemons, with live connection status
                     </p>
                 </div>
                 <button
@@ -51,7 +51,7 @@ export function Dashboard() {
                 <div className={styles.emptyState}>
                     <div className={styles.emptyStateTitle}>No projects registered</div>
                     <p className={styles.emptyStateDescription}>
-                        Register a repo first, then start its local daemon when you need it.
+                        Register a repo locally, or register a remote daemon to browse the projects it tracks.
                     </p>
                     <code className={styles.emptyStateCommand}>lanes daemon register .</code>
                 </div>
@@ -61,7 +61,7 @@ export function Dashboard() {
                 <div className={styles.grid}>
                     {daemons.map((enriched) => (
                         <ProjectCard
-                            key={enriched.project.workspaceRoot}
+                            key={enriched.project.projectId}
                             enrichedDaemon={enriched}
                         />
                     ))}

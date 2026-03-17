@@ -54,17 +54,21 @@ export interface SessionInfo {
 // ---------------------------------------------------------------------------
 
 export interface DaemonInfo {
-    projectId: string;
-    workspaceRoot: string;
-    port: number;
-    pid: number;
+    registrationId?: string;
+    source?: 'local' | 'remote';
+    projectId?: string;
+    workspaceRoot?: string;
+    port: number | null;
+    pid: number | null;
+    baseUrl?: string;
     token: string;
-    startedAt: string;
-    projectName: string;
+    startedAt: string | null;
+    projectName?: string;
 }
 
 export interface GatewayProjectInfo {
     projectId: string;
+    daemonProjectId?: string;
     workspaceRoot: string;
     projectName: string;
     registeredAt: string;

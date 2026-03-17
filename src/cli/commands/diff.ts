@@ -3,10 +3,8 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
 import { initCli, exitWithError } from '../utils';
-import { fileExists } from '../../core/services/FileService';
-import * as DiffService from '../../core/services/DiffService';
+import { withCliOperations } from '../operations';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerDiffCommand(program: Command): void {
@@ -17,37 +15,16 @@ export function registerDiffCommand(program: Command): void {
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
-                const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
-
-                if (!await fileExists(worktreePath)) {
-                    exitWithError(`Session '${sessionName}' not found.`);
-                }
-
-                const baseBranch = options.base ||
-                    await DiffService.getBaseBranch(
-                        worktreePath,
-                        config.get('lanes', 'baseBranch', '')
-                    );
-
-                const includeUncommitted = config.get('lanes', 'includeUncommittedChanges', true);
-
-                const diffContent = await DiffService.generateDiffContent(
-                    worktreePath,
-                    baseBranch,
-                    new Set(),
-                    {
-                        includeUncommitted,
-                        onWarning: (msg) => console.warn(`Warning: ${msg}`),
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const result = await operations.getSessionDiff(sessionName, {
+                        baseBranch: options.base,
+                    });
+                    if (!result.diff || result.diff.trim() === '') {
+                        console.log(`No changes found when comparing to '${result.baseBranch}'.`);
+                        return;
                     }
-                );
-
-                if (!diffContent || diffContent.trim() === '') {
-                    console.log(`No changes found when comparing to '${baseBranch}'.`);
-                    return;
-                }
-
-                console.log(diffContent);
+                    console.log(result.diff);
+                });
             } catch (err) {
                 exitWithError(getErrorMessage(err));
             }

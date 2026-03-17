@@ -167,10 +167,11 @@ export function useDaemonConnection(projectId: string | undefined): DaemonConnec
                     return;
                 }
 
-                const baseUrl = `http://127.0.0.1:${daemon.port}`;
+                const baseUrl = daemon.baseUrl ?? `http://127.0.0.1:${daemon.port}`;
+                const targetProjectId = project.daemonProjectId ?? project.projectId;
 
-                const client = new DaemonApiClient({ baseUrl, token: daemon.token, projectId });
-                const sse = new DaemonSseClient({ baseUrl, token: daemon.token, projectId });
+                const client = new DaemonApiClient({ baseUrl, token: daemon.token, projectId: targetProjectId });
+                const sse = new DaemonSseClient({ baseUrl, token: daemon.token, projectId: targetProjectId });
 
                 if (cancelled) return;
 

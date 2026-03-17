@@ -3,14 +3,8 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
 import { initCli, exitWithError } from '../utils';
-import { execGit } from '../../core/gitService';
-import {
-    getAgentStatus,
-    getSessionAgentName,
-    getWorkflowStatus,
-} from '../../core/session/SessionDataService';
+import { withCliOperations } from '../operations';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerListCommand(program: Command): void {
@@ -22,76 +16,26 @@ export function registerListCommand(program: Command): void {
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
-                const worktreesDir = path.join(repoRoot, worktreesFolder);
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const sessions = await operations.listSessions();
+                    if (options.json) {
+                        console.log(JSON.stringify(sessions, null, 2));
+                        return;
+                    }
 
-                // Get worktree list from git
-                let output: string;
-                try {
-                    output = await execGit(['worktree', 'list', '--porcelain'], repoRoot);
-                } catch {
-                    exitWithError('Failed to list worktrees. Is this a git repository?');
-                }
+                    if (sessions.length === 0) {
+                        console.log('No active sessions.');
+                        return;
+                    }
 
-                // Parse porcelain output
-                const sessions: Array<{
-                    name: string;
-                    branch: string;
-                    path: string;
-                    status: string;
-                    agent: string;
-                    workflow?: string;
-                }> = [];
-
-                const blocks = output.split('\n\n').filter(Boolean);
-                for (const block of blocks) {
-                    const lines = block.split('\n');
-                    const worktreeLine = lines.find(l => l.startsWith('worktree '));
-                    const branchLine = lines.find(l => l.startsWith('branch '));
-
-                    if (!worktreeLine || !branchLine) {continue;}
-
-                    const worktreePath = worktreeLine.replace('worktree ', '').trim();
-
-                    // Only show worktrees under the configured worktrees folder
-                    if (!worktreePath.startsWith(worktreesDir)) {continue;}
-
-                    const branch = branchLine.replace('branch refs/heads/', '').trim();
-                    const name = path.basename(worktreePath);
-
-                    // Get session status
-                    const agentStatus = await getAgentStatus(worktreePath);
-                    const agentName = await getSessionAgentName(worktreePath);
-                    const workflowStatus = await getWorkflowStatus(worktreePath);
-
-                    sessions.push({
-                        name,
-                        branch,
-                        path: worktreePath,
-                        status: agentStatus?.status || 'idle',
-                        agent: agentName,
-                        workflow: workflowStatus?.workflow,
-                    });
-                }
-
-                if (options.json) {
-                    console.log(JSON.stringify(sessions, null, 2));
-                    return;
-                }
-
-                if (sessions.length === 0) {
-                    console.log('No active sessions.');
-                    return;
-                }
-
-                // Table output
-                console.log(`${'NAME'.padEnd(25)} ${'STATUS'.padEnd(12)} ${'AGENT'.padEnd(10)} ${'BRANCH'.padEnd(30)} WORKFLOW`);
-                console.log('-'.repeat(90));
-                for (const s of sessions) {
-                    console.log(
-                        `${s.name.padEnd(25)} ${s.status.padEnd(12)} ${s.agent.padEnd(10)} ${s.branch.padEnd(30)} ${s.workflow || ''}`
-                    );
-                }
+                    console.log(`${'NAME'.padEnd(25)} ${'STATUS'.padEnd(12)} ${'AGENT'.padEnd(10)} ${'BRANCH'.padEnd(30)} WORKFLOW`);
+                    console.log('-'.repeat(90));
+                    for (const session of sessions) {
+                        console.log(
+                            `${session.name.padEnd(25)} ${session.status.padEnd(12)} ${session.agent.padEnd(10)} ${session.branch.padEnd(30)} ${session.workflow || ''}`
+                        );
+                    }
+                });
             } catch (err) {
                 exitWithError(getErrorMessage(err));
             }

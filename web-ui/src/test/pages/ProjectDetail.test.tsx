@@ -332,4 +332,48 @@ describe('ProjectDetail', () => {
             '/project/project-123/settings',
         );
     });
+
+    it('Given a remote daemon connection, then the header shows the remote daemon base URL', () => {
+        mockUseDaemonConnection.mockReturnValue({
+            apiClient: makeApiClient(),
+            sseClient: null,
+            daemonInfo: {
+                projectName: 'my-app',
+                workspaceRoot: '/projects/my-app',
+                registeredAt: new Date().toISOString(),
+                daemon: {
+                    registrationId: 'remote-1',
+                    source: 'remote',
+                    baseUrl: 'https://remote.example.test',
+                    port: null,
+                    pid: null,
+                    token: 'secret',
+                    startedAt: null,
+                },
+            },
+            loading: false,
+            error: null,
+            projectState: 'connected',
+            refresh: vi.fn(),
+        });
+
+        mockUseSessions.mockReturnValue({
+            sessions: [],
+            loading: false,
+            error: null,
+            refresh: vi.fn(),
+            createSession: vi.fn(),
+            improveSessionPrompt: vi.fn(),
+            uploadSessionAttachments: vi.fn(),
+            deleteSession: vi.fn(),
+            pinSession: vi.fn(),
+            unpinSession: vi.fn(),
+            enableSessionNotifications: vi.fn(),
+            disableSessionNotifications: vi.fn(),
+        });
+
+        renderProjectDetail('project-123');
+
+        expect(screen.getByText(/remote daemon @ https:\/\/remote\.example\.test/i)).toBeInTheDocument();
+    });
 });

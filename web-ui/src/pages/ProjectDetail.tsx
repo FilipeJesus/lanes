@@ -20,6 +20,27 @@ function sortSessions(sessions: SessionInfo[]): SessionInfo[] {
     });
 }
 
+function formatDaemonSubtitle(daemonInfo: NonNullable<ReturnType<typeof useDaemonConnection>['daemonInfo']>): string | null {
+    const daemon = daemonInfo.daemon;
+    if (!daemon) {
+        return null;
+    }
+
+    if (daemon.source === 'remote' && daemon.baseUrl) {
+        return `remote daemon @ ${daemon.baseUrl}`;
+    }
+
+    if (daemon.baseUrl) {
+        return `daemon @ ${daemon.baseUrl}`;
+    }
+
+    if (daemon.port !== null) {
+        return `daemon @ localhost:${daemon.port}`;
+    }
+
+    return null;
+}
+
 export function ProjectDetail() {
     const { projectId, name } = useParams<{ projectId: string; name?: string }>();
     const navigate = useNavigate();
@@ -66,6 +87,7 @@ export function ProjectDetail() {
     const projectName = daemonInfo?.projectName ?? projectId ?? 'project';
     const workspaceRoot = daemonInfo?.workspaceRoot;
     const registeredAt = daemonInfo?.registeredAt;
+    const daemonSubtitle = daemonInfo ? formatDaemonSubtitle(daemonInfo) : null;
 
     const handleRefresh = useCallback(() => {
         refreshConnection();
@@ -209,8 +231,8 @@ export function ProjectDetail() {
                         <span>{projectName}</span>
                     </nav>
                     <h1 className={styles.title}>Session Workspace</h1>
-                    {daemonInfo?.daemon?.port && (
-                        <span className={styles.subtitle}>daemon @ localhost:{daemonInfo.daemon.port}</span>
+                    {daemonSubtitle && (
+                        <span className={styles.subtitle}>{daemonSubtitle}</span>
                     )}
                 </div>
 
