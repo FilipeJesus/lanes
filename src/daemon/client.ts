@@ -467,18 +467,18 @@ export class DaemonClient {
     }
 
     /** POST /api/v1/workflows/validate */
-    validateWorkflow(content: Record<string, unknown>): Promise<DaemonWorkflowValidateResponse> {
+    validateWorkflow(input: { workflowPath?: string; content?: string }): Promise<DaemonWorkflowValidateResponse> {
         return this.request<DaemonWorkflowValidateResponse>(
             'POST',
             this.projectUrl('/workflows/validate'),
-            { body: content }
+            { body: input }
         );
     }
 
     /** POST /api/v1/workflows */
-    createWorkflow(name: string, content: Record<string, unknown>): Promise<DaemonWorkflowCreateResponse> {
+    createWorkflow(input: { name: string; content?: string; from?: string }): Promise<DaemonWorkflowCreateResponse> {
         return this.request<DaemonWorkflowCreateResponse>('POST', this.projectUrl('/workflows'), {
-            body: { name, content },
+            body: input,
         });
     }
 

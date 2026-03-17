@@ -3,12 +3,9 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import { initCli, exitWithError, getPackageRoot } from '../utils';
+import { initCli, exitWithError } from '../utils';
 import { withCliOperations } from '../operations';
-import { discoverWorkflows, loadWorkflowTemplateFromString, WorkflowValidationError } from '../../core/workflow';
-import { BLANK_WORKFLOW_TEMPLATE } from '../../core/services/WorkflowService';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerWorkflowCommand(program: Command): void {
@@ -59,44 +56,13 @@ export function registerWorkflowCommand(program: Command): void {
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                const customWorkflowsFolder = config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows');
-
-                // Validate name
-                if (!/^[a-zA-Z0-9_-]+$/.test(options.name)) {
-                    exitWithError('Workflow name must contain only letters, numbers, hyphens, and underscores.');
-                }
-
-                const customPath = path.join(repoRoot, customWorkflowsFolder);
-                await fsPromises.mkdir(customPath, { recursive: true });
-
-                const targetPath = path.join(customPath, `${options.name}.yaml`);
-
-                // Check if already exists
-                try {
-                    await fsPromises.access(targetPath);
-                    exitWithError(`Workflow '${options.name}' already exists at ${targetPath}`);
-                } catch { /* doesn't exist — good */ }
-
-                let content: string;
-                if (options.from) {
-                    // Copy from existing template
-                    const templates = await discoverWorkflows({
-                        extensionPath: getPackageRoot(),
-                        workspaceRoot: repoRoot,
-                        customWorkflowsFolder,
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const result = await operations.createWorkflow({
+                        name: options.name,
+                        from: options.from,
                     });
-                    const source = templates.find(t => t.name === options.from);
-                    if (!source) {
-                        exitWithError(`Template '${options.from}' not found. Run 'lanes workflow list' to see available templates.`);
-                    }
-                    const sourceContent = await fsPromises.readFile(source.path, 'utf-8');
-                    content = sourceContent.replace(/^name:\s*.+$/m, `name: ${options.name}`);
-                } else {
-                    content = BLANK_WORKFLOW_TEMPLATE.replace('name: my-workflow', `name: ${options.name}`);
-                }
-
-                await fsPromises.writeFile(targetPath, content, 'utf-8');
-                console.log(`Created workflow template: ${targetPath}`);
+                    console.log(`Created workflow template: ${result.path}`);
+                });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
                 exitWithError(getErrorMessage(err));
@@ -106,17 +72,26 @@ export function registerWorkflowCommand(program: Command): void {
     workflow
         .command('validate <file>')
         .description('Validate a workflow YAML file')
-        .action(async (file: string) => {
+        .action(async (file: string, options) => {
             try {
+                const { config, repoRoot } = await initCli();
                 const content = await fsPromises.readFile(file, 'utf-8');
-                const template = loadWorkflowTemplateFromString(content);
-                console.log(`Workflow "${template.name}" is valid.`);
-            } catch (error) {
-                if (error instanceof WorkflowValidationError) {
-                    exitWithError(`Validation failed: ${error.message}`);
-                } else {
-                    exitWithError(`Invalid YAML: ${error instanceof Error ? error.message : String(error)}`);
-                }
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const result = await operations.validateWorkflow({ content });
+                    if (!result.isValid) {
+                        exitWithError(`Validation failed: ${result.errors.join('; ')}`);
+                    }
+
+                    if (result.workflowName) {
+                        console.log(`Workflow "${result.workflowName}" is valid.`);
+                        return;
+                    }
+
+                    console.log(`Workflow file "${file}" is valid.`);
+                });
+            } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}
+                exitWithError(getErrorMessage(err));
             }
         });
 }

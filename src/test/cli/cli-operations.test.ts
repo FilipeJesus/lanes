@@ -62,6 +62,64 @@ suite('CLI operations', () => {
         sinon.assert.calledOnce(client.listWorkflows);
     });
 
+    test('workflow create is served through the shared daemon operations facade', async () => {
+        const client = {
+            createWorkflow: sinon.stub().resolves({
+                path: '/repo/.lanes/workflows/ship-it.yaml',
+            }),
+        };
+
+        sinon.stub(targeting, 'resolveCliDaemonTarget').resolves({
+            kind: 'local',
+            client: client as unknown as targeting.CliLocalDaemonTarget['client'],
+        });
+
+        const result = await withCliOperations('/repo', {}, {}, async (operations) => {
+            return operations.createWorkflow({
+                name: 'ship-it',
+                from: 'starter',
+            });
+        });
+
+        assert.deepStrictEqual(result, {
+            path: '/repo/.lanes/workflows/ship-it.yaml',
+        });
+        sinon.assert.calledOnceWithExactly(client.createWorkflow, {
+            name: 'ship-it',
+            from: 'starter',
+        });
+    });
+
+    test('workflow validate is served through the shared daemon operations facade', async () => {
+        const client = {
+            validateWorkflow: sinon.stub().resolves({
+                isValid: true,
+                errors: [],
+                workflowName: 'ship-it',
+            }),
+        };
+
+        sinon.stub(targeting, 'resolveCliDaemonTarget').resolves({
+            kind: 'local',
+            client: client as unknown as targeting.CliLocalDaemonTarget['client'],
+        });
+
+        const result = await withCliOperations('/repo', {}, {}, async (operations) => {
+            return operations.validateWorkflow({
+                content: 'name: ship-it\nsteps: []\n',
+            });
+        });
+
+        assert.deepStrictEqual(result, {
+            isValid: true,
+            errors: [],
+            workflowName: 'ship-it',
+        });
+        sinon.assert.calledOnceWithExactly(client.validateWorkflow, {
+            content: 'name: ship-it\nsteps: []\n',
+        });
+    });
+
     test('createSession returns a daemon launch request for the local daemon target', async () => {
         const codeAgent = codeAgents.getAgent('claude');
         assert.ok(codeAgent);

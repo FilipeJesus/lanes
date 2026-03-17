@@ -45,6 +45,16 @@ export interface CliWorkflowSummary {
     isBuiltin: boolean;
 }
 
+export interface CliWorkflowCreateResult {
+    path: string;
+}
+
+export interface CliWorkflowValidateResult {
+    isValid: boolean;
+    errors: string[];
+    workflowName?: string;
+}
+
 export interface CliRepairResult {
     broken: Array<{ sessionName: string; reason: string }>;
     repaired: string[];
@@ -73,6 +83,8 @@ export interface CliOperations {
     getSessionInsights(sessionName: string, input?: { includeJson?: boolean }): Promise<CliInsightsResult>;
     repairWorktrees(input?: { dryRun?: boolean }): Promise<CliRepairResult>;
     listWorkflows(): Promise<CliWorkflowSummary[]>;
+    createWorkflow(input: { name: string; from?: string }): Promise<CliWorkflowCreateResult>;
+    validateWorkflow(input: { content: string }): Promise<CliWorkflowValidateResult>;
     listConfig(view: SettingsView): Promise<Record<string, unknown>>;
     getConfig(key: string, view: SettingsView): Promise<unknown>;
     setConfig(key: string, value: unknown, scope: SettingsScope): Promise<void>;
@@ -191,6 +203,25 @@ function createDaemonCliOperations(target: CliDaemonTarget): CliOperations {
                 description: workflow.description,
                 isBuiltin: workflow.isBuiltin,
             }));
+        },
+        async createWorkflow(input) {
+            const response = await target.client.createWorkflow({
+                name: input.name,
+                from: input.from,
+            });
+            return {
+                path: response.path,
+            };
+        },
+        async validateWorkflow(input) {
+            const response = await target.client.validateWorkflow({
+                content: input.content,
+            });
+            return {
+                isValid: response.isValid,
+                errors: response.errors,
+                workflowName: response.workflowName,
+            };
         },
         async listConfig(view) {
             const response = await target.client.getAllConfig(view);

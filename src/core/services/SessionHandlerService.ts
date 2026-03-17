@@ -47,7 +47,8 @@ import { TmuxTerminalIOProvider } from './TmuxTerminalIOProvider';
 import * as DiffService from './DiffService';
 import * as BrokenWorktreeService from './BrokenWorktreeService';
 import { discoverWorkflows } from '../workflow/discovery';
-import { validateWorkflow } from './WorkflowService';
+import { loadWorkflowTemplateFromString, WorkflowValidationError } from '../workflow';
+import { BLANK_WORKFLOW_TEMPLATE, validateWorkflow } from './WorkflowService';
 import { assemblePrompt, writePromptFile } from './PromptService';
 import { getAgent, getAvailableAgents } from '../codeAgents';
 import { readJson, writeJson } from './FileService';
@@ -1154,10 +1155,30 @@ export class SessionHandlerService {
     }
 
     async handleWorkflowValidate(params: Record<string, unknown>): Promise<unknown> {
-        const workflowPath = params.workflowPath as string;
+        const workflowPath = params.workflowPath as string | undefined;
+        const content = params.content as string | undefined;
+
+        if (content !== undefined) {
+            try {
+                const template = loadWorkflowTemplateFromString(content);
+                return {
+                    isValid: true,
+                    errors: [],
+                    workflowName: template.name,
+                };
+            } catch (error) {
+                const message = error instanceof WorkflowValidationError
+                    ? error.message
+                    : `Invalid YAML: ${error instanceof Error ? error.message : String(error)}`;
+                return {
+                    isValid: false,
+                    errors: [message],
+                };
+            }
+        }
 
         if (!workflowPath) {
-            throw new Error('Missing required parameter: workflowPath');
+            throw new Error('Missing required parameter: workflowPath or content');
         }
 
         if (path.isAbsolute(workflowPath)) {
@@ -1187,10 +1208,11 @@ export class SessionHandlerService {
 
     async handleWorkflowCreate(params: Record<string, unknown>): Promise<unknown> {
         const name = params.name as string;
-        const content = params.content as string;
+        const sourceWorkflowName = params.from as string | undefined;
+        let content = params.content as string | undefined;
 
-        if (!name || !content) {
-            throw new Error('Missing required parameters: name and content');
+        if (!name) {
+            throw new Error('Missing required parameter: name');
         }
         validateWorkflowName(name);
 
@@ -1199,7 +1221,37 @@ export class SessionHandlerService {
         const workflowsDir = path.join(this.ctx.workspaceRoot, customWorkflowsFolder);
         const workflowPath = path.join(workflowsDir, `${name}.yaml`);
 
+        if (!content && sourceWorkflowName) {
+            const extensionPath = await this.resolveExtensionPath();
+            const templates = await discoverWorkflows({
+                extensionPath,
+                workspaceRoot: this.ctx.workspaceRoot,
+                customWorkflowsFolder,
+            });
+            const source = templates.find((template) => template.name === sourceWorkflowName);
+            if (!source) {
+                throw new Error(
+                    `Template '${sourceWorkflowName}' not found. Run 'lanes workflow list' to see available templates.`
+                );
+            }
+            const sourceContent = await fs.readFile(source.path, 'utf-8');
+            content = sourceContent.replace(/^name:\s*.+$/m, `name: ${name}`);
+        }
+
+        if (!content) {
+            content = BLANK_WORKFLOW_TEMPLATE.replace('name: my-workflow', `name: ${name}`);
+        }
+
         await fs.mkdir(workflowsDir, { recursive: true });
+        try {
+            await fs.access(workflowPath);
+            throw new Error(`Workflow '${name}' already exists at ${workflowPath}`);
+        } catch (error) {
+            const maybeNodeError = error as NodeJS.ErrnoException;
+            if (maybeNodeError.code !== 'ENOENT') {
+                throw error;
+            }
+        }
         await fs.writeFile(workflowPath, content, 'utf-8');
 
         return { path: workflowPath };

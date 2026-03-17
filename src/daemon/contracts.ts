@@ -153,6 +153,7 @@ export interface DaemonWorkflowListResponse {
 export interface DaemonWorkflowValidateResponse {
     isValid: boolean;
     errors: string[];
+    workflowName?: string;
 }
 
 export interface DaemonWorkflowCreateResponse {

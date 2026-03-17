@@ -138,4 +138,24 @@ suite('CLI daemon host options', () => {
         assert.ok(command);
         assertCommandHasHostOption(command, 'workflow list');
     });
+
+    test('workflow create exposes --host', () => {
+        const program = makeTargetedProgram();
+
+        const workflow = program.commands.find((entry) => entry.name() === 'workflow');
+        assert.ok(workflow);
+        const command = workflow.commands.find((entry) => entry.name() === 'create');
+        assert.ok(command);
+        assertCommandHasHostOption(command, 'workflow create');
+    });
+
+    test('workflow validate exposes --host', () => {
+        const program = makeTargetedProgram();
+
+        const workflow = program.commands.find((entry) => entry.name() === 'workflow');
+        assert.ok(workflow);
+        const command = workflow.commands.find((entry) => entry.name() === 'validate');
+        assert.ok(command);
+        assertCommandHasHostOption(command, 'workflow validate');
+    });
 });
