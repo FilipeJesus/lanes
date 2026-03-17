@@ -9,6 +9,8 @@ import { execGit } from '../core/gitService';
 
 export interface CliDaemonTargetOptions {
     host?: string;
+    verbose?: boolean;
+    trace?: (message: string) => void;
 }
 
 export interface CliLocalDaemonTarget {
@@ -40,6 +42,20 @@ const DAEMON_TARGET_COMMAND_PATHS = [
     ['workflow', 'validate'],
 ] as const;
 
+function createVerboseTraceWriter(options: CliDaemonTargetOptions) {
+    if (options.trace) {
+        return options.trace;
+    }
+
+    if (!options.verbose) {
+        return undefined;
+    }
+
+    return (message: string) => {
+        console.error(`[lanes verbose] ${message}`);
+    };
+}
+
 function sanitizeGitRemoteUrl(remote: string): string {
     const trimmed = remote.trim();
     try {
@@ -50,7 +66,11 @@ function sanitizeGitRemoteUrl(remote: string): string {
             return parsed.toString();
         }
     } catch {
-        // SCP-like git remotes (git@github.com:org/repo.git) are already token-free.
+        const scpLikeMatch = trimmed.match(/^([^@]+)@([^:]+):(.+)$/);
+        if (scpLikeMatch) {
+            const [, , host, remotePath] = scpLikeMatch;
+            return `${host}:${remotePath}`;
+        }
     }
     return trimmed;
 }
@@ -58,16 +78,20 @@ function sanitizeGitRemoteUrl(remote: string): string {
 function normalizeGitRemoteForMatching(remote: string): string {
     const sanitized = sanitizeGitRemoteUrl(remote);
 
+    const scpLikeMatch = !sanitized.includes('://')
+        ? sanitized.match(/^(?:[^@]+@)?([^:]+):(.+)$/)
+        : null;
+    if (scpLikeMatch) {
+        const [, host, remotePath] = scpLikeMatch;
+        return `${host.toLowerCase()}/${remotePath.replace(/^\/+/, '').replace(/\.git$/i, '')}`;
+    }
+
     try {
         const parsed = new URL(sanitized);
         const normalizedPath = parsed.pathname.replace(/^\/+/, '').replace(/\.git$/i, '');
         return `${parsed.hostname.toLowerCase()}/${normalizedPath}`;
     } catch {
-        const scpLikeMatch = sanitized.match(/^(?:[^@]+@)?([^:]+):(.+)$/);
-        if (scpLikeMatch) {
-            const [, host, remotePath] = scpLikeMatch;
-            return `${host.toLowerCase()}/${remotePath.replace(/^\/+/, '').replace(/\.git$/i, '')}`;
-        }
+        // Fall through to the sanitized string for unknown remote formats.
     }
 
     return sanitized;
@@ -99,25 +123,35 @@ async function getRegisteredRemoteDaemon(host: string): Promise<RegisteredRemote
 
 async function resolveRemoteProjectId(
     registration: RegisteredRemoteDaemonEntry,
-    workspaceRoot: string
+    workspaceRoot: string,
+    options: CliDaemonTargetOptions = {}
 ): Promise<string> {
+    const trace = createVerboseTraceWriter(options);
+    trace?.(`Resolving remote daemon project on ${registration.baseUrl} for workspace ${workspaceRoot}`);
     const localGitRemote = await getOriginRemoteUrl(workspaceRoot);
     const normalizedLocalGitRemote = normalizeGitRemoteForMatching(localGitRemote);
+    trace?.(`Local git remote for matching: ${localGitRemote}`);
     const rootClient = new DaemonClient({
         baseUrl: registration.baseUrl,
         token: registration.token,
+        verbose: options.verbose,
+        trace,
     });
     const { projects } = await rootClient.listProjects();
+    trace?.(`Inspecting ${projects.length} project(s) exposed by ${registration.baseUrl}`);
 
     const matches: Array<{ projectId: string; projectName: string }> = [];
     const discoveryFailures: Error[] = [];
     await Promise.all(
         projects.map(async (project) => {
             try {
+                trace?.(`Checking remote project ${project.projectName} (${project.projectId})`);
                 const projectClient = new DaemonClient({
                     baseUrl: registration.baseUrl,
                     token: registration.token,
                     projectId: project.projectId,
+                    verbose: options.verbose,
+                    trace,
                 });
                 const discovery = await projectClient.discovery();
                 if (discovery.gitRemote) {
@@ -127,9 +161,15 @@ async function resolveRemoteProjectId(
                             projectId: project.projectId,
                             projectName: project.projectName,
                         });
+                        trace?.(`Matched remote project ${project.projectName} (${project.projectId})`);
                     }
                 }
             } catch (err) {
+                trace?.(
+                    `Remote project discovery failed for ${project.projectName} (${project.projectId}): ${
+                        err instanceof Error ? err.message : String(err)
+                    }`
+                );
                 discoveryFailures.push(err instanceof Error ? err : new Error(String(err)));
             }
         })
@@ -180,6 +220,14 @@ export function applyCliDaemonTargeting(program: Command): void {
                 'Target a registered remote daemon by base URL instead of the local daemon'
             );
         }
+
+        const hasVerboseOption = command.options.some((option) => option.long === '--verbose');
+        if (!hasVerboseOption) {
+            command.option(
+                '--verbose',
+                'Show verbose daemon API tracing output'
+            );
+        }
     }
 }
 
@@ -187,16 +235,24 @@ export async function createCliDaemonClient(
     workspaceRoot: string,
     options: CliDaemonTargetOptions = {}
 ): Promise<DaemonClient> {
+    const trace = createVerboseTraceWriter(options);
     if (!options.host) {
-        return DaemonClient.fromWorkspace(workspaceRoot);
+        trace?.(`Using local daemon target for ${workspaceRoot}`);
+        if (!options.verbose && !options.trace) {
+            return DaemonClient.fromWorkspace(workspaceRoot);
+        }
+        return DaemonClient.fromWorkspace(workspaceRoot, { verbose: options.verbose, trace });
     }
 
+    trace?.(`Using remote daemon target ${options.host}`);
     const registration = await getRegisteredRemoteDaemon(options.host);
-    const projectId = await resolveRemoteProjectId(registration, workspaceRoot);
+    const projectId = await resolveRemoteProjectId(registration, workspaceRoot, options);
     return new DaemonClient({
         baseUrl: registration.baseUrl,
         token: registration.token,
         projectId,
+        verbose: options.verbose,
+        trace,
     });
 }
 

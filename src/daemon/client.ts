@@ -101,12 +101,53 @@ interface RequestOpts {
     query?: Record<string, string | boolean | undefined>;
 }
 
-async function ensureProjectRegistered(workspaceRoot: string) {
+type TraceWriter = (message: string) => void;
+
+function createTraceWriter(
+    options: Pick<DaemonClientOptions, 'verbose' | 'trace'>
+): TraceWriter | undefined {
+    if (options.trace) {
+        return options.trace;
+    }
+    if (!options.verbose) {
+        return undefined;
+    }
+    return (message: string) => {
+        console.error(`[lanes verbose] ${message}`);
+    };
+}
+
+function formatTraceValue(value: unknown): string {
+    if (value === undefined) {
+        return 'undefined';
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    try {
+        return JSON.stringify(value, null, 2);
+    } catch {
+        return String(value);
+    }
+}
+
+function redactHeaders(headers: Record<string, string>): Record<string, string> {
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers)) {
+        sanitized[key] = key.toLowerCase() === 'authorization' ? 'Bearer [redacted]' : value;
+    }
+    return sanitized;
+}
+
+async function ensureProjectRegistered(workspaceRoot: string, trace?: TraceWriter) {
     const existing = await getRegisteredProjectByWorkspace(workspaceRoot);
     if (existing) {
+        trace?.(`Using existing local daemon registration ${existing.projectId} for ${workspaceRoot}`);
         return existing;
     }
 
+    trace?.(`Registering workspace ${workspaceRoot} with the local daemon registry`);
     await registerProject({
         projectId: '',
         workspaceRoot,
@@ -118,6 +159,7 @@ async function ensureProjectRegistered(workspaceRoot: string) {
     if (!registered) {
         throw new Error(`Failed to register project for workspace ${workspaceRoot}`);
     }
+    trace?.(`Created local daemon registration ${registered.projectId} for ${workspaceRoot}`);
     return registered;
 }
 
@@ -131,6 +173,8 @@ export interface DaemonClientOptions {
     token: string;
     projectId?: string;
     timeoutMs?: number;
+    verbose?: boolean;
+    trace?: TraceWriter;
 }
 
 export class DaemonClient {
@@ -138,6 +182,7 @@ export class DaemonClient {
     private readonly token: string;
     private readonly projectPath: string;
     private readonly timeoutMs: number;
+    private readonly trace?: TraceWriter;
 
     constructor(options: DaemonClientOptions) {
         if (options.baseUrl !== undefined) {
@@ -152,14 +197,20 @@ export class DaemonClient {
         this.projectPath = options.projectId
             ? `/api/v1/projects/${encodeURIComponent(options.projectId)}`
             : '';
+        this.trace = createTraceWriter(options);
     }
 
     /**
      * Create a DaemonClient by reading the machine-wide daemon port and token.
      * Reads `~/.lanes/daemon.port` and `~/.lanes/daemon.token`.
      */
-    static async fromWorkspace(workspaceRoot: string): Promise<DaemonClient> {
-        const resolved = await ensureProjectRegistered(workspaceRoot);
+    static async fromWorkspace(
+        workspaceRoot: string,
+        options: Pick<DaemonClientOptions, 'verbose' | 'trace'> = {}
+    ): Promise<DaemonClient> {
+        const trace = createTraceWriter(options);
+        trace?.(`Resolving local daemon client for workspace ${workspaceRoot}`);
+        const resolved = await ensureProjectRegistered(workspaceRoot, trace);
         const port = await getDaemonPort();
         if (port === undefined) {
             throw new Error(
@@ -167,11 +218,16 @@ export class DaemonClient {
             );
         }
         const token = await readTokenFile();
-        return new DaemonClient({ port, token, projectId: resolved.projectId });
+        trace?.(`Resolved local daemon port ${port} for project ${resolved.projectId}`);
+        return new DaemonClient({ port, token, projectId: resolved.projectId, ...options });
     }
 
     private projectUrl(path: string): string {
         return this.projectPath ? `${this.projectPath}${path}` : `/api/v1${path}`;
+    }
+
+    private emitTrace(message: string): void {
+        this.trace?.(message);
     }
 
     // -------------------------------------------------------------------------
@@ -208,6 +264,12 @@ export class DaemonClient {
             headers['Content-Length'] = String(Buffer.byteLength(bodyStr));
         }
 
+        this.emitTrace(`request ${method} ${url.toString()}`);
+        this.emitTrace(`request headers ${formatTraceValue(redactHeaders(headers))}`);
+        if (body !== undefined) {
+            this.emitTrace(`request body ${formatTraceValue(body)}`);
+        }
+
         const reqOptions: http.RequestOptions = {
             hostname: url.hostname,
             port: url.port,
@@ -225,13 +287,18 @@ export class DaemonClient {
                     const raw = Buffer.concat(chunks).toString('utf-8').trim();
 
                     let parsed: unknown;
+                    let tracedBody: unknown;
                     try {
                         parsed = raw ? JSON.parse(raw) : {};
+                        tracedBody = parsed;
                     } catch {
                         parsed = {};
+                        tracedBody = raw || {};
                     }
 
                     const statusCode = res.statusCode ?? 0;
+                    this.emitTrace(`response ${statusCode} ${method} ${url.toString()}`);
+                    this.emitTrace(`response body ${formatTraceValue(tracedBody)}`);
 
                     if (statusCode >= 200 && statusCode < 300) {
                         resolve(parsed as T);
@@ -259,11 +326,18 @@ export class DaemonClient {
                     }
                     reject(new DaemonHttpError(statusCode, `Server error: ${errorMessage}`));
                 });
-                res.on('error', reject);
+                res.on('error', (err) => {
+                    this.emitTrace(`response stream error ${method} ${url.toString()} ${err.message}`);
+                    reject(err);
+                });
             });
 
-            req.on('error', reject);
+            req.on('error', (err) => {
+                this.emitTrace(`request error ${method} ${url.toString()} ${err.message}`);
+                reject(err);
+            });
             req.on('timeout', () => {
+                this.emitTrace(`request timeout ${method} ${url.toString()} after ${this.timeoutMs}ms`);
                 req.destroy(new Error('Request timed out after 30s'));
             });
 
