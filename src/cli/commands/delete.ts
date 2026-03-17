@@ -3,14 +3,8 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fsPromises from 'fs/promises';
 import { initCli, exitWithError } from '../utils';
-import { withCliDaemonTarget } from '../targeting';
-import { execGit } from '../../core/gitService';
-import { fileExists } from '../../core/services/FileService';
-import * as TmuxService from '../../core/services/TmuxService';
-import { getSessionTerminalMode } from '../../core/session/SessionDataService';
+import { withCliOperations } from '../operations';
 import { getErrorMessage } from '../../core/utils';
 
 export function registerDeleteCommand(program: Command): void {
@@ -22,44 +16,19 @@ export function registerDeleteCommand(program: Command): void {
         .action(async (sessionName: string, options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                await withCliDaemonTarget(repoRoot, options, {
-                    daemon: async ({ client, host }) => {
-                        if (!options.force) {
-                            console.log(`This will delete session '${sessionName}' from ${host}.`);
-                            console.log('Use --force to skip this message.');
-                            exitWithError('Deletion cancelled. Use --force to confirm.');
-                        }
-
-                        await client.deleteSession(sessionName);
-                        console.log(`Session '${sessionName}' deleted.`);
-                    },
-                    local: async () => {
-                        const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
-                        const worktreePath = path.join(repoRoot, worktreesFolder, sessionName);
-
-                        if (!await fileExists(worktreePath)) {
-                            exitWithError(`Session '${sessionName}' not found.`);
-                        }
-
-                        if (!options.force) {
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    if (!options.force) {
+                        if (operations.targetKind === 'remote') {
+                            console.log(`This will delete session '${sessionName}' from ${operations.host}.`);
+                        } else {
                             console.log(`This will delete session '${sessionName}' and its worktree.`);
-                            console.log(`Use --force to skip this message.`);
-                            exitWithError('Deletion cancelled. Use --force to confirm.');
                         }
+                        console.log('Use --force to skip this message.');
+                        exitWithError('Deletion cancelled. Use --force to confirm.');
+                    }
 
-                        const terminalMode = await getSessionTerminalMode(worktreePath);
-                        if (terminalMode === 'tmux') {
-                            const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(sessionName);
-                            await TmuxService.killSession(tmuxSessionName).catch(() => {});
-                        }
-
-                        await execGit(['worktree', 'remove', worktreePath, '--force'], repoRoot);
-
-                        const sessionMgmtDir = path.join(repoRoot, '.lanes', 'current-sessions', sessionName);
-                        await fsPromises.rm(sessionMgmtDir, { recursive: true, force: true }).catch(() => {});
-
-                        console.log(`Session '${sessionName}' deleted.`);
-                    },
+                    await operations.deleteSession(sessionName);
+                    console.log(`Session '${sessionName}' deleted.`);
                 });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}

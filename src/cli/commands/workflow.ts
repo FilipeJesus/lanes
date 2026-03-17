@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { initCli, exitWithError, getPackageRoot } from '../utils';
-import { withCliDaemonTarget } from '../targeting';
+import { withCliOperations } from '../operations';
 import { discoverWorkflows, loadWorkflowTemplateFromString, WorkflowValidationError } from '../../core/workflow';
 import { BLANK_WORKFLOW_TEMPLATE } from '../../core/services/WorkflowService';
 import { getErrorMessage } from '../../core/utils';
@@ -23,55 +23,28 @@ export function registerWorkflowCommand(program: Command): void {
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                await withCliDaemonTarget(repoRoot, options, {
-                    daemon: async ({ client }) => {
-                        const response = await client.listWorkflows();
-                        const templates = response.workflows;
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const templates = await operations.listWorkflows();
 
-                        if (options.json) {
-                            console.log(JSON.stringify(templates, null, 2));
-                            return;
+                    if (options.json) {
+                        console.log(JSON.stringify(templates, null, 2));
+                        return;
+                    }
+
+                    if (templates.length === 0) {
+                        console.log('No workflow templates found.');
+                        if (operations.targetKind === 'local') {
+                            console.log(`Create one in ${config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows')}/`);
                         }
+                        return;
+                    }
 
-                        if (templates.length === 0) {
-                            console.log('No workflow templates found.');
-                            return;
-                        }
-
-                        console.log(`${'NAME'.padEnd(25)} ${'SOURCE'.padEnd(12)} DESCRIPTION`);
-                        console.log('-'.repeat(70));
-                        for (const template of templates) {
-                            const source = template.isBuiltin ? 'built-in' : 'custom';
-                            console.log(`${template.name.padEnd(25)} ${source.padEnd(12)} ${template.description || ''}`);
-                        }
-                    },
-                    local: async () => {
-                        const customWorkflowsFolder = config.get('lanes', 'customWorkflowsFolder', '.lanes/workflows');
-
-                        const templates = await discoverWorkflows({
-                            extensionPath: getPackageRoot(),
-                            workspaceRoot: repoRoot,
-                            customWorkflowsFolder,
-                        });
-
-                        if (options.json) {
-                            console.log(JSON.stringify(templates, null, 2));
-                            return;
-                        }
-
-                        if (templates.length === 0) {
-                            console.log('No workflow templates found.');
-                            console.log(`Create one in ${customWorkflowsFolder}/`);
-                            return;
-                        }
-
-                        console.log(`${'NAME'.padEnd(25)} ${'SOURCE'.padEnd(12)} DESCRIPTION`);
-                        console.log('-'.repeat(70));
-                        for (const template of templates) {
-                            const source = template.isBuiltIn ? 'built-in' : 'custom';
-                            console.log(`${template.name.padEnd(25)} ${source.padEnd(12)} ${template.description || ''}`);
-                        }
-                    },
+                    console.log(`${'NAME'.padEnd(25)} ${'SOURCE'.padEnd(12)} DESCRIPTION`);
+                    console.log('-'.repeat(70));
+                    for (const template of templates) {
+                        const source = template.isBuiltin ? 'built-in' : 'custom';
+                        console.log(`${template.name.padEnd(25)} ${source.padEnd(12)} ${template.description || ''}`);
+                    }
                 });
             } catch (err) {
                 exitWithError(getErrorMessage(err));

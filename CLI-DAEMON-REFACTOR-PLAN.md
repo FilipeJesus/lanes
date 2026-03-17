@@ -2,7 +2,7 @@
 
 ## Goal
 
-Refactor the CLI so daemon targeting is resolved once and commands stop branching on `options.host` inline. The intended end state is a daemon-first CLI where local is just the default daemon target, not a separate execution model inside each command.
+Refactor the CLI so daemon targeting is resolved once and commands stop branching on `options.host` inline. The intended end state is a daemon-first CLI where local is just the default daemon target, not a separate execution model inside each command, and daemon-backed commands expose the same capability surface for local and remote targets.
 
 ## Progress Update
 
@@ -10,6 +10,8 @@ Refactor the CLI so daemon targeting is resolved once and commands stop branchin
 
 - audited the CLI command surface and classified daemon-backed vs local-only vs interactive commands
 - introduced a shared CLI targeting module in `src/cli/targeting.ts`
+- extracted a shared CLI operations facade in `src/cli/operations.ts`
+- extracted a shared interactive launcher/attach layer in `src/cli/sessionLauncher.ts`
 - moved daemon host option registration to the CLI composition layer via `applyCliDaemonTargeting(...)`
 - removed the old per-command `addDaemonHostOption(...)` helper
 - introduced shared target resolution helpers:
@@ -28,15 +30,17 @@ Refactor the CLI so daemon targeting is resolved once and commands stop branchin
   - `repair`
   - `config`
   - `workflow list`
-- kept local as the default target model while treating remote as an alternate target resolved centrally
+- made local the default daemon target with the same daemon-backed operations and interactive attach model as remote
+- removed the leftover local-only wrapper split in the CLI operations facade so both target kinds execute through the same daemon client contract
+- updated the launcher naming and behavior to reflect daemon-backed attachment for both local and remote sessions
 - updated CLI tests to validate composition-time host option registration and shared target resolution
-- ran compile, lint, and the VS Code test harness; fixed the failing harness tests encountered during this refactor slice
+- added direct CLI operations coverage for the new shared abstraction
+- updated docs to describe the daemon-first CLI targeting model
+- ran compile, lint, packaged rebuilds, and the full VS Code harness; fixed the failing harness tests encountered during this refactor slice
 
 ### Not completed yet
 
-- daemon-backed commands still contain their local behavior inline; the shared operation layer described below is not extracted yet
-- interactive commands still rely on command-local launcher behavior instead of a single dedicated launcher abstraction
-- docs have not been updated yet
+- none for this refactor slice
 
 ## Why
 
@@ -91,7 +95,7 @@ Current classification:
 
 ### 2. Introduce a single daemon target resolver
 
-Status: mostly completed for CLI target selection
+Status: completed
 
 Create one CLI abstraction that resolves:
 
@@ -114,10 +118,6 @@ Implemented:
 - `src/cli/targeting.ts`
 - composition-time command targeting via `applyCliDaemonTargeting(...)`
 - shared target helpers for local-default vs remote-registered daemon resolution
-
-Remaining gap:
-
-- the target resolver exists, but command behavior is not yet pushed behind a separate shared operation layer
 
 ### 3. Replace per-command host option wiring
 
@@ -143,7 +143,7 @@ Completed implementation:
 
 ### 4. Move command behavior behind daemon-backed handlers
 
-Status: partially completed
+Status: completed
 
 Each daemon-backed command should call a shared operation layer rather than directly implementing:
 
@@ -169,16 +169,13 @@ Target shape:
 
 Completed in this slice:
 
-- commands now parse args/options and resolve target through `withCliDaemonTarget(...)`
-
-Still remaining:
-
-- there is not yet a dedicated shared operation layer for the daemon-backed commands
-- most commands still keep local and daemon execution logic in the command file, even though target selection is centralized
+- extracted a shared CLI operation facade in `src/cli/operations.ts`
+- daemon-backed command files now delegate local-vs-remote behavior to that shared layer
+- command files are reduced to argument parsing, output formatting, and operation invocation
 
 ### 5. Isolate interactive command behavior
 
-Status: partially completed
+Status: completed
 
 Interactive commands (`create`, `open`, `clear`) still need special treatment because they involve:
 
@@ -196,17 +193,13 @@ Target shape:
 
 Completed in this slice:
 
-- interactive commands now use the shared target resolver
-- remote attachment is centralized through `attachCliToRemoteSession(...)`
-
-Still remaining:
-
-- local launch behavior is still split between `create`, `open`, and `clear`
-- a single launcher abstraction for both local and remote interactive behavior still needs to be extracted
+- extracted a dedicated launcher abstraction in `src/cli/sessionLauncher.ts`
+- `create`, `open`, and `clear` now share the same daemon-backed launch request model instead of embedding command-local launch logic
+- terminal attach and streaming now go through the same daemon-backed launcher path for both local and remote targets
 
 ### 6. Add focused tests around the new architecture
 
-Status: completed for the current slice
+Status: completed
 
 Add or update tests for:
 
@@ -222,17 +215,19 @@ Completed:
 
 - updated CLI host option tests to validate composition-time registration
 - added shared target-resolution coverage
-- ran the full VS Code test harness and fixed failing tests encountered during this slice
+- added focused coverage for the shared CLI operations abstraction
+- ran the full packaged VS Code test harness and fixed the failing tests encountered during this slice
 
 ### 7. Update documentation after code stabilizes
 
-Status: not started
+Status: completed
 
 Once the CLI shape is settled, update docs to describe:
 
 - local daemon as the default CLI target
 - remote daemon as an alternate target
 - `--host` as target selection, not a separate command behavior path
+- local and remote daemon-backed commands as feature-parity targets, with project registration remaining local-only
 
 ## Suggested Implementation Order
 
@@ -241,30 +236,43 @@ Once the CLI shape is settled, update docs to describe:
 2. introduce target resolver abstraction
    Status: completed
 3. introduce shared daemon-backed operation layer
-   Status: not started
+   Status: completed
 4. migrate non-interactive commands first
-   Status: completed for target resolution, not completed for shared operation handlers
+   Status: completed
 5. migrate interactive commands onto a shared launcher
-   Status: partially completed
+   Status: completed
 6. remove leftover `if (options.host)` branches
    Status: completed for the migrated daemon-backed commands
 7. remove `addDaemonHostOption(...)`
    Status: completed
 8. finalize tests and docs
-   Status: tests completed for this slice; docs not started
+   Status: completed
 
 ## Success Criteria
 
 - no repeated inline `if (options.host)` branches in daemon-backed command files
 - no `addDaemonHostOption(...)` helper remaining
 - daemon-backed commands use a shared target-resolution path
+- daemon-backed commands use shared CLI operation handlers instead of embedding local-vs-remote behavior inline
+- interactive commands launch through a shared launcher abstraction for both local and remote targets
 - local execution is modeled as the default daemon target
 - interactive commands use a single shared launcher/attachment abstraction
+- register-project commands remain the only intentional local-only exception
 
 Current status against success criteria:
 
 - no repeated inline `if (options.host)` branches in the migrated daemon-backed command files: completed
 - no `addDaemonHostOption(...)` helper remaining: completed
 - daemon-backed commands use a shared target-resolution path: completed
+- daemon-backed commands use shared CLI operation handlers instead of embedding local-vs-remote behavior inline: completed
 - local execution is modeled as the default daemon target: completed
-- interactive commands use a single shared launcher/attachment abstraction: not completed yet
+- interactive commands use a single shared launcher/attachment abstraction: completed
+- register-project commands remain the only intentional local-only exception: completed
+
+Verification completed:
+
+- `npx tsc -p ./ --noEmit`
+- `npm run lint`
+- `npm run compile`
+- `npm run test:vscode`
+  - final result: 1460 passing, 3 pending, 0 failing

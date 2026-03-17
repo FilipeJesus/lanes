@@ -10,10 +10,9 @@ import * as SessionDataService from '../../core/session/SessionDataService';
 import * as FileService from '../../core/services/FileService';
 import * as codeAgents from '../../core/codeAgents';
 import * as localSettings from '../../core/localSettings';
-import * as openCmd from '../../cli/commands/open';
+import * as sessionLauncher from '../../cli/sessionLauncher';
 import * as validation from '../../core/validation';
 import * as utils from '../../core/utils';
-import { CliConfigProvider } from '../../cli/adapters/CliConfigProvider';
 
 /**
  * Tests for `lanes create` command logic.
@@ -26,7 +25,7 @@ suite('CLI create', () => {
     let branchExistsStub: sinon.SinonStub;
     let getBranchesStub: sinon.SinonStub;
     let propagateStub: sinon.SinonStub;
-    let execIntoAgentStub: sinon.SinonStub;
+    let launchCliSessionStub: sinon.SinonStub;
     let ensureDirStub: sinon.SinonStub;
     let writeJsonStub: sinon.SinonStub;
     let getSessionFilePathStub: sinon.SinonStub;
@@ -41,7 +40,7 @@ suite('CLI create', () => {
         branchExistsStub = sinon.stub(BrokenWorktreeService, 'branchExists');
         getBranchesStub = sinon.stub(cliUtils, 'getBranchesInWorktrees');
         propagateStub = sinon.stub(localSettings, 'propagateLocalSettings');
-        execIntoAgentStub = sinon.stub(openCmd, 'execIntoAgent');
+        launchCliSessionStub = sinon.stub(sessionLauncher, 'launchCliSession');
         ensureDirStub = sinon.stub(FileService, 'ensureDir');
         writeJsonStub = sinon.stub(FileService, 'writeJson');
         getSessionFilePathStub = sinon.stub(SessionDataService, 'getSessionFilePath');
@@ -53,7 +52,7 @@ suite('CLI create', () => {
         branchExistsStub.resolves(false);
         getBranchesStub.resolves(new Set<string>());
         propagateStub.resolves();
-        execIntoAgentStub.resolves();
+        launchCliSessionStub.resolves();
         ensureDirStub.resolves();
         writeJsonStub.resolves();
         getSessionFilePathStub.returns(path.join(tempDir, 'session.json'));
@@ -66,7 +65,7 @@ suite('CLI create', () => {
         branchExistsStub.restore();
         getBranchesStub.restore();
         propagateStub.restore();
-        execIntoAgentStub.restore();
+        launchCliSessionStub.restore();
         ensureDirStub.restore();
         writeJsonStub.restore();
         getSessionFilePathStub.restore();
@@ -219,30 +218,31 @@ suite('CLI create', () => {
         });
     });
 
-    // ── execIntoAgent call ──────────────────────────────────────────
+    // ── launcher request ────────────────────────────────────────────
 
-    suite('execIntoAgent integration', () => {
-        test('calls execIntoAgent with isNewSession: true', async () => {
-            execIntoAgentStub.resolves();
+    suite('launch request integration', () => {
+        test('passes a daemon-backed new-session launch request', async () => {
+            launchCliSessionStub.resolves();
 
-            await execIntoAgentStub({
+            await launchCliSessionStub({
+                kind: 'daemon',
                 sessionName: 'test',
-                worktreePath: path.join(tempDir, 'wt'),
-                repoRoot: tempDir,
-                codeAgent: codeAgents.getAgent('claude'),
-                config: new CliConfigProvider(tempDir),
-                useTmux: false,
-                isNewSession: true,
-                prompt: 'hello',
-                workflow: 'my-workflow',
-                permissionMode: 'acceptEdits',
+                client: {} as never,
+                target: {
+                    kind: 'local',
+                    client: {} as never,
+                },
+                launch: {
+                    worktreePath: path.join(tempDir, 'wt'),
+                    command: 'claude',
+                },
             });
 
-            sinon.assert.calledOnce(execIntoAgentStub);
-            const callArgs = execIntoAgentStub.firstCall.args[0];
-            assert.strictEqual(callArgs.isNewSession, true);
-            assert.strictEqual(callArgs.prompt, 'hello');
-            assert.strictEqual(callArgs.workflow, 'my-workflow');
+            sinon.assert.calledOnce(launchCliSessionStub);
+            const callArgs = launchCliSessionStub.firstCall.args[0];
+            assert.strictEqual(callArgs.kind, 'daemon');
+            assert.strictEqual(callArgs.target.kind, 'local');
+            assert.strictEqual(callArgs.launch.worktreePath, path.join(tempDir, 'wt'));
         });
     });
 

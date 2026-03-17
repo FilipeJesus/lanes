@@ -270,12 +270,14 @@ suite('CLI utils', () => {
     });
 
     suite('withCliDaemonTarget', () => {
+        let fromWorkspaceStub: sinon.SinonStub;
         let listRegisteredRemoteDaemonsStub: sinon.SinonStub;
         let execGitStub: sinon.SinonStub;
         let listProjectsStub: sinon.SinonStub;
         let discoveryStub: sinon.SinonStub;
 
         setup(() => {
+            fromWorkspaceStub = sinon.stub(daemonClientModule.DaemonClient, 'fromWorkspace');
             listRegisteredRemoteDaemonsStub = sinon.stub(registry, 'listRegisteredRemoteDaemons');
             execGitStub = sinon.stub(gitService, 'execGit');
             listProjectsStub = sinon.stub(daemonClientModule.DaemonClient.prototype, 'listProjects');
@@ -283,6 +285,7 @@ suite('CLI utils', () => {
         });
 
         teardown(() => {
+            fromWorkspaceStub.restore();
             listRegisteredRemoteDaemonsStub.restore();
             execGitStub.restore();
             listProjectsStub.restore();
@@ -290,12 +293,19 @@ suite('CLI utils', () => {
         });
 
         test('uses the local handler when --host is omitted', async () => {
+            const localClient = {} as daemonClientModule.DaemonClient;
+            fromWorkspaceStub.resolves(localClient);
+
             const result = await withCliDaemonTarget('/repo', {}, {
-                local: async () => 'local',
+                local: async (target) => {
+                    assert.strictEqual(target.client, localClient);
+                    return 'local';
+                },
                 daemon: async () => 'remote',
             });
 
             assert.strictEqual(result, 'local');
+            sinon.assert.calledOnceWithExactly(fromWorkspaceStub, '/repo');
         });
 
         test('uses the daemon handler when --host is provided', async () => {
