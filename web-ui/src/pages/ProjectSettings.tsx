@@ -332,7 +332,7 @@ export function ProjectSettings() {
                     </nav>
                     <h1 className={styles.title}>Settings</h1>
                     <p className={styles.subtitle}>
-                        Edit the machine-wide defaults and this project&apos;s local overrides.
+                        Edit daemon-wide defaults and this project&apos;s local overrides.
                     </p>
                 </div>
 
@@ -354,7 +354,7 @@ export function ProjectSettings() {
 
             <div className={styles.summaryGrid}>
                 <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Global file</span>
+                    <span className={styles.summaryLabel}>Daemon defaults file</span>
                     <code className={styles.summaryValue}>~/.lanes/settings.yaml</code>
                 </div>
                 <div className={styles.summaryCard}>
@@ -427,7 +427,7 @@ export function ProjectSettings() {
                                         <div className={styles.scopeHeader}>
                                             <div>
                                                 <h3 className={styles.scopeTitle}>Global</h3>
-                                                <p className={styles.scopeMeta}>Applies across all projects on this machine.</p>
+                                                <p className={styles.scopeMeta}>Applies across all projects served by this daemon.</p>
                                             </div>
                                         </div>
                                         {renderInput(

@@ -5,17 +5,14 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { initCli, exitWithError } from '../utils';
+import { withCliOperations } from '../operations';
+import { launchCliSession } from '../sessionLauncher';
 import { validateSessionName } from '../../core/validation';
 import { validateBranchName, sanitizeSessionName, getErrorMessage } from '../../core/utils';
 import { validateAndGetAgent, getAvailableAgents } from '../../core/codeAgents';
-import { LocalSettingsPropagationMode } from '../../core/localSettings';
 import {
-    saveSessionWorkflow,
     initializeGlobalStorageContext,
 } from '../../core/session/SessionDataService';
-import { createSessionWorktree } from '../../core/services/SessionCreationService';
-import * as PreflightService from '../../core/services/PreflightService';
-import { execIntoAgent } from './open';
 
 export function registerCreateCommand(program: Command): void {
     program
@@ -31,7 +28,6 @@ export function registerCreateCommand(program: Command): void {
         .action(async (options) => {
             try {
                 const { config, repoRoot } = await initCli();
-                const worktreesFolder = config.get('lanes', 'worktreesFolder', '.worktrees');
 
                 // Resolve agent
                 const agentName = options.agent || config.get('lanes', 'defaultAgent', 'claude');
@@ -65,46 +61,28 @@ export function registerCreateCommand(program: Command): void {
                 if (!branchValidation.valid) {
                     exitWithError(branchValidation.error || 'Invalid branch name.');
                 }
+                await withCliOperations(repoRoot, config, options, async (operations) => {
+                    if (operations.targetKind === 'local') {
+                        console.log(`Creating session '${sanitizedName}'...`);
+                    }
 
-                // Create worktree via core service
-                console.log(`Creating session '${sanitizedName}'...`);
-                const propagationMode = config.get<LocalSettingsPropagationMode>('lanes', 'localSettingsPropagation', 'copy');
-                const useTmux = options.tmux || config.get<string>('lanes', 'terminalMode', 'vscode') === 'tmux';
+                    const launch = await operations.createSession({
+                        sessionName: sanitizedName,
+                        sourceBranch: options.branch,
+                        codeAgent,
+                        prompt: options.prompt,
+                        workflow: options.workflow,
+                        permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
+                        preferTmux: options.tmux,
+                    });
 
-                await PreflightService.assertSessionLaunchPrerequisites({
-                    codeAgent,
-                    terminalMode: useTmux ? 'tmux' : 'vscode',
-                });
+                    console.log(
+                        operations.targetKind === 'remote'
+                            ? `Session '${sanitizedName}' created on ${operations.host}.`
+                            : `Session '${sanitizedName}' created.`
+                    );
 
-                const { worktreePath } = await createSessionWorktree({
-                    repoRoot,
-                    sessionName: sanitizedName,
-                    sourceBranch: options.branch,
-                    worktreesFolder,
-                    codeAgent,
-                    localSettingsPropagation: propagationMode,
-                    onWarning: (msg) => console.warn(`Warning: ${msg}`),
-                });
-
-                // Save workflow if specified
-                if (options.workflow) {
-                    await saveSessionWorkflow(worktreePath, options.workflow);
-                }
-
-                console.log(`Session '${sanitizedName}' created.`);
-
-                // Exec into the agent
-                await execIntoAgent({
-                    sessionName: sanitizedName,
-                    worktreePath,
-                    repoRoot,
-                    codeAgent,
-                    config,
-                    prompt: options.prompt,
-                    permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
-                    workflow: options.workflow,
-                    useTmux,
-                    isNewSession: true,
+                    await launchCliSession(launch);
                 });
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code === 'ERR_PROCESS_EXIT') {throw err;}

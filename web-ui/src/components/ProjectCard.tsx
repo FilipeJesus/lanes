@@ -41,6 +41,27 @@ function uptimeSeconds(startedAt: string): number {
     return Math.max(0, (Date.now() - startMs) / 1000);
 }
 
+function getConnectionMeta(health: HealthState, daemon: EnrichedDaemon['daemon']): { label: string; value: string } {
+    if (!daemon) {
+        return {
+            label: 'Status',
+            value: health === 'registered' ? 'Offline' : 'Unavailable',
+        };
+    }
+
+    if (daemon.source === 'remote') {
+        return {
+            label: 'Daemon',
+            value: daemon.baseUrl ?? 'Remote',
+        };
+    }
+
+    return {
+        label: 'Port',
+        value: daemon.port !== null ? String(daemon.port) : 'Unknown',
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -48,22 +69,31 @@ function uptimeSeconds(startedAt: string): number {
 export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
     const { project, daemon, discovery, health } = enrichedDaemon;
     const navigate = useNavigate();
+    const isClickable = daemon !== null;
 
     const projectName = discovery?.projectName ?? daemon?.projectName ?? project.projectName;
     const secondaryLabel = discovery?.gitRemote ?? project.workspaceRoot;
     const sessionCount = discovery?.sessionCount ?? 0;
-    const uptime = daemon ? formatUptime(uptimeSeconds(daemon.startedAt)) : 'Not running';
-    const portLabel = daemon ? String(daemon.port) : 'Offline';
-    const statusLabel = daemon ? 'Live daemon' : 'Ready to start';
+    const uptime = daemon?.startedAt ? formatUptime(uptimeSeconds(daemon.startedAt)) : daemon ? 'Unknown' : 'Not running';
+    const connectionMeta = getConnectionMeta(health, daemon);
+    const statusLabel = daemon ? (daemon.source === 'remote' ? 'Remote daemon' : 'Live daemon') : 'Ready to start';
     const statusDescription = daemon
-        ? 'Open this project to manage sessions.'
+        ? daemon.source === 'remote'
+            ? 'Open this project to manage sessions through the registered remote daemon.'
+            : 'Open this project to manage sessions.'
         : 'Open setup, run lanes daemon start, then refresh the project.';
 
     function handleClick() {
+        if (!isClickable) {
+            return;
+        }
         void navigate(`/project/${project.projectId}`);
     }
 
     function handleKeyDown(e: React.KeyboardEvent) {
+        if (!isClickable) {
+            return;
+        }
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             void navigate(`/project/${project.projectId}`);
@@ -73,11 +103,11 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
     return (
         <div
             className={styles.card}
-            role="button"
-            tabIndex={0}
-            onClick={handleClick}
-            onKeyDown={handleKeyDown}
-            aria-label={`Open project ${projectName}`}
+            role={isClickable ? 'button' : undefined}
+            tabIndex={isClickable ? 0 : undefined}
+            onClick={isClickable ? handleClick : undefined}
+            onKeyDown={isClickable ? handleKeyDown : undefined}
+            aria-label={isClickable ? `Open project ${projectName}` : undefined}
         >
             <div className={styles.cardHeader}>
                 <h2 className={styles.projectName}>{projectName}</h2>
@@ -110,8 +140,8 @@ export function ProjectCard({ enrichedDaemon }: ProjectCardProps) {
                     <span className={styles.metaValue}>{uptime}</span>
                 </span>
                 <span className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Port</span>
-                    <span className={styles.metaValue}>{portLabel}</span>
+                    <span className={styles.metaLabel}>{connectionMeta.label}</span>
+                    <span className={styles.metaValue}>{connectionMeta.value}</span>
                 </span>
             </div>
         </div>

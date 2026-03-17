@@ -30,6 +30,7 @@ import type {
     DaemonDiffResponse,
     DaemonDiscoveryResponse,
     DaemonHealthResponse,
+    DaemonProjectListResponse,
     DaemonRepairWorktreesResponse,
     DaemonSessionCreateResponse,
     DaemonSessionInsightsResponse,
@@ -129,12 +130,14 @@ export interface DaemonClientOptions {
     baseUrl?: string;
     token: string;
     projectId?: string;
+    timeoutMs?: number;
 }
 
 export class DaemonClient {
     private readonly baseUrl: string;
     private readonly token: string;
     private readonly projectPath: string;
+    private readonly timeoutMs: number;
 
     constructor(options: DaemonClientOptions) {
         if (options.baseUrl !== undefined) {
@@ -145,6 +148,7 @@ export class DaemonClient {
             throw new Error('DaemonClient requires either baseUrl or port');
         }
         this.token = options.token;
+        this.timeoutMs = options.timeoutMs ?? 30_000;
         this.projectPath = options.projectId
             ? `/api/v1/projects/${encodeURIComponent(options.projectId)}`
             : '';
@@ -210,7 +214,7 @@ export class DaemonClient {
             path: url.pathname + url.search,
             method,
             headers,
-            timeout: 30_000,
+            timeout: this.timeoutMs,
         };
 
         return new Promise<T>((resolve, reject) => {
@@ -282,6 +286,11 @@ export class DaemonClient {
     /** GET /api/v1/discovery */
     discovery(): Promise<DaemonDiscoveryResponse> {
         return this.request('GET', this.projectUrl('/discovery'));
+    }
+
+    /** GET /api/v1/projects */
+    listProjects(): Promise<DaemonProjectListResponse> {
+        return this.request<DaemonProjectListResponse>('GET', '/api/v1/projects');
     }
 
     // -------------------------------------------------------------------------

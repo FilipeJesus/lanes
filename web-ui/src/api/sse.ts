@@ -48,7 +48,7 @@ export interface SseCallbacks {
 // ---------------------------------------------------------------------------
 
 export interface SseClientOptions {
-    /** Base URL of the daemon, e.g. "http://127.0.0.1:3942" */
+    /** Base URL of the daemon, e.g. "http://127.0.0.1:3942" or "https://remote.example" */
     baseUrl: string;
     /** Bearer token for authentication */
     token: string;

@@ -52,6 +52,31 @@ export type RegisteredProjectEntry = {
     registeredAt: string;
 };
 
+export type RegisteredRemoteProjectEntry = {
+    projectId: string;
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
+};
+
+/**
+ * A remote daemon registered with the local gateway.
+ */
+export type RegisteredRemoteDaemonEntry = {
+    /** Stable identifier for this remote daemon registration. */
+    registrationId: string;
+    /** Base URL for the remote daemon API, e.g. http://host:9100. */
+    baseUrl: string;
+    /** Bearer token for authenticating against the remote daemon API. */
+    token: string;
+    /** ISO-8601 timestamp of when the remote daemon was registered locally. */
+    registeredAt: string;
+    /** Cached project list from the last successful discovery against this remote daemon. */
+    discoveredProjects?: RegisteredRemoteProjectEntry[];
+    /** ISO-8601 timestamp of the last successful project discovery refresh. */
+    lastSeenAt?: string;
+};
+
 // ---------------------------------------------------------------------------
 // Registry path
 // ---------------------------------------------------------------------------
@@ -75,8 +100,38 @@ export function getProjectsRegistryPath(): string {
     return path.join(getHomeDir(), '.lanes', 'projects.json');
 }
 
+/**
+ * Returns the absolute path to the remote daemon registry file:
+ * `~/.lanes/remote-daemons.json`.
+ */
+export function getRemoteDaemonsRegistryPath(): string {
+    return path.join(getHomeDir(), '.lanes', 'remote-daemons.json');
+}
+
 export function createProjectId(workspaceRoot: string): string {
     return crypto.createHash('sha1').update(path.resolve(workspaceRoot)).digest('hex').slice(0, 12);
+}
+
+export function normalizeDaemonBaseUrl(baseUrl: string): string {
+    let parsed: URL;
+    try {
+        parsed = new URL(baseUrl);
+    } catch {
+        throw new Error(`Invalid daemon host URL: ${baseUrl}`);
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`Invalid daemon host URL: ${baseUrl}`);
+    }
+
+    parsed.hash = '';
+    const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+    parsed.pathname = normalizedPath === '' ? '/' : normalizedPath;
+    return parsed.toString().replace(/\/$/, '');
+}
+
+export function createRemoteDaemonRegistrationId(baseUrl: string): string {
+    return crypto.createHash('sha1').update(normalizeDaemonBaseUrl(baseUrl)).digest('hex').slice(0, 12);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +201,23 @@ async function readProjectsRegistry(): Promise<RegisteredProjectEntry[]> {
 
 async function writeProjectsRegistry(entries: RegisteredProjectEntry[]): Promise<void> {
     await writeRegistryFile(getProjectsRegistryPath(), entries);
+}
+
+async function readRemoteDaemonsRegistry(): Promise<RegisteredRemoteDaemonEntry[]> {
+    const entries = await readRegistryFile<RegisteredRemoteDaemonEntry>(getRemoteDaemonsRegistryPath());
+    return entries.map((entry) => {
+        const normalizedBaseUrl = normalizeDaemonBaseUrl(entry.baseUrl);
+        return {
+            ...entry,
+            baseUrl: normalizedBaseUrl,
+            registrationId: entry.registrationId || createRemoteDaemonRegistrationId(normalizedBaseUrl),
+            discoveredProjects: Array.isArray(entry.discoveredProjects) ? entry.discoveredProjects : [],
+        };
+    });
+}
+
+async function writeRemoteDaemonsRegistry(entries: RegisteredRemoteDaemonEntry[]): Promise<void> {
+    await writeRegistryFile(getRemoteDaemonsRegistryPath(), entries);
 }
 
 // ---------------------------------------------------------------------------
@@ -254,4 +326,58 @@ export async function getRegisteredProjectByWorkspace(workspaceRoot: string): Pr
     const projects = await readProjectsRegistry();
     const resolved = path.resolve(workspaceRoot);
     return projects.find((project) => project.workspaceRoot === resolved);
+}
+
+/**
+ * Register (or update) a remote daemon in the local gateway registry.
+ */
+export async function registerRemoteDaemon(entry: RegisteredRemoteDaemonEntry): Promise<void> {
+    const normalizedBaseUrl = normalizeDaemonBaseUrl(entry.baseUrl);
+    const normalized: RegisteredRemoteDaemonEntry = {
+        ...entry,
+        baseUrl: normalizedBaseUrl,
+        registrationId: entry.registrationId || createRemoteDaemonRegistrationId(normalizedBaseUrl),
+    };
+    const existing = await readRemoteDaemonsRegistry();
+    const filtered = existing.filter((daemon) => daemon.baseUrl !== normalized.baseUrl);
+    filtered.push(normalized);
+    await writeRemoteDaemonsRegistry(filtered);
+}
+
+/**
+ * Remove a remote daemon from the local gateway registry.
+ */
+export async function deregisterRemoteDaemon(baseUrl: string): Promise<void> {
+    const normalizedBaseUrl = normalizeDaemonBaseUrl(baseUrl);
+    const existing = await readRemoteDaemonsRegistry();
+    const filtered = existing.filter((daemon) => daemon.baseUrl !== normalizedBaseUrl);
+    if (filtered.length !== existing.length) {
+        await writeRemoteDaemonsRegistry(filtered);
+    }
+}
+
+/**
+ * Return all registered remote daemons.
+ */
+export async function listRegisteredRemoteDaemons(): Promise<RegisteredRemoteDaemonEntry[]> {
+    return readRemoteDaemonsRegistry();
+}
+
+export async function updateRemoteDaemonProjects(
+    baseUrl: string,
+    discoveredProjects: RegisteredRemoteProjectEntry[]
+): Promise<void> {
+    const normalizedBaseUrl = normalizeDaemonBaseUrl(baseUrl);
+    const existing = await readRemoteDaemonsRegistry();
+    const index = existing.findIndex((daemon) => daemon.baseUrl === normalizedBaseUrl);
+    if (index === -1) {
+        return;
+    }
+
+    existing[index] = {
+        ...existing[index],
+        discoveredProjects,
+        lastSeenAt: new Date().toISOString(),
+    };
+    await writeRemoteDaemonsRegistry(existing);
 }

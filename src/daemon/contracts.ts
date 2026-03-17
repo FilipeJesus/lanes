@@ -19,6 +19,17 @@ export interface DaemonDiscoveryResponse {
     apiVersion: string;
 }
 
+export interface DaemonProjectInfo {
+    projectId: string;
+    workspaceRoot: string;
+    projectName: string;
+    registeredAt: string;
+}
+
+export interface DaemonProjectListResponse {
+    projects: DaemonProjectInfo[];
+}
+
 export interface DaemonSessionSummary {
     name: string;
     worktreePath: string;

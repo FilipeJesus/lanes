@@ -5,6 +5,7 @@ import * as path from 'path';
 import sinon from 'sinon';
 import * as gitService from '../../core/gitService';
 import * as launchSetupService from '../../core/services/AgentLaunchSetupService';
+import * as PreflightService from '../../core/services/PreflightService';
 import * as TmuxService from '../../core/services/TmuxService';
 import { ConfigStore } from '../../jetbrains-ide-bridge/config';
 import { NotificationEmitter } from '../../jetbrains-ide-bridge/notifications';
@@ -18,6 +19,7 @@ suite('Bridge Handlers - Session Error Cases', () => {
     let prepareLaunchContextStub: sinon.SinonStub;
     let buildLaunchCommandStub: sinon.SinonStub;
     let killSessionStub: sinon.SinonStub;
+    let assertPreflightStub: sinon.SinonStub;
 
     setup(async () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-bridge-session-errors-'));
@@ -39,6 +41,7 @@ suite('Bridge Handlers - Session Error Cases', () => {
             command: 'claude --settings "/tmp/claude-settings.json"'
         });
         killSessionStub = sinon.stub(TmuxService, 'killSession').resolves();
+        assertPreflightStub = sinon.stub(PreflightService, 'assertSessionLaunchPrerequisites').resolves();
     });
 
     teardown(() => {
@@ -46,6 +49,7 @@ suite('Bridge Handlers - Session Error Cases', () => {
         prepareLaunchContextStub.restore();
         buildLaunchCommandStub.restore();
         killSessionStub.restore();
+        assertPreflightStub.restore();
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 

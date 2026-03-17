@@ -18,6 +18,7 @@ import { registerConfigCommand } from './commands/config';
 import { registerDaemonCommand } from './commands/daemon';
 import { registerWebCommand } from './commands/web';
 import { registerUninstallCommand } from './commands/uninstall';
+import { applyCliDaemonTargeting } from './targeting';
 
 declare const CLI_VERSION: string;
 
@@ -44,5 +45,6 @@ registerConfigCommand(program);
 registerDaemonCommand(program);
 registerWebCommand(program);
 registerUninstallCommand(program);
+applyCliDaemonTargeting(program);
 
 program.parse();

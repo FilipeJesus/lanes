@@ -166,9 +166,9 @@ lanes delete my-feature
 
 ### Daemon & Web UI
 
-Lanes v2 introduces a machine-wide HTTP daemon and a browser-based dashboard for managing registered projects on the current machine.
+Lanes v2 uses a daemon-first CLI model plus a browser-based dashboard. The local machine-wide daemon is the default CLI target, and any registered remote daemons are alternate targets selected with `--host`.
 
-**Architecture:** Lanes keeps a machine-wide project registry in `~/.lanes/projects.json` and a single local daemon process that serves registered projects by `projectId`. The web UI is served locally and connects to `127.0.0.1`, so remote access requires SSH tunneling or your own reverse proxy.
+**Architecture:** Lanes keeps a machine-wide local project registry in `~/.lanes/projects.json`, optional remote daemon registrations in `~/.lanes/remote-daemons.json`, and a single local gateway process for the web UI. Local CLI commands resolve to the local daemon by default; adding `--host <url>` switches the command to a previously registered remote daemon and matches the current repo by git remote. Daemon-backed CLI commands now use the same daemon API surface for both local and remote targets, including interactive `create`, `open`, and `clear`; the only intentional local-only exception is project registration (`lanes daemon register .`). The web UI is still served locally; remote access to a daemon depends on that daemon being reachable from the browser or exposed through SSH tunneling / your own reverse proxy.
 
 #### 1. Register projects with the machine-wide gateway
 
@@ -182,6 +182,14 @@ lanes daemon register .
 
 Registered projects are stored in `~/.lanes/projects.json`.
 
+You can also register a remote daemon so the local gateway and daemon-backed CLI commands can target the projects it tracks later:
+
+```bash
+lanes daemon register --host https://lanes.example.com --token <token>
+```
+
+Remote daemon registrations are stored in `~/.lanes/remote-daemons.json`.
+
 #### 2. Start the machine-wide daemon
 
 ```bash
@@ -190,6 +198,8 @@ lanes daemon start              # optional: first start can choose --port 9100
 ```
 
 The daemon writes its PID, port, and auth token to `~/.lanes/daemon.pid`, `~/.lanes/daemon.port`, and `~/.lanes/daemon.token`. Starting it from a repo also auto-registers that repo in `~/.lanes/projects.json`. Once it is running, use `lanes daemon register .` in other repos you want the daemon to serve.
+
+When a daemon-backed CLI command is run without `--host`, it targets this local daemon.
 
 #### 3. Launch the web UI
 
@@ -222,10 +232,22 @@ lanes web --no-ui
 lanes daemon registered  # List all registered projects
 lanes daemon status      # Check if the machine-wide daemon is running
 lanes daemon stop        # Stop the machine-wide daemon
-lanes daemon unregister .  # Remove the current project from the global registry
+lanes daemon unregister .  # Remove the current project from the local daemon registry
+lanes daemon unregister --host https://lanes.example.com  # Remove a registered remote target
 ```
 
-#### 5. VS Code daemon mode (optional)
+#### 5. Remote CLI targeting
+
+Most daemon-backed CLI commands accept `--host <url>`. Without it, the CLI targets the local daemon. With it, the CLI targets a previously registered remote daemon and resolves the matching project automatically from the current repo's git remote.
+
+```bash
+lanes list --host https://lanes.example.com
+lanes status my-feature --host https://lanes.example.com
+lanes diff my-feature --host https://lanes.example.com
+lanes create --name my-feature --host https://lanes.example.com
+```
+
+#### 6. VS Code daemon mode (optional)
 
 You can route VS Code operations through the daemon instead of calling core services directly. This is useful if you want the web UI and VS Code to share the same session state source.
 
@@ -347,9 +369,11 @@ curl -N -H "Authorization: Bearer $TOKEN" \
 | `lanes status` | Show status of all sessions |
 | `lanes workflow <name>` | Run a workflow template |
 | `lanes config` | View/edit configuration |
-| `lanes daemon start` | Start the machine-wide HTTP daemon and register the current project |
-| `lanes daemon register [path]` | Register a project with the machine-wide gateway |
-| `lanes daemon unregister [path]` | Remove a project from the machine-wide gateway |
+| `lanes daemon start` | Start the local machine-wide daemon and register the current project |
+| `lanes daemon register [path]` | Register a project with the local daemon/gateway |
+| `lanes daemon register --host <url> --token <token>` | Register a remote daemon for later `--host` targeting |
+| `lanes daemon unregister [path]` | Remove a project from the local daemon/gateway |
+| `lanes daemon unregister --host <url>` | Remove a registered remote daemon target |
 | `lanes daemon registered` | List globally registered projects |
 | `lanes daemon stop` | Stop the running daemon |
 | `lanes daemon status` | Check daemon status (PID, port) |

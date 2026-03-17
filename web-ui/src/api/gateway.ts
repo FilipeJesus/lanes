@@ -10,8 +10,8 @@ import type { DaemonInfo, GatewayProjectInfo } from './types';
 
 /**
  * Fetch the legacy list of running project connections from the gateway server.
- * Each entry contains the machine-wide daemon connection details projected onto
- * a specific registered project.
+ * Each entry contains the daemon connection details projected onto
+ * a specific registered project, whether the backing daemon is local or remote.
  *
  * The gateway automatically filters out stale (dead) daemon entries.
  */
@@ -24,8 +24,8 @@ export async function fetchDaemons(): Promise<DaemonInfo[]> {
 }
 
 /**
- * Fetch the list of projects known to the machine-wide gateway, including
- * whether each project currently has a running daemon attached.
+ * Fetch the list of projects known to the local gateway, including
+ * whether each project currently has a reachable daemon attached.
  */
 export async function fetchProjects(): Promise<GatewayProjectInfo[]> {
     const res = await fetch('/api/gateway/projects');

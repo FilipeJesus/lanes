@@ -59,6 +59,7 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
     const projectId = overrides.projectId ?? 'project-123';
     return {
         projectId,
+        daemonProjectId: projectId,
         workspaceRoot: '/projects/my-app',
         projectName: 'my-app',
         registeredAt: new Date().toISOString(),
@@ -69,10 +70,11 @@ function makeProjectInfo(overrides: Partial<GatewayProjectInfo> = {}): GatewayPr
 }
 
 function makeEnrichedDaemon(port: number, projectName: string): EnrichedDaemon {
+    const projectId = `project-${projectName}`;
     return {
-        project: makeProjectInfo({ workspaceRoot: `/projects/${projectName}`, projectName }),
-        daemon: makeDaemonInfo({ port, projectName }),
-        discovery: makeDiscovery({ port, projectName }),
+        project: makeProjectInfo({ projectId, workspaceRoot: `/projects/${projectName}`, projectName }),
+        daemon: makeDaemonInfo({ projectId, port, projectName }),
+        discovery: makeDiscovery({ projectId, port, projectName }),
         health: 'healthy',
         healthResponse: { status: 'ok', version: '1.0.0' },
     };
@@ -174,7 +176,7 @@ describe('Dashboard', () => {
 
         renderDashboard();
 
-        expect(screen.getByText(/register a repo first, then start its local daemon when you need it/i)).toBeInTheDocument();
+        expect(screen.getByText(/register a repo locally, or register a remote daemon to browse the projects it tracks/i)).toBeInTheDocument();
     });
 
     it('Given useDaemons returns 3 daemons, then 3 ProjectCard elements are rendered', () => {
@@ -209,8 +211,7 @@ describe('Dashboard', () => {
         expect(projectCards).toHaveLength(1);
     });
 
-    it('Given a registered offline project, then its card still opens the guided setup route', async () => {
-        const user = userEvent.setup();
+    it('Given a registered offline project, then its card renders as a non-clickable setup state', () => {
         mockUseDaemons.mockReturnValue({
             daemons: [makeRegisteredProject('project-a')],
             loading: false,
@@ -221,9 +222,7 @@ describe('Dashboard', () => {
         renderDashboard();
 
         expect(screen.getByText(/ready to start/i)).toBeInTheDocument();
-        await user.click(screen.getByRole('button', { name: /open project project-a/i }));
-
-        expect(mockNavigate).toHaveBeenCalledWith('/project/project-project-a');
+        expect(screen.queryByRole('button', { name: /open project project-a/i })).not.toBeInTheDocument();
     });
 
     it('Given useDaemons returns an error, then an error message is displayed', () => {
