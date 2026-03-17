@@ -436,6 +436,55 @@ suite('DaemonClient', () => {
         });
     });
 
+    suite('verbose tracing', () => {
+        test('Given verbose tracing is enabled, when a request succeeds, then request and response details are emitted without leaking the token', async () => {
+            const helper = await startTestServer(() => ({ status: 200, body: { sessions: [] } }));
+            const traceMessages: string[] = [];
+            try {
+                const client = new DaemonClient({
+                    port: helper.port(),
+                    token: TEST_TOKEN,
+                    projectId: TEST_PROJECT_ID,
+                    verbose: true,
+                    trace: (message) => traceMessages.push(message),
+                });
+
+                await client.listSessions();
+
+                assert.ok(traceMessages.some((message) => message.includes('request GET')));
+                assert.ok(traceMessages.some((message) => message.includes('response 200 GET')));
+                assert.ok(traceMessages.some((message) => message.includes('Bearer [redacted]')));
+                assert.ok(traceMessages.every((message) => !message.includes(TEST_TOKEN)));
+            } finally {
+                await helper.close();
+            }
+        });
+
+        test('Given verbose tracing is enabled, when a request fails, then the error response is emitted', async () => {
+            const helper = await startTestServer(() => ({
+                status: 404,
+                body: { error: 'missing session' },
+            }));
+            const traceMessages: string[] = [];
+            try {
+                const client = new DaemonClient({
+                    port: helper.port(),
+                    token: TEST_TOKEN,
+                    projectId: TEST_PROJECT_ID,
+                    verbose: true,
+                    trace: (message) => traceMessages.push(message),
+                });
+
+                await assert.rejects(() => client.getSessionStatus('missing'), DaemonHttpError);
+
+                assert.ok(traceMessages.some((message) => message.includes('response 404 GET')));
+                assert.ok(traceMessages.some((message) => message.includes('missing session')));
+            } finally {
+                await helper.close();
+            }
+        });
+    });
+
     // -------------------------------------------------------------------------
     // daemon-client-list-sessions
     // -------------------------------------------------------------------------

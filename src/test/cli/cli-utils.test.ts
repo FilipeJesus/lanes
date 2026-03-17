@@ -207,6 +207,25 @@ suite('CLI utils', () => {
             sinon.assert.notCalled(listRegisteredRemoteDaemonsStub);
         });
 
+        test('passes verbose tracing into the local daemon client when enabled', async () => {
+            const localClient = {} as daemonClientModule.DaemonClient;
+            const traceMessages: string[] = [];
+            fromWorkspaceStub.resolves(localClient);
+
+            const result = await createCliDaemonClient('/repo', {
+                verbose: true,
+                trace: (message) => traceMessages.push(message),
+            });
+
+            assert.strictEqual(result, localClient);
+            sinon.assert.calledOnce(fromWorkspaceStub);
+            const traceOptions = fromWorkspaceStub.firstCall.args[1];
+            assert.strictEqual(traceOptions.verbose, true);
+            assert.strictEqual(typeof traceOptions.trace, 'function');
+            traceOptions.trace('local trace message');
+            assert.deepStrictEqual(traceMessages, ['Using local daemon target for /repo', 'local trace message']);
+        });
+
         test('resolves the matching remote daemon project when --host is provided', async () => {
             const registration = {
                 registrationId: 'remote-1',
@@ -391,6 +410,105 @@ suite('CLI utils', () => {
             sinon.assert.calledOnce(listRegisteredRemoteDaemonsStub);
             sinon.assert.calledOnce(listProjectsStub);
             sinon.assert.calledOnce(discoveryStub);
+        });
+
+        test('emits verbose internal comments while resolving a remote target', async () => {
+            const registration = {
+                registrationId: 'remote-1',
+                baseUrl: 'https://remote.example.test',
+                token: 'secret',
+                registeredAt: '2026-03-16T00:00:00.000Z',
+            };
+            const traceMessages: string[] = [];
+            listRegisteredRemoteDaemonsStub.resolves([registration]);
+            execGitStub.resolves('git@github.com:org/repo.git\n');
+            listProjectsStub.resolves({
+                projects: [
+                    {
+                        projectId: 'project-123',
+                        workspaceRoot: '/srv/repo',
+                        projectName: 'repo',
+                        registeredAt: '2026-03-16T00:00:00.000Z',
+                    },
+                ],
+            });
+            discoveryStub.resolves({
+                projectId: 'project-123',
+                projectName: 'repo',
+                gitRemote: 'git@github.com:org/repo.git',
+                sessionCount: 0,
+                uptime: 0,
+                workspaceRoot: '/srv/repo',
+                port: 9100,
+                apiVersion: '1',
+            });
+
+            const result = await withCliDaemonTarget(
+                '/repo',
+                {
+                    host: 'https://remote.example.test/',
+                    verbose: true,
+                    trace: (message) => traceMessages.push(message),
+                },
+                {
+                    local: async () => 'local',
+                    daemon: async () => 'remote',
+                }
+            );
+
+            assert.strictEqual(result, 'remote');
+            assert.ok(
+                traceMessages.some((message) => message.includes('Resolving remote daemon project'))
+            );
+        });
+
+        test('redacts scp-style credentials from verbose remote resolution traces', async () => {
+            const registration = {
+                registrationId: 'remote-1',
+                baseUrl: 'https://remote.example.test',
+                token: 'secret',
+                registeredAt: '2026-03-16T00:00:00.000Z',
+            };
+            const traceMessages: string[] = [];
+            listRegisteredRemoteDaemonsStub.resolves([registration]);
+            execGitStub.resolves('token@github.com:org/repo.git\n');
+            listProjectsStub.resolves({
+                projects: [
+                    {
+                        projectId: 'project-123',
+                        workspaceRoot: '/srv/repo',
+                        projectName: 'repo',
+                        registeredAt: '2026-03-16T00:00:00.000Z',
+                    },
+                ],
+            });
+            discoveryStub.resolves({
+                projectId: 'project-123',
+                projectName: 'repo',
+                gitRemote: 'git@github.com:org/repo.git',
+                sessionCount: 0,
+                uptime: 0,
+                workspaceRoot: '/srv/repo',
+                port: 9100,
+                apiVersion: '1',
+            });
+
+            const result = await withCliDaemonTarget(
+                '/repo',
+                {
+                    host: 'https://remote.example.test/',
+                    verbose: true,
+                    trace: (message) => traceMessages.push(message),
+                },
+                {
+                    local: async () => 'local',
+                    daemon: async () => 'remote',
+                }
+            );
+
+            assert.strictEqual(result, 'remote');
+            assert.ok(traceMessages.some((message) => message.includes('github.com:org/repo.git')));
+            assert.ok(traceMessages.every((message) => !message.includes('token@github.com')));
         });
     });
 });

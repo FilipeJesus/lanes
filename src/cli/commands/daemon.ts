@@ -71,7 +71,8 @@ export function registerDaemonCommand(program: Command): void {
         .argument('[workspace]', 'Workspace to register (default: current directory)', '.')
         .option('--host <url>', 'Register a remote daemon by base URL instead of a local workspace')
         .option('--token <token>', 'Bearer token for the remote daemon when using --host')
-        .action(async (workspaceArg: string, options: { host?: string; token?: string }) => {
+        .option('--verbose', 'Show verbose daemon API tracing output')
+        .action(async (workspaceArg: string, options: { host?: string; token?: string; verbose?: boolean }) => {
             try {
                 if (isRemoteRegistration(options)) {
                     if (!options.token) {
@@ -80,6 +81,7 @@ export function registerDaemonCommand(program: Command): void {
                     const client = new DaemonClient({
                         baseUrl: options.host!,
                         token: options.token,
+                        verbose: options.verbose,
                     });
                     const { projects } = await client.listProjects();
                     await registerRemoteDaemon({
