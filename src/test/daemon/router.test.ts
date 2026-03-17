@@ -9,7 +9,7 @@
  *  - Auth middleware rejects requests with missing/invalid tokens
  *  - Auth middleware passes valid Bearer tokens
  *  - Session list, create, delete, and status endpoints delegate correctly
- *  - Error mapping: -32602 → 400, -32601 → 404, generic Error → 500
+ *  - Error mapping: -32602 → 400, -32601 → 404, prerequisite errors → 400, generic Error → 500
  *  - Unknown routes return 404
  *  - CORS headers are present on all responses
  *  - Config get/set endpoints delegate correctly
@@ -25,6 +25,7 @@ import * as assert from 'assert';
 import * as http from 'http';
 import * as path from 'path';
 import sinon from 'sinon';
+import { PrerequisiteError } from '../../core/errors';
 import { createRouter } from '../../daemon/router';
 import { JsonRpcHandlerError } from '../../core/services/SessionHandlerService';
 import * as gitService from '../../core/gitService';
@@ -516,6 +517,23 @@ suite('daemon router', () => {
         // Assert
         assert.strictEqual(res.status, 404);
         assert.strictEqual((res.body as { error: string }).error, 'Method not found');
+    });
+
+    test('Given a handler that throws PrerequisiteError, when called, then the router returns 400', async () => {
+        // Arrange
+        handlerService.handleSessionList.rejects(
+            new PrerequisiteError('jq is required for Lanes. Install it and try again.', ['jq'])
+        );
+
+        // Act
+        const res = await makeRequest(server, {
+            path: '/api/v1/sessions',
+            headers: { Authorization: BEARER },
+        });
+
+        // Assert
+        assert.strictEqual(res.status, 400);
+        assert.strictEqual((res.body as { error: string }).error, 'jq is required for Lanes. Install it and try again.');
     });
 
     // -------------------------------------------------------------------------

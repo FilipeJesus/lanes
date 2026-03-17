@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { CodeAgent } from '../codeAgents/CodeAgent';
+import { PrerequisiteError } from '../errors';
 import { isTmuxMode } from './TmuxService';
 
 const execFileAsync = promisify(execFile);
@@ -17,6 +18,10 @@ export interface SessionPreflightOptions {
     requireJq?: boolean;
 }
 
+export interface LanesPreflightOptions {
+    requireJq?: boolean;
+}
+
 async function isCommandAvailable(command: string): Promise<boolean> {
     try {
         await execFileAsync('which', [command], { timeout: COMMAND_CHECK_TIMEOUT_MS });
@@ -29,6 +34,22 @@ async function isCommandAvailable(command: string): Promise<boolean> {
 export const preflightDeps = {
     isCommandAvailable,
 };
+
+export async function getMissingLanesPrerequisites(
+    options: LanesPreflightOptions = {}
+): Promise<MissingPrerequisite[]> {
+    const { requireJq = true } = options;
+    const missing: MissingPrerequisite[] = [];
+
+    if (requireJq && !await preflightDeps.isCommandAvailable('jq')) {
+        missing.push({
+            command: 'jq',
+            message: 'jq is required for Lanes.',
+        });
+    }
+
+    return missing;
+}
 
 export async function getMissingSessionPrerequisites(
     options: SessionPreflightOptions
@@ -74,11 +95,27 @@ export function formatMissingPrerequisites(
     return `Missing prerequisites: ${missing.map((item) => item.message).join(' ')} Install them and try again.`;
 }
 
+function throwIfMissingPrerequisites(missing: MissingPrerequisite[]): void {
+    if (missing.length === 0) {
+        return;
+    }
+
+    throw new PrerequisiteError(
+        formatMissingPrerequisites(missing),
+        missing.map((item) => item.command)
+    );
+}
+
+export async function assertLanesPrerequisites(
+    options: LanesPreflightOptions = {}
+): Promise<void> {
+    const missing = await getMissingLanesPrerequisites(options);
+    throwIfMissingPrerequisites(missing);
+}
+
 export async function assertSessionLaunchPrerequisites(
     options: SessionPreflightOptions
 ): Promise<void> {
     const missing = await getMissingSessionPrerequisites(options);
-    if (missing.length > 0) {
-        throw new Error(formatMissingPrerequisites(missing));
-    }
+    throwIfMissingPrerequisites(missing);
 }

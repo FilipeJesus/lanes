@@ -6,6 +6,7 @@ import * as path from 'path';
 import { execGit, initializeGitPath } from '../core/gitService';
 import { fileExists } from '../core/services/FileService';
 import * as SettingsService from '../core/services/SettingsService';
+import * as PreflightService from '../core/services/PreflightService';
 import { CliConfigProvider } from './adapters/CliConfigProvider';
 import { CliGitPathResolver } from './adapters/CliGitPathResolver';
 import { setConfigCallbacks, initializeGlobalStorageContext } from '../core/session/SessionDataService';
@@ -45,6 +46,7 @@ export async function resolveRepoRoot(): Promise<string> {
  * Initialize git path resolution for CLI commands that do not need full config.
  */
 export async function initCliGit(): Promise<void> {
+    await PreflightService.assertLanesPrerequisites();
     const gitResolver = new CliGitPathResolver();
     const gitPath = await gitResolver.resolveGitPath();
     initializeGitPath(gitPath);

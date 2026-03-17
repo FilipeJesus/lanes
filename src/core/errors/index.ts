@@ -7,4 +7,5 @@
 
 export { LanesError } from './LanesError';
 export { GitError } from './GitError';
+export { PrerequisiteError } from './PrerequisiteError';
 export { ValidationError } from './ValidationError';

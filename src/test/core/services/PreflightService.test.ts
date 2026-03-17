@@ -2,8 +2,10 @@ import * as assert from 'assert';
 import sinon from 'sinon';
 import { getAgent } from '../../../core/codeAgents';
 import {
+    assertLanesPrerequisites,
     assertSessionLaunchPrerequisites,
     formatMissingPrerequisites,
+    getMissingLanesPrerequisites,
     getMissingSessionPrerequisites,
     preflightDeps,
 } from '../../../core/services/PreflightService';
@@ -77,6 +79,22 @@ suite('PreflightService', () => {
         assert.strictEqual(
             message,
             'jq is required for session tracking and workflow hooks. Install it and try again.'
+        );
+    });
+
+    test('returns no missing prerequisites when jq is installed for lanes startup', async () => {
+        const missing = await getMissingLanesPrerequisites();
+
+        assert.deepStrictEqual(missing, []);
+        sinon.assert.calledWith(isCommandAvailableStub, 'jq');
+    });
+
+    test('assertLanesPrerequisites throws a user-facing error when jq is missing', async () => {
+        isCommandAvailableStub.resolves(false);
+
+        await assert.rejects(
+            assertLanesPrerequisites(),
+            /jq is required for Lanes/
         );
     });
 });

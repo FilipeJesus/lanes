@@ -19,10 +19,26 @@ function makeApiClient(): DaemonApiClient {
                         { id: 'bypassPermissions', label: 'Bypass Permissions' },
                     ],
                 },
+                {
+                    name: 'codex',
+                    displayName: 'Codex',
+                    cliCommand: 'codex',
+                    sessionFileExtension: '.codex-session',
+                    statusFileExtension: '.codex-status',
+                    permissionModes: [
+                        { id: 'acceptEdits', label: 'Accept Edits' },
+                        { id: 'bypassPermissions', label: 'Bypass Permissions' },
+                    ],
+                },
             ],
         }),
         listWorkflows: vi.fn().mockResolvedValue({
             workflows: [{ name: 'basic-feature', description: 'A basic feature workflow' }],
+        }),
+        getAllConfig: vi.fn().mockResolvedValue({
+            config: {
+                'lanes.defaultAgent': 'codex',
+            },
         }),
         getGitBranches: vi.fn().mockResolvedValue({
             branches: [{ name: 'main', isRemote: false, isCurrent: true }],
@@ -112,7 +128,7 @@ describe('CreateSessionDialog', () => {
         await waitFor(() => {
             expect(onImprovePrompt).toHaveBeenCalledWith({
                 prompt: 'Original prompt',
-                agent: 'claude',
+                agent: 'codex',
             });
         });
 
@@ -161,13 +177,30 @@ describe('CreateSessionDialog', () => {
 
         expect(onCreate).toHaveBeenCalledWith({
             name: 'my-new-session',
-            agent: 'claude',
+            agent: 'codex',
             prompt: 'Investigate the failing UI flow',
             permissionMode: 'bypassPermissions',
             attachments: ['/tmp/notes.md'],
         });
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(screen.getByText('notes.md')).toBeInTheDocument();
+    });
+
+    it('Given a configured default agent, when the dialog loads, then that agent is selected', async () => {
+        render(
+            <CreateSessionDialog
+                isOpen={true}
+                apiClient={apiClient}
+                onClose={vi.fn()}
+                onCreate={vi.fn()}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog')).toBeInTheDocument();
+        });
+
+        expect(screen.getByLabelText(/agent/i)).toHaveValue('codex');
     });
 
     it('When user clicks cancel, then onClose is called', async () => {
