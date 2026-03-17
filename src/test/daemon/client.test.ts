@@ -909,12 +909,12 @@ suite('DaemonClient', () => {
             const helper = await startTestServer(() => ({ status: 200, body: { isValid: true, errors: [] } }));
             try {
                 const client = makeClient(helper.port());
-                const content = { name: 'my-workflow', steps: [] };
-                await client.validateWorkflow(content);
+                const body = { content: 'name: my-workflow\nsteps: []\n' };
+                await client.validateWorkflow(body);
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
                 assert.strictEqual(helper.captured[0].url, projectPath('/workflows/validate'));
-                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), content);
+                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), body);
             } finally {
                 await helper.close();
             }
@@ -922,17 +922,17 @@ suite('DaemonClient', () => {
     });
 
     suite('createWorkflow()', () => {
-        test('Given name and content, when createWorkflow() is called, then POST /api/v1/projects/:projectId/workflows is made with { name, content }', async () => {
+        test('Given name and source template, when createWorkflow() is called, then POST /api/v1/projects/:projectId/workflows is made with { name, from }', async () => {
             const helper = await startTestServer(() => ({ status: 200, body: { path: '/tmp/my-wf.yaml' } }));
             try {
                 const client = makeClient(helper.port());
-                await client.createWorkflow('my-wf', { steps: ['a', 'b'] });
+                await client.createWorkflow({ name: 'my-wf', from: 'starter' });
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
                 assert.strictEqual(helper.captured[0].url, projectPath('/workflows'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), {
                     name: 'my-wf',
-                    content: { steps: ['a', 'b'] },
+                    from: 'starter',
                 });
             } finally {
                 await helper.close();
