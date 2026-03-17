@@ -1,5 +1,4 @@
 import type { WorkflowStatus } from '../core/session/types';
-import type { CodeAgent } from '../core/codeAgents/CodeAgent';
 import { SettingsScope, SettingsView } from '../core/services/UnifiedSettingsService';
 import {
     resolveCliDaemonTarget,
@@ -45,6 +44,21 @@ export interface CliWorkflowSummary {
     isBuiltin: boolean;
 }
 
+export interface CliWorkflowValidationResult {
+    isValid: boolean;
+    errors: string[];
+}
+
+export interface CliAgentInfo {
+    name: string;
+    displayName: string;
+    permissionModes: Array<{
+        id: string;
+        label: string;
+        flag?: string;
+    }>;
+}
+
 export interface CliRepairResult {
     broken: Array<{ sessionName: string; reason: string }>;
     repaired: string[];
@@ -60,7 +74,7 @@ export interface CliOperations {
     createSession(input: {
         sessionName: string;
         sourceBranch?: string;
-        codeAgent: CodeAgent;
+        agentName: string;
         prompt?: string;
         workflow?: string;
         permissionMode: string;
@@ -73,9 +87,14 @@ export interface CliOperations {
     getSessionInsights(sessionName: string, input?: { includeJson?: boolean }): Promise<CliInsightsResult>;
     repairWorktrees(input?: { dryRun?: boolean }): Promise<CliRepairResult>;
     listWorkflows(): Promise<CliWorkflowSummary[]>;
+    createWorkflow(input: { name: string; from?: string; content?: string }): Promise<{ path: string }>;
+    validateWorkflow(input: { content?: string; workflowPath?: string }): Promise<CliWorkflowValidationResult>;
+    listAgents(): Promise<CliAgentInfo[]>;
+    getAgentConfig(agentName: string): Promise<CliAgentInfo | null>;
     listConfig(view: SettingsView): Promise<Record<string, unknown>>;
     getConfig(key: string, view: SettingsView): Promise<unknown>;
     setConfig(key: string, value: unknown, scope: SettingsScope): Promise<void>;
+    setupSessionHooks(sessionName: string): Promise<string>;
 }
 
 function createDaemonLaunchRequest(
@@ -127,7 +146,7 @@ function createDaemonCliOperations(target: CliDaemonTarget): CliOperations {
             const launch = await target.client.createSession({
                 name: input.sessionName,
                 branch: input.sourceBranch,
-                agent: input.codeAgent.name,
+                agent: input.agentName,
                 prompt: input.prompt,
                 workflow: input.workflow || undefined,
                 permissionMode: input.permissionMode,
@@ -192,6 +211,31 @@ function createDaemonCliOperations(target: CliDaemonTarget): CliOperations {
                 isBuiltin: workflow.isBuiltin,
             }));
         },
+        async createWorkflow(input) {
+            return target.client.createWorkflow(input);
+        },
+        async validateWorkflow(input) {
+            return target.client.validateWorkflow(input);
+        },
+        async listAgents() {
+            const response = await target.client.listAgents();
+            return response.agents.map((agent) => ({
+                name: agent.name,
+                displayName: agent.displayName,
+                permissionModes: agent.permissionModes,
+            }));
+        },
+        async getAgentConfig(agentName) {
+            const response = await target.client.getAgentConfig(agentName);
+            if (!response.config) {
+                return null;
+            }
+            return {
+                name: response.config.name,
+                displayName: response.config.displayName,
+                permissionModes: response.config.permissionModes,
+            };
+        },
         async listConfig(view) {
             const response = await target.client.getAllConfig(view);
             return response.config;
@@ -202,6 +246,10 @@ function createDaemonCliOperations(target: CliDaemonTarget): CliOperations {
         },
         async setConfig(key, value, scope) {
             await target.client.setConfig(key, value, scope);
+        },
+        async setupSessionHooks(sessionName) {
+            const response = await target.client.setupSessionHooks(sessionName);
+            return response.settingsPath;
         },
     };
 }

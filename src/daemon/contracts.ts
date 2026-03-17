@@ -68,6 +68,10 @@ export interface DaemonSessionStatusResponse {
     workflowStatus: WorkflowStatus | null;
 }
 
+export interface DaemonSessionHooksResponse {
+    settingsPath: string;
+}
+
 export interface DaemonSuccessResponse {
     success: true;
 }

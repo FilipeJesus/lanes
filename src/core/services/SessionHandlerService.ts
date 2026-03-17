@@ -40,6 +40,7 @@ import {
     getSessionTmuxName,
     getSessionTerminalMode,
     getSessionAgentName,
+    initializeGlobalStorageContext,
 } from '../session/SessionDataService';
 import { ValidationError } from '../errors/ValidationError';
 import * as TmuxService from './TmuxService';
@@ -48,6 +49,7 @@ import * as DiffService from './DiffService';
 import * as BrokenWorktreeService from './BrokenWorktreeService';
 import { discoverWorkflows } from '../workflow/discovery';
 import { validateWorkflow } from './WorkflowService';
+import { BLANK_WORKFLOW_TEMPLATE } from './WorkflowService';
 import { assemblePrompt, writePromptFile } from './PromptService';
 import { getAgent, getAvailableAgents } from '../codeAgents';
 import { readJson, writeJson } from './FileService';
@@ -59,6 +61,8 @@ import { generateInsights, formatInsightsReport, SessionInsights } from './Insig
 import { analyzeInsights } from './InsightsAnalyzer';
 import type { SettingsScope, SettingsView } from './UnifiedSettingsService';
 import { CodeAgent } from '../codeAgents/CodeAgent';
+import { loadWorkflowTemplateFromString, WorkflowValidationError } from '../workflow';
+import * as SettingsService from './SettingsService';
 
 const MAX_SESSION_FORM_ATTACHMENTS = 20;
 const MAX_PROMPT_IMPROVE_STDOUT = 1024 * 1024;
@@ -133,6 +137,7 @@ export const VALID_CONFIG_KEYS = [
     'lanes.worktreesFolder',
     'lanes.promptsFolder',
     'lanes.defaultAgent',
+    'lanes.permissionMode',
     'lanes.baseBranch',
     'lanes.includeUncommittedChanges',
     'lanes.localSettingsPropagation',
@@ -810,6 +815,36 @@ export class SessionHandlerService {
         return { status, workflowStatus };
     }
 
+    async handleSessionSetupHooks(params: Record<string, unknown>): Promise<unknown> {
+        const sessionName = params.sessionName as string;
+        validateSessionName(sessionName);
+
+        const worktreesFolder = getWorktreesFolder();
+        const worktreePath = path.join(this.ctx.workspaceRoot, worktreesFolder, sessionName);
+        const worktreeStats = await fs.stat(worktreePath).catch(() => null);
+
+        if (!worktreeStats?.isDirectory()) {
+            throw new JsonRpcHandlerError(-32601, `Session '${sessionName}' not found.`);
+        }
+
+        const agentName = await getSessionAgentName(worktreePath);
+        const codeAgent = getAgent(agentName) ?? undefined;
+
+        initializeGlobalStorageContext(
+            path.join(this.ctx.workspaceRoot, '.lanes'),
+            this.ctx.workspaceRoot,
+            codeAgent
+        );
+
+        const settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(
+            worktreePath,
+            undefined,
+            codeAgent
+        );
+
+        return { settingsPath };
+    }
+
     async handleSessionOpen(params: Record<string, unknown>): Promise<unknown> {
         const sessionName = params.sessionName as string;
         validateSessionName(sessionName);
@@ -1154,10 +1189,33 @@ export class SessionHandlerService {
     }
 
     async handleWorkflowValidate(params: Record<string, unknown>): Promise<unknown> {
-        const workflowPath = params.workflowPath as string;
+        const workflowPath = typeof params.workflowPath === 'string'
+            ? params.workflowPath.trim()
+            : '';
+        const content = typeof params.content === 'string'
+            ? params.content
+            : '';
 
-        if (!workflowPath) {
-            throw new Error('Missing required parameter: workflowPath');
+        if (!workflowPath && !content) {
+            throw new Error('Missing required parameter: workflowPath or content');
+        }
+
+        if (content) {
+            try {
+                loadWorkflowTemplateFromString(content);
+                return {
+                    isValid: true,
+                    errors: [],
+                };
+            } catch (error) {
+                if (error instanceof WorkflowValidationError) {
+                    return {
+                        isValid: false,
+                        errors: [error.message],
+                    };
+                }
+                throw error;
+            }
         }
 
         if (path.isAbsolute(workflowPath)) {
@@ -1187,10 +1245,15 @@ export class SessionHandlerService {
 
     async handleWorkflowCreate(params: Record<string, unknown>): Promise<unknown> {
         const name = params.name as string;
-        const content = params.content as string;
+        const from = typeof params.from === 'string' && params.from.trim() !== ''
+            ? params.from.trim()
+            : undefined;
+        let content = typeof params.content === 'string'
+            ? params.content
+            : undefined;
 
-        if (!name || !content) {
-            throw new Error('Missing required parameters: name and content');
+        if (!name) {
+            throw new Error('Missing required parameter: name');
         }
         validateWorkflowName(name);
 
@@ -1199,6 +1262,33 @@ export class SessionHandlerService {
         const workflowsDir = path.join(this.ctx.workspaceRoot, customWorkflowsFolder);
         const workflowPath = path.join(workflowsDir, `${name}.yaml`);
 
+        const existingWorkflow = await fs.access(workflowPath).then(() => true).catch(() => false);
+        if (existingWorkflow) {
+            throw new Error(`Workflow '${name}' already exists at ${workflowPath}`);
+        }
+
+        if (!content) {
+            if (from) {
+                const extensionPath = await this.resolveExtensionPath();
+                const templates = await discoverWorkflows({
+                    extensionPath,
+                    workspaceRoot: this.ctx.workspaceRoot,
+                    customWorkflowsFolder,
+                });
+                const source = templates.find((template) => template.name === from);
+                if (!source) {
+                    throw new Error(
+                        `Template '${from}' not found. Run 'lanes workflow list' to see available templates.`
+                    );
+                }
+                const sourceContent = await fs.readFile(source.path, 'utf-8');
+                content = sourceContent.replace(/^name:\s*.+$/m, `name: ${name}`);
+            } else {
+                content = BLANK_WORKFLOW_TEMPLATE.replace('name: my-workflow', `name: ${name}`);
+            }
+        }
+
+        loadWorkflowTemplateFromString(content);
         await fs.mkdir(workflowsDir, { recursive: true });
         await fs.writeFile(workflowPath, content, 'utf-8');
 

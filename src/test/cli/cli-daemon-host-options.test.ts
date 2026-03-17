@@ -5,6 +5,7 @@ import { registerConfigCommand } from '../../cli/commands/config';
 import { registerCreateCommand } from '../../cli/commands/create';
 import { registerDeleteCommand } from '../../cli/commands/delete';
 import { registerDiffCommand } from '../../cli/commands/diff';
+import { registerHooksCommand } from '../../cli/commands/hooks';
 import { registerInsightsCommand } from '../../cli/commands/insights';
 import { registerListCommand } from '../../cli/commands/list';
 import { registerOpenCommand } from '../../cli/commands/open';
@@ -41,6 +42,7 @@ function makeTargetedProgram(): Command {
     registerClearCommand(program);
     registerDiffCommand(program);
     registerInsightsCommand(program);
+    registerHooksCommand(program);
     registerConfigCommand(program);
     registerRepairCommand(program);
     registerWorkflowCommand(program);
@@ -113,6 +115,14 @@ suite('CLI daemon host options', () => {
         assertCommandHasHostOption(command, 'insights');
     });
 
+    test('hooks command exposes --host', () => {
+        const program = makeTargetedProgram();
+
+        const command = program.commands.find((entry) => entry.name() === 'hooks');
+        assert.ok(command);
+        assertCommandHasHostOption(command, 'hooks');
+    });
+
     test('config command exposes --host', () => {
         const program = makeTargetedProgram();
 
@@ -137,5 +147,25 @@ suite('CLI daemon host options', () => {
         const command = workflow.commands.find((entry) => entry.name() === 'list');
         assert.ok(command);
         assertCommandHasHostOption(command, 'workflow list');
+    });
+
+    test('workflow create exposes --host', () => {
+        const program = makeTargetedProgram();
+
+        const workflow = program.commands.find((entry) => entry.name() === 'workflow');
+        assert.ok(workflow);
+        const command = workflow.commands.find((entry) => entry.name() === 'create');
+        assert.ok(command);
+        assertCommandHasHostOption(command, 'workflow create');
+    });
+
+    test('workflow validate exposes --host', () => {
+        const program = makeTargetedProgram();
+
+        const workflow = program.commands.find((entry) => entry.name() === 'workflow');
+        assert.ok(workflow);
+        const command = workflow.commands.find((entry) => entry.name() === 'validate');
+        assert.ok(command);
+        assertCommandHasHostOption(command, 'workflow validate');
     });
 });

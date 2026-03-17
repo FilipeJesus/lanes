@@ -45,6 +45,9 @@ function makeHandlerService() {
         }),
         handleSessionDelete: sinon.stub().resolves({ success: true }),
         handleSessionGetStatus: sinon.stub().resolves({ status: 'idle', workflowStatus: null }),
+        handleSessionSetupHooks: sinon.stub().resolves({
+            settingsPath: '/test/workspace/.lanes/current-sessions/new-session/claude-settings.json',
+        }),
         handleSessionOpen: sinon.stub().resolves({
             success: true,
             worktreePath: '/test/workspace/.worktrees/new-session',
@@ -436,6 +439,20 @@ suite('daemon router', () => {
         assert.strictEqual(res.status, 200);
         assert.ok(handlerService.handleSessionGetStatus.calledOnce, 'handleSessionGetStatus should be called once');
         assert.deepStrictEqual(handlerService.handleSessionGetStatus.firstCall.args[0], {
+            sessionName: 'test-session',
+        });
+    });
+
+    test('Given POST /api/v1/sessions/test-session/hooks with valid auth, when called, then it delegates to handleSessionSetupHooks with { sessionName: "test-session" }', async () => {
+        const res = await makeRequest(server, {
+            method: 'POST',
+            path: '/api/v1/sessions/test-session/hooks',
+            headers: { Authorization: BEARER },
+        });
+
+        assert.strictEqual(res.status, 200);
+        assert.ok(handlerService.handleSessionSetupHooks.calledOnce, 'handleSessionSetupHooks should be called once');
+        assert.deepStrictEqual(handlerService.handleSessionSetupHooks.firstCall.args[0], {
             sessionName: 'test-session',
         });
     });

@@ -6,8 +6,6 @@ import { Command } from 'commander';
 import sinon from 'sinon';
 import { registerCreateCommand } from '../../../cli/commands/create';
 import * as cliUtils from '../../../cli/utils';
-import * as codeAgents from '../../../core/codeAgents';
-import * as SessionDataService from '../../../core/session/SessionDataService';
 import * as sessionLauncher from '../../../cli/sessionLauncher';
 import * as targeting from '../../../cli/targeting';
 
@@ -29,18 +27,10 @@ suite('CreateCommand', () => {
 
         sinon.stub(cliUtils, 'initCli').resolves({
             config: {
-                get: <T>(_section: string, key: string, fallback: T): T => {
-                    if (key === 'defaultAgent') { return 'claude' as T; }
-                    if (key === 'permissionMode') { return 'acceptEdits' as T; }
-                    return fallback;
-                },
+                get: <T>(_section: string, _key: string, fallback: T): T => fallback,
             } as never,
             repoRoot: tempDir,
         });
-        sinon.stub(codeAgents, 'validateAndGetAgent').resolves({
-            agent: codeAgents.getAgent('claude'),
-        });
-        sinon.stub(SessionDataService, 'initializeGlobalStorageContext').returns(undefined);
         launchCliSessionStub = sinon.stub(sessionLauncher, 'launchCliSession').resolves();
         processExitStub = sinon.stub(process, 'exit').callsFake(((code?: number) => {
             throw new Error(`process.exit:${code ?? 0}`);

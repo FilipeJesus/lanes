@@ -33,9 +33,12 @@ const DAEMON_TARGET_COMMAND_PATHS = [
     ['clear'],
     ['diff'],
     ['insights'],
+    ['hooks'],
     ['repair'],
     ['config'],
     ['workflow', 'list'],
+    ['workflow', 'create'],
+    ['workflow', 'validate'],
 ] as const;
 
 function sanitizeGitRemoteUrl(remote: string): string {

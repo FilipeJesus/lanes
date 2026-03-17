@@ -398,6 +398,18 @@ export function createRouter(
                 }
             }
 
+            // POST /api/v1/sessions/:name/hooks
+            {
+                const match = matchRoute('/sessions/:name/hooks', projectPath);
+                if (method === 'POST' && match) {
+                    const result = await handlerService.handleSessionSetupHooks({
+                        sessionName: match.params.name,
+                    });
+                    sendJson(res, 200, result);
+                    return;
+                }
+            }
+
             // POST /api/v1/sessions/:name/open
             {
                 const match = matchRoute('/sessions/:name/open', projectPath);

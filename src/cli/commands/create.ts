@@ -3,16 +3,17 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
 import { initCli, exitWithError } from '../utils';
 import { withCliOperations } from '../operations';
 import { launchCliSession } from '../sessionLauncher';
 import { validateSessionName } from '../../core/validation';
 import { validateBranchName, sanitizeSessionName, getErrorMessage } from '../../core/utils';
-import { validateAndGetAgent, getAvailableAgents } from '../../core/codeAgents';
-import {
-    initializeGlobalStorageContext,
-} from '../../core/session/SessionDataService';
+
+function normalizeStringValue(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() !== ''
+        ? value
+        : fallback;
+}
 
 export function registerCreateCommand(program: Command): void {
     program
@@ -29,23 +30,6 @@ export function registerCreateCommand(program: Command): void {
             try {
                 const { config, repoRoot } = await initCli();
 
-                // Resolve agent
-                const agentName = options.agent || config.get('lanes', 'defaultAgent', 'claude');
-                const { agent: codeAgent, warning } = await validateAndGetAgent(agentName);
-                if (warning) {
-                    exitWithError(warning);
-                }
-                if (!codeAgent) {
-                    exitWithError(`Unknown agent '${agentName}'. Available: ${getAvailableAgents().join(', ')}`);
-                }
-
-                // Re-initialize storage context with the resolved agent
-                initializeGlobalStorageContext(
-                    path.join(repoRoot, '.lanes'),
-                    repoRoot,
-                    codeAgent
-                );
-
                 // Sanitize and validate name
                 const sanitizedName = sanitizeSessionName(options.name);
                 if (!sanitizedName) {
@@ -61,18 +45,36 @@ export function registerCreateCommand(program: Command): void {
                 if (!branchValidation.valid) {
                     exitWithError(branchValidation.error || 'Invalid branch name.');
                 }
+
                 await withCliOperations(repoRoot, config, options, async (operations) => {
+                    const resolvedAgentName = normalizeStringValue(
+                        options.agent ?? await operations.getConfig('lanes.defaultAgent', 'effective'),
+                        'claude'
+                    );
+                    const agentConfig = await operations.getAgentConfig(resolvedAgentName);
+                    if (!agentConfig) {
+                        const availableAgents = await operations.listAgents();
+                        exitWithError(
+                            `Unknown agent '${resolvedAgentName}'. Available: ${availableAgents.map((agent) => agent.name).join(', ')}`
+                        );
+                    }
+
+                    const permissionMode = normalizeStringValue(
+                        options.permissionMode ?? await operations.getConfig('lanes.permissionMode', 'effective'),
+                        'acceptEdits'
+                    );
+
                     if (operations.targetKind === 'local') {
                         console.log(`Creating session '${sanitizedName}'...`);
                     }
 
                     const launch = await operations.createSession({
                         sessionName: sanitizedName,
-                        sourceBranch: options.branch,
-                        codeAgent,
+                        sourceBranch: options.branch || undefined,
+                        agentName: resolvedAgentName,
                         prompt: options.prompt,
                         workflow: options.workflow,
-                        permissionMode: options.permissionMode || config.get('lanes', 'permissionMode', 'acceptEdits'),
+                        permissionMode,
                         preferTmux: options.tmux,
                     });
 

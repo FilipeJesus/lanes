@@ -571,6 +571,25 @@ suite('DaemonClient', () => {
         });
     });
 
+    suite('setupSessionHooks()', () => {
+        test('Given session name, when setupSessionHooks() is called, then POST /api/v1/projects/:projectId/sessions/:name/hooks is made', async () => {
+            const helper = await startTestServer(() => ({
+                status: 200,
+                body: { settingsPath: '/repo/.lanes/current-sessions/my-session/claude-settings.json' },
+            }));
+            try {
+                const client = makeClient(helper.port());
+                await client.setupSessionHooks('my-session');
+
+                assert.strictEqual(helper.captured[0].method, 'POST');
+                assert.strictEqual(helper.captured[0].url, projectPath('/sessions/my-session/hooks'));
+                assert.deepStrictEqual(JSON.parse(helper.captured[0].body), {});
+            } finally {
+                await helper.close();
+            }
+        });
+    });
+
     suite('openSession()', () => {
         test('Given session name, when openSession() is called, then POST /api/v1/projects/:projectId/sessions/:name/open is made', async () => {
             const helper = await startTestServer(() => ({
@@ -909,7 +928,7 @@ suite('DaemonClient', () => {
             const helper = await startTestServer(() => ({ status: 200, body: { isValid: true, errors: [] } }));
             try {
                 const client = makeClient(helper.port());
-                const content = { name: 'my-workflow', steps: [] };
+                const content = { content: 'name: my-workflow\nsteps: []\n' };
                 await client.validateWorkflow(content);
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
@@ -926,13 +945,13 @@ suite('DaemonClient', () => {
             const helper = await startTestServer(() => ({ status: 200, body: { path: '/tmp/my-wf.yaml' } }));
             try {
                 const client = makeClient(helper.port());
-                await client.createWorkflow('my-wf', { steps: ['a', 'b'] });
+                await client.createWorkflow({ name: 'my-wf', from: 'starter' });
 
                 assert.strictEqual(helper.captured[0].method, 'POST');
                 assert.strictEqual(helper.captured[0].url, projectPath('/workflows'));
                 assert.deepStrictEqual(JSON.parse(helper.captured[0].body), {
                     name: 'my-wf',
-                    content: { steps: ['a', 'b'] },
+                    from: 'starter',
                 });
             } finally {
                 await helper.close();

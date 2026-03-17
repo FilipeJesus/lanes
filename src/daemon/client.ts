@@ -33,6 +33,7 @@ import type {
     DaemonProjectListResponse,
     DaemonRepairWorktreesResponse,
     DaemonSessionCreateResponse,
+    DaemonSessionHooksResponse,
     DaemonSessionInsightsResponse,
     DaemonSessionListResponse,
     DaemonSessionOpenResponse,
@@ -323,6 +324,17 @@ export class DaemonClient {
         );
     }
 
+    /** POST /sessions/:name/hooks (project-scoped when projectId is set) */
+    setupSessionHooks(name: string): Promise<DaemonSessionHooksResponse> {
+        return this.request<DaemonSessionHooksResponse>(
+            'POST',
+            this.projectUrl(`/sessions/${encodeURIComponent(name)}/hooks`),
+            {
+                body: {},
+            }
+        );
+    }
+
     /** POST /sessions/:name/open (project-scoped when projectId is set) */
     openSession(name: string, opts?: Record<string, unknown>): Promise<DaemonSessionOpenResponse> {
         return this.request<DaemonSessionOpenResponse>(
@@ -467,7 +479,7 @@ export class DaemonClient {
     }
 
     /** POST /api/v1/workflows/validate */
-    validateWorkflow(content: Record<string, unknown>): Promise<DaemonWorkflowValidateResponse> {
+    validateWorkflow(content: { content?: string; workflowPath?: string }): Promise<DaemonWorkflowValidateResponse> {
         return this.request<DaemonWorkflowValidateResponse>(
             'POST',
             this.projectUrl('/workflows/validate'),
@@ -476,9 +488,9 @@ export class DaemonClient {
     }
 
     /** POST /api/v1/workflows */
-    createWorkflow(name: string, content: Record<string, unknown>): Promise<DaemonWorkflowCreateResponse> {
+    createWorkflow(opts: { name: string; content?: string; from?: string }): Promise<DaemonWorkflowCreateResponse> {
         return this.request<DaemonWorkflowCreateResponse>('POST', this.projectUrl('/workflows'), {
-            body: { name, content },
+            body: opts,
         });
     }
 
