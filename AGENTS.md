@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Lanes is a cross-IDE tool for managing isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a JetBrains IDE plugin, a standalone CLI, an HTTP daemon with REST API, and a browser-based web UI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
+Lanes manages isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a standalone CLI, an HTTP daemon with REST API, and a browser-based web UI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
 
 Supported code agents: Claude Code, Codex (OpenAI), Cortex (Snowflake), Gemini (Google), OpenCode.
 
@@ -39,7 +39,6 @@ src/
 │   ├── adapters/             # CLI platform adapters
 │   └── commands/             # list, create, delete, open, diff, daemon, web, etc.
 ├── mcp/                      # MCP server (workflow tools, stdio transport)
-├── jetbrains-ide-bridge/     # JetBrains IDE HTTP bridge (thin adapter over SessionHandlerService)
 ├── test/                     # Test suite (mirrors source structure)
 └── types/                    # Global TypeScript type definitions
 
@@ -51,7 +50,6 @@ web-ui/                       # Browser dashboard (React 19 + Vite 6 + TypeScrip
 │   ├── pages/                # Dashboard, ProjectDetail, SessionDetail, WorkflowBrowser
 │   ├── utils/                # Helpers (formatUptime, etc.)
 │   └── test/                 # Vitest + Testing Library tests
-jetbrains-ide-plugin/         # Kotlin JetBrains plugin (separate Gradle build)
 scripts/                      # Build, bundle & install scripts
 docs/                         # Documentation site
 ```
@@ -60,7 +58,7 @@ docs/                         # Documentation site
 
 ### Platform Abstraction
 
-Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, JetBrains, Daemon) implements the interfaces in `src/core/interfaces/`:
+Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, Daemon) implements the interfaces in `src/core/interfaces/`:
 
 | Interface | VS Code Adapter | CLI Adapter | Daemon Adapter |
 |-----------|----------------|-------------|----------------|
@@ -77,7 +75,7 @@ Core business logic lives in `src/core/` and is platform-agnostic. Platform-spec
 
 ### Handler Layer
 
-`SessionHandlerService` (`src/core/services/SessionHandlerService.ts`) provides 28 platform-agnostic handler methods grouped into 7 categories (sessions, git, config, workflow, agents, terminals, file watching). It accepts an `IHandlerContext` and is consumed by both the JetBrains bridge (JSON-RPC) and the daemon router (REST). This avoids duplicating ~1000 lines of business logic.
+`SessionHandlerService` (`src/core/services/SessionHandlerService.ts`) provides 28 platform-agnostic handler methods grouped into 7 categories (sessions, git, config, workflow, agents, terminals, file watching). It accepts an `IHandlerContext` and is consumed by the daemon router (REST), keeping the business logic separate from the transport layer.
 
 ### Storage
 
@@ -196,7 +194,6 @@ npm run release:minor        # Minor release
 # Local install
 ./scripts/install-local-vscode.sh  # Install extension locally
 ./scripts/install-local-cli.sh     # Install CLI locally
-./scripts/install-local-idea.sh    # Install JetBrains plugin locally
 
 # Debug
 # Press F5 in VS Code to launch Extension Development Host

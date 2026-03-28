@@ -1,11 +1,9 @@
 /**
  * SessionHandlerService - Protocol-agnostic handler layer.
  *
- * Encapsulates all 27 request-handler methods that were previously
- * implemented as module-level functions in the JetBrains bridge handlers.ts.
- * By extracting this logic into a class that depends only on the
- * IHandlerContext interfaces, the same business logic can be reused by
- * both the JetBrains bridge and any future daemon/adapter.
+ * Encapsulates all request-handler methods behind a reusable service class.
+ * By depending only on the IHandlerContext interfaces, the same business
+ * logic can be reused by the daemon transport and any future adapters.
  *
  * Organises handlers into logical groups:
  *   - Sessions (session.*)
@@ -151,7 +149,7 @@ export const VALID_CONFIG_KEYS = [
 /**
  * Protocol-agnostic business-logic layer for all session/git/workflow
  * handler operations.  Constructed with a IHandlerContext and used by
- * the transport layer (JetBrains bridge, future daemon, etc.).
+ * the transport layer (daemon, tests, future adapters, etc.).
  */
 export class SessionHandlerService {
     private readonly ctx: IHandlerContext;
@@ -171,7 +169,7 @@ export class SessionHandlerService {
 
     private normalizeTerminalMode(mode: string | undefined): string {
         if (mode === 'code') {
-            // Backward compatibility for older IntelliJ values.
+            // Backward compatibility for legacy IDE-backed config values.
             return 'vscode';
         }
         return mode ?? 'vscode';

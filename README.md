@@ -6,7 +6,7 @@
 
 # Lanes: AI Project Management
 
-**Manage multiple, isolated AI coding sessions across VS Code, JetBrains IDEs, and the terminal.**
+**Manage multiple, isolated AI coding sessions across VS Code, the terminal, and a local web UI.**
 
 Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
 
@@ -38,7 +38,6 @@ Visit [our website](https://lanes.pro) for more information.
 | Platform | Status | Install |
 |----------|--------|---------|
 | **VS Code** | Stable | [Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes) · [Open VSX](https://open-vsx.org/extension/FilipeMarquesJesus/lanes) |
-| **JetBrains IDEs** | Beta | [From source](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin) |
 | **CLI** | Stable | [From source](https://github.com/FilipeJesus/lanes/tree/main/src/cli) |
 | **Web UI** | Beta | `lanes web` — [From source](https://github.com/FilipeJesus/lanes/tree/main/web-ui) |
 
@@ -46,27 +45,27 @@ Visit [our website](https://lanes.pro) for more information.
 
 ## Feature Comparison
 
-| Feature | VS Code | JetBrains (Beta) | CLI | Web UI (Beta) |
-|---------|:-------:|:-----------------:|:---:|:-------------:|
-| Create / list / delete / open sessions | ✓ | ✓ | ✓ | ✓ |
-| Clear sessions | ✓ | ✓ | ✓ | — |
-| Pin/protect sessions | ✓ | ✓ | — | ✓ |
-| View git diff | ✓ | ✓ | ✓ | ✓ |
-| Repair broken worktrees | ✓ | ✓ | ✓ | — |
-| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ | ✓ |
-| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ | ✓ |
-| MCP-based workflows | ✓ | ✓ | ✓ | — |
-| Integrated terminal | ✓ | ✓ | N/A | — |
-| Tmux backend | ✓ | ✓ | ✓ | — |
-| File attachments | ✓ | — | — | — |
-| Search in worktree | ✓ | — | — | — |
-| Chime notifications | ✓ | — | — | — |
-| Session insights | ✓ | — | ✓ | ✓ |
-| Status hooks | ✓ | ✓ | ✓ | — |
-| Local settings propagation | ✓ | ✓ | ✓ | — |
-| Multi-project dashboard | — | — | — | ✓ |
-| Real-time SSE status updates | — | — | — | ✓ |
-| Workflow visualization | — | — | — | ✓ |
+| Feature | VS Code | CLI | Web UI (Beta) |
+|---------|:-------:|:---:|:-------------:|
+| Create / list / delete / open sessions | ✓ | ✓ | ✓ |
+| Clear sessions | ✓ | ✓ | — |
+| Pin/protect sessions | ✓ | — | ✓ |
+| View git diff | ✓ | ✓ | ✓ |
+| Repair broken worktrees | ✓ | ✓ | — |
+| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ |
+| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ |
+| MCP-based workflows | ✓ | ✓ | — |
+| Integrated terminal | ✓ | N/A | — |
+| Tmux backend | ✓ | ✓ | — |
+| File attachments | ✓ | — | — |
+| Search in worktree | ✓ | — | — |
+| Chime notifications | ✓ | — | — |
+| Session insights | ✓ | ✓ | ✓ |
+| Status hooks | ✓ | ✓ | — |
+| Local settings propagation | ✓ | ✓ | — |
+| Multi-project dashboard | — | — | ✓ |
+| Real-time SSE status updates | — | — | ✓ |
+| Workflow visualization | — | — | ✓ |
 
 ---
 
@@ -118,18 +117,6 @@ Or use the local install script: `./scripts/install-local-vscode.sh`
 
 This script expects the VS Code `code` command to be available on your `PATH`.
 
-#### JetBrains IDEs (From Source)
-
-```bash
-git clone https://github.com/FilipeJesus/lanes.git
-cd lanes && npm install && npm run compile
-cd jetbrains-ide-plugin
-./gradlew buildPlugin
-# Install the plugin from jetbrains-ide-plugin/build/distributions/
-```
-
-Supports IntelliJ IDEA, WebStorm, PyCharm, GoLand, and other JetBrains 2024.1+ IDEs.
-
 #### CLI (From Source)
 
 ```bash
@@ -143,9 +130,9 @@ lanes --help
 
 ## Usage
 
-### VS Code / JetBrains
+### VS Code
 
-1. Open the **Lanes** sidebar (or tool window in JetBrains)
+1. Open the **Lanes** sidebar
 2. Fill in **Session Name** and optionally a **Starting Prompt**
 3. Click **Create Session**
 4. A terminal opens with Claude running in an isolated worktree
@@ -400,7 +387,6 @@ curl -N -H "Authorization: Bearer $TOKEN" \
 - [x] Tmux terminal backend
 - [x] Local settings propagation to worktrees
 - [x] Additional agent integrations
-- [x] JetBrains IDE plugin (beta)
 - [x] Standalone CLI
 - [x] HTTP daemon with REST API and SSE events
 - [x] Browser web UI dashboard
@@ -459,9 +445,7 @@ Please ensure your PR:
 | `src/cli/` | Standalone CLI (`lanes` command, Commander.js) |
 | `src/daemon/` | HTTP daemon (server, router, auth, lifecycle, registry, gateway, client) |
 | `src/mcp/` | MCP server for workflow tools |
-| `src/jetbrains-ide-bridge/` | JetBrains IDE HTTP bridge |
 | `web-ui/` | Browser-based dashboard (React 19 + Vite + TypeScript) |
-| `jetbrains-ide-plugin/` | JetBrains IDE plugin (Kotlin/Gradle) |
 | `src/test/` | Test suite (mirrors source structure) |
 
 ---

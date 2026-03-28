@@ -2,7 +2,7 @@
  * UnifiedSettingsService - Single source of truth for all adapter settings.
  *
  * Reads and writes a `.lanes/settings.yaml` file so that VS Code, CLI, and
- * JetBrains adapters all share the same configuration without duplicating
+ * daemon-backed tools all share the same configuration without duplicating
  * defaults or diverging formats.
  *
  * YAML structure (nested):
@@ -119,7 +119,7 @@ function nestedToFlat(
 // ---------------------------------------------------------------------------
 
 /**
- * Normalise a JetBrains flat-key map (keys like `lanes.worktreesFolder`)
+ * Normalise a legacy JetBrains flat-key map (keys like `lanes.worktreesFolder`)
  * into a nested settings object. Skips keys that don't start with `lanes.`.
  */
 function migrateJetBrainsConfig(
@@ -419,11 +419,11 @@ export class UnifiedSettingsService {
      * does not yet exist.
      *
      * Migration sources (checked in order):
-     * - `.lanes/config.json`          (CLI config, takes precedence in merge)
-     * - `.lanes/jetbrains-ide-config.json`
+     * - `.lanes/config.json`               (CLI config, takes precedence in merge)
+     * - `.lanes/jetbrains-ide-config.json` (legacy JetBrains config)
      *
-     * After migration the original files are left intact so that older adapter
-     * versions can still read them.
+     * After migration the original files are left intact so that older
+     * installs can still read them if needed.
      *
      * @param repoRoot Absolute path to the repository root.
      */
@@ -462,7 +462,7 @@ export class UnifiedSettingsService {
         }
 
         if (cliRaw) {
-            // CLI takes precedence – merge on top of JetBrains values.
+            // CLI takes precedence over legacy JetBrains values.
             merged = deepMerge(merged, migrateCliConfig(cliRaw));
         }
 

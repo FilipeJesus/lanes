@@ -2,19 +2,19 @@
  * IHandlerContext - Protocol-agnostic handler context interfaces.
  *
  * These interfaces capture exactly what the session handler layer needs
- * from the host environment (JetBrains bridge, future daemon, etc.) without
+ * from the host environment (daemon, tests, future transports, etc.) without
  * importing any platform-specific code.
  *
  * Implementations:
- *   - JetBrains bridge: ConfigStore, NotificationEmitter, FileWatchManager
- *   - Future daemon: Any class that satisfies these interfaces
+ *   - Daemon: config store, notification emitter, file watch manager
+ *   - Tests/future transports: any classes that satisfy these interfaces
  */
 
 import type { SettingsScope, SettingsView } from '../services/UnifiedSettingsService';
 
 /**
  * A simple synchronous/async key-value configuration store.
- * Mirrors the ConfigStore API used by the JetBrains bridge.
+ * Small adapter-friendly surface used by SessionHandlerService.
  */
 export interface ISimpleConfigStore {
     /** Get a configuration value by key. Returns undefined if not set. */

@@ -394,11 +394,11 @@ suite('UnifiedSettingsService', () => {
     });
 
     // -------------------------------------------------------------------------
-    // unified-settings-migrate-from-jetbrains-config
+    // unified-settings-migrate-from-legacy-jetbrains-config
     // -------------------------------------------------------------------------
 
-    suite('migrateIfNeeded() migrates from .lanes/jetbrains-ide-config.json to settings.yaml', () => {
-        test('creates settings.yaml with correct nested structure from JetBrains flat keys', async () => {
+    suite('migrateIfNeeded() migrates from legacy .lanes/jetbrains-ide-config.json to settings.yaml', () => {
+        test('creates settings.yaml with correct nested structure from legacy JetBrains flat keys', async () => {
             // Given: A .lanes/jetbrains-ide-config.json with flat keys, no settings.yaml
             const lanesDir = path.join(tempDir, '.lanes');
             fs.mkdirSync(lanesDir, { recursive: true });
@@ -416,7 +416,7 @@ suite('UnifiedSettingsService', () => {
 
             // Then: settings.yaml is created with the correct nested YAML structure
             const settingsPath = path.join(lanesDir, 'settings.yaml');
-            assert.ok(fs.existsSync(settingsPath), 'settings.yaml should be created after JetBrains migration');
+            assert.ok(fs.existsSync(settingsPath), 'settings.yaml should be created after legacy JetBrains migration');
 
             const content = fs.readFileSync(settingsPath, 'utf-8');
             const parsed = yamlParse(content) as Record<string, unknown>;

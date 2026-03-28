@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lanes - Parallel AI Coding Sessions</title>
-    <meta name="description" content="Manage multiple, isolated AI coding sessions — Claude Code, Codex CLI, Gemini CLI, and more — across VS Code, JetBrains IDEs, and the terminal. Free forever - uses your own subscriptions.">
+    <meta name="description" content="Manage multiple, isolated AI coding sessions — Claude Code, Codex CLI, Gemini CLI, and more — across VS Code, the terminal, and a local web UI. Free forever - uses your own subscriptions.">
     <link rel="icon" type="image/png" href="https://github.com/FilipeJesus/lanes/raw/main/media/lanes-default-64px.png">
 
     <!-- Fonts -->
@@ -263,7 +263,7 @@
                 </h1>
 
                 <p class="anim-fade-up delay-2 text-base sm:text-lg text-ink-muted leading-relaxed mb-8 max-w-xl mx-auto">
-                    Manage multiple, isolated AI coding sessions across VS Code, JetBrains IDEs, and the terminal.
+                    Manage multiple, isolated AI coding sessions across VS Code, the terminal, and a local web UI.
                     Claude Code, Codex CLI, and Gemini CLI out of the box.
                     No context contamination. No broken git states.
                 </p>
@@ -424,7 +424,7 @@
             <div class="text-center mb-14 sm:mb-20 reveal">
                 <p class="text-xs font-mono uppercase tracking-widest text-accent mb-3">Platforms</p>
                 <h2 class="text-3xl sm:text-4xl font-bold text-ink font-display tracking-tight mb-4">Available on your favorite tools</h2>
-                <p class="text-ink-muted max-w-lg mx-auto">Use Lanes wherever you write code — in your IDE or from the terminal.</p>
+                <p class="text-ink-muted max-w-lg mx-auto">Use Lanes wherever you write code — in your editor, terminal, or browser.</p>
             </div>
 
             <div class="grid sm:grid-cols-3 gap-4 sm:gap-5">
@@ -439,15 +439,15 @@
                     <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes" class="text-sm text-accent hover:underline font-medium">Install from Marketplace &rarr;</a>
                 </div>
 
-                <!-- JetBrains -->
+                <!-- Web UI -->
                 <div class="reveal bg-surface-0 rounded-xl border border-border p-6">
-                    <div class="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4">
-                        <svg class="w-4.5 h-4.5 text-orange-500 dark:text-orange-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    <div class="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4">
+                        <svg class="w-4.5 h-4.5 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 18h16M6 4v16m12-16v16M8 10h8v4H8z"/></svg>
                     </div>
-                    <h3 class="text-base font-bold text-ink mb-1 font-display">JetBrains IDEs</h3>
+                    <h3 class="text-base font-bold text-ink mb-1 font-display">Web UI</h3>
                     <span class="inline-block text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded mb-3">Beta</span>
-                    <p class="text-sm text-ink-muted leading-relaxed mb-4">Plugin for IntelliJ IDEA, WebStorm, PyCharm, GoLand, and other JetBrains 2024.1+ IDEs.</p>
-                    <a href="https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin" class="text-sm text-accent hover:underline font-medium">Build from source &rarr;</a>
+                    <p class="text-sm text-ink-muted leading-relaxed mb-4">Local browser dashboard for project discovery, session review, diffing, and workflow progress.</p>
+                    <a href="docs.html" class="text-sm text-accent hover:underline font-medium">See setup guide &rarr;</a>
                 </div>
 
                 <!-- CLI -->
@@ -636,11 +636,11 @@
                                 <p class="text-xs text-ink-faint">Marketplace</p>
                             </div>
                         </a>
-                        <a href="https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin" class="flex items-center gap-3 bg-surface-2 rounded-lg p-3 hover:bg-surface-3 transition-colors">
-                            <svg class="w-5 h-5 text-orange-500 dark:text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        <a href="docs.html" class="flex items-center gap-3 bg-surface-2 rounded-lg p-3 hover:bg-surface-3 transition-colors">
+                            <svg class="w-5 h-5 text-emerald-500 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 18h16M6 4v16m12-16v16M8 10h8v4H8z"/></svg>
                             <div>
-                                <p class="text-sm font-medium text-ink">JetBrains <span class="text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded ml-1">Beta</span></p>
-                                <p class="text-xs text-ink-faint">From source</p>
+                                <p class="text-sm font-medium text-ink">Web UI <span class="text-[10px] uppercase tracking-widest font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded ml-1">Beta</span></p>
+                                <p class="text-xs text-ink-faint">lanes web</p>
                             </div>
                         </a>
                         <a href="https://github.com/FilipeJesus/lanes/tree/main/src/cli" class="flex items-center gap-3 bg-surface-2 rounded-lg p-3 hover:bg-surface-3 transition-colors">
@@ -708,8 +708,8 @@
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.583 6.292L12 .708 6.417 6.292l5.583 5.584 5.583-5.584zm-5.584 7.416l-5.583 5.584L12 24.875l5.583-5.583-5.584-5.584zM24 11.708l-5.583 5.584-5.584-5.584 5.584-5.583L24 11.708zM5.583 6.125L0 11.708l5.583 5.584 5.584-5.584-5.584-5.583z"/></svg>
                     VS Code
                 </a>
-                <a href="https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin" class="inline-flex items-center justify-center gap-2 border border-border bg-surface-0 px-7 py-3.5 rounded-lg font-bold text-sm text-ink-muted hover:text-ink hover:border-ink-faint transition-colors">
-                    JetBrains IDEs
+                <a href="docs.html" class="inline-flex items-center justify-center gap-2 border border-border bg-surface-0 px-7 py-3.5 rounded-lg font-bold text-sm text-ink-muted hover:text-ink hover:border-ink-faint transition-colors">
+                    Web UI
                 </a>
                 <a href="https://github.com/FilipeJesus/lanes/tree/main/src/cli" class="inline-flex items-center justify-center gap-2 border border-border bg-surface-0 px-7 py-3.5 rounded-lg font-bold text-sm text-ink-muted hover:text-ink hover:border-ink-faint transition-colors">
                     CLI
@@ -732,7 +732,7 @@
                     <a href="https://github.com/FilipeJesus/lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">GitHub</a>
                     <a href="https://github.com/FilipeJesus/lanes/issues" class="text-xs text-ink-faint hover:text-ink transition-colors">Issues</a>
                     <a href="https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">Marketplace</a>
-                    <a href="https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin" class="text-xs text-ink-faint hover:text-ink transition-colors">JetBrains</a>
+                    <a href="https://github.com/FilipeJesus/lanes/tree/main/web-ui" class="text-xs text-ink-faint hover:text-ink transition-colors">Web UI</a>
                     <a href="https://open-vsx.org/extension/FilipeMarquesJesus/lanes" class="text-xs text-ink-faint hover:text-ink transition-colors">Open VSX</a>
                     <a href="https://www.paypal.com/donate/?business=JEYBHRR3E4PEU&no_recurring=0&item_name=Loving+Lanes?+I+am+too%21+Thank+you+so+much+for+supporting+it%27s+development.&currency_code=GBP" class="text-xs text-ink-faint hover:text-ink transition-colors">Donate</a>
                 </div>

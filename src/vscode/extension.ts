@@ -100,7 +100,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Initialize the unified settings bridge.
     // This ensures VS Code settings changes are written to .lanes/settings.yaml
-    // so that CLI and JetBrains adapters see the same configuration.
+    // so that other Lanes entry points see the same configuration.
     let configProvider = new VscodeConfigProvider();
     if (baseRepoPath) {
         try {

@@ -2,9 +2,9 @@
 
 ## Context
 
-Lanes currently has three adapter layers (VS Code, CLI, JetBrains) all calling `src/core/` directly. The vision for v2 is a **remote web UI** that can manage sessions across multiple projects via REST. This requires a standalone daemon process — something that can't live inside a VS Code extension.
+Lanes currently has multiple entry points (VS Code, CLI, and the daemon/web stack) all calling `src/core/` directly. The vision for v2 is a **remote web UI** that can manage sessions across multiple projects via REST. This requires a standalone daemon process — something that can't live inside a VS Code extension.
 
-The codebase is well-positioned: `src/core/` has zero VS Code imports, and the JetBrains bridge (`src/jetbrains-ide-bridge/handlers.ts`) already implements the full business logic surface (~1000 lines) over JSON-RPC. The plan reuses that handler logic over HTTP instead of rewriting it.
+The codebase is well-positioned: `src/core/` has zero VS Code imports, and an earlier JSON-RPC bridge already implemented the full business logic surface (~1000 lines). The plan reuses that handler logic over HTTP instead of rewriting it.
 
 ---
 
@@ -16,7 +16,7 @@ The codebase is well-positioned: `src/core/` has zero VS Code imports, and the J
 
 ### 1.1 Extract shared handler layer — DONE
 
-Extracted all 27 handler methods from the JetBrains bridge into a platform-agnostic service.
+Extracted all 27 handler methods from the earlier JSON-RPC bridge into a platform-agnostic service.
 
 **Created**:
 - `src/core/interfaces/IHandlerContext.ts` — `ISimpleConfigStore`, `INotificationEmitter`, `IFileWatchManager`, `IHandlerContext`
@@ -24,7 +24,7 @@ Extracted all 27 handler methods from the JetBrains bridge into a platform-agnos
 - Updated `src/core/interfaces/index.ts` with re-exports
 
 **Modified**:
-- `src/jetbrains-ide-bridge/handlers.ts` — reduced from ~1000 to ~120 lines. Thin adapter that builds `IHandlerContext` from bridge globals and delegates via method dispatch table.
+- Legacy JSON-RPC handler adapter — reduced from ~1000 to ~120 lines. Thin adapter that builds `IHandlerContext` from bridge globals and delegates via method dispatch table.
 
 **Security hardening applied during review**:
 - Removed non-null assertion on `codeAgent` — now throws descriptive error
@@ -104,7 +104,7 @@ Minor items deferred from code review (not blocking):
 - `POST /sessions` returns 200 instead of 201 (REST convention)
 - `lanes daemon logs` is a placeholder — consider redirecting daemon stderr to `.lanes/daemon.log`
 - `daemon stop` doesn't verify the process actually terminated before printing success
-- JetBrains bridge classes lack explicit `implements` clauses for core interfaces
+- Legacy bridge classes lack explicit `implements` clauses for core interfaces
 
 ---
 
@@ -437,7 +437,7 @@ SessionDetail workflow card enhanced with `StepProgressTracker` (using template 
 
 | Decision | Rationale |
 |----------|-----------|
-| Extract from JetBrains bridge | handlers.ts already implements every needed operation — avoids duplicating ~1000 lines of tested logic |
+| Extract from legacy bridge | Existing handlers already implement every needed operation — avoids duplicating ~1000 lines of tested logic |
 | One daemon per project | Matches Git repo isolation model. Registry provides aggregation |
 | SSE over WebSocket | Status updates are unidirectional. SSE is simpler, auto-reconnects, zero new deps. WebSocket can be added later for terminal I/O |
 | Node.js `http` over Express/Fastify | ~20 simple JSON endpoints. Zero new dependencies. Can migrate later if needed |

@@ -32,18 +32,6 @@ if [ -n "$WEB_CHANGED" ]; then
     fi
 fi
 
-# Run IntelliJ plugin tests if plugin files changed
-JB_CHANGED=$(git diff --cached --name-only -- 'jetbrains-ide-plugin/' | head -1)
-if [ -n "$JB_CHANGED" ]; then
-    echo "🧪 Running JetBrains IDE plugin tests..."
-    JAVA17_HOME="${JAVA17_HOME:-/home/linuxbrew/.linuxbrew/Cellar/openjdk@17/17.0.18/libexec}"
-    if [ -d "$JAVA17_HOME" ]; then
-        (cd jetbrains-ide-plugin && JAVA_HOME="$JAVA17_HOME" ./gradlew test) || exit 1
-    else
-        echo "⚠️  Skipping JetBrains IDE tests: Java 17 not found at $JAVA17_HOME (set JAVA17_HOME to override)"
-    fi
-fi
-
 # Rebuild docs.html if any docs source files changed
 DOCS_CHANGED=$(git diff --cached --name-only -- 'docs/docs-shell.html' 'docs/sections/' | head -1)
 if [ -n "$DOCS_CHANGED" ]; then
