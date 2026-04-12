@@ -10,7 +10,7 @@
 	},
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		"ghcr.io/devcontainers-extra/features/claude-code:1": {}
+		"ghcr.io/devcontainers-extra/features/claude-code:2": {}
 	},
 	"mounts": [
 		"source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind",
