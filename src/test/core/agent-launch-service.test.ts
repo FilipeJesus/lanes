@@ -226,7 +226,7 @@ suite('AgentLaunchService', () => {
             assert.ok(launch.command.includes('--settings'));
             assert.ok(launch.command.includes('--mcp-config'));
             assert.ok(launch.command.includes('--dangerously-skip-permissions'));
-            sinon.assert.calledWith(settingsStub, worktreePath, restoredWorkflow, agent, sinon.match.object);
+            sinon.assert.calledWith(settingsStub, worktreePath, restoredWorkflow, agent, undefined);
         });
     });
 
