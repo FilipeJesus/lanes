@@ -108,12 +108,20 @@ export class GeminiAgent extends CodeAgent {
         return parts.join(' ');
     }
 
-    buildResumeCommand(sessionId: string, _options: ResumeCommandOptions): string {
+    buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
         if (!this.isValidSessionId(sessionId)) {
             throw new Error(`Invalid session ID format: ${sessionId}. Expected UUID, numeric index, or 'latest'.`);
         }
 
-        const parts: string[] = [this.config.cliCommand, '--resume'];
+        const parts: string[] = [this.config.cliCommand];
+        if (options.permissionMode) {
+            const flag = this.getPermissionFlag(options.permissionMode);
+            if (flag) {
+                parts.push(flag);
+            }
+        }
+
+        parts.push('--resume');
         if (sessionId !== GeminiAgent.LATEST_SENTINEL) {
             parts.push(sessionId);
         }

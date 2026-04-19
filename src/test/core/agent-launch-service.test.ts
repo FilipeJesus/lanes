@@ -7,7 +7,7 @@ import * as SettingsService from '../../core/services/SettingsService';
 import * as SessionDataService from '../../core/session/SessionDataService';
 import * as discovery from '../../core/workflow/discovery';
 import { getAgent } from '../../core/codeAgents';
-import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
+import { buildAgentLaunchCommand, prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
 import type { McpConfig } from '../../core/codeAgents';
 
 suite('AgentLaunchService', () => {
@@ -200,6 +200,33 @@ suite('AgentLaunchService', () => {
             });
             assert.strictEqual(ctx.mcpConfigPath, undefined);
             assert.strictEqual(ctx.mcpConfigOverrides, undefined);
+        });
+
+        test('resume preserves restored workflow MCP + permission mode settings', async () => {
+            const agent = getAgent('claude')!;
+            const worktreePath = path.join(tempDir, 'wt');
+            const restoredWorkflow = '/repo/.lanes/workflows/existing.yaml';
+
+            sessionWorkflowStub.resolves(restoredWorkflow);
+            sessionPermissionStub.resolves('bypassPermissions');
+            sessionIdStub.resolves({
+                sessionId: '123e4567-e89b-12d3-a456-426614174000',
+                timestamp: '2026-01-01T00:00:00Z',
+            });
+
+            const ctx = await prepareAgentLaunchContext({
+                worktreePath,
+                codeAgent: agent,
+                repoRoot: '/repo',
+            });
+            const launch = await buildAgentLaunchCommand(ctx);
+
+            assert.strictEqual(launch.mode, 'resume');
+            assert.ok(launch.command.includes('--resume 123e4567-e89b-12d3-a456-426614174000'));
+            assert.ok(launch.command.includes('--settings'));
+            assert.ok(launch.command.includes('--mcp-config'));
+            assert.ok(launch.command.includes('--dangerously-skip-permissions'));
+            sinon.assert.calledWith(settingsStub, worktreePath, restoredWorkflow, agent, undefined);
         });
     });
 

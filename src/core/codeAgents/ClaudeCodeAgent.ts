@@ -140,6 +140,14 @@ export class ClaudeCodeAgent extends CodeAgent {
             parts.push(`--settings "${options.settingsPath}"`);
         }
 
+        // Add permission mode flag (allows resume to retain original mode)
+        if (options.permissionMode) {
+            const flag = this.getPermissionFlag(options.permissionMode);
+            if (flag) {
+                parts.push(flag);
+            }
+        }
+
         // Add resume flag with session ID (already validated)
         parts.push(`--resume ${sessionId}`);
 

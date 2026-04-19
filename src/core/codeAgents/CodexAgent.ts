@@ -150,16 +150,23 @@ export class CodexAgent extends CodeAgent {
      *
      * @throws Error if session ID is not a valid UUID
      */
-    buildResumeCommand(sessionId: string, _options: ResumeCommandOptions): string {
+    buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
         // Validate UUID format (throws on invalid - strict, no fallback)
         this.validateSessionId(sessionId);
 
         const parts: string[] = [this.config.cliCommand];
 
-        if (_options.mcpConfigOverrides && _options.mcpConfigOverrides.length > 0) {
-            for (const override of _options.mcpConfigOverrides) {
+        if (options.mcpConfigOverrides && options.mcpConfigOverrides.length > 0) {
+            for (const override of options.mcpConfigOverrides) {
                 const escapedOverride = this.escapeForSingleQuotes(override);
                 parts.push(`-c '${escapedOverride}'`);
+            }
+        }
+
+        if (options.permissionMode) {
+            const flag = this.getPermissionFlag(options.permissionMode);
+            if (flag) {
+                parts.push(flag);
             }
         }
 
