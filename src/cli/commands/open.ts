@@ -83,6 +83,7 @@ export async function execIntoAgent(opts: {
     if (!isNewSession && launch.sessionData?.sessionId) {
         // Resume existing session
         command = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+            permissionMode: launch.effectivePermissionMode,
             settingsPath: launch.settingsPath,
             mcpConfigPath: launch.mcpConfigPath,
             mcpConfigOverrides: launch.mcpConfigOverrides,

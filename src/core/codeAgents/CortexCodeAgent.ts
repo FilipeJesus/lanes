@@ -115,7 +115,7 @@ export class CortexCodeAgent extends CodeAgent {
         return parts.join(' ');
     }
 
-    buildResumeCommand(sessionId: string, _options: ResumeCommandOptions): string {
+    buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
         // Validate session ID to prevent command injection
         this.validateSessionId(sessionId);
 
@@ -123,6 +123,14 @@ export class CortexCodeAgent extends CodeAgent {
 
         // Cortex loads settings from well-known project paths (.cortex/settings.local.json),
         // not via a CLI flag.
+
+        // Add permission mode flag
+        if (options.permissionMode) {
+            const flag = this.getPermissionFlag(options.permissionMode);
+            if (flag) {
+                parts.push(flag);
+            }
+        }
 
         // Add resume flag with session ID (already validated)
         parts.push(`--resume ${sessionId}`);

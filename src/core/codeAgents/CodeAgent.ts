@@ -135,6 +135,9 @@ export interface StartCommandOptions {
  * Options for building a resume command
  */
 export interface ResumeCommandOptions {
+    /** Permission mode to use when resuming, if supported by the agent CLI */
+    permissionMode?: string;
+
     /** Path to settings file */
     settingsPath?: string;
 

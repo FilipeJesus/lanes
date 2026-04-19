@@ -313,6 +313,7 @@ export async function buildAgentLaunchCommand(
     if (preferResume && context.sessionData?.sessionId) {
         try {
             const command = agent.buildResumeCommand(context.sessionData.sessionId, {
+                permissionMode: context.effectivePermissionMode,
                 settingsPath: context.settingsPath,
                 mcpConfigPath: context.mcpConfigPath,
                 mcpConfigOverrides: context.mcpConfigOverrides

@@ -275,6 +275,7 @@ async function openClaudeTerminalTmux(
                 try {
                     // Use CodeAgent to build resume command
                     const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                        permissionMode: launch.effectivePermissionMode,
                         settingsPath: launch.settingsPath,
                         mcpConfigPath: launch.mcpConfigPath,
                         mcpConfigOverrides: launch.mcpConfigOverrides
@@ -492,6 +493,7 @@ export async function openAgentTerminal(
             try {
                 // Use CodeAgent to build resume command
                 const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                    permissionMode: launch.effectivePermissionMode,
                     settingsPath: launch.settingsPath,
                     mcpConfigPath: launch.mcpConfigPath,
                     mcpConfigOverrides: launch.mcpConfigOverrides
