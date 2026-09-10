@@ -1,3 +1,16 @@
+## [1.3.4](https://github.com/FilipeJesus/lanes/compare/v1.3.3...v1.3.4) (2026-09-10)
+
+### Features
+
+* add IntelliJ IDEA plugin with Node.js bridge ([#156](https://github.com/FilipeJesus/lanes/issues/156)) ([9409d74](https://github.com/FilipeJesus/lanes/commit/9409d74ee91df218001db9e6f7966575ad501a27))
+* add standalone CLI for managing sessions ([#155](https://github.com/FilipeJesus/lanes/issues/155)) ([d84b787](https://github.com/FilipeJesus/lanes/commit/d84b787fee07d07d02ff8265eb20859fac90e25d))
+* unify settings across adapters via shared settings.yaml ([#164](https://github.com/FilipeJesus/lanes/issues/164)) ([7e1dab2](https://github.com/FilipeJesus/lanes/commit/7e1dab2202a3a0465925202b94d20b65754ce6f9))
+
+### Bug Fixes
+
+* resolve deprecation warnings and all npm vulnerabilities ([#165](https://github.com/FilipeJesus/lanes/issues/165)) ([a578fc3](https://github.com/FilipeJesus/lanes/commit/a578fc3fd077de6355043d079b730cc3a941efae))
+* **resume:** preserve permission & MCP settings when resuming sessions ([#203](https://github.com/FilipeJesus/lanes/issues/203)) ([3fbe944](https://github.com/FilipeJesus/lanes/commit/3fbe94445623fea86a3d17bd08766c78e9e041b1))
+
 ## [1.3.3](https://github.com/FilipeJesus/lanes/compare/v1.3.2...v1.3.3) (2026-02-19)
 
 ### Bug Fixes
