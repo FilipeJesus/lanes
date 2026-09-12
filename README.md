@@ -6,7 +6,7 @@
 
 # Lanes: AI Project Management
 
-**Manage multiple, isolated AI coding sessions across VS Code, JetBrains IDEs, and the terminal.**
+**Manage multiple, isolated AI coding sessions across VS Code and the terminal.**
 
 Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
 
@@ -36,31 +36,30 @@ Visit [our website](https://lanes.pro) for more information.
 | Platform | Status | Install |
 |----------|--------|---------|
 | **VS Code** | Stable | [Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeMarquesJesus.lanes) · [Open VSX](https://open-vsx.org/extension/FilipeMarquesJesus/lanes) |
-| **JetBrains IDEs** | Beta | [From source](https://github.com/FilipeJesus/lanes/tree/main/jetbrains-ide-plugin) |
 | **CLI** | Stable | [From source](https://github.com/FilipeJesus/lanes/tree/main/src/cli) |
 
 ---
 
 ## Feature Comparison
 
-| Feature | VS Code | JetBrains (Beta) | CLI |
-|---------|:-------:|:-----------------:|:---:|
-| Create / list / delete / open sessions | ✓ | ✓ | ✓ |
-| Clear sessions | ✓ | ✓ | ✓ |
-| Pin/protect sessions | ✓ | ✓ | — |
-| View git diff | ✓ | ✓ | ✓ |
-| Repair broken worktrees | ✓ | ✓ | ✓ |
-| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ | ✓ |
-| Workflow templates (built-in + custom) | ✓ | ✓ | ✓ |
-| MCP-based workflows | ✓ | ✓ | ✓ |
-| Integrated terminal | ✓ | ✓ | N/A |
-| Tmux backend | ✓ | ✓ | ✓ |
-| File attachments | ✓ | — | — |
-| Search in worktree | ✓ | — | — |
-| Chime notifications | ✓ | — | — |
-| Session insights | ✓ | — | ✓ |
-| Status hooks | ✓ | ✓ | ✓ |
-| Local settings propagation | ✓ | ✓ | ✓ |
+| Feature | VS Code | CLI |
+| --------- | :-------: | :---: |
+| Create / list / delete / open sessions | ✓ | ✓ |
+| Clear sessions | ✓ | ✓ |
+| Pin/protect sessions | ✓ | — |
+| View git diff | ✓ | ✓ |
+| Repair broken worktrees | ✓ | ✓ |
+| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ |
+| Workflow templates (built-in + custom) | ✓ | ✓ |
+| MCP-based workflows | ✓ | ✓ |
+| Integrated terminal | ✓ | N/A |
+| Tmux backend | ✓ | ✓ |
+| File attachments | ✓ | — |
+| Search in worktree | ✓ | — |
+| Chime notifications | ✓ | — |
+| Session insights | ✓ | ✓ |
+| Status hooks | ✓ | ✓ |
+| Local settings propagation | ✓ | ✓ |
 
 ---
 
@@ -106,19 +105,7 @@ npm run compile && npx vsce package
 # Then install the .vsix via "Extensions: Install from VSIX..."
 ```
 
-Or use the local install script: `./scripts/install-local.sh`
-
-#### JetBrains IDEs (From Source)
-
-```bash
-git clone https://github.com/FilipeJesus/lanes.git
-cd lanes && npm install && npm run compile
-cd jetbrains-ide-plugin
-./gradlew buildPlugin
-# Install the plugin from jetbrains-ide-plugin/build/distributions/
-```
-
-Supports IntelliJ IDEA, WebStorm, PyCharm, GoLand, and other JetBrains 2024.1+ IDEs.
+Or use the local install script: `./scripts/install-local-vscode.sh`
 
 #### CLI (From Source)
 
@@ -133,9 +120,9 @@ lanes --help
 
 ## Usage
 
-### VS Code / JetBrains
+### VS Code
 
-1. Open the **Lanes** sidebar (or tool window in JetBrains)
+1. Open the **Lanes** sidebar
 2. Fill in **Session Name** and optionally a **Starting Prompt**
 3. Click **Create Session**
 4. A terminal opens with Claude running in an isolated worktree
@@ -166,7 +153,7 @@ lanes delete my-feature
 ## Commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `Lanes: Create Session` | Create a new isolated session |
 | `Lanes: Open Session` | Open/focus an existing session's terminal |
 | `Lanes: Delete Session` | Remove a session's worktree and terminal |
@@ -180,7 +167,7 @@ lanes delete my-feature
 ### CLI Commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `lanes create <name>` | Create a new isolated session |
 | `lanes list` | List all sessions |
 | `lanes open <name>` | Open/resume a session |
@@ -214,7 +201,6 @@ lanes delete my-feature
 - [x] Tmux terminal backend
 - [x] Local settings propagation to worktrees
 - [x] Additional agent integrations
-- [x] JetBrains IDE plugin (beta)
 - [x] Standalone CLI
 - [ ] Windows support
 - [ ] Multi-repo support
@@ -252,6 +238,7 @@ npm run watch     # Watch mode for development
 4. Push and open a Pull Request
 
 Please ensure your PR:
+
 - Passes all existing tests (`npm test`)
 - Includes tests for new functionality
 - Follows the existing code style (`npm run lint`)
@@ -259,7 +246,7 @@ Please ensure your PR:
 ### Project Structure
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | `src/extension.ts` | Main entry point, commands, terminal management |
 | `src/AgentSessionProvider.ts` | Active sessions tree view |
 | `src/PreviousSessionProvider.ts` | Previous sessions tree view |
@@ -273,7 +260,6 @@ Please ensure your PR:
 | `src/services/TerminalService.ts` | Terminal management abstraction |
 | `src/services/SettingsFormatService.ts` | TOML/JSON settings format handling |
 | `src/localSettings.ts` | Local settings propagation helper |
-| `jetbrains-ide-plugin/` | JetBrains IDE plugin (Kotlin/Gradle) |
 | `src/test/*.test.ts` | Test suite |
 | `package.json` | Extension manifest |
 

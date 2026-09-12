@@ -13,12 +13,15 @@
  *   callbacks so the rest of the extension reacts.
  */
 
-import * as vscode from 'vscode';
-import type { IConfigProvider } from '../../core/interfaces/IConfigProvider';
-import type { IDisposable } from '../../core/interfaces/IDisposable';
-import { UnifiedSettingsService, UNIFIED_DEFAULTS } from '../../core/services/UnifiedSettingsService';
-import { fileExists } from '../../core/services/FileService';
-import * as path from 'path';
+import * as vscode from "vscode";
+import type { IConfigProvider } from "../../core/interfaces/IConfigProvider";
+import type { IDisposable } from "../../core/interfaces/IDisposable";
+import {
+    UnifiedSettingsService,
+    UNIFIED_DEFAULTS,
+} from "../../core/services/UnifiedSettingsService";
+import { fileExists } from "../../core/services/FileService";
+import * as path from "path";
 
 /**
  * All setting keys that live under the 'lanes' section in package.json.
@@ -26,18 +29,18 @@ import * as path from 'path';
  * listening for onDidChangeConfiguration events.
  */
 const LANES_SETTING_KEYS: ReadonlyArray<string> = [
-    'worktreesFolder',
-    'defaultAgent',
-    'baseBranch',
-    'includeUncommittedChanges',
-    'localSettingsPropagation',
-    'customWorkflowsFolder',
-    'terminalMode',
-    'promptsFolder',
-    'permissionMode',
-    'workflowsEnabled',
-    'chimeSound',
-    'polling.quietThresholdMs',
+    "worktreesFolder",
+    "defaultAgent",
+    "baseBranch",
+    "includeUncommittedChanges",
+    "localSettingsPropagation",
+    "customWorkflowsFolder",
+    "terminalMode",
+    "promptsFolder",
+    "permissionMode",
+    "workflowsEnabled",
+    "chimeSound",
+    "polling.quietThresholdMs",
 ];
 
 export class VscodeConfigProvider implements IConfigProvider {
@@ -77,51 +80,65 @@ export class VscodeConfigProvider implements IConfigProvider {
 
         // Step 3 – if settings.yaml still doesn't exist after migration, seed it
         // from VS Code settings so that user-customised values are captured.
-        const settingsPath = path.join(repoRoot, '.lanes', 'settings.yaml');
-        if (!await fileExists(settingsPath)) {
+        const settingsPath = path.join(repoRoot, ".lanes", "settings.yaml");
+        if (!(await fileExists(settingsPath))) {
             await this._seedFromVscodeSettings();
         }
 
         // Step 4a – watch settings.yaml for external changes (not our own writes).
         const fileWatcherDisposable = this.service.onDidChange(async () => {
-            if (this._writingFromVscode) { return; }
+            if (this._writingFromVscode) {
+                return;
+            }
             await this.service.load(repoRoot);
             this._fireAllCallbacks();
         });
         // Wrap in a vscode.Disposable-compatible shape so it lives in ownDisposables.
         this.ownDisposables.push({
-            dispose: () => fileWatcherDisposable.dispose()
+            dispose: () => fileWatcherDisposable.dispose(),
         });
 
         // Step 4b – when VS Code settings change, batch-write to settings.yaml.
-        const vsCodeWatcher = vscode.workspace.onDidChangeConfiguration(async (event) => {
-            if (!event.affectsConfiguration('lanes')) {
-                return;
-            }
+        const vsCodeWatcher = vscode.workspace.onDidChangeConfiguration(
+            async (event) => {
+                if (!event.affectsConfiguration("lanes")) {
+                    return;
+                }
 
-            const entries: Array<{ section: string; key: string; value: unknown }> = [];
-            for (const key of LANES_SETTING_KEYS) {
-                if (event.affectsConfiguration(`lanes.${key}`)) {
-                    const vscodeValue = vscode.workspace
-                        .getConfiguration('lanes')
-                        .get<unknown>(key);
-                    if (vscodeValue !== undefined) {
-                        entries.push({ section: 'lanes', key, value: vscodeValue });
+                const entries: Array<{
+                    section: string;
+                    key: string;
+                    value: unknown;
+                }> = [];
+                for (const key of LANES_SETTING_KEYS) {
+                    if (event.affectsConfiguration(`lanes.${key}`)) {
+                        const vscodeValue = vscode.workspace
+                            .getConfiguration("lanes")
+                            .get<unknown>(key);
+                        if (vscodeValue !== undefined) {
+                            entries.push({
+                                section: "lanes",
+                                key,
+                                value: vscodeValue,
+                            });
+                        }
                     }
                 }
-            }
 
-            if (entries.length > 0) {
-                this._writingFromVscode = true;
-                try {
-                    await this.service.setMany(entries);
-                    await this.service.load(repoRoot);
-                } finally {
-                    setTimeout(() => { this._writingFromVscode = false; }, 100);
+                if (entries.length > 0) {
+                    this._writingFromVscode = true;
+                    try {
+                        await this.service.setMany(entries);
+                        await this.service.load(repoRoot);
+                    } finally {
+                        setTimeout(() => {
+                            this._writingFromVscode = false;
+                        }, 100);
+                    }
                 }
-            }
-            this._fireCallbacksForSection('lanes');
-        });
+                this._fireCallbacksForSection("lanes");
+            },
+        );
         this.ownDisposables.push(vsCodeWatcher);
     }
 
@@ -156,7 +173,7 @@ export class VscodeConfigProvider implements IConfigProvider {
         return {
             dispose: () => {
                 this.changeCallbacks.get(section)?.delete(callback);
-            }
+            },
         };
     }
 
@@ -181,20 +198,22 @@ export class VscodeConfigProvider implements IConfigProvider {
      * we don't overwrite user-managed YAML files.
      */
     private async _seedFromVscodeSettings(): Promise<void> {
-        const vsConfig = vscode.workspace.getConfiguration('lanes');
-        const entries: Array<{ section: string; key: string; value: unknown }> = [];
+        const vsConfig = vscode.workspace.getConfiguration("lanes");
+        const entries: Array<{ section: string; key: string; value: unknown }> =
+            [];
         for (const key of LANES_SETTING_KEYS) {
             const flatKey = `lanes.${key}`;
             const vscodeValue = vsConfig.get<unknown>(key);
             // Use VS Code value if available, otherwise fall back to unified default.
-            const value = vscodeValue !== undefined
-                ? vscodeValue
-                : UNIFIED_DEFAULTS[flatKey];
+            const value =
+                vscodeValue !== undefined
+                    ? vscodeValue
+                    : UNIFIED_DEFAULTS[flatKey];
             if (value !== undefined) {
-                entries.push({ section: 'lanes', key, value });
+                entries.push({ section: "lanes", key, value });
             }
         }
-        // Always write the file so CLI and JetBrains adapters can discover it.
+        // Always write the file so the CLI can discover it.
         await this.service.setMany(entries);
     }
 

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Lanes is a cross-IDE tool for managing isolated AI coding sessions using Git worktrees. It ships as a VS Code extension, a JetBrains IDE plugin, and a standalone CLI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
+Lanes manages isolated AI coding sessions using Git worktrees. It ships as a VS Code extension and a standalone CLI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
 
 Supported code agents: Claude Code, Codex (OpenAI), Cortex (Snowflake), Gemini (Google), OpenCode.
 
@@ -27,11 +27,9 @@ src/
 │   ├── adapters/             # CLI platform adapters
 │   └── commands/             # list, create, delete, open, diff, insights, etc.
 ├── mcp/                      # MCP server (workflow tools, stdio transport)
-├── jetbrains-ide-bridge/     # JetBrains IDE HTTP bridge server
 ├── test/                     # Test suite (mirrors source structure)
 └── types/                    # Global TypeScript type definitions
 
-jetbrains-ide-plugin/         # Kotlin JetBrains plugin (separate Gradle build)
 scripts/                      # Build, bundle & install scripts
 docs/                         # Documentation site
 ```
@@ -40,10 +38,10 @@ docs/                         # Documentation site
 
 ### Platform Abstraction
 
-Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code, CLI, JetBrains) implements the interfaces in `src/core/interfaces/`:
+Core business logic lives in `src/core/` and is platform-agnostic. Platform-specific code (VS Code and CLI) implements the interfaces in `src/core/interfaces/`:
 
 | Interface | VS Code Adapter | CLI Adapter |
-|-----------|----------------|-------------|
+| ----------- | ---------------- | ------------- |
 | `IConfigProvider` | `VscodeConfigProvider` | `CliConfigProvider` |
 | `IStorageProvider` | `VscodeStorageProvider` | `CliStorageProvider` |
 | `IGitPathResolver` | `VscodeGitPathResolver` | `CliGitPathResolver` |
@@ -54,6 +52,7 @@ Core business logic lives in `src/core/` and is platform-agnostic. Platform-spec
 ### Storage
 
 Session state is stored locally in the repository at `.lanes/current-sessions/<sessionName>/`. Each session has:
+
 - `.claude-session` (or agent-specific file) — session data
 - `.claude-status` (or agent-specific file) — session status
 - `workflow-state.json` — workflow state (in the worktree)
@@ -67,7 +66,7 @@ The `CodeAgent` abstract base class (`src/core/codeAgents/CodeAgent.ts`) defines
 Three separate esbuild bundles are produced:
 
 | Bundle | Entry | Output | Purpose |
-|--------|-------|--------|---------|
+| -------- | ------- | -------- | --------- |
 | Extension | `src/extension.ts` | `out/extension.bundle.js` | VS Code extension |
 | MCP Server | `src/mcp/server.ts` | `out/mcp/server.js` | Workflow MCP server |
 | CLI | `src/cli/cli.ts` | `out/cli.js` | `lanes` CLI tool |
@@ -91,6 +90,7 @@ Format: `type(scope): description`
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Examples:
+
 - `feat: add tmux terminal backend`
 - `fix(sessions): prevent duplicate worktree creation`
 - `chore: release v1.4.0`
@@ -122,7 +122,6 @@ npm run release:minor        # Minor release
 # Local install
 ./scripts/install-local-vscode.sh  # Install extension locally
 ./scripts/install-local-cli.sh     # Install CLI locally
-./scripts/install-local-idea.sh    # Install JetBrains plugin locally
 
 # Debug
 # Press F5 in VS Code to launch Extension Development Host
@@ -143,7 +142,7 @@ Lanes uses a structured workflow system managed via MCP tools. Workflow template
 ### MCP Tools
 
 | Tool | Purpose |
-|------|---------|
+| ------ | --------- |
 | `workflow_start` / `workflow_start_from_path` | Initialize a workflow |
 | `workflow_status` | Get current position and instructions |
 | `workflow_set_tasks` | Define tasks for loop steps |
@@ -164,7 +163,7 @@ When creating a session, Lanes can propagate `.claude/settings.local.json` from 
 ## Agent Summary
 
 | Agent | Purpose | When to Use |
-|-------|---------|-------------|
+| ------- | --------- | ------------- |
 | `coder` | Plan tests + implement features | Each coding task |
 | `vscode-expert` | VS Code API verification | Called by coder |
 | `shell-ops` | Git/shell safety checks | Called by coder |
