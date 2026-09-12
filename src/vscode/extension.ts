@@ -459,33 +459,6 @@ export async function activate(
     // Register all commands (session, workflow, repair)
     registerAllCommands(context, services, refreshWorkflows);
 
-    // Backward-compatible aliases (remove in next release)
-    const aliasMap: Record<string, string> = {
-        "claudeWorktrees.createSession": "lanes.createSession",
-        "claudeWorktrees.deleteSession": "lanes.deleteSession",
-        "claudeWorktrees.openSession": "lanes.openSession",
-        "claudeWorktrees.setupStatusHooks": "lanes.setupStatusHooks",
-        "claudeWorktrees.showGitChanges": "lanes.showGitChanges",
-        "claudeWorktrees.openInNewWindow": "lanes.openInNewWindow",
-        "claudeWorktrees.openPreviousSessionPrompt":
-            "lanes.openPreviousSessionPrompt",
-        "claudeWorktrees.enableChime": "lanes.enableChime",
-        "claudeWorktrees.disableChime": "lanes.disableChime",
-        "claudeWorktrees.testChime": "lanes.testChime",
-        "claudeWorktrees.clearSession": "lanes.clearSession",
-        "claudeWorktrees.createTerminal": "lanes.createTerminal",
-        "claudeWorktrees.searchInWorktree": "lanes.searchInWorktree",
-        "claudeWorktrees.openWorkflowState": "lanes.openWorkflowState",
-        "claudeWorktrees.playChime": "lanes.playChime",
-    };
-    for (const [oldId, newId] of Object.entries(aliasMap)) {
-        context.subscriptions.push(
-            vscode.commands.registerCommand(oldId, (...args: unknown[]) =>
-                vscode.commands.executeCommand(newId, ...args),
-            ),
-        );
-    }
-
     // Auto-resume session when opened in a worktree with an existing session
     if (isInWorktree && workspaceRoot) {
         const sessionData = await getSessionId(workspaceRoot);

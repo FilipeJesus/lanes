@@ -420,10 +420,10 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run bundle:extension && npm run bundle:mcp && npm run bundle:cli",
-    "bundle:extension": "node scripts/bundle-extension.mjs",
-    "bundle:mcp": "node scripts/bundle-mcp.mjs",
-    "bundle:cli": "node scripts/bundle-cli.mjs",
+    "compile": "tsc -p ./ && node scripts/bundle.mjs",
+    "bundle:extension": "node scripts/bundle.mjs extension",
+    "bundle:mcp": "node scripts/bundle.mjs mcp",
+    "bundle:cli": "node scripts/bundle.mjs cli",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -440,7 +440,6 @@
     "@commitlint/config-conventional": "^20.4.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/picomatch": "^4.0.2",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.12",
@@ -459,9 +458,7 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "chokidar": "^4.0.3",
     "commander": "^14.0.3",
-    "picomatch": "^4.0.2",
     "yaml": "^2.8.2"
   },
   "overrides": {

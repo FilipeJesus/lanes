@@ -2,7 +2,7 @@
  * MCP Workflow Control Tests
  *
  * Tests for the MCP tool handlers that control workflow execution:
- * - workflowStart
+ * - workflowStartFromPath
  * - workflowSetTasks
  * - workflowAdvance
  */
@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import {
-	workflowStart,
+	workflowStartFromPath,
 	workflowSetTasks,
 	workflowAdvance,
 } from '../../mcp/tools';
@@ -96,9 +96,9 @@ suite('MCP Workflow Control', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	suite('workflowStart', () => {
-		test('workflowStart loads template and returns status', async () => {
-			const result = await workflowStart(tempDir, 'test-workflow', templatesDir);
+	suite('workflowStartFromPath', () => {
+		test('workflowStartFromPath loads template and returns status', async () => {
+			const result = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 
 			assert.ok(result.machine);
 			assert.ok(result.status);
@@ -110,8 +110,8 @@ suite('MCP Workflow Control', () => {
 			assert.strictEqual(result.status.progress.totalSteps, 3);
 		});
 
-		test('workflowStart saves initial state to workflow-state.json', async () => {
-			await workflowStart(tempDir, 'test-workflow', templatesDir);
+		test('workflowStartFromPath saves initial state to workflow-state.json', async () => {
+			await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 
 			const statePath = path.join(tempDir, 'workflow-state.json');
 			assert.ok(fs.existsSync(statePath));
@@ -121,17 +121,17 @@ suite('MCP Workflow Control', () => {
 			assert.strictEqual(savedState.step, 'plan');
 		});
 
-		test('workflowStart works with simple workflow', async () => {
-			const result = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+		test('workflowStartFromPath works with simple workflow', async () => {
+			const result = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 
 			assert.strictEqual(result.status.step, 'step1');
 			assert.strictEqual(result.status.instructions, 'First step');
 			assert.strictEqual(result.status.progress.totalSteps, 2);
 		});
 
-		test('workflowStart throws for non-existent template', async () => {
+		test('workflowStartFromPath throws for non-existent template', async () => {
 			await assert.rejects(
-				async () => workflowStart(tempDir, 'non-existent', templatesDir),
+				async () => workflowStartFromPath(tempDir, path.join(templatesDir, 'non-existent.yaml')),
 				/ENOENT/
 			);
 		});
@@ -139,7 +139,7 @@ suite('MCP Workflow Control', () => {
 
 	suite('workflowSetTasks', () => {
 		test('workflowSetTasks sets tasks on state machine', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 
 			const tasks: Task[] = [
@@ -156,7 +156,7 @@ suite('MCP Workflow Control', () => {
 		});
 
 		test('workflowSetTasks saves state after setting tasks', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 
 			const tasks: Task[] = [
@@ -174,7 +174,7 @@ suite('MCP Workflow Control', () => {
 
 	suite('workflowAdvance', () => {
 		test('workflowAdvance advances through action steps', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 
 			const status = await workflowAdvance(machine, 'Step 1 done', tempDir);
 
@@ -183,7 +183,7 @@ suite('MCP Workflow Control', () => {
 		});
 
 		test('workflowAdvance saves state after each advance', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 
 			await workflowAdvance(machine, 'Step 1 output', tempDir);
 
@@ -194,7 +194,7 @@ suite('MCP Workflow Control', () => {
 		});
 
 		test('workflowAdvance completes workflow after last step', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 			await workflowAdvance(machine, 'Step 1 done', tempDir);
 
 			const status = await workflowAdvance(machine, 'Step 2 done', tempDir);
@@ -203,7 +203,7 @@ suite('MCP Workflow Control', () => {
 		});
 
 		test('workflowAdvance moves to cleanup step after loop completes', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 
 			const tasks: Task[] = [

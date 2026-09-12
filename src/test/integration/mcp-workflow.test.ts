@@ -733,7 +733,7 @@ steps:
 		// Start workflow to create state file
 		await workflowStartFromPath(env.worktreePath, env.workflowPath);
 
-		// Delete the state file that workflowStart created
+		// Delete the state file that workflow initialization created
 		const statePath = getStatePath(env.worktreePath);
 		fs.unlinkSync(statePath);
 

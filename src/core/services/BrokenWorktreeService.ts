@@ -8,10 +8,10 @@
  * The repair process preserves user files while recreating the git worktree structure.
  */
 
-import * as path from 'path';
-import * as fsPromises from 'fs/promises';
-import { execGit } from '../gitService';
-import { getErrorMessage } from '../utils';
+import * as path from "path";
+import * as fsPromises from "fs/promises";
+import { execGit } from "../gitService";
+import { getErrorMessage } from "../utils";
 
 /**
  * Represents a broken worktree that needs repair.
@@ -36,7 +36,10 @@ export interface BrokenWorktree {
  * @param worktreesFolder The relative path to the worktrees folder (e.g., '.worktrees')
  * @returns Array of broken worktrees that need repair
  */
-export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolder: string): Promise<BrokenWorktree[]> {
+export async function detectBrokenWorktrees(
+    baseRepoPath: string,
+    worktreesFolder: string,
+): Promise<BrokenWorktree[]> {
     const worktreesDir = path.join(baseRepoPath, worktreesFolder);
     const brokenWorktrees: BrokenWorktree[] = [];
 
@@ -53,14 +56,22 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
     try {
         entries = await fsPromises.readdir(worktreesDir);
     } catch (err) {
-        console.warn('Lanes: Failed to read worktrees directory:', getErrorMessage(err));
+        console.warn(
+            "Lanes: Failed to read worktrees directory:",
+            getErrorMessage(err),
+        );
         return brokenWorktrees;
     }
 
     // Check each entry
     for (const entry of entries) {
         // Validate entry name to prevent path traversal
-        if (!entry || entry.includes('..') || entry.includes('/') || entry.includes('\\')) {
+        if (
+            !entry ||
+            entry.includes("..") ||
+            entry.includes("/") ||
+            entry.includes("\\")
+        ) {
             continue;
         }
 
@@ -77,7 +88,7 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
         }
 
         // Check for .git file (not directory)
-        const gitPath = path.join(worktreePath, '.git');
+        const gitPath = path.join(worktreePath, ".git");
         try {
             const gitStat = await fsPromises.stat(gitPath);
 
@@ -87,7 +98,7 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
             }
 
             // .git is a file - read its content
-            const gitContent = await fsPromises.readFile(gitPath, 'utf-8');
+            const gitContent = await fsPromises.readFile(gitPath, "utf-8");
 
             // Parse the gitdir reference
             // Format: "gitdir: /path/to/.git/worktrees/<name>"
@@ -107,7 +118,7 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
                 brokenWorktrees.push({
                     path: worktreePath,
                     sessionName: entry,
-                    expectedBranch: entry // In Lanes, folder name = branch name
+                    expectedBranch: entry, // In Lanes, folder name = branch name
                 });
             }
         } catch {
@@ -125,14 +136,18 @@ export async function detectBrokenWorktrees(baseRepoPath: string, worktreesFolde
  * @param cwd The working directory (git repo root)
  * @returns A Set of branch names currently in use by worktrees
  */
-export async function getBranchesInWorktrees(cwd: string): Promise<Set<string>> {
+export async function getBranchesInWorktrees(
+    cwd: string,
+): Promise<Set<string>> {
     const branches = new Set<string>();
     try {
-        const output = await execGit(['worktree', 'list', '--porcelain'], cwd);
-        const lines = output.split('\n');
+        const output = await execGit(["worktree", "list", "--porcelain"], cwd);
+        const lines = output.split("\n");
         for (const line of lines) {
-            if (line.startsWith('branch refs/heads/')) {
-                const branchName = line.replace('branch refs/heads/', '').trim();
+            if (line.startsWith("branch refs/heads/")) {
+                const branchName = line
+                    .replace("branch refs/heads/", "")
+                    .trim();
                 if (branchName) {
                     branches.add(branchName);
                 }
@@ -151,14 +166,20 @@ export async function getBranchesInWorktrees(cwd: string): Promise<Set<string>> 
  * @returns true if the branch exists, false otherwise
  * @note Returns false for invalid branch names or on any git command failure
  */
-export async function branchExists(cwd: string, branchName: string): Promise<boolean> {
+export async function branchExists(
+    cwd: string,
+    branchName: string,
+): Promise<boolean> {
     // Validate branch name to prevent issues
     const branchNameRegex = /^[a-zA-Z0-9_\-./]+$/;
     if (!branchNameRegex.test(branchName)) {
         return false;
     }
     try {
-        await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], cwd);
+        await execGit(
+            ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
+            cwd,
+        );
         return true;
     } catch {
         return false;
@@ -181,7 +202,7 @@ export async function branchExists(cwd: string, branchName: string): Promise<boo
  */
 export async function repairWorktree(
     baseRepoPath: string,
-    brokenWorktree: BrokenWorktree
+    brokenWorktree: BrokenWorktree,
 ): Promise<{ success: boolean; error?: string }> {
     const { path: worktreePath, expectedBranch } = brokenWorktree;
 
@@ -190,7 +211,7 @@ export async function repairWorktree(
     if (!branchExistsResult) {
         return {
             success: false,
-            error: `Branch '${expectedBranch}' does not exist in the repository`
+            error: `Branch '${expectedBranch}' does not exist in the repository`,
         };
     }
 
@@ -203,15 +224,15 @@ export async function repairWorktree(
     } catch (err) {
         return {
             success: false,
-            error: `Failed to rename worktree for repair: ${getErrorMessage(err)}`
+            error: `Failed to rename worktree for repair: ${getErrorMessage(err)}`,
         };
     }
 
     // Step 4: Create a fresh worktree
     try {
         await execGit(
-            ['worktree', 'add', worktreePath, expectedBranch],
-            baseRepoPath
+            ["worktree", "add", worktreePath, expectedBranch],
+            baseRepoPath,
         );
     } catch (err) {
         // Try to restore the original directory on failure
@@ -221,13 +242,14 @@ export async function repairWorktree(
             // Restore failed - include backup location in error message
             return {
                 success: false,
-                error: `Failed to create worktree: ${getErrorMessage(err)}. ` +
-                       `WARNING: Original files backed up at ${tempPath} could not be restored.`
+                error:
+                    `Failed to create worktree: ${getErrorMessage(err)}. ` +
+                    `WARNING: Original files backed up at ${tempPath} could not be restored.`,
             };
         }
         return {
             success: false,
-            error: `Failed to create worktree: ${getErrorMessage(err)}`
+            error: `Failed to create worktree: ${getErrorMessage(err)}`,
         };
     }
 
@@ -237,7 +259,9 @@ export async function repairWorktree(
         await copyDirectoryContents(tempPath, worktreePath);
     } catch (err) {
         // Log but don't fail - the worktree is fixed, just some files might not be copied
-        console.warn(`Lanes: Failed to copy some files during repair: ${getErrorMessage(err)}`);
+        console.warn(
+            `Lanes: Failed to copy some files during repair: ${getErrorMessage(err)}`,
+        );
     }
 
     // Step 6: Remove the temp directory
@@ -245,7 +269,9 @@ export async function repairWorktree(
         await fsPromises.rm(tempPath, { recursive: true, force: true });
     } catch (err) {
         // Log but don't fail - the repair was successful
-        console.warn(`Lanes: Failed to clean up temp directory: ${getErrorMessage(err)}`);
+        console.warn(
+            `Lanes: Failed to clean up temp directory: ${getErrorMessage(err)}`,
+        );
     }
 
     return { success: true };
@@ -260,7 +286,7 @@ async function copyDirectoryContents(src: string, dest: string): Promise<void> {
 
     for (const entry of entries) {
         // Skip .git file (it was stale anyway)
-        if (entry.name === '.git') {
+        if (entry.name === ".git") {
             continue;
         }
 
@@ -291,32 +317,6 @@ async function copyDirectoryContents(src: string, dest: string): Promise<void> {
 }
 
 /**
- * Recursively copy a directory, preserving symlinks and file permissions.
- */
-async function copyDirectory(src: string, dest: string): Promise<void> {
-    await fsPromises.mkdir(dest, { recursive: true });
-    const entries = await fsPromises.readdir(src, { withFileTypes: true });
-
-    for (const entry of entries) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-
-        if (entry.isSymbolicLink()) {
-            // Preserve symbolic links
-            const linkTarget = await fsPromises.readlink(srcPath);
-            await fsPromises.symlink(linkTarget, destPath);
-        } else if (entry.isDirectory()) {
-            await copyDirectory(srcPath, destPath);
-        } else {
-            await fsPromises.copyFile(srcPath, destPath);
-            // Preserve file permissions
-            const srcStat = await fsPromises.stat(srcPath);
-            await fsPromises.chmod(destPath, srcStat.mode);
-        }
-    }
-}
-
-/**
  * Result of repairing multiple broken worktrees.
  */
 export interface RepairResult {
@@ -333,7 +333,7 @@ export interface RepairResult {
  */
 export async function repairBrokenWorktrees(
     baseRepoPath: string,
-    brokenWorktrees: BrokenWorktree[]
+    brokenWorktrees: BrokenWorktree[],
 ): Promise<RepairResult> {
     let successCount = 0;
     const failures: { sessionName: string; error: string }[] = [];
@@ -345,7 +345,7 @@ export async function repairBrokenWorktrees(
         } else {
             failures.push({
                 sessionName: brokenWorktree.sessionName,
-                error: result.error || 'Unknown error'
+                error: result.error || "Unknown error",
             });
         }
     }

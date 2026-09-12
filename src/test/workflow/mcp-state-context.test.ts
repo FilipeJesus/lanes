@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import {
-	workflowStart,
+	workflowStartFromPath,
 	workflowStatus,
 	workflowContext,
 	saveState,
@@ -108,7 +108,7 @@ suite('MCP Workflow State and Context', () => {
 
 	suite('workflowStatus', () => {
 		test('workflowStatus returns current position with context', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 
 			const status = workflowStatus(machine);
 
@@ -122,7 +122,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus returns agent info when step has agent', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 			machine.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task 1', status: 'pending' }
@@ -135,7 +135,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus sets delegate to false when no agent assigned', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 
 			const status = workflowStatus(machine);
 
@@ -144,7 +144,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus prepends delegation message to instructions when agent is assigned', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 			machine.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task 1', status: 'pending' }
@@ -159,7 +159,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus includes task context in loop step', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 			machine.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task One', status: 'pending' },
@@ -176,7 +176,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus includes sub-step progress', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Planning done');
 			machine.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task 1', status: 'pending' }
@@ -190,7 +190,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowStatus returns complete status when workflow done', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 			machine.advance('Step 1 done');
 			machine.advance('Step 2 done');
 
@@ -202,7 +202,7 @@ suite('MCP Workflow State and Context', () => {
 
 	suite('workflowContext', () => {
 		test('workflowContext returns outputs from previous steps', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 			machine.advance('Output from step 1');
 
 			const context = workflowContext(machine);
@@ -211,7 +211,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowContext returns empty object when no outputs yet', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 
 			const context = workflowContext(machine);
 
@@ -219,7 +219,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowContext includes outputs from all completed steps', async () => {
-			const { machine } = await workflowStart(tempDir, 'simple-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'simple-workflow.yaml'));
 			machine.advance('Output 1');
 			machine.advance('Output 2');
 
@@ -230,7 +230,7 @@ suite('MCP Workflow State and Context', () => {
 		});
 
 		test('workflowContext includes outputs from loop sub-steps', async () => {
-			const { machine } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine.advance('Plan output');
 			machine.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task 1', status: 'pending' }
@@ -248,7 +248,7 @@ suite('MCP Workflow State and Context', () => {
 
 	suite('State Persistence', () => {
 		test('Workflow state persists across server restarts', async () => {
-			const { machine: machine1 } = await workflowStart(tempDir, 'test-workflow', templatesDir);
+			const { machine: machine1 } = await workflowStartFromPath(tempDir, path.join(templatesDir, 'test-workflow.yaml'));
 			machine1.advance('Planning done');
 			machine1.setTasks('task_loop', [
 				{ id: 'task-1', title: 'Task 1', status: 'pending' },

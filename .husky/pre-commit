@@ -18,12 +18,4 @@ else
     npm run test || exit 1
 fi
 
-# Rebuild docs.html if any docs source files changed
-DOCS_CHANGED=$(git diff --cached --name-only -- 'docs/docs-shell.html' 'docs/sections/' | head -1)
-if [ -n "$DOCS_CHANGED" ]; then
-    echo "📄 Rebuilding docs.html..."
-    npm run build:docs --prefix docs || exit 1
-    git add docs/docs.html
-fi
-
 echo "✅ All checks passed!"
