@@ -34,3 +34,8 @@ docs/plan
 
 # IDEA
 .idea
+
+# Generated documentation
+/docs/docs.html
+/docs/blog/*.html
+/docs/blog/feed.xml

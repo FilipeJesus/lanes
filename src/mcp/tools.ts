@@ -9,14 +9,18 @@ import {
   Task,
   WorkflowStatusResponse,
   WorkflowState,
-} from '../core/workflow';
-import * as path from 'path';
-import { sanitizeSessionName } from '../core/utils';
-import { mcpAdapter } from '../core/services/McpAdapter';
-import { fileExists, ensureDir, writeJson } from '../core/services/FileService';
+} from "../core/workflow";
+import * as path from "path";
+import { sanitizeSessionName } from "../core/utils";
+import {
+  fileExists,
+  ensureDir,
+  readJson,
+  writeJson,
+} from "../core/services/FileService";
 
 /**
- * Result from workflowStart containing the machine and initial status.
+ * Result from workflowStartFromPath containing the machine and initial status.
  */
 export interface WorkflowStartResult {
   machine: WorkflowStateMachine;
@@ -29,66 +33,31 @@ export interface WorkflowStartResult {
  * @returns The absolute path to workflow-state.json
  */
 export function getStatePath(worktreePath: string): string {
-  return path.join(worktreePath, 'workflow-state.json');
+  return path.join(worktreePath, "workflow-state.json");
 }
 
 /**
  * Saves the workflow state to a file atomically.
- * Delegates to McpAdapter which uses FileService atomic write.
  * @param worktreePath - The worktree root path
  * @param state - The workflow state to save
  */
-export async function saveState(worktreePath: string, state: WorkflowState): Promise<void> {
-  await mcpAdapter.saveState(worktreePath, state);
+export async function saveState(
+  worktreePath: string,
+  state: WorkflowState,
+): Promise<void> {
+  await writeJson(getStatePath(worktreePath), state);
 }
 
 /**
  * Loads the workflow state from a file.
- * Delegates to McpAdapter which uses FileService readJson (ENOENT-safe).
  * @param worktreePath - The worktree root path
  * @returns The loaded state, or null if not found
  * @throws If file exists but cannot be read (permissions) or parsed (invalid JSON)
  */
-export async function loadState(worktreePath: string): Promise<WorkflowState | null> {
-  return await mcpAdapter.loadState(worktreePath);
-}
-
-/**
- * Initialize workflow and return first step instructions.
- * Creates a new WorkflowStateMachine from the specified template.
- *
- * @param worktreePath - The worktree root path for state persistence
- * @param workflowName - Name of the workflow template (without .yaml extension)
- * @param templatesDir - Directory containing workflow templates
- * @param summary - Optional brief summary of the user's request (max 10 words)
- * @returns The created state machine and initial status
- * @deprecated Use workflowStartFromPath instead for explicit path handling
- */
-export async function workflowStart(
+export async function loadState(
   worktreePath: string,
-  workflowName: string,
-  templatesDir: string,
-  summary?: string
-): Promise<WorkflowStartResult> {
-  // Load the workflow template
-  const templatePath = path.join(templatesDir, `${workflowName}.yaml`);
-  const template = await loadWorkflowTemplate(templatePath);
-
-  // Create new state machine
-  const machine = new WorkflowStateMachine(template);
-
-  // Start the workflow
-  const status = machine.start();
-
-  // Set summary if provided and non-empty
-  if (summary && summary.trim()) {
-    machine.setSummary(summary.trim());
-  }
-
-  // Save initial state
-  await saveState(worktreePath, machine.getState());
-
-  return { machine, status };
+): Promise<WorkflowState | null> {
+  return readJson<WorkflowState>(getStatePath(worktreePath));
 }
 
 /**
@@ -103,7 +72,7 @@ export async function workflowStart(
 export async function workflowStartFromPath(
   worktreePath: string,
   workflowPath: string,
-  summary?: string
+  summary?: string,
 ): Promise<WorkflowStartResult> {
   // Load the workflow template directly from the path
   const template = await loadWorkflowTemplate(workflowPath);
@@ -137,7 +106,7 @@ export async function workflowSetTasks(
   machine: WorkflowStateMachine,
   loopId: string,
   tasks: Task[],
-  worktreePath: string
+  worktreePath: string,
 ): Promise<void> {
   // Set tasks on the state machine
   machine.setTasks(loopId, tasks);
@@ -150,12 +119,15 @@ export async function workflowSetTasks(
  * Appends a reminder to call workflow_advance to the instructions.
  * This helps prevent Claude from stopping prematurely before completing steps.
  */
-function appendAdvanceReminder(status: WorkflowStatusResponse): WorkflowStatusResponse {
-  if (status.status !== 'running') {
+function appendAdvanceReminder(
+  status: WorkflowStatusResponse,
+): WorkflowStatusResponse {
+  if (status.status !== "running") {
     return status; // Don't add reminder if workflow is complete or failed
   }
 
-  const reminder = '\n\nIMPORTANT: When you have completed this step, you MUST call workflow_advance with a summary of what you accomplished.';
+  const reminder =
+    "\n\nIMPORTANT: When you have completed this step, you MUST call workflow_advance with a summary of what you accomplished.";
 
   return {
     ...status,
@@ -169,7 +141,9 @@ function appendAdvanceReminder(status: WorkflowStatusResponse): WorkflowStatusRe
  * @param machine - The workflow state machine
  * @returns Complete status information including step, agent, instructions, and progress
  */
-export function workflowStatus(machine: WorkflowStateMachine): WorkflowStatusResponse {
+export function workflowStatus(
+  machine: WorkflowStateMachine,
+): WorkflowStatusResponse {
   return appendAdvanceReminder(machine.getStatus());
 }
 
@@ -184,7 +158,7 @@ export function workflowStatus(machine: WorkflowStateMachine): WorkflowStatusRes
 export async function workflowAdvance(
   machine: WorkflowStateMachine,
   output: string,
-  worktreePath: string
+  worktreePath: string,
 ): Promise<WorkflowStatusResponse> {
   // Advance the workflow
   const status = machine.advance(output);
@@ -201,7 +175,9 @@ export async function workflowAdvance(
  * @param machine - The workflow state machine
  * @returns Record of outputs keyed by step/task/sub-step path
  */
-export function workflowContext(machine: WorkflowStateMachine): Record<string, string> {
+export function workflowContext(
+  machine: WorkflowStateMachine,
+): Record<string, string> {
   return machine.getContext();
 }
 
@@ -216,7 +192,7 @@ export function workflowContext(machine: WorkflowStateMachine): Record<string, s
  * @returns The path to the pending sessions directory
  */
 export function getPendingSessionsDir(repoRoot: string): string {
-  return path.join(repoRoot, '.lanes', 'pending-sessions');
+  return path.join(repoRoot, ".lanes", "pending-sessions");
 }
 
 /**
@@ -256,7 +232,7 @@ export async function createSession(
   sourceBranch: string,
   prompt?: string,
   workflow?: string,
-  repoRoot?: string
+  repoRoot?: string,
 ): Promise<CreateSessionResult> {
   try {
     // 1. Validate and sanitize the session name
@@ -264,7 +240,8 @@ export async function createSession(
     if (!sanitizedName) {
       return {
         success: false,
-        error: 'Session name contains no valid characters after sanitization. Use letters, numbers, hyphens, underscores, dots, or slashes.'
+        error:
+          "Session name contains no valid characters after sanitization. Use letters, numbers, hyphens, underscores, dots, or slashes.",
       };
     }
 
@@ -273,7 +250,8 @@ export async function createSession(
     if (!branchNameRegex.test(sourceBranch)) {
       return {
         success: false,
-        error: 'Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.'
+        error:
+          "Source branch name contains invalid characters. Use only letters, numbers, hyphens, underscores, dots, or slashes.",
       };
     }
 
@@ -281,7 +259,7 @@ export async function createSession(
     if (!repoRoot) {
       return {
         success: false,
-        error: 'Repository root path is required for session creation.'
+        error: "Repository root path is required for session creation.",
       };
     }
 
@@ -295,7 +273,7 @@ export async function createSession(
       sourceBranch,
       prompt: prompt?.trim() || undefined,
       workflow: workflow?.trim() || undefined,
-      requestedAt: new Date().toISOString()
+      requestedAt: new Date().toISOString(),
     };
 
     // 6. Write config file with unique name
@@ -306,13 +284,12 @@ export async function createSession(
     // 7. Return success
     return {
       success: true,
-      configPath
+      configPath,
     };
-
   } catch (err) {
     return {
       success: false,
-      error: `Failed to create session request: ${err instanceof Error ? err.message : String(err)}`
+      error: `Failed to create session request: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -339,14 +316,14 @@ function isValidWorktreePath(worktreePath: string): boolean {
     const pathSegments = normalizedPath.split(path.sep);
 
     // Check that the path ends with .worktrees/session-name structure
-    const worktreesIndex = pathSegments.lastIndexOf('.worktrees');
+    const worktreesIndex = pathSegments.lastIndexOf(".worktrees");
     if (worktreesIndex === -1 || worktreesIndex === pathSegments.length - 1) {
       return false; // .worktrees not found or is the last segment
     }
 
     // Ensure the session name (after .worktrees) is not empty or a parent reference
     const sessionName = pathSegments[worktreesIndex + 1];
-    if (!sessionName || sessionName === '.' || sessionName === '..') {
+    if (!sessionName || sessionName === "." || sessionName === "..") {
       return false;
     }
 
@@ -364,14 +341,14 @@ function isValidWorktreePath(worktreePath: string): boolean {
  * @returns Result object with success status
  */
 export async function clearSession(
-  worktreePath: string
+  worktreePath: string,
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     // 1. Validate worktreePath structure (path traversal protection)
     if (!isValidWorktreePath(worktreePath)) {
       return {
         success: false,
-        error: `Invalid worktree path structure: ${worktreePath}. Expected path within .worktrees/ directory.`
+        error: `Invalid worktree path structure: ${worktreePath}. Expected path within .worktrees/ directory.`,
       };
     }
 
@@ -379,20 +356,20 @@ export async function clearSession(
     if (!(await fileExists(worktreePath))) {
       return {
         success: false,
-        error: `Worktree path does not exist: ${worktreePath}`
+        error: `Worktree path does not exist: ${worktreePath}`,
       };
     }
 
     // 3. Ensure clear requests directory exists
     const repoRoot = path.dirname(path.dirname(worktreePath)); // Go up from .worktrees/session-name
-    const clearDir = path.join(repoRoot, '.lanes', 'clear-requests');
+    const clearDir = path.join(repoRoot, ".lanes", "clear-requests");
     await ensureDir(clearDir);
 
     // 4. Create config object
     const sessionName = path.basename(worktreePath);
     const config: ClearSessionConfig = {
       worktreePath,
-      requestedAt: new Date().toISOString()
+      requestedAt: new Date().toISOString(),
     };
 
     // 5. Write config file with unique name
@@ -403,13 +380,12 @@ export async function clearSession(
     // 6. Return success
     return {
       success: true,
-      message: `Session cleared for '${sessionName}'. A fresh session will start.`
+      message: `Session cleared for '${sessionName}'. A fresh session will start.`,
     };
-
   } catch (err) {
     return {
       success: false,
-      error: `Failed to request session clear: ${err instanceof Error ? err.message : String(err)}`
+      error: `Failed to request session clear: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }

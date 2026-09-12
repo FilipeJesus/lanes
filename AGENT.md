@@ -67,7 +67,7 @@ Three separate esbuild bundles are produced:
 
 | Bundle | Entry | Output | Purpose |
 | -------- | ------- | -------- | --------- |
-| Extension | `src/extension.ts` | `out/extension.bundle.js` | VS Code extension |
+| Extension | `src/vscode/extension.ts` | `out/extension.bundle.js` | VS Code extension |
 | MCP Server | `src/mcp/server.ts` | `out/mcp/server.js` | Workflow MCP server |
 | CLI | `src/cli/cli.ts` | `out/cli.js` | `lanes` CLI tool |
 

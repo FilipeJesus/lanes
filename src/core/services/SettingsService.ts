@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { execGit } from '../gitService';
 import { CodeAgent, McpConfig } from '../codeAgents';
-import { getSettingsFormat, JsonSettingsFormat } from './SettingsFormatService';
+import { getSettingsFormat } from './SettingsFormatService';
 import {
     getSessionId,
     getPromptsPath,
@@ -356,7 +356,7 @@ exit 0
     if (projectSettingsPath) {
         try {
             // Use format-aware reading to handle JSONC comments, TOML, etc.
-            const format = codeAgent ? getSettingsFormat(codeAgent) : new JsonSettingsFormat();
+            const format = getSettingsFormat(codeAgent);
             const existingSettings = await format.read(settingsFilePath);
             // Start from existing settings, then overlay hooks/mcp as needed
             for (const key of Object.keys(existingSettings)) {

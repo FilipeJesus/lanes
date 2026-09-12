@@ -10,7 +10,7 @@ import {
 } from '../../vscode/providers/AgentSessionProvider';
 import { WorkflowState, WorkflowTemplate } from '../../core/workflow/types';
 import { WorkflowStateMachine } from '../../core/workflow/state';
-import { workflowStart } from '../../mcp/tools';
+import { workflowStartFromPath } from '../../mcp/tools';
 
 suite('Workflow Summary Feature', () => {
 
@@ -82,9 +82,9 @@ suite('Workflow Summary Feature', () => {
 		});
 	});
 
-	suite('workflowStart Function', () => {
+	suite('workflowStartFromPath Function', () => {
 
-		test('workflowStart stores summary in machine state when provided', async () => {
+		test('workflowStartFromPath stores summary in machine state when provided', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'workflow-with-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -105,7 +105,7 @@ steps:
 			fs.writeFileSync(path.join(templatesDir, 'test-workflow.yaml'), templateContent, 'utf-8');
 
 			// Act
-			const result = await workflowStart(worktreePath, 'test-workflow', templatesDir, 'Add dark mode toggle');
+			const result = await workflowStartFromPath(worktreePath, path.join(templatesDir, 'test-workflow.yaml'), 'Add dark mode toggle');
 
 			// Assert
 			const state = result.machine.getState();
@@ -117,7 +117,7 @@ steps:
 			assert.strictEqual(persistedState.summary, 'Add dark mode toggle', 'Persisted state should contain the summary');
 		});
 
-		test('workflowStart does not include summary when not provided', async () => {
+		test('workflowStartFromPath does not include summary when not provided', async () => {
 			// Arrange
 			const worktreePath = path.join(tempDir, 'workflow-without-summary');
 			fs.mkdirSync(worktreePath, { recursive: true });
@@ -138,7 +138,7 @@ steps:
 			fs.writeFileSync(path.join(templatesDir, 'test-workflow.yaml'), templateContent, 'utf-8');
 
 			// Act
-			const result = await workflowStart(worktreePath, 'test-workflow', templatesDir);
+			const result = await workflowStartFromPath(worktreePath, path.join(templatesDir, 'test-workflow.yaml'));
 
 			// Assert
 			const state = result.machine.getState();

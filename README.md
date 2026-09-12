@@ -247,7 +247,7 @@ Please ensure your PR:
 
 | File | Purpose |
 | ------ | --------- |
-| `src/extension.ts` | Main entry point, commands, terminal management |
+| `src/vscode/extension.ts` | Main entry point, commands, terminal management |
 | `src/AgentSessionProvider.ts` | Active sessions tree view |
 | `src/PreviousSessionProvider.ts` | Previous sessions tree view |
 | `src/SessionFormProvider.ts` | New session form webview |
