@@ -135,56 +135,20 @@ suite('Agent Factory', () => {
 });
 
 suite('Agent Factory - CLI Availability Implementation', () => {
-    // Helper to get the source directory path (works from compiled out/ directory)
-    function getSourcePath(relativePath: string): string {
-        const fs = require('fs');
-        const path = require('path');
-
-        // __dirname in compiled code is in out/test/codeAgents/
-        // We need to go up to the workspace root and then into src/
-        const outDir = __dirname; // e.g., /path/to/out/test/codeAgents
-        const workspaceRoot = path.resolve(outDir, '../../..'); // Go up 3 levels to workspace root
-        const srcPath = path.join(workspaceRoot, 'src', relativePath);
-
-        return srcPath;
-    }
-
     test('isCliAvailable is exported function', () => {
         const { isCliAvailable } = require('../../core/codeAgents/factory');
         assert.strictEqual(typeof isCliAvailable, 'function', 'isCliAvailable should be a function');
     });
 
-    test('factory module imports execFile not exec', () => {
-        // Read the factory source to verify it uses execFile
-        const fs = require('fs');
-        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
-        const source = fs.readFileSync(factoryPath, 'utf-8');
-
-        assert.ok(source.includes('import { exec }'), 'Should import exec from child_process');
+    test('isCliAvailable finds commands on PATH', async () => {
+        const { isCliAvailable } = require('../../core/codeAgents/factory');
+        assert.strictEqual(await isCliAvailable('node'), true);
+        assert.strictEqual(await isCliAvailable('lanes-command-that-does-not-exist'), false);
     });
 
-    test('isCliAvailable uses exec with command -v', () => {
-        // Read the factory source to verify implementation
-        const fs = require('fs');
-        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
-        const source = fs.readFileSync(factoryPath, 'utf-8');
-
-        // Look for the isCliAvailable function implementation
-        const functionMatch = source.match(/export async function isCliAvailable[\s\S]*?\{[\s\S]*?\n\}/);
-        assert.ok(functionMatch, 'Should find isCliAvailable function');
-        const functionBody = functionMatch[0];
-
-        // Ensure the function uses exec with 'command -v' (avoids DEP0190 warning)
-        assert.ok(functionBody.includes('exec('), 'Function should use exec');
-        assert.ok(functionBody.includes('command -v'), 'Function should use command -v');
-    });
-
-    test('isCliAvailable does not hardcode shell path', () => {
-        // Read the factory source to verify no hardcoded shell path
-        const fs = require('fs');
-        const factoryPath = getSourcePath('core/codeAgents/factory.ts');
-        const source = fs.readFileSync(factoryPath, 'utf-8');
-
-        assert.ok(!source.includes("shell: '/bin/sh'"), 'Should not hardcode shell path');
+    test('isCliAvailable rejects paths and shell input', async () => {
+        const { isCliAvailable } = require('../../core/codeAgents/factory');
+        assert.strictEqual(await isCliAvailable('/bin/node'), false);
+        assert.strictEqual(await isCliAvailable('node; echo unsafe'), false);
     });
 });

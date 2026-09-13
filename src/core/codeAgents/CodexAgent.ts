@@ -278,7 +278,7 @@ export class CodexAgent extends CodeAgent {
     buildMcpOverrides(mcpConfig: McpConfig): string[] {
         const overrides: string[] = [];
         for (const [name, server] of Object.entries(mcpConfig.mcpServers)) {
-            const safeName = /^[A-Za-z0-9_-]+$/.test(name) ? name : `"${name.replace(/"/g, '\\"')}"`;
+            const safeName = /^[A-Za-z0-9_-]+$/.test(name) ? name : JSON.stringify(name);
             overrides.push(`mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`);
             overrides.push(`mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`);
         }

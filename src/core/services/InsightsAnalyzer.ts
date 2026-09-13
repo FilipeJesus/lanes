@@ -1,4 +1,4 @@
-import { SessionInsights } from './InsightsService';
+import type { SessionInsights } from './InsightsService';
 
 export interface AnalysisResult {
     efficiency: EfficiencyMetrics;

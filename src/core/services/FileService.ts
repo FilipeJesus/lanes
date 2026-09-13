@@ -94,7 +94,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
  * @returns The file content as a string
  */
 export async function readFile(filePath: string): Promise<string> {
-    return await fs.readFile(filePath, 'utf-8');
+    return fs.readFile(filePath, 'utf-8');
 }
 
 /**

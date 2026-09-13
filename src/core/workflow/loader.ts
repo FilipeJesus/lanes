@@ -287,7 +287,7 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
     validateWorkflowStep(i, value.steps[i]);
   }
 
-  // Cast to WorkflowTemplate for reference validation
+  // SAFETY: Every WorkflowTemplate field has been validated above before reference checks.
   const template = value as unknown as WorkflowTemplate;
 
   // Validate cross-references

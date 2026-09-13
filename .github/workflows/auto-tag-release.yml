@@ -16,12 +16,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Extract version and create tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
           echo "Tagging ${TAG}"
-          git tag "$TAG"
-          git push origin "$TAG"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="${GITHUB_SHA}"

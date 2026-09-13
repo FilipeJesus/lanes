@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import { readDir, readFile } from './FileService';
-import { AnalysisResult } from './InsightsAnalyzer';
+import type { AnalysisResult } from './InsightsAnalyzer';
 
 export interface ConversationData {
     sessionId: string;

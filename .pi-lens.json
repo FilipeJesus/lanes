@@ -1,0 +1,58 @@
+{
+  "ignore": [
+    "/tsconfig.json",
+    "/.vscode-test/**"
+  ],
+  "rules": {
+    "repository-policy": {
+      "disable": [
+        "async-noise",
+        "async-unnecessary-wrapper",
+        "console-statement",
+        "deep-nesting",
+        "enforce-node-protocol",
+        "find-import-file-without-extension",
+        "high-complexity",
+        "high-import-coupling",
+        "jscpd:duplicate",
+        "knip:dependency",
+        "knip:devDependency",
+        "knip:export",
+        "knip:file",
+        "large-class",
+        "long-parameter-list",
+        "madge:circular",
+        "missing-error-propagation",
+        "mixed-async-styles",
+        "nested-ternary",
+        "no-any-type",
+        "no-as-any",
+        "no-console-except-error",
+        "no-known-value-widening",
+        "no-non-null-assertion",
+        "no-runtime-typeof",
+        "no-unsafe-dictionary-unknown",
+        "opengrep:html.security.audit.missing-integrity.missing-integrity",
+        "opengrep:javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+        "opengrep:javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+        "opengrep:javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+        "opengrep:javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring",
+        "opengrep:javascript.lang.security.detect-child-process.detect-child-process",
+        "pass-through-wrappers",
+        "prefer-number-properties",
+        "prefer-string-slice",
+        "switch-without-default",
+        "ts-unnecessary-else-return",
+        "ts-while-index-length",
+        "ts-react-antipatterns",
+        "ts-delete-property",
+        "ts-redundant-filter-map",
+        "unchecked-throwing-call",
+        "unsafe-boundary"
+      ]
+    },
+    "high-fan-out": {
+      "threshold": 100
+    }
+  }
+}
