@@ -1,7 +1,7 @@
-import * as os from 'os';
-import * as path from 'path';
-import { readDir, readFile } from './FileService';
-import type { AnalysisResult } from './InsightsAnalyzer';
+import * as os from "os";
+import * as path from "path";
+import { readDir, readFile } from "./FileService";
+import type { AnalysisResult } from "./InsightsAnalyzer";
 
 export interface ConversationData {
     sessionId: string;
@@ -20,7 +20,11 @@ export interface ConversationData {
     model: string;
     toolErrors: { tool: string; error: string }[];
     toolSequence: string[];
-    fileOperations: { file: string; operation: 'Read' | 'Edit' | 'Write' | 'Glob' | 'Grep'; count: number }[];
+    fileOperations: {
+        file: string;
+        operation: "Read" | "Edit" | "Write" | "Glob" | "Grep";
+        count: number;
+    }[];
     subAgentDelegations: { type: string; description: string }[];
     costEstimate: { inputCost: number; outputCost: number; totalCost: number };
 }
@@ -40,26 +44,33 @@ export interface SessionInsights {
     earliestTimestamp: string | null;
     latestTimestamp: string | null;
     totalToolErrors: { tool: string; error: string }[];
-    totalFileOperations: Map<string, { reads: number; edits: number; writes: number }>;
+    totalFileOperations: Map<
+        string,
+        { reads: number; edits: number; writes: number }
+    >;
     totalSubAgentDelegations: { type: string; count: number }[];
 }
 
 export function getClaudeProjectDir(worktreePath: string): string {
-    const hash = worktreePath.replace(/[/.]/g, '-');
-    return path.join(os.homedir(), '.claude', 'projects', hash);
+    const hash = worktreePath.replace(/[/.]/g, "-");
+    return path.join(os.homedir(), ".claude", "projects", hash);
 }
 
-function calculateCostEstimate(model: string, inputTokens: number, outputTokens: number): { inputCost: number; outputCost: number; totalCost: number } {
+function calculateCostEstimate(
+    model: string,
+    inputTokens: number,
+    outputTokens: number,
+): { inputCost: number; outputCost: number; totalCost: number } {
     let inputPricePerMillion = 3;
     let outputPricePerMillion = 15;
 
-    if (model.includes('claude-opus-4')) {
+    if (model.includes("claude-opus-4")) {
         inputPricePerMillion = 15;
         outputPricePerMillion = 75;
-    } else if (model.includes('claude-haiku-3-5')) {
-        inputPricePerMillion = 0.80;
+    } else if (model.includes("claude-haiku-3-5")) {
+        inputPricePerMillion = 0.8;
         outputPricePerMillion = 4;
-    } else if (model.includes('claude-sonnet-4')) {
+    } else if (model.includes("claude-sonnet-4")) {
         inputPricePerMillion = 3;
         outputPricePerMillion = 15;
     }
@@ -71,11 +82,13 @@ function calculateCostEstimate(model: string, inputTokens: number, outputTokens:
     return { inputCost, outputCost, totalCost };
 }
 
-export async function parseConversationFile(filePath: string): Promise<ConversationData> {
+export async function parseConversationFile(
+    filePath: string,
+): Promise<ConversationData> {
     const content = await readFile(filePath);
-    const lines = content.split('\n').filter(l => l.trim());
+    const lines = content.split("\n").filter((l) => l.trim());
 
-    const sessionId = path.basename(filePath, '.jsonl');
+    const sessionId = path.basename(filePath, ".jsonl");
     let firstTimestamp: string | null = null;
     let lastTimestamp: string | null = null;
     let userMessageCount = 0;
@@ -88,7 +101,7 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     let totalCacheReadTokens = 0;
     let totalDurationMs = 0;
     const userPromptPreviews: string[] = [];
-    let model = '';
+    let model = "";
     const toolErrors: { tool: string; error: string }[] = [];
     const toolSequence: string[] = [];
     const fileOperationsMap = new Map<string, Map<string, number>>();
@@ -100,7 +113,7 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     // and take token usage from the last entry in the group.
     let inAssistantTurn = false;
     let turnUsage: Record<string, number> | undefined;
-    let turnModel = '';
+    let turnModel = "";
     const turnToolNames: string[] = [];
     const turnSkillNames: string[] = [];
     const turnMcpNames: string[] = [];
@@ -108,12 +121,17 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     const toolIdToName = new Map<string, string>();
 
     function finalizeAssistantTurn(): void {
-        if (!inAssistantTurn) { return; }
+        if (!inAssistantTurn) {
+            return;
+        }
         assistantTurnCount++;
-        if (!model && turnModel) { model = turnModel; }
+        if (!model && turnModel) {
+            model = turnModel;
+        }
         if (turnUsage) {
-            totalInputTokens += (turnUsage.input_tokens || 0)
-                + (turnUsage.cache_creation_input_tokens || 0);
+            totalInputTokens +=
+                (turnUsage.input_tokens || 0) +
+                (turnUsage.cache_creation_input_tokens || 0);
             totalOutputTokens += turnUsage.output_tokens || 0;
             totalCacheReadTokens += turnUsage.cache_read_input_tokens || 0;
         }
@@ -128,7 +146,7 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
         }
         inAssistantTurn = false;
         turnUsage = undefined;
-        turnModel = '';
+        turnModel = "";
         turnToolNames.length = 0;
         turnSkillNames.length = 0;
         turnMcpNames.length = 0;
@@ -155,83 +173,116 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
         const type = entry.type as string | undefined;
 
         // Progress entries can appear mid-turn; don't finalize on them.
-        if (type === 'progress' || type === 'file-history-snapshot') {
+        if (type === "progress" || type === "file-history-snapshot") {
             continue;
         }
 
-        if (type === 'user') {
+        if (type === "user") {
             finalizeAssistantTurn();
 
             const msg = entry.message as Record<string, unknown> | undefined;
-            if (!msg) { continue; }
+            if (!msg) {
+                continue;
+            }
             const msgContent = msg.content;
             // Only count human-typed messages (string content), not tool results (array content)
-            if (typeof msgContent === 'string') {
+            if (typeof msgContent === "string") {
                 userMessageCount++;
                 userPromptPreviews.push(msgContent.slice(0, 200));
             } else if (Array.isArray(msgContent)) {
                 // Check if this is a human message with text content (not tool_result)
                 const hasToolResult = msgContent.some(
-                    (c: Record<string, unknown>) => c.type === 'tool_result'
+                    (c: Record<string, unknown>) => c.type === "tool_result",
                 );
                 if (!hasToolResult) {
                     const textParts = msgContent
-                        .filter((c: Record<string, unknown>) => c.type === 'text')
+                        .filter(
+                            (c: Record<string, unknown>) => c.type === "text",
+                        )
                         .map((c: Record<string, unknown>) => c.text as string);
                     if (textParts.length > 0) {
                         userMessageCount++;
-                        userPromptPreviews.push(textParts.join(' ').slice(0, 200));
+                        userPromptPreviews.push(
+                            textParts.join(" ").slice(0, 200),
+                        );
                     }
                 } else {
                     // Extract tool errors from tool_result entries
                     for (const block of msgContent) {
-                        if (block.type === 'tool_result') {
-                            const toolId = block.tool_use_id as string | undefined;
-                            const isError = block.is_error as boolean | undefined;
+                        if (block.type === "tool_result") {
+                            const toolId = block.tool_use_id as
+                                | string
+                                | undefined;
+                            const isError = block.is_error as
+                                | boolean
+                                | undefined;
                             const content = block.content;
 
                             if (isError && toolId) {
-                                const toolName = toolIdToName.get(toolId) || 'unknown';
-                                let errorText = '';
+                                const toolName =
+                                    toolIdToName.get(toolId) || "unknown";
+                                let errorText = "";
 
-                                if (typeof content === 'string') {
+                                if (typeof content === "string") {
                                     errorText = content;
                                 } else if (Array.isArray(content)) {
                                     // Extract text from content blocks
                                     errorText = content
-                                        .filter((c: Record<string, unknown>) => c.type === 'text')
-                                        .map((c: Record<string, unknown>) => c.text as string)
-                                        .join(' ');
+                                        .filter(
+                                            (c: Record<string, unknown>) =>
+                                                c.type === "text",
+                                        )
+                                        .map(
+                                            (c: Record<string, unknown>) =>
+                                                c.text as string,
+                                        )
+                                        .join(" ");
                                 }
 
                                 if (errorText) {
-                                    toolErrors.push({ tool: toolName, error: errorText });
+                                    toolErrors.push({
+                                        tool: toolName,
+                                        error: errorText,
+                                    });
                                 }
                             }
                         }
                     }
                 }
             }
-        } else if (type === 'assistant') {
+        } else if (type === "assistant") {
             const msg = entry.message as Record<string, unknown> | undefined;
-            if (!msg) { continue; }
+            if (!msg) {
+                continue;
+            }
 
             inAssistantTurn = true;
 
-            if (msg.model) { turnModel = msg.model as string; }
+            if (msg.model) {
+                turnModel = msg.model as string;
+            }
 
             // Always update usage — the last entry in the group has the
             // final accumulated values for the turn.
             const usage = msg.usage as Record<string, number> | undefined;
-            if (usage) { turnUsage = usage; }
+            if (usage) {
+                turnUsage = usage;
+            }
 
-            const contentArr = msg.content as Array<Record<string, unknown>> | undefined;
+            const contentArr = msg.content as
+                | Array<Record<string, unknown>>
+                | undefined;
             if (contentArr) {
                 for (const block of contentArr) {
-                    if (block.type === 'tool_use' && typeof block.name === 'string') {
+                    if (
+                        block.type === "tool_use" &&
+                        typeof block.name === "string"
+                    ) {
                         const toolName = block.name as string;
                         const toolId = block.id as string | undefined;
-                        const input = block.input as Record<string, unknown> | undefined;
+                        const input = block.input as
+                            | Record<string, unknown>
+                            | undefined;
 
                         turnToolNames.push(toolName);
 
@@ -244,49 +295,67 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
                         toolSequence.push(toolName);
 
                         // Extract skill name from Skill tool invocations
-                        if (toolName === 'Skill') {
-                            if (input && typeof input.skill === 'string') {
+                        if (toolName === "Skill") {
+                            if (input && typeof input.skill === "string") {
                                 turnSkillNames.push(input.skill as string);
                             }
                         }
                         // Extract MCP server and tool from mcp__<server>__<tool> pattern
-                        else if (toolName.startsWith('mcp__')) {
-                            const parts = toolName.split('__');
+                        else if (toolName.startsWith("mcp__")) {
+                            const parts = toolName.split("__");
                             if (parts.length >= 3) {
                                 const server = parts[1];
-                                const mcpTool = parts.slice(2).join('__');
+                                const mcpTool = parts.slice(2).join("__");
                                 turnMcpNames.push(`${server}: ${mcpTool}`);
                             }
                         }
                         // Extract file operations
-                        else if (input && (toolName === 'Read' || toolName === 'Edit' || toolName === 'Write' || toolName === 'Glob' || toolName === 'Grep')) {
-                            const filePath = (input.file_path as string | undefined)
-                                ?? (input.path as string | undefined)
-                                ?? (input.pattern as string | undefined);
+                        else if (
+                            input &&
+                            (toolName === "Read" ||
+                                toolName === "Edit" ||
+                                toolName === "Write" ||
+                                toolName === "Glob" ||
+                                toolName === "Grep")
+                        ) {
+                            const filePath =
+                                (input.file_path as string | undefined) ??
+                                (input.path as string | undefined) ??
+                                (input.pattern as string | undefined);
                             if (filePath) {
                                 if (!fileOperationsMap.has(filePath)) {
                                     fileOperationsMap.set(filePath, new Map());
                                 }
                                 const opMap = fileOperationsMap.get(filePath)!;
-                                opMap.set(toolName, (opMap.get(toolName) || 0) + 1);
+                                opMap.set(
+                                    toolName,
+                                    (opMap.get(toolName) || 0) + 1,
+                                );
                             }
                         }
                         // Extract subagent delegations from Task tool
-                        else if (toolName === 'Task' && input) {
-                            const subagentType = input.subagent_type as string | undefined;
-                            const description = input.description as string | undefined;
+                        else if (toolName === "Task" && input) {
+                            const subagentType = input.subagent_type as
+                                | string
+                                | undefined;
+                            const description = input.description as
+                                | string
+                                | undefined;
                             if (subagentType && description) {
-                                subAgentDelegations.push({ type: subagentType, description });
+                                subAgentDelegations.push({
+                                    type: subagentType,
+                                    description,
+                                });
                             }
                         }
                     }
                 }
             }
-        } else if (type === 'system') {
+        } else if (type === "system") {
             finalizeAssistantTurn();
 
             const subtype = entry.subtype as string | undefined;
-            if (subtype === 'turn_duration') {
+            if (subtype === "turn_duration") {
                 totalDurationMs += (entry.durationMs as number) || 0;
             }
         } else {
@@ -298,19 +367,23 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     finalizeAssistantTurn();
 
     // Convert fileOperationsMap to array format
-    const fileOperations: ConversationData['fileOperations'] = [];
+    const fileOperations: ConversationData["fileOperations"] = [];
     for (const [file, opMap] of fileOperationsMap) {
         for (const [op, count] of opMap) {
             fileOperations.push({
                 file,
-                operation: op as 'Read' | 'Edit' | 'Write' | 'Glob' | 'Grep',
-                count
+                operation: op as "Read" | "Edit" | "Write" | "Glob" | "Grep",
+                count,
             });
         }
     }
 
     // Calculate cost estimate
-    const costEstimate = calculateCostEstimate(model, totalInputTokens, totalOutputTokens);
+    const costEstimate = calculateCostEstimate(
+        model,
+        totalInputTokens,
+        totalOutputTokens,
+    );
 
     return {
         sessionId,
@@ -335,10 +408,12 @@ export async function parseConversationFile(filePath: string): Promise<Conversat
     };
 }
 
-export async function generateInsights(worktreePath: string): Promise<SessionInsights> {
+export async function generateInsights(
+    worktreePath: string,
+): Promise<SessionInsights> {
     const projectDir = getClaudeProjectDir(worktreePath);
     const entries = await readDir(projectDir);
-    const jsonlFiles = entries.filter(e => e.endsWith('.jsonl'));
+    const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl"));
 
     const conversations: ConversationData[] = [];
     for (const file of jsonlFiles) {
@@ -352,8 +427,12 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
 
     // Sort by first timestamp
     conversations.sort((a, b) => {
-        if (!a.firstTimestamp) { return 1; }
-        if (!b.firstTimestamp) { return -1; }
+        if (!a.firstTimestamp) {
+            return 1;
+        }
+        if (!b.firstTimestamp) {
+            return -1;
+        }
         return a.firstTimestamp.localeCompare(b.firstTimestamp);
     });
 
@@ -369,7 +448,10 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
     let earliestTimestamp: string | null = null;
     let latestTimestamp: string | null = null;
     const totalToolErrors: { tool: string; error: string }[] = [];
-    const totalFileOperations = new Map<string, { reads: number; edits: number; writes: number }>();
+    const totalFileOperations = new Map<
+        string,
+        { reads: number; edits: number; writes: number }
+    >();
     const subAgentDelegationCounts = new Map<string, number>();
 
     for (const conv of conversations) {
@@ -399,16 +481,23 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
         for (const fileOp of conv.fileOperations) {
             const existing = totalFileOperations.get(fileOp.file);
             if (!existing) {
-                totalFileOperations.set(fileOp.file, { reads: 0, edits: 0, writes: 0 });
+                totalFileOperations.set(fileOp.file, {
+                    reads: 0,
+                    edits: 0,
+                    writes: 0,
+                });
             }
             const stats = totalFileOperations.get(fileOp.file)!;
-            if (fileOp.operation === 'Read') {
+            if (fileOp.operation === "Read") {
                 stats.reads += fileOp.count;
-            } else if (fileOp.operation === 'Edit') {
+            } else if (fileOp.operation === "Edit") {
                 stats.edits += fileOp.count;
-            } else if (fileOp.operation === 'Write') {
+            } else if (fileOp.operation === "Write") {
                 stats.writes += fileOp.count;
-            } else if (fileOp.operation === 'Glob' || fileOp.operation === 'Grep') {
+            } else if (
+                fileOp.operation === "Glob" ||
+                fileOp.operation === "Grep"
+            ) {
                 // Count Glob/Grep as reads for aggregation purposes
                 stats.reads += fileOp.count;
             }
@@ -416,7 +505,10 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
 
         // Aggregate subagent delegations
         for (const delegation of conv.subAgentDelegations) {
-            subAgentDelegationCounts.set(delegation.type, (subAgentDelegationCounts.get(delegation.type) || 0) + 1);
+            subAgentDelegationCounts.set(
+                delegation.type,
+                (subAgentDelegationCounts.get(delegation.type) || 0) + 1,
+            );
         }
 
         if (conv.firstTimestamp) {
@@ -459,22 +551,48 @@ export async function generateInsights(worktreePath: string): Promise<SessionIns
 
 function formatTimestamp(iso: string): string {
     const d = new Date(iso);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
     const month = months[d.getMonth()];
     const day = d.getDate();
     const year = d.getFullYear();
-    const hours = d.getHours().toString().padStart(2, '0');
-    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const hours = d.getHours().toString().padStart(2, "0");
+    const minutes = d.getMinutes().toString().padStart(2, "0");
     return `${month} ${day}, ${year} ${hours}:${minutes}`;
 }
 
 function formatShortTimestamp(iso: string): string {
     const d = new Date(iso);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
     const month = months[d.getMonth()];
     const day = d.getDate();
-    const hours = d.getHours().toString().padStart(2, '0');
-    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const hours = d.getHours().toString().padStart(2, "0");
+    const minutes = d.getMinutes().toString().padStart(2, "0");
     return `${month} ${day} ${hours}:${minutes}`;
 }
 
@@ -489,100 +607,141 @@ function formatDuration(ms: number): string {
 }
 
 function formatNumber(n: number): string {
-    return n.toLocaleString('en-US');
+    return n.toLocaleString("en-US");
 }
 
-function percentageBar(value: number, max: number = 100, width: number = 20): string {
-    const filled = Math.min(width, Math.max(0, Math.round((value / max) * width)));
+function percentageBar(
+    value: number,
+    max: number = 100,
+    width: number = 20,
+): string {
+    const filled = Math.min(
+        width,
+        Math.max(0, Math.round((value / max) * width)),
+    );
     const empty = width - filled;
-    return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${value.toFixed(1)}%`;
+    return `[${"█".repeat(filled)}${"░".repeat(empty)}] ${value.toFixed(1)}%`;
 }
 
 function truncateFilePath(filePath: string, segments: number = 2): string {
-    const parts = filePath.split('/').filter(p => p.length > 0);
+    const parts = filePath.split("/").filter((p) => p.length > 0);
     if (parts.length <= segments) {
         return filePath;
     }
-    return parts.slice(-segments).join('/');
+    return parts.slice(-segments).join("/");
 }
 
-export function formatInsightsReport(sessionName: string, insights: SessionInsights, analysis?: AnalysisResult): string {
+export function formatInsightsReport(
+    sessionName: string,
+    insights: SessionInsights,
+    analysis?: AnalysisResult,
+): string {
     const lines: string[] = [];
 
     lines.push(`# Session Insights: ${sessionName}`);
-    lines.push('');
+    lines.push("");
 
     // Summary
-    lines.push('## Summary');
+    lines.push("## Summary");
     lines.push(`- **Conversations**: ${insights.sessionCount}`);
     if (insights.earliestTimestamp && insights.latestTimestamp) {
-        lines.push(`- **Period**: ${formatTimestamp(insights.earliestTimestamp)} - ${formatTimestamp(insights.latestTimestamp)}`);
+        lines.push(
+            `- **Period**: ${formatTimestamp(insights.earliestTimestamp)} - ${formatTimestamp(insights.latestTimestamp)}`,
+        );
     }
     if (insights.totalDurationMs > 0) {
-        lines.push(`- **Total active time**: ${formatDuration(insights.totalDurationMs)} (across all turns)`);
+        lines.push(
+            `- **Total active time**: ${formatDuration(insights.totalDurationMs)} (across all turns)`,
+        );
     }
-    const model = insights.conversations.find(c => c.model)?.model;
+    const model = insights.conversations.find((c) => c.model)?.model;
     if (model) {
         lines.push(`- **Model**: ${model}`);
     }
     if (analysis) {
-        lines.push(`- **Estimated cost**: $${analysis.efficiency.totalCost.toFixed(2)}`);
-        lines.push(`- **Complexity**: ${analysis.patterns.conversationComplexity}`);
+        lines.push(
+            `- **Estimated cost**: $${analysis.efficiency.totalCost.toFixed(2)}`,
+        );
+        lines.push(
+            `- **Complexity**: ${analysis.patterns.conversationComplexity}`,
+        );
     }
-    lines.push('');
+    lines.push("");
 
     // Recommendations (only if analysis provided and has recommendations)
     if (analysis && analysis.recommendations.length > 0) {
-        lines.push('## Recommendations');
-        lines.push('');
+        lines.push("## Recommendations");
+        lines.push("");
         for (const rec of analysis.recommendations) {
-            let icon = 'ℹ️';
-            if (rec.severity === 'warning') {
-                icon = '⚠️';
-            } else if (rec.severity === 'suggestion') {
-                icon = '💡';
+            let icon = "ℹ️";
+            if (rec.severity === "warning") {
+                icon = "⚠️";
+            } else if (rec.severity === "suggestion") {
+                icon = "💡";
             }
             lines.push(`> ${icon} **${rec.title}** — ${rec.detail}`);
-            lines.push('');
+            lines.push("");
         }
     }
 
     // Efficiency (only if analysis provided)
     if (analysis) {
-        lines.push('## Efficiency');
-        lines.push('');
-        lines.push('| Metric | Value |');
-        lines.push('|--------|-------|');
-        lines.push(`| Cache hit rate | ${percentageBar(analysis.efficiency.cacheHitRate)} |`);
-        lines.push(`| Tokens per message | ${formatNumber(Math.round(analysis.efficiency.tokensPerUserMessage))} |`);
-        lines.push(`| Output/Input ratio | ${analysis.efficiency.outputInputRatio.toFixed(2)} |`);
+        lines.push("## Efficiency");
+        lines.push("");
+        lines.push("| Metric | Value |");
+        lines.push("|--------|-------|");
+        lines.push(
+            `| Cache hit rate | ${percentageBar(analysis.efficiency.cacheHitRate)} |`,
+        );
+        lines.push(
+            `| Tokens per message | ${formatNumber(Math.round(analysis.efficiency.tokensPerUserMessage))} |`,
+        );
+        lines.push(
+            `| Output/Input ratio | ${analysis.efficiency.outputInputRatio.toFixed(2)} |`,
+        );
 
-        const avgTurnSeconds = Math.floor(analysis.efficiency.averageTurnDurationMs / 1000);
+        const avgTurnSeconds = Math.floor(
+            analysis.efficiency.averageTurnDurationMs / 1000,
+        );
         const avgTurnMinutes = Math.floor(avgTurnSeconds / 60);
         const avgTurnRemainingSeconds = avgTurnSeconds % 60;
-        lines.push(`| Avg turn duration | ${avgTurnMinutes}m ${avgTurnRemainingSeconds}s |`);
+        lines.push(
+            `| Avg turn duration | ${avgTurnMinutes}m ${avgTurnRemainingSeconds}s |`,
+        );
 
-        lines.push(`| Avg turns/conversation | ${analysis.efficiency.averageTurnsPerConversation.toFixed(1)} |`);
-        lines.push(`| Avg messages/conversation | ${analysis.efficiency.averageUserMessagesPerConversation.toFixed(1)} |`);
-        lines.push('');
+        lines.push(
+            `| Avg turns/conversation | ${analysis.efficiency.averageTurnsPerConversation.toFixed(1)} |`,
+        );
+        lines.push(
+            `| Avg messages/conversation | ${analysis.efficiency.averageUserMessagesPerConversation.toFixed(1)} |`,
+        );
+        lines.push("");
 
-        lines.push('### Cost Breakdown');
-        lines.push('| | Amount |');
-        lines.push('|--|--------|');
+        lines.push("### Cost Breakdown");
+        lines.push("| | Amount |");
+        lines.push("|--|--------|");
         lines.push(`| Input | $${analysis.efficiency.inputCost.toFixed(2)} |`);
-        lines.push(`| Output | $${analysis.efficiency.outputCost.toFixed(2)} |`);
-        lines.push(`| **Total** | **$${analysis.efficiency.totalCost.toFixed(2)}** |`);
-        lines.push('');
+        lines.push(
+            `| Output | $${analysis.efficiency.outputCost.toFixed(2)} |`,
+        );
+        lines.push(
+            `| **Total** | **$${analysis.efficiency.totalCost.toFixed(2)}** |`,
+        );
+        lines.push("");
     }
 
     // Token usage
-    lines.push('## Token Usage');
-    lines.push('| Metric | Count |');
-    lines.push('|--------|-------|');
+    lines.push("## Token Usage");
+    lines.push("| Metric | Count |");
+    lines.push("|--------|-------|");
     lines.push(`| Input tokens | ${formatNumber(insights.totalInputTokens)} |`);
-    lines.push(`| Output tokens | ${formatNumber(insights.totalOutputTokens)} |`);
-    lines.push(`| Cache read tokens | ${formatNumber(insights.totalCacheReadTokens)} |`);
-    lines.push('');
+    lines.push(
+        `| Output tokens | ${formatNumber(insights.totalOutputTokens)} |`,
+    );
+    lines.push(
+        `| Cache read tokens | ${formatNumber(insights.totalCacheReadTokens)} |`,
+    );
+    lines.push("");
 
     // Workflow Patterns (only if analysis provided)
     if (analysis) {
@@ -591,88 +750,102 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
         const hasDelegations = analysis.patterns.delegationSummary.length > 0;
 
         if (hasToolChains || hasFileHotspots || hasDelegations) {
-            lines.push('## Workflow Patterns');
-            lines.push('');
+            lines.push("## Workflow Patterns");
+            lines.push("");
 
             // Tool Chains
             if (hasToolChains) {
-                lines.push('### Tool Chains');
-                lines.push('');
+                lines.push("### Tool Chains");
+                lines.push("");
                 for (const chain of analysis.patterns.topToolChains) {
-                    const chainStr = chain.sequence.join(' → ');
+                    const chainStr = chain.sequence.join(" → ");
                     lines.push(`${chainStr} (×${chain.count})`);
-                    lines.push('');
+                    lines.push("");
                 }
             }
 
             // File Hotspots
             if (hasFileHotspots) {
-                lines.push('### File Hotspots');
-                lines.push('');
-                lines.push('| File | Total | Reads | Edits | Writes |');
-                lines.push('|------|-------|-------|-------|--------|');
+                lines.push("### File Hotspots");
+                lines.push("");
+                lines.push("| File | Total | Reads | Edits | Writes |");
+                lines.push("|------|-------|-------|-------|--------|");
                 for (const hotspot of analysis.patterns.fileHotspots) {
                     const truncatedFile = truncateFilePath(hotspot.file);
-                    lines.push(`| ${truncatedFile} | ${hotspot.totalOperations} | ${hotspot.reads} | ${hotspot.edits} | ${hotspot.writes} |`);
+                    lines.push(
+                        `| ${truncatedFile} | ${hotspot.totalOperations} | ${hotspot.reads} | ${hotspot.edits} | ${hotspot.writes} |`,
+                    );
                 }
-                lines.push('');
+                lines.push("");
             }
 
             // Sub-Agent Delegations
             if (hasDelegations) {
-                lines.push('### Sub-Agent Delegations');
-                lines.push('');
-                lines.push('| Agent Type | Count | % |');
-                lines.push('|------------|-------|---|');
+                lines.push("### Sub-Agent Delegations");
+                lines.push("");
+                lines.push("| Agent Type | Count | % |");
+                lines.push("|------------|-------|---|");
                 for (const delegation of analysis.patterns.delegationSummary) {
-                    lines.push(`| ${delegation.type} | ${delegation.count} | ${delegation.percentage.toFixed(1)}% |`);
+                    lines.push(
+                        `| ${delegation.type} | ${delegation.count} | ${delegation.percentage.toFixed(1)}% |`,
+                    );
                 }
-                lines.push('');
+                lines.push("");
             }
         }
     }
 
     // Tool usage
     if (insights.totalToolUses.size > 0) {
-        const sortedTools = [...insights.totalToolUses.entries()].sort((a, b) => b[1] - a[1]);
-        lines.push('## Tool Usage');
-        lines.push('| Tool | Uses |');
-        lines.push('|------|------|');
+        const sortedTools = [...insights.totalToolUses.entries()].sort(
+            (a, b) => b[1] - a[1],
+        );
+        lines.push("## Tool Usage");
+        lines.push("| Tool | Uses |");
+        lines.push("|------|------|");
         for (const [tool, count] of sortedTools) {
             lines.push(`| ${tool} | ${count} |`);
         }
-        lines.push('');
+        lines.push("");
     }
 
     // Skills used
-    lines.push('## Skills Used');
+    lines.push("## Skills Used");
     if (insights.totalSkillUses.size > 0) {
-        const sortedSkills = [...insights.totalSkillUses.entries()].sort((a, b) => b[1] - a[1]);
-        lines.push('| Skill | Uses |');
-        lines.push('|-------|------|');
+        const sortedSkills = [...insights.totalSkillUses.entries()].sort(
+            (a, b) => b[1] - a[1],
+        );
+        lines.push("| Skill | Uses |");
+        lines.push("|-------|------|");
         for (const [skill, count] of sortedSkills) {
             lines.push(`| ${skill} | ${count} |`);
         }
     } else {
-        lines.push('No skills used.');
+        lines.push("No skills used.");
     }
-    lines.push('');
+    lines.push("");
 
     // Error Analysis (only if analysis provided and has errors)
     if (analysis && analysis.errorAnalysis.totalErrors > 0) {
-        lines.push('## Error Analysis');
-        lines.push('');
-        lines.push(`- **Total errors**: ${analysis.errorAnalysis.totalErrors} (${analysis.errorAnalysis.errorRate.toFixed(1)}% of tool calls)`);
+        lines.push("## Error Analysis");
+        lines.push("");
+        lines.push(
+            `- **Total errors**: ${analysis.errorAnalysis.totalErrors} (${analysis.errorAnalysis.errorRate.toFixed(1)}% of tool calls)`,
+        );
         if (analysis.errorAnalysis.mostFailedTool) {
-            lines.push(`- **Most failed tool**: ${analysis.errorAnalysis.mostFailedTool}`);
+            lines.push(
+                `- **Most failed tool**: ${analysis.errorAnalysis.mostFailedTool}`,
+            );
         }
-        lines.push('');
-        lines.push('| Tool | Errors | % of Errors |');
-        lines.push('|------|--------|-------------|');
+        lines.push("");
+        lines.push("| Tool | Errors | % of Errors |");
+        lines.push("|------|--------|-------------|");
         for (const errorStat of analysis.errorAnalysis.errorsByTool) {
-            lines.push(`| ${errorStat.tool} | ${errorStat.count} | ${errorStat.percentage.toFixed(1)}% |`);
+            lines.push(
+                `| ${errorStat.tool} | ${errorStat.count} | ${errorStat.percentage.toFixed(1)}% |`,
+            );
         }
-        lines.push('');
+        lines.push("");
     }
 
     // MCP server usage
@@ -680,31 +853,35 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
         // Group by server name
         const serverMap = new Map<string, Map<string, number>>();
         for (const [entry, count] of insights.totalMcpUses) {
-            const colonIdx = entry.indexOf(': ');
+            const colonIdx = entry.indexOf(": ");
             const server = entry.slice(0, colonIdx);
             const tool = entry.slice(colonIdx + 2);
-            if (!serverMap.has(server)) { serverMap.set(server, new Map()); }
+            if (!serverMap.has(server)) {
+                serverMap.set(server, new Map());
+            }
             serverMap.get(server)!.set(tool, count);
         }
 
-        lines.push('## MCP Servers');
+        lines.push("## MCP Servers");
         for (const [server, tools] of serverMap) {
-            const sortedTools = [...tools.entries()].sort((a, b) => b[1] - a[1]);
+            const sortedTools = [...tools.entries()].sort(
+                (a, b) => b[1] - a[1],
+            );
             const totalCalls = sortedTools.reduce((sum, [, c]) => sum + c, 0);
             lines.push(`### ${server} (${totalCalls} calls)`);
-            lines.push('| Tool | Uses |');
-            lines.push('|------|------|');
+            lines.push("| Tool | Uses |");
+            lines.push("|------|------|");
             for (const [tool, count] of sortedTools) {
                 lines.push(`| ${tool} | ${count} |`);
             }
-            lines.push('');
+            lines.push("");
         }
     }
 
     // Individual conversations
     if (insights.conversations.length > 0) {
-        lines.push('## Conversations');
-        lines.push('');
+        lines.push("## Conversations");
+        lines.push("");
         for (let i = 0; i < insights.conversations.length; i++) {
             const conv = insights.conversations[i];
             let header = `### ${i + 1}. ${conv.sessionId}`;
@@ -712,24 +889,33 @@ export function formatInsightsReport(sessionName: string, insights: SessionInsig
                 header += ` (${formatShortTimestamp(conv.firstTimestamp)} - ${formatShortTimestamp(conv.lastTimestamp)})`;
             }
             lines.push(header);
-            lines.push(`- **Turns**: ${conv.userMessageCount} user / ${conv.assistantTurnCount} assistant`);
+            lines.push(
+                `- **Turns**: ${conv.userMessageCount} user / ${conv.assistantTurnCount} assistant`,
+            );
             if (conv.totalDurationMs > 0) {
-                lines.push(`- **Duration**: ${formatDuration(conv.totalDurationMs)}`);
+                lines.push(
+                    `- **Duration**: ${formatDuration(conv.totalDurationMs)}`,
+                );
             }
-            lines.push(`- **Cost**: $${conv.costEstimate.totalCost.toFixed(2)}`);
+            lines.push(
+                `- **Cost**: $${conv.costEstimate.totalCost.toFixed(2)}`,
+            );
             if (conv.userPromptPreviews.length > 0) {
-                lines.push('- **Prompts**:');
+                lines.push("- **Prompts**:");
                 for (const preview of conv.userPromptPreviews) {
-                    const cleaned = preview.replace(/\n/g, ' ').trim();
+                    const cleaned = preview.replace(/\n/g, " ").trim();
                     if (cleaned) {
-                        const truncated = cleaned.length > 100 ? cleaned.slice(0, 100) + '...' : cleaned;
+                        const truncated =
+                            cleaned.length > 100
+                                ? cleaned.slice(0, 100) + "..."
+                                : cleaned;
                         lines.push(`  - "${truncated}"`);
                     }
                 }
             }
-            lines.push('');
+            lines.push("");
         }
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
 }

@@ -11,21 +11,21 @@
  * - Singleton lifecycle (one instance per agent type)
  */
 
-import { constants } from 'fs';
-import { access } from 'fs/promises';
-import * as path from 'path';
-import { CodeAgent } from './CodeAgent';
-import { ClaudeCodeAgent } from './ClaudeCodeAgent';
-import { CodexAgent } from './CodexAgent';
-import { CortexCodeAgent } from './CortexCodeAgent';
-import { GeminiAgent } from './GeminiAgent';
-import { OpenCodeAgent } from './OpenCodeAgent';
+import { constants } from "fs";
+import { access } from "fs/promises";
+import * as path from "path";
+import { CodeAgent } from "./CodeAgent";
+import { ClaudeCodeAgent } from "./ClaudeCodeAgent";
+import { CodexAgent } from "./CodexAgent";
+import { CortexCodeAgent } from "./CortexCodeAgent";
+import { GeminiAgent } from "./GeminiAgent";
+import { OpenCodeAgent } from "./OpenCodeAgent";
 
 /**
  * The default agent name used as fallback throughout the extension.
  * Referenced instead of hardcoding 'claude' in every file.
  */
-export const DEFAULT_AGENT_NAME = 'claude';
+export const DEFAULT_AGENT_NAME = "claude";
 
 /**
  * Singleton instance cache - one CodeAgent instance per agent type.
@@ -38,11 +38,11 @@ const instances = new Map<string, CodeAgent>();
  * Adding a new agent = one line here + the agent class.
  */
 const agentConstructors: Record<string, () => CodeAgent> = {
-    'claude': () => new ClaudeCodeAgent(),
-    'codex': () => new CodexAgent(),
-    'cortex': () => new CortexCodeAgent(),
-    'gemini': () => new GeminiAgent(),
-    'opencode': () => new OpenCodeAgent()
+   claude: () => new ClaudeCodeAgent(),
+   codex: () => new CodexAgent(),
+   cortex: () => new CortexCodeAgent(),
+   gemini: () => new GeminiAgent(),
+   opencode: () => new OpenCodeAgent(),
 };
 
 /**
@@ -55,21 +55,21 @@ const agentConstructors: Record<string, () => CodeAgent> = {
  * @returns CodeAgent instance, or null if agent name is not recognized
  */
 export function getAgent(agentName: string): CodeAgent | null {
-    // Check singleton cache first
-    if (instances.has(agentName)) {
-        return instances.get(agentName)!;
-    }
+   // Check singleton cache first
+   if (instances.has(agentName)) {
+      return instances.get(agentName)!;
+   }
 
-    // Look up constructor in factory map
-    const constructor = agentConstructors[agentName];
-    if (!constructor) {
-        return null;
-    }
+   // Look up constructor in factory map
+   const constructor = agentConstructors[agentName];
+   if (!constructor) {
+      return null;
+   }
 
-    // Create instance, cache it, return it
-    const instance = constructor();
-    instances.set(agentName, instance);
-    return instance;
+   // Create instance, cache it, return it
+   const instance = constructor();
+   instances.set(agentName, instance);
+   return instance;
 }
 
 /**
@@ -78,7 +78,7 @@ export function getAgent(agentName: string): CodeAgent | null {
  * @returns Array of agent name strings (e.g., ['claude', 'codex', 'cortex', 'gemini', 'opencode'])
  */
 export function getAvailableAgents(): string[] {
-    return Object.keys(agentConstructors);
+   return Object.keys(agentConstructors);
 }
 
 /**
@@ -87,15 +87,18 @@ export function getAvailableAgents(): string[] {
  * @param configuredAgent - The agent name from configuration (e.g., lanes.defaultAgent setting)
  * @returns Object with the resolved agent name and an optional warning if the configured name was invalid
  */
-export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): { agent: string; warning?: string } {
-    const validAgents = getAvailableAgents();
-    if (!validAgents.includes(configuredAgent)) {
-        return {
-            agent: DEFAULT_AGENT_NAME,
-            warning: `Unknown agent '${configuredAgent}' in lanes.defaultAgent setting. Falling back to Claude.`
-        };
-    }
-    return { agent: configuredAgent };
+export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): {
+   agent: string;
+   warning?: string;
+} {
+   const validAgents = getAvailableAgents();
+   if (!validAgents.includes(configuredAgent)) {
+      return {
+         agent: DEFAULT_AGENT_NAME,
+         warning: `Unknown agent '${configuredAgent}' in lanes.defaultAgent setting. Falling back to Claude.`,
+      };
+   }
+   return { agent: configuredAgent };
 }
 
 /**
@@ -105,26 +108,30 @@ export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): {
  * @returns true if the command is available, false otherwise
  */
 export async function isCliAvailable(cliCommand: string): Promise<boolean> {
-    if (path.basename(cliCommand) !== cliCommand) {
-        return false;
-    }
+   if (path.basename(cliCommand) !== cliCommand) {
+      return false;
+   }
 
-    const extensions = process.platform === 'win32'
-        ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';')
-        : [''];
+   const extensions =
+      process.platform === "win32"
+         ? (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";")
+         : [""];
 
-    for (const directory of (process.env.PATH || '').split(path.delimiter)) {
-        for (const extension of extensions) {
-            try {
-                await access(path.join(directory, cliCommand + extension), constants.X_OK);
-                return true;
-            } catch {
-                // Try the next PATH entry.
-            }
-        }
-    }
+   for (const directory of (process.env.PATH || "").split(path.delimiter)) {
+      for (const extension of extensions) {
+         try {
+            await access(
+               path.join(directory, cliCommand + extension),
+               constants.X_OK,
+            );
+            return true;
+         } catch {
+            // Try the next PATH entry.
+         }
+      }
+   }
 
-    return false;
+   return false;
 }
 
 /**
@@ -137,20 +144,23 @@ export async function isCliAvailable(cliCommand: string): Promise<boolean> {
  * @param agentName Agent identifier to validate
  * @returns Object with the agent (if available) and an optional warning message
  */
-export async function validateAndGetAgent(agentName: string): Promise<{ agent: CodeAgent | null; warning?: string }> {
-    const agent = getAgent(agentName);
-    if (!agent) {
-        return { agent: null };
-    }
+export async function validateAndGetAgent(
+   agentName: string,
+): Promise<{ agent: CodeAgent | null; warning?: string }> {
+   const agent = getAgent(agentName);
+   if (!agent) {
+      return { agent: null };
+   }
 
-    const available = await isCliAvailable(agent.cliCommand);
-    if (!available) {
-        return {
-            agent: null,
-            warning: `${agent.displayName} CLI ('${agent.cliCommand}') not found. ` +
-                `Please install it before using ${agent.displayName} sessions.`
-        };
-    }
+   const available = await isCliAvailable(agent.cliCommand);
+   if (!available) {
+      return {
+         agent: null,
+         warning:
+            `${agent.displayName} CLI ('${agent.cliCommand}') not found. ` +
+            `Please install it before using ${agent.displayName} sessions.`,
+      };
+   }
 
-    return { agent };
+   return { agent };
 }

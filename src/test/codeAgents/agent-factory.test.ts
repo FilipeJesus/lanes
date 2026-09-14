@@ -1,154 +1,293 @@
-import * as assert from 'assert';
-import { getAgent, getAvailableAgents } from '../../core/codeAgents/factory';
-import { ClaudeCodeAgent } from '../../core/codeAgents/ClaudeCodeAgent';
-import { CodexAgent } from '../../core/codeAgents/CodexAgent';
-import { CortexCodeAgent } from '../../core/codeAgents/CortexCodeAgent';
-import { GeminiAgent } from '../../core/codeAgents/GeminiAgent';
-import { OpenCodeAgent } from '../../core/codeAgents/OpenCodeAgent';
+import * as assert from "assert";
+import { getAgent, getAvailableAgents } from "../../core/codeAgents/factory";
+import { ClaudeCodeAgent } from "../../core/codeAgents/ClaudeCodeAgent";
+import { CodexAgent } from "../../core/codeAgents/CodexAgent";
+import { CortexCodeAgent } from "../../core/codeAgents/CortexCodeAgent";
+import { GeminiAgent } from "../../core/codeAgents/GeminiAgent";
+import { OpenCodeAgent } from "../../core/codeAgents/OpenCodeAgent";
 
-suite('Agent Factory', () => {
+suite("Agent Factory", () => {
     test('getAgent("claude") returns ClaudeCodeAgent instance', () => {
-        const agent = getAgent('claude');
-        assert.ok(agent, 'Agent should not be null');
-        assert.strictEqual(agent!.name, 'claude', 'Agent name should be claude');
-        assert.ok(agent instanceof ClaudeCodeAgent, 'Should be ClaudeCodeAgent instance');
+        const agent = getAgent("claude");
+        assert.ok(agent, "Agent should not be null");
+        assert.strictEqual(
+            agent!.name,
+            "claude",
+            "Agent name should be claude",
+        );
+        assert.ok(
+            agent instanceof ClaudeCodeAgent,
+            "Should be ClaudeCodeAgent instance",
+        );
     });
 
     test('getAgent("codex") returns CodexAgent instance', () => {
-        const agent = getAgent('codex');
-        assert.ok(agent, 'Agent should not be null');
-        assert.strictEqual(agent!.name, 'codex', 'Agent name should be codex');
-        assert.ok(agent instanceof CodexAgent, 'Should be CodexAgent instance');
+        const agent = getAgent("codex");
+        assert.ok(agent, "Agent should not be null");
+        assert.strictEqual(agent!.name, "codex", "Agent name should be codex");
+        assert.ok(agent instanceof CodexAgent, "Should be CodexAgent instance");
     });
 
     test('getAgent("cortex") returns CortexCodeAgent instance', () => {
-        const agent = getAgent('cortex');
-        assert.ok(agent, 'Agent should not be null');
-        assert.strictEqual(agent!.name, 'cortex', 'Agent name should be cortex');
-        assert.ok(agent instanceof CortexCodeAgent, 'Should be CortexCodeAgent instance');
+        const agent = getAgent("cortex");
+        assert.ok(agent, "Agent should not be null");
+        assert.strictEqual(
+            agent!.name,
+            "cortex",
+            "Agent name should be cortex",
+        );
+        assert.ok(
+            agent instanceof CortexCodeAgent,
+            "Should be CortexCodeAgent instance",
+        );
     });
 
     test('getAgent("gemini") returns GeminiAgent instance', () => {
-        const agent = getAgent('gemini');
-        assert.ok(agent, 'Agent should not be null');
-        assert.strictEqual(agent!.name, 'gemini', 'Agent name should be gemini');
-        assert.ok(agent instanceof GeminiAgent, 'Should be GeminiAgent instance');
+        const agent = getAgent("gemini");
+        assert.ok(agent, "Agent should not be null");
+        assert.strictEqual(
+            agent!.name,
+            "gemini",
+            "Agent name should be gemini",
+        );
+        assert.ok(
+            agent instanceof GeminiAgent,
+            "Should be GeminiAgent instance",
+        );
     });
 
     test('getAgent("opencode") returns OpenCodeAgent instance', () => {
-        const agent = getAgent('opencode');
-        assert.ok(agent, 'Agent should not be null');
-        assert.strictEqual(agent!.name, 'opencode', 'Agent name should be opencode');
-        assert.ok(agent instanceof OpenCodeAgent, 'Should be OpenCodeAgent instance');
+        const agent = getAgent("opencode");
+        assert.ok(agent, "Agent should not be null");
+        assert.strictEqual(
+            agent!.name,
+            "opencode",
+            "Agent name should be opencode",
+        );
+        assert.ok(
+            agent instanceof OpenCodeAgent,
+            "Should be OpenCodeAgent instance",
+        );
     });
 
     test('getAgent("unknown") returns null', () => {
-        const agent = getAgent('unknown');
-        assert.strictEqual(agent, null, 'Unknown agent should return null');
+        const agent = getAgent("unknown");
+        assert.strictEqual(agent, null, "Unknown agent should return null");
     });
 
-    test('getAgent with empty string returns null', () => {
-        const agent = getAgent('');
-        assert.strictEqual(agent, null, 'Empty string should return null');
+    test("getAgent with empty string returns null", () => {
+        const agent = getAgent("");
+        assert.strictEqual(agent, null, "Empty string should return null");
     });
 
-    test('getAvailableAgents() returns array containing claude, codex, cortex, gemini, and opencode', () => {
+    test("getAvailableAgents() returns array containing claude, codex, cortex, gemini, and opencode", () => {
         const agents = getAvailableAgents();
-        assert.ok(Array.isArray(agents), 'Should return an array');
-        assert.ok(agents.includes('claude'), 'Should include claude');
-        assert.ok(agents.includes('codex'), 'Should include codex');
-        assert.ok(agents.includes('cortex'), 'Should include cortex');
-        assert.ok(agents.includes('gemini'), 'Should include gemini');
-        assert.ok(agents.includes('opencode'), 'Should include opencode');
-        assert.strictEqual(agents.length, 5, 'Should have exactly 5 agents');
+        assert.ok(Array.isArray(agents), "Should return an array");
+        assert.ok(agents.includes("claude"), "Should include claude");
+        assert.ok(agents.includes("codex"), "Should include codex");
+        assert.ok(agents.includes("cortex"), "Should include cortex");
+        assert.ok(agents.includes("gemini"), "Should include gemini");
+        assert.ok(agents.includes("opencode"), "Should include opencode");
+        assert.strictEqual(agents.length, 5, "Should have exactly 5 agents");
     });
 
-    test('getAgent returns same instance on repeated calls (singleton)', () => {
-        const agent1 = getAgent('claude');
-        const agent2 = getAgent('claude');
-        assert.strictEqual(agent1, agent2, 'Should return the same instance (singleton)');
+    test("getAgent returns same instance on repeated calls (singleton)", () => {
+        const agent1 = getAgent("claude");
+        const agent2 = getAgent("claude");
+        assert.strictEqual(
+            agent1,
+            agent2,
+            "Should return the same instance (singleton)",
+        );
 
-        const codexAgent1 = getAgent('codex');
-        const codexAgent2 = getAgent('codex');
-        assert.strictEqual(codexAgent1, codexAgent2, 'Codex should also be singleton');
+        const codexAgent1 = getAgent("codex");
+        const codexAgent2 = getAgent("codex");
+        assert.strictEqual(
+            codexAgent1,
+            codexAgent2,
+            "Codex should also be singleton",
+        );
 
-        const cortexAgent1 = getAgent('cortex');
-        const cortexAgent2 = getAgent('cortex');
-        assert.strictEqual(cortexAgent1, cortexAgent2, 'Cortex should also be singleton');
+        const cortexAgent1 = getAgent("cortex");
+        const cortexAgent2 = getAgent("cortex");
+        assert.strictEqual(
+            cortexAgent1,
+            cortexAgent2,
+            "Cortex should also be singleton",
+        );
 
-        const geminiAgent1 = getAgent('gemini');
-        const geminiAgent2 = getAgent('gemini');
-        assert.strictEqual(geminiAgent1, geminiAgent2, 'Gemini should also be singleton');
+        const geminiAgent1 = getAgent("gemini");
+        const geminiAgent2 = getAgent("gemini");
+        assert.strictEqual(
+            geminiAgent1,
+            geminiAgent2,
+            "Gemini should also be singleton",
+        );
 
-        const opencodeAgent1 = getAgent('opencode');
-        const opencodeAgent2 = getAgent('opencode');
-        assert.strictEqual(opencodeAgent1, opencodeAgent2, 'OpenCode should also be singleton');
+        const opencodeAgent1 = getAgent("opencode");
+        const opencodeAgent2 = getAgent("opencode");
+        assert.strictEqual(
+            opencodeAgent1,
+            opencodeAgent2,
+            "OpenCode should also be singleton",
+        );
     });
 
-    test('getAgent returns consistent instances across different agent names', () => {
-        const claudeAgent = getAgent('claude');
-        const codexAgent = getAgent('codex');
-        const cortexAgent = getAgent('cortex');
-        const geminiAgent = getAgent('gemini');
-        const opencodeAgent = getAgent('opencode');
+    test("getAgent returns consistent instances across different agent names", () => {
+        const claudeAgent = getAgent("claude");
+        const codexAgent = getAgent("codex");
+        const cortexAgent = getAgent("cortex");
+        const geminiAgent = getAgent("gemini");
+        const opencodeAgent = getAgent("opencode");
 
-        assert.notStrictEqual(claudeAgent, codexAgent, 'Different agents should be different instances');
-        assert.notStrictEqual(claudeAgent, cortexAgent, 'Claude and Cortex should be different instances');
-        assert.notStrictEqual(codexAgent, cortexAgent, 'Codex and Cortex should be different instances');
-        assert.notStrictEqual(codexAgent, geminiAgent, 'Codex and Gemini should be different instances');
-        assert.notStrictEqual(cortexAgent, geminiAgent, 'Cortex and Gemini should be different instances');
-        assert.notStrictEqual(geminiAgent, opencodeAgent, 'Gemini and OpenCode should be different instances');
-        assert.ok(claudeAgent, 'Claude agent should exist');
-        assert.ok(codexAgent, 'Codex agent should exist');
-        assert.ok(cortexAgent, 'Cortex agent should exist');
-        assert.ok(geminiAgent, 'Gemini agent should exist');
-        assert.ok(opencodeAgent, 'OpenCode agent should exist');
+        assert.notStrictEqual(
+            claudeAgent,
+            codexAgent,
+            "Different agents should be different instances",
+        );
+        assert.notStrictEqual(
+            claudeAgent,
+            cortexAgent,
+            "Claude and Cortex should be different instances",
+        );
+        assert.notStrictEqual(
+            codexAgent,
+            cortexAgent,
+            "Codex and Cortex should be different instances",
+        );
+        assert.notStrictEqual(
+            codexAgent,
+            geminiAgent,
+            "Codex and Gemini should be different instances",
+        );
+        assert.notStrictEqual(
+            cortexAgent,
+            geminiAgent,
+            "Cortex and Gemini should be different instances",
+        );
+        assert.notStrictEqual(
+            geminiAgent,
+            opencodeAgent,
+            "Gemini and OpenCode should be different instances",
+        );
+        assert.ok(claudeAgent, "Claude agent should exist");
+        assert.ok(codexAgent, "Codex agent should exist");
+        assert.ok(cortexAgent, "Cortex agent should exist");
+        assert.ok(geminiAgent, "Gemini agent should exist");
+        assert.ok(opencodeAgent, "OpenCode agent should exist");
     });
 
-    test('getAgent returns correct agent types', () => {
-        const claude = getAgent('claude');
-        const codex = getAgent('codex');
-        const cortex = getAgent('cortex');
-        const gemini = getAgent('gemini');
-        const opencode = getAgent('opencode');
+    test("getAgent returns correct agent types", () => {
+        const claude = getAgent("claude");
+        const codex = getAgent("codex");
+        const cortex = getAgent("cortex");
+        const gemini = getAgent("gemini");
+        const opencode = getAgent("opencode");
 
-        assert.strictEqual(claude!.name, 'claude', 'Claude agent should have name "claude"');
-        assert.strictEqual(claude!.displayName, 'Claude Code', 'Claude should have correct display name');
-        assert.strictEqual(claude!.cliCommand, 'claude', 'Claude should have correct CLI command');
+        assert.strictEqual(
+            claude!.name,
+            "claude",
+            'Claude agent should have name "claude"',
+        );
+        assert.strictEqual(
+            claude!.displayName,
+            "Claude Code",
+            "Claude should have correct display name",
+        );
+        assert.strictEqual(
+            claude!.cliCommand,
+            "claude",
+            "Claude should have correct CLI command",
+        );
 
-        assert.strictEqual(codex!.name, 'codex', 'Codex agent should have name "codex"');
-        assert.strictEqual(codex!.displayName, 'Codex CLI', 'Codex should have correct display name');
-        assert.strictEqual(codex!.cliCommand, 'codex', 'Codex should have correct CLI command');
+        assert.strictEqual(
+            codex!.name,
+            "codex",
+            'Codex agent should have name "codex"',
+        );
+        assert.strictEqual(
+            codex!.displayName,
+            "Codex CLI",
+            "Codex should have correct display name",
+        );
+        assert.strictEqual(
+            codex!.cliCommand,
+            "codex",
+            "Codex should have correct CLI command",
+        );
 
-        assert.strictEqual(cortex!.name, 'cortex', 'Cortex agent should have name "cortex"');
-        assert.strictEqual(cortex!.displayName, 'Cortex Code', 'Cortex should have correct display name');
-        assert.strictEqual(cortex!.cliCommand, 'cortex', 'Cortex should have correct CLI command');
+        assert.strictEqual(
+            cortex!.name,
+            "cortex",
+            'Cortex agent should have name "cortex"',
+        );
+        assert.strictEqual(
+            cortex!.displayName,
+            "Cortex Code",
+            "Cortex should have correct display name",
+        );
+        assert.strictEqual(
+            cortex!.cliCommand,
+            "cortex",
+            "Cortex should have correct CLI command",
+        );
 
-        assert.strictEqual(gemini!.name, 'gemini', 'Gemini agent should have name "gemini"');
-        assert.strictEqual(gemini!.displayName, 'Gemini CLI', 'Gemini should have correct display name');
-        assert.strictEqual(gemini!.cliCommand, 'gemini', 'Gemini should have correct CLI command');
+        assert.strictEqual(
+            gemini!.name,
+            "gemini",
+            'Gemini agent should have name "gemini"',
+        );
+        assert.strictEqual(
+            gemini!.displayName,
+            "Gemini CLI",
+            "Gemini should have correct display name",
+        );
+        assert.strictEqual(
+            gemini!.cliCommand,
+            "gemini",
+            "Gemini should have correct CLI command",
+        );
 
-        assert.strictEqual(opencode!.name, 'opencode', 'OpenCode agent should have name "opencode"');
-        assert.strictEqual(opencode!.displayName, 'OpenCode', 'OpenCode should have correct display name');
-        assert.strictEqual(opencode!.cliCommand, 'opencode', 'OpenCode should have correct CLI command');
+        assert.strictEqual(
+            opencode!.name,
+            "opencode",
+            'OpenCode agent should have name "opencode"',
+        );
+        assert.strictEqual(
+            opencode!.displayName,
+            "OpenCode",
+            "OpenCode should have correct display name",
+        );
+        assert.strictEqual(
+            opencode!.cliCommand,
+            "opencode",
+            "OpenCode should have correct CLI command",
+        );
     });
 });
 
-suite('Agent Factory - CLI Availability Implementation', () => {
-    test('isCliAvailable is exported function', () => {
-        const { isCliAvailable } = require('../../core/codeAgents/factory');
-        assert.strictEqual(typeof isCliAvailable, 'function', 'isCliAvailable should be a function');
+suite("Agent Factory - CLI Availability Implementation", () => {
+    test("isCliAvailable is exported function", () => {
+        const { isCliAvailable } = require("../../core/codeAgents/factory");
+        assert.strictEqual(
+            typeof isCliAvailable,
+            "function",
+            "isCliAvailable should be a function",
+        );
     });
 
-    test('isCliAvailable finds commands on PATH', async () => {
-        const { isCliAvailable } = require('../../core/codeAgents/factory');
-        assert.strictEqual(await isCliAvailable('node'), true);
-        assert.strictEqual(await isCliAvailable('lanes-command-that-does-not-exist'), false);
+    test("isCliAvailable finds commands on PATH", async () => {
+        const { isCliAvailable } = require("../../core/codeAgents/factory");
+        assert.strictEqual(await isCliAvailable("node"), true);
+        assert.strictEqual(
+            await isCliAvailable("lanes-command-that-does-not-exist"),
+            false,
+        );
     });
 
-    test('isCliAvailable rejects paths and shell input', async () => {
-        const { isCliAvailable } = require('../../core/codeAgents/factory');
-        assert.strictEqual(await isCliAvailable('/bin/node'), false);
-        assert.strictEqual(await isCliAvailable('node; echo unsafe'), false);
+    test("isCliAvailable rejects paths and shell input", async () => {
+        const { isCliAvailable } = require("../../core/codeAgents/factory");
+        assert.strictEqual(await isCliAvailable("/bin/node"), false);
+        assert.strictEqual(await isCliAvailable("node; echo unsafe"), false);
     });
 });
