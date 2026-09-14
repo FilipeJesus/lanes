@@ -11,7 +11,7 @@ import type {
   WorkflowStatusResponse,
   StepContextAction,
   WorkflowProgress,
-} from './types';
+} from "./types";
 
 /**
  * State machine for managing workflow execution.
@@ -36,7 +36,7 @@ export class WorkflowStateMachine {
   private createInitialState(): WorkflowState {
     const firstStep = this.template.steps[0];
     const state: WorkflowState = {
-      status: 'running',
+      status: "running",
       step: firstStep.id,
       stepType: firstStep.type,
       tasks: {},
@@ -49,7 +49,7 @@ export class WorkflowStateMachine {
     };
 
     // Initialize ralph iteration if first step is ralph
-    if (firstStep.type === 'ralph') {
+    if (firstStep.type === "ralph") {
       state.ralphIteration = 1;
     }
 
@@ -60,7 +60,7 @@ export class WorkflowStateMachine {
    * Gets the current workflow step.
    */
   private getCurrentStep(): WorkflowStep {
-    const step = this.template.steps.find(s => s.id === this.state.step);
+    const step = this.template.steps.find((s) => s.id === this.state.step);
     if (!step) {
       throw new Error(`Step '${this.state.step}' not found in template`);
     }
@@ -71,7 +71,7 @@ export class WorkflowStateMachine {
    * Gets the index of the current step in the template.
    */
   private getCurrentStepIndex(): number {
-    return this.template.steps.findIndex(s => s.id === this.state.step);
+    return this.template.steps.findIndex((s) => s.id === this.state.step);
   }
 
   /**
@@ -92,12 +92,12 @@ export class WorkflowStateMachine {
    * Gets the current loop step definition.
    */
   private getCurrentLoopStep(): LoopStep | null {
-    if (this.state.stepType !== 'loop' || !this.state.subStep) {
+    if (this.state.stepType !== "loop" || !this.state.subStep) {
       return null;
     }
 
     const loopSteps = this.getLoopSteps(this.state.step);
-    return loopSteps.find(s => s.id === this.state.subStep) || null;
+    return loopSteps.find((s) => s.id === this.state.subStep) || null;
   }
 
   /**
@@ -109,7 +109,7 @@ export class WorkflowStateMachine {
     }
 
     const loopSteps = this.getLoopSteps(this.state.step);
-    return loopSteps.findIndex(s => s.id === this.state.subStep);
+    return loopSteps.findIndex((s) => s.id === this.state.subStep);
   }
 
   /**
@@ -125,7 +125,7 @@ export class WorkflowStateMachine {
   private getCurrentAgent(): string | null {
     const step = this.getCurrentStep();
 
-    if (step.type === 'loop' && this.state.subStep) {
+    if (step.type === "loop" && this.state.subStep) {
       const loopStep = this.getCurrentLoopStep();
       return loopStep?.agent || step.agent || null;
     }
@@ -173,14 +173,14 @@ export class WorkflowStateMachine {
    */
   private getCurrentInstructions(): string {
     const step = this.getCurrentStep();
-    let instructions = '';
+    let instructions = "";
 
-    if (step.type === 'action') {
-      instructions = step.instructions || '';
+    if (step.type === "action") {
+      instructions = step.instructions || "";
     }
 
-    if (step.type === 'ralph') {
-      instructions = step.instructions || '';
+    if (step.type === "ralph") {
+      instructions = step.instructions || "";
     }
 
     // Loop step - get instructions from current sub-step
@@ -218,9 +218,9 @@ export class WorkflowStateMachine {
       totalSteps,
     };
 
-    if (this.state.stepType === 'loop') {
+    if (this.state.stepType === "loop") {
       const tasks = this.getCurrentTasks();
-      const completedTasks = tasks.filter(t => t.status === 'done').length;
+      const completedTasks = tasks.filter((t) => t.status === "done").length;
 
       progress.completedTasks = completedTasks;
       progress.totalTasks = tasks.length;
@@ -253,27 +253,27 @@ export class WorkflowStateMachine {
    * @returns Complete status information for Claude
    */
   getStatus(): WorkflowStatusResponse {
-    if (this.state.status === 'complete') {
+    if (this.state.status === "complete") {
       return {
-        status: 'complete',
+        status: "complete",
         step: this.state.step,
         stepType: this.state.stepType,
         agent: null,
         delegate: false,
-        instructions: 'Workflow complete.',
+        instructions: "Workflow complete.",
         progress: this.buildProgress(),
         artefacts: [...this.state.artefacts],
       };
     }
 
-    if (this.state.status === 'failed') {
+    if (this.state.status === "failed") {
       return {
-        status: 'failed',
+        status: "failed",
         step: this.state.step,
         stepType: this.state.stepType,
         agent: null,
         delegate: false,
-        instructions: 'Workflow failed.',
+        instructions: "Workflow failed.",
         progress: this.buildProgress(),
         artefacts: [...this.state.artefacts],
       };
@@ -284,7 +284,7 @@ export class WorkflowStateMachine {
     const progress = this.buildProgress();
 
     const response: WorkflowStatusResponse = {
-      status: 'running',
+      status: "running",
       step: this.state.step,
       stepType: this.state.stepType,
       agent,
@@ -295,7 +295,7 @@ export class WorkflowStateMachine {
     };
 
     // Add loop-specific information
-    if (this.state.stepType === 'loop') {
+    if (this.state.stepType === "loop") {
       const tasks = this.getCurrentTasks();
       const loopSteps = this.getLoopSteps(this.state.step);
 
@@ -314,7 +314,7 @@ export class WorkflowStateMachine {
     }
 
     // Add ralph-specific information
-    if (this.state.stepType === 'ralph') {
+    if (this.state.stepType === "ralph") {
       const currentStep = this.getCurrentStep();
       const n = currentStep.n || 1;
       const currentIteration = this.state.ralphIteration || 1;
@@ -349,7 +349,11 @@ export class WorkflowStateMachine {
 
     // If we're currently at this loop step and haven't started iterating,
     // initialize the loop iteration
-    if (this.state.step === loopId && this.state.stepType === 'loop' && !this.state.task) {
+    if (
+      this.state.step === loopId &&
+      this.state.stepType === "loop" &&
+      !this.state.task
+    ) {
       this.initializeLoopIteration();
     }
   }
@@ -386,18 +390,18 @@ export class WorkflowStateMachine {
     this.state.currentStepArtefacts = currentStep.artefacts;
 
     // Mark first task as in progress
-    tasks[0].status = 'in_progress';
+    tasks[0].status = "in_progress";
   }
 
   /**
    * Generates the output key for the current step.
    */
   private getOutputKey(): string {
-    if (this.state.stepType === 'action') {
+    if (this.state.stepType === "action") {
       return this.state.step;
     }
 
-    if (this.state.stepType === 'ralph') {
+    if (this.state.stepType === "ralph") {
       // Ralph steps include iteration number
       const iteration = this.state.ralphIteration || 1;
       return `${this.state.step}.${iteration}`;
@@ -412,7 +416,7 @@ export class WorkflowStateMachine {
       parts.push(this.state.subStep);
     }
 
-    return parts.join('.');
+    return parts.join(".");
   }
 
   /**
@@ -424,7 +428,7 @@ export class WorkflowStateMachine {
 
     if (nextIndex >= this.template.steps.length) {
       // Workflow complete
-      this.state.status = 'complete';
+      this.state.status = "complete";
       return;
     }
 
@@ -438,12 +442,12 @@ export class WorkflowStateMachine {
     this.state.contextActionExecuted = false;
 
     // If next step is a loop, check if tasks are already set
-    if (nextStep.type === 'loop' && this.state.tasks[nextStep.id]?.length > 0) {
+    if (nextStep.type === "loop" && this.state.tasks[nextStep.id]?.length > 0) {
       this.initializeLoopIteration();
     }
 
     // If next step is a ralph, initialize iteration to 1
-    if (nextStep.type === 'ralph') {
+    if (nextStep.type === "ralph") {
       this.state.ralphIteration = 1;
     }
   }
@@ -468,7 +472,7 @@ export class WorkflowStateMachine {
     if (this.state.task) {
       const currentTask = tasks[this.state.task.index];
       if (currentTask) {
-        currentTask.status = 'done';
+        currentTask.status = "done";
       }
     }
 
@@ -489,7 +493,7 @@ export class WorkflowStateMachine {
       this.state.contextActionExecuted = false;
 
       // Mark next task as in progress
-      nextTask.status = 'in_progress';
+      nextTask.status = "in_progress";
       return;
     }
 
@@ -503,7 +507,7 @@ export class WorkflowStateMachine {
    * @returns Updated status response
    */
   advance(output: string): WorkflowStatusResponse {
-    if (this.state.status !== 'running') {
+    if (this.state.status !== "running") {
       return this.getStatus();
     }
 
@@ -512,9 +516,9 @@ export class WorkflowStateMachine {
     this.state.outputs[outputKey] = output;
 
     // Advance based on step type
-    if (this.state.stepType === 'action') {
+    if (this.state.stepType === "action") {
       this.advanceToNextStep();
-    } else if (this.state.stepType === 'ralph') {
+    } else if (this.state.stepType === "ralph") {
       // Ralph step - check if we need to iterate or advance
       const currentStep = this.getCurrentStep();
       const n = currentStep.n || 1;
@@ -565,7 +569,7 @@ export class WorkflowStateMachine {
     // Sanitize: trim whitespace, remove control characters, limit length
     const sanitized = summary
       .trim()
-      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .replace(/[\x00-\x1F\x7F]/g, "") // Remove control characters
       .substring(0, 100); // Enforce reasonable max length
 
     if (sanitized) {
@@ -589,7 +593,10 @@ export class WorkflowStateMachine {
    * @param state - The persisted state to restore
    * @returns A new WorkflowStateMachine at the restored position
    */
-  static fromState(template: WorkflowTemplate, state: WorkflowState): WorkflowStateMachine {
+  static fromState(
+    template: WorkflowTemplate,
+    state: WorkflowState,
+  ): WorkflowStateMachine {
     // Use the saved workflow_definition if available (ensures consistency across session restarts)
     const effectiveTemplate = state.workflow_definition || template;
     const machine = new WorkflowStateMachine(effectiveTemplate);

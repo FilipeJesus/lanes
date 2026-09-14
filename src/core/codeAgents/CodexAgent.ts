@@ -23,11 +23,11 @@ import {
     StartCommandOptions,
     ResumeCommandOptions,
     McpConfig,
-    McpConfigDelivery
-} from './CodeAgent';
-import * as os from 'os';
-import * as path from 'path';
-import * as fs from 'fs/promises';
+    McpConfigDelivery,
+} from "./CodeAgent";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs/promises";
 
 /**
  * Codex CLI implementation of the CodeAgent interface
@@ -40,7 +40,8 @@ export class CodexAgent extends CodeAgent {
     /**
      * UUID validation pattern for session IDs
      */
-    private static readonly SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    private static readonly SESSION_ID_PATTERN =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     /**
      * Create a new CodexAgent instance with Codex-specific configuration.
      *
@@ -49,14 +50,15 @@ export class CodexAgent extends CodeAgent {
      */
     constructor() {
         super({
-            name: 'codex',
-            displayName: 'Codex CLI',
-            cliCommand: 'codex',
-            sessionFileExtension: '.claude-session',
-            statusFileExtension: '.claude-status',
-            settingsFileName: 'config.toml',
-            defaultDataDir: '.codex',
-            logoSvg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>'
+            name: "codex",
+            displayName: "Codex CLI",
+            cliCommand: "codex",
+            sessionFileExtension: ".claude-session",
+            statusFileExtension: ".claude-status",
+            settingsFileName: "config.toml",
+            defaultDataDir: ".codex",
+            logoSvg:
+                '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.99 5.99 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zM13.26 22.43a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.8.8 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06l-4.84 2.79a4.5 4.5 0 0 1-6.13-1.64zM2.34 7.9a4.49 4.49 0 0 1 2.37-1.97V11.6a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L4 14.02A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.39 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1V12.44a.79.79 0 0 0-.4-.67zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86L6.29 11.7a.08.08 0 0 1-.04-.06V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.8.8 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5v-3z"/></svg>',
         });
     }
 
@@ -86,7 +88,9 @@ export class CodexAgent extends CodeAgent {
      */
     private validateSessionId(sessionId: string): void {
         if (!CodexAgent.SESSION_ID_PATTERN.test(sessionId)) {
-            throw new Error(`Invalid session ID format: ${sessionId}. Expected UUID format.`);
+            throw new Error(
+                `Invalid session ID format: ${sessionId}. Expected UUID format.`,
+            );
         }
     }
 
@@ -105,8 +109,8 @@ export class CodexAgent extends CodeAgent {
 
     getTerminalIcon(): { id: string; color?: string } {
         return {
-            id: 'robot',
-            color: 'terminal.ansiBlue'
+            id: "robot",
+            color: "terminal.ansiBlue",
         };
     }
 
@@ -120,7 +124,10 @@ export class CodexAgent extends CodeAgent {
     buildStartCommand(options: StartCommandOptions): string {
         const parts: string[] = [this.config.cliCommand];
 
-        if (options.mcpConfigOverrides && options.mcpConfigOverrides.length > 0) {
+        if (
+            options.mcpConfigOverrides &&
+            options.mcpConfigOverrides.length > 0
+        ) {
             for (const override of options.mcpConfigOverrides) {
                 const escapedOverride = this.escapeForSingleQuotes(override);
                 parts.push(`-c '${escapedOverride}'`);
@@ -140,7 +147,7 @@ export class CodexAgent extends CodeAgent {
             parts.push(this.formatPromptForShell(options.prompt));
         }
 
-        return parts.join(' ');
+        return parts.join(" ");
     }
 
     /**
@@ -150,13 +157,19 @@ export class CodexAgent extends CodeAgent {
      *
      * @throws Error if session ID is not a valid UUID
      */
-    buildResumeCommand(sessionId: string, options: ResumeCommandOptions): string {
+    buildResumeCommand(
+        sessionId: string,
+        options: ResumeCommandOptions,
+    ): string {
         // Validate UUID format (throws on invalid - strict, no fallback)
         this.validateSessionId(sessionId);
 
         const parts: string[] = [this.config.cliCommand];
 
-        if (options.mcpConfigOverrides && options.mcpConfigOverrides.length > 0) {
+        if (
+            options.mcpConfigOverrides &&
+            options.mcpConfigOverrides.length > 0
+        ) {
             for (const override of options.mcpConfigOverrides) {
                 const escapedOverride = this.escapeForSingleQuotes(override);
                 parts.push(`-c '${escapedOverride}'`);
@@ -170,9 +183,9 @@ export class CodexAgent extends CodeAgent {
             }
         }
 
-        parts.push('resume', sessionId);
+        parts.push("resume", sessionId);
 
-        return parts.join(' ');
+        return parts.join(" ");
     }
 
     // --- Session/Status Parsing ---
@@ -182,7 +195,7 @@ export class CodexAgent extends CodeAgent {
             const data = JSON.parse(content);
 
             // Session ID is required and must be a string
-            if (!data.sessionId || typeof data.sessionId !== 'string') {
+            if (!data.sessionId || typeof data.sessionId !== "string") {
                 return null;
             }
 
@@ -196,7 +209,7 @@ export class CodexAgent extends CodeAgent {
                 timestamp: data.timestamp,
                 agentName: this.config.name,
                 workflow: data.workflow,
-                isChimeEnabled: data.isChimeEnabled
+                isChimeEnabled: data.isChimeEnabled,
             };
         } catch {
             return null;
@@ -208,14 +221,14 @@ export class CodexAgent extends CodeAgent {
             const data = JSON.parse(content);
 
             // Status field is required
-            if (!data.status || typeof data.status !== 'string') {
+            if (!data.status || typeof data.status !== "string") {
                 return null;
             }
 
             return {
                 status: data.status,
                 timestamp: data.timestamp,
-                message: data.message
+                message: data.message,
             };
         } catch {
             return null;
@@ -224,7 +237,7 @@ export class CodexAgent extends CodeAgent {
 
     getValidStatusStates(): string[] {
         // Hookless agents with polling support have granular status via session log watching
-        return ['active', 'idle', 'working', 'waiting_for_user'];
+        return ["active", "idle", "working", "waiting_for_user"];
     }
 
     // --- Permission Modes ---
@@ -238,13 +251,21 @@ export class CodexAgent extends CodeAgent {
      */
     getPermissionModes(): PermissionMode[] {
         return [
-            { id: 'acceptEdits', label: 'Accept Edits', flag: '--sandbox workspace-write --ask-for-approval on-failure' },
-            { id: 'bypassPermissions', label: 'Bypass Permissions', flag: '--sandbox danger-full-access --ask-for-approval never' }
+            {
+                id: "acceptEdits",
+                label: "Accept Edits",
+                flag: "--sandbox workspace-write --ask-for-approval on-failure",
+            },
+            {
+                id: "bypassPermissions",
+                label: "Bypass Permissions",
+                flag: "--sandbox danger-full-access --ask-for-approval never",
+            },
         ];
     }
 
     validatePermissionMode(mode: string): boolean {
-        return this.getPermissionModes().some(m => m.id === mode);
+        return this.getPermissionModes().some((m) => m.id === mode);
     }
 
     /**
@@ -252,8 +273,10 @@ export class CodexAgent extends CodeAgent {
      * @returns Combined --sandbox and --ask-for-approval flags, or empty string if mode not found
      */
     getPermissionFlag(mode: string): string {
-        const permissionMode = this.getPermissionModes().find(m => m.id === mode);
-        return permissionMode?.flag || '';
+        const permissionMode = this.getPermissionModes().find(
+            (m) => m.id === mode,
+        );
+        return permissionMode?.flag || "";
     }
 
     // --- Hooks (Codex has no hook system) ---
@@ -267,7 +290,7 @@ export class CodexAgent extends CodeAgent {
         _sessionFilePath: string,
         _statusFilePath: string,
         _workflowPath?: string,
-        _hookScriptPath?: string
+        _hookScriptPath?: string,
     ): HookConfig[] {
         // Codex has no hook system - return empty array
         return [];
@@ -278,21 +301,32 @@ export class CodexAgent extends CodeAgent {
     buildMcpOverrides(mcpConfig: McpConfig): string[] {
         const overrides: string[] = [];
         for (const [name, server] of Object.entries(mcpConfig.mcpServers)) {
-            const safeName = /^[A-Za-z0-9_-]+$/.test(name) ? name : JSON.stringify(name);
-            overrides.push(`mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`);
-            overrides.push(`mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`);
+            const safeName = /^[A-Za-z0-9_-]+$/.test(name)
+                ? name
+                : JSON.stringify(name);
+            overrides.push(
+                `mcp_servers.${safeName}.command=${JSON.stringify(server.command)}`,
+            );
+            overrides.push(
+                `mcp_servers.${safeName}.args=${JSON.stringify(server.args)}`,
+            );
         }
         return overrides;
     }
 
     // --- Prompt Improvement ---
 
-    buildPromptImproveCommand(prompt: string): { command: string; args: string[] } | null {
+    buildPromptImproveCommand(
+        prompt: string,
+    ): { command: string; args: string[] } | null {
         const metaPrompt = `You are a prompt engineer. The user wants to send the following text as a starting prompt to an AI coding assistant session. Your job is to improve and restructure this prompt to be clearer, more specific, and better organized. Keep the same intent but make it more effective. Reply with the improved prompt only — no preamble, no explanation, no surrounding quotes, no "Here is the improved prompt:" prefix.
 
 Original prompt:
 ${prompt}`;
-        return { command: this.config.cliCommand, args: ['--print', metaPrompt] };
+        return {
+            command: this.config.cliCommand,
+            args: ["--print", metaPrompt],
+        };
     }
 
     // --- MCP Support ---
@@ -302,19 +336,33 @@ ${prompt}`;
     }
 
     getMcpConfigDelivery(): McpConfigDelivery {
-        return 'cli-overrides';
+        return "cli-overrides";
     }
 
-    getMcpConfig(worktreePath: string, workflowPath: string, repoRoot: string): McpConfig | null {
-        const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+    getMcpConfig(
+        worktreePath: string,
+        workflowPath: string,
+        repoRoot: string,
+    ): McpConfig | null {
+        const mcpServerPath = path.join(__dirname, "mcp", "server.js");
 
         return {
             mcpServers: {
-                'lanes-workflow': {
-                    command: process.versions.electron ? 'node' : process.execPath,
-                    args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
-                }
-            }
+                "lanes-workflow": {
+                    command: process.versions.electron
+                        ? "node"
+                        : process.execPath,
+                    args: [
+                        mcpServerPath,
+                        "--worktree",
+                        worktreePath,
+                        "--workflow-path",
+                        workflowPath,
+                        "--repo-root",
+                        repoRoot,
+                    ],
+                },
+            },
         };
     }
 
@@ -330,8 +378,8 @@ ${prompt}`;
         for (const entry of entries) {
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
-                results.push(...await CodexAgent.findJsonlFiles(fullPath));
-            } else if (entry.name.endsWith('.jsonl')) {
+                results.push(...(await CodexAgent.findJsonlFiles(fullPath)));
+            } else if (entry.name.endsWith(".jsonl")) {
                 results.push(fullPath);
             }
         }
@@ -350,9 +398,9 @@ ${prompt}`;
     async captureSessionId(
         beforeTimestamp: Date,
         timeoutMs: number = 10000,
-        pollIntervalMs: number = 500
+        pollIntervalMs: number = 500,
     ): Promise<CapturedSession | null> {
-        const sessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+        const sessionsDir = path.join(os.homedir(), ".codex", "sessions");
         const beforeTime = beforeTimestamp.getTime();
         const startTime = Date.now();
 
@@ -361,16 +409,22 @@ ${prompt}`;
                 try {
                     // Recursively find all .jsonl session files
                     // Codex uses YYYY/MM/DD/ subdirectory structure
-                    const filePaths = await CodexAgent.findJsonlFiles(sessionsDir);
+                    const filePaths =
+                        await CodexAgent.findJsonlFiles(sessionsDir);
 
                     // Find files modified after beforeTimestamp
-                    const candidates: Array<{ mtime: number; filePath: string }> = [];
+                    const candidates: Array<{
+                        mtime: number;
+                        filePath: string;
+                    }> = [];
 
                     for (const filePath of filePaths) {
                         try {
                             // Path traversal protection: ensure resolved path stays within sessionsDir
                             const resolvedPath = path.resolve(filePath);
-                            if (!resolvedPath.startsWith(sessionsDir + path.sep)) {
+                            if (
+                                !resolvedPath.startsWith(sessionsDir + path.sep)
+                            ) {
                                 continue;
                             }
 
@@ -378,7 +432,10 @@ ${prompt}`;
 
                             // Only consider files modified after the timestamp
                             if (stats.mtime.getTime() > beforeTime) {
-                                candidates.push({ mtime: stats.mtime.getTime(), filePath });
+                                candidates.push({
+                                    mtime: stats.mtime.getTime(),
+                                    filePath,
+                                });
                             }
                         } catch {
                             continue;
@@ -393,11 +450,16 @@ ${prompt}`;
                         const filePath = candidates[0].filePath;
 
                         try {
-                            const content = await fs.readFile(filePath, 'utf-8');
+                            const content = await fs.readFile(
+                                filePath,
+                                "utf-8",
+                            );
                             // JSONL format - parse first line only
-                            const firstLine = content.split('\n')[0];
+                            const firstLine = content.split("\n")[0];
                             if (!firstLine) {
-                                await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                                await new Promise((resolve) =>
+                                    setTimeout(resolve, pollIntervalMs),
+                                );
                                 continue;
                             }
 
@@ -413,33 +475,46 @@ ${prompt}`;
                                 data.id ||
                                 data.sessionId;
 
-                            if (possibleSessionId && typeof possibleSessionId === 'string') {
-                                if (CodexAgent.SESSION_ID_PATTERN.test(possibleSessionId)) {
+                            if (
+                                possibleSessionId &&
+                                typeof possibleSessionId === "string"
+                            ) {
+                                if (
+                                    CodexAgent.SESSION_ID_PATTERN.test(
+                                        possibleSessionId,
+                                    )
+                                ) {
                                     return {
                                         sessionId: possibleSessionId,
-                                        logPath: filePath
+                                        logPath: filePath,
                                     };
                                 }
                             }
                         } catch {
-                            await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                            await new Promise((resolve) =>
+                                setTimeout(resolve, pollIntervalMs),
+                            );
                             continue;
                         }
                     }
                 } catch {
                     // Sessions directory might not exist yet, wait and retry
-                    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, pollIntervalMs),
+                    );
                     continue;
                 }
 
                 // No valid session found yet, wait and retry
-                await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                await new Promise((resolve) =>
+                    setTimeout(resolve, pollIntervalMs),
+                );
             }
 
             // Timeout reached
             return null;
         } catch (err) {
-            console.error('Lanes: Error capturing Codex session ID:', err);
+            console.error("Lanes: Error capturing Codex session ID:", err);
             return null;
         }
     }

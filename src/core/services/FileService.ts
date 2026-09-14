@@ -6,8 +6,8 @@
  * to ensure non-blocking I/O throughout the codebase.
  */
 
-import * as fs from 'fs/promises';
-import { constants } from 'fs';
+import * as fs from "fs/promises";
+import { constants } from "fs";
 
 /**
  * Write content to a file atomically using a temp-file-then-rename pattern.
@@ -16,17 +16,20 @@ import { constants } from 'fs';
  * @param filePath - The target file path
  * @param content - The string content to write
  */
-export async function atomicWrite(filePath: string, content: string): Promise<void> {
-    const tempPath = `${filePath}.tmp.${process.pid}`;
+export async function atomicWrite(
+   filePath: string,
+   content: string,
+): Promise<void> {
+   const tempPath = `${filePath}.tmp.${process.pid}`;
 
-    try {
-        await fs.writeFile(tempPath, content, 'utf-8');
-        await fs.rename(tempPath, filePath);
-    } catch (err) {
-        // Clean up temp file on failure
-        await fs.unlink(tempPath).catch(() => {});
-        throw err;
-    }
+   try {
+      await fs.writeFile(tempPath, content, "utf-8");
+      await fs.rename(tempPath, filePath);
+   } catch (err) {
+      // Clean up temp file on failure
+      await fs.unlink(tempPath).catch(() => {});
+      throw err;
+   }
 }
 
 /**
@@ -37,15 +40,19 @@ export async function atomicWrite(filePath: string, content: string): Promise<vo
  * @returns The parsed JSON data, or null if the file does not exist
  */
 export async function readJson<T>(filePath: string): Promise<T | null> {
-    try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(content) as T;
-    } catch (err: unknown) {
-        if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-            return null;
-        }
-        throw err;
-    }
+   try {
+      const content = await fs.readFile(filePath, "utf-8");
+      return JSON.parse(content) as T;
+   } catch (err: unknown) {
+      if (
+         err instanceof Error &&
+         "code" in err &&
+         (err as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+         return null;
+      }
+      throw err;
+   }
 }
 
 /**
@@ -55,9 +62,12 @@ export async function readJson<T>(filePath: string): Promise<T | null> {
  * @param filePath - The target file path
  * @param data - The data to serialize as JSON
  */
-export async function writeJson(filePath: string, data: unknown): Promise<void> {
-    const content = JSON.stringify(data, null, 2);
-    await atomicWrite(filePath, content);
+export async function writeJson(
+   filePath: string,
+   data: unknown,
+): Promise<void> {
+   const content = JSON.stringify(data, null, 2);
+   await atomicWrite(filePath, content);
 }
 
 /**
@@ -67,7 +77,7 @@ export async function writeJson(filePath: string, data: unknown): Promise<void> 
  * @param dirPath - The directory path to create
  */
 export async function ensureDir(dirPath: string): Promise<void> {
-    await fs.mkdir(dirPath, { recursive: true });
+   await fs.mkdir(dirPath, { recursive: true });
 }
 
 /**
@@ -78,12 +88,12 @@ export async function ensureDir(dirPath: string): Promise<void> {
  * @returns true if the file exists, false otherwise
  */
 export async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.access(filePath, constants.F_OK);
-        return true;
-    } catch {
-        return false;
-    }
+   try {
+      await fs.access(filePath, constants.F_OK);
+      return true;
+   } catch {
+      return false;
+   }
 }
 
 /**
@@ -94,7 +104,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
  * @returns The file content as a string
  */
 export async function readFile(filePath: string): Promise<string> {
-    return fs.readFile(filePath, 'utf-8');
+   return fs.readFile(filePath, "utf-8");
 }
 
 /**
@@ -105,14 +115,18 @@ export async function readFile(filePath: string): Promise<string> {
  * @returns Array of directory entry names
  */
 export async function readDir(dirPath: string): Promise<string[]> {
-    try {
-        return await fs.readdir(dirPath);
-    } catch (err: unknown) {
-        if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-            return [];
-        }
-        throw err;
-    }
+   try {
+      return await fs.readdir(dirPath);
+   } catch (err: unknown) {
+      if (
+         err instanceof Error &&
+         "code" in err &&
+         (err as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+         return [];
+      }
+      throw err;
+   }
 }
 
 /**
@@ -123,12 +137,12 @@ export async function readDir(dirPath: string): Promise<string[]> {
  * @returns true if the path is a directory, false otherwise
  */
 export async function isDirectory(filePath: string): Promise<boolean> {
-    try {
-        const stat = await fs.stat(filePath);
-        return stat.isDirectory();
-    } catch {
-        return false;
-    }
+   try {
+      const stat = await fs.stat(filePath);
+      return stat.isDirectory();
+   } catch {
+      return false;
+   }
 }
 
 /**
@@ -139,10 +153,10 @@ export async function isDirectory(filePath: string): Promise<boolean> {
  * @returns true if the path is a file, false otherwise
  */
 export async function isFile(filePath: string): Promise<boolean> {
-    try {
-        const stat = await fs.stat(filePath);
-        return stat.isFile();
-    } catch {
-        return false;
-    }
+   try {
+      const stat = await fs.stat(filePath);
+      return stat.isFile();
+   } catch {
+      return false;
+   }
 }

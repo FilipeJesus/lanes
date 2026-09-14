@@ -2,9 +2,14 @@
  * Workflow template loader with YAML parsing and validation.
  */
 
-import * as fs from 'fs';
-import * as yaml from 'yaml';
-import type { WorkflowTemplate, AgentConfig, LoopStep, WorkflowStep } from './types';
+import * as fs from "fs";
+import * as yaml from "yaml";
+import type {
+  WorkflowTemplate,
+  AgentConfig,
+  LoopStep,
+  WorkflowStep,
+} from "./types";
 
 /**
  * Error thrown when a workflow template is invalid.
@@ -12,7 +17,7 @@ import type { WorkflowTemplate, AgentConfig, LoopStep, WorkflowStep } from './ty
 export class WorkflowValidationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'WorkflowValidationError';
+    this.name = "WorkflowValidationError";
   }
 }
 
@@ -20,14 +25,14 @@ export class WorkflowValidationError extends Error {
  * Type guard to check if a value is a non-null object.
  */
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
  * Type guard to check if a value is a string.
  */
 function isString(value: unknown): value is string {
-  return typeof value === 'string';
+  return typeof value === "string";
 }
 
 /**
@@ -43,24 +48,33 @@ function isArray(value: unknown): value is unknown[] {
  * @param value - The value to validate
  * @throws WorkflowValidationError if invalid
  */
-function validateAgentConfig(key: string, value: unknown): asserts value is AgentConfig {
+function validateAgentConfig(
+  key: string,
+  value: unknown,
+): asserts value is AgentConfig {
   if (!isObject(value)) {
     throw new WorkflowValidationError(`Agent '${key}' must be an object`);
   }
 
   if (!isString(value.description)) {
-    throw new WorkflowValidationError(`Agent '${key}' must have a 'description' string`);
+    throw new WorkflowValidationError(
+      `Agent '${key}' must have a 'description' string`,
+    );
   }
 
   // tools is optional - if omitted, agent has access to all tools
   if (value.tools !== undefined) {
     if (!isArray(value.tools)) {
-      throw new WorkflowValidationError(`Agent '${key}' tools must be an array if provided`);
+      throw new WorkflowValidationError(
+        `Agent '${key}' tools must be an array if provided`,
+      );
     }
 
     for (const tool of value.tools) {
       if (!isString(tool)) {
-        throw new WorkflowValidationError(`Agent '${key}' tools must be strings`);
+        throw new WorkflowValidationError(
+          `Agent '${key}' tools must be strings`,
+        );
       }
     }
   }
@@ -68,12 +82,16 @@ function validateAgentConfig(key: string, value: unknown): asserts value is Agen
   // cannot is optional - if omitted, no special restrictions
   if (value.cannot !== undefined) {
     if (!isArray(value.cannot)) {
-      throw new WorkflowValidationError(`Agent '${key}' cannot must be an array if provided`);
+      throw new WorkflowValidationError(
+        `Agent '${key}' cannot must be an array if provided`,
+      );
     }
 
     for (const restriction of value.cannot) {
       if (!isString(restriction)) {
-        throw new WorkflowValidationError(`Agent '${key}' cannot restrictions must be strings`);
+        throw new WorkflowValidationError(
+          `Agent '${key}' cannot restrictions must be strings`,
+        );
       }
     }
   }
@@ -86,28 +104,40 @@ function validateAgentConfig(key: string, value: unknown): asserts value is Agen
  * @param value - The value to validate
  * @throws WorkflowValidationError if invalid
  */
-function validateLoopStep(loopId: string, index: number, value: unknown): asserts value is LoopStep {
+function validateLoopStep(
+  loopId: string,
+  index: number,
+  value: unknown,
+): asserts value is LoopStep {
   if (!isObject(value)) {
-    throw new WorkflowValidationError(`Loop '${loopId}' step ${index} must be an object`);
+    throw new WorkflowValidationError(
+      `Loop '${loopId}' step ${index} must be an object`,
+    );
   }
 
   if (!isString(value.id)) {
-    throw new WorkflowValidationError(`Loop '${loopId}' step ${index} must have an 'id' string`);
+    throw new WorkflowValidationError(
+      `Loop '${loopId}' step ${index} must have an 'id' string`,
+    );
   }
 
   if (!isString(value.instructions)) {
-    throw new WorkflowValidationError(`Loop '${loopId}' step '${value.id}' must have an 'instructions' string`);
+    throw new WorkflowValidationError(
+      `Loop '${loopId}' step '${value.id}' must have an 'instructions' string`,
+    );
   }
 
   if (value.agent !== undefined && !isString(value.agent)) {
-    throw new WorkflowValidationError(`Loop '${loopId}' step '${value.id}' agent must be a string if provided`);
+    throw new WorkflowValidationError(
+      `Loop '${loopId}' step '${value.id}' agent must be a string if provided`,
+    );
   }
 
   if (value.on_fail !== undefined) {
-    const validOnFail = ['retry', 'skip', 'abort'];
+    const validOnFail = ["retry", "skip", "abort"];
     if (!isString(value.on_fail) || !validOnFail.includes(value.on_fail)) {
       throw new WorkflowValidationError(
-        `Loop '${loopId}' step '${value.id}' on_fail must be one of: ${validOnFail.join(', ')}`
+        `Loop '${loopId}' step '${value.id}' on_fail must be one of: ${validOnFail.join(", ")}`,
       );
     }
   }
@@ -115,11 +145,13 @@ function validateLoopStep(loopId: string, index: number, value: unknown): assert
   // Validate optional context field
   if (value.context !== undefined) {
     if (!isString(value.context)) {
-      throw new WorkflowValidationError(`Loop '${loopId}' step '${value.id}' context must be a string`);
-    }
-    if (value.context !== 'compact' && value.context !== 'clear') {
       throw new WorkflowValidationError(
-        `Loop '${loopId}' step '${value.id}' context must be either 'compact' or 'clear', got: ${value.context}`
+        `Loop '${loopId}' step '${value.id}' context must be a string`,
+      );
+    }
+    if (value.context !== "compact" && value.context !== "clear") {
+      throw new WorkflowValidationError(
+        `Loop '${loopId}' step '${value.id}' context must be either 'compact' or 'clear', got: ${value.context}`,
       );
     }
   }
@@ -131,7 +163,10 @@ function validateLoopStep(loopId: string, index: number, value: unknown): assert
  * @param value - The value to validate
  * @throws WorkflowValidationError if invalid
  */
-function validateWorkflowStep(index: number, value: unknown): asserts value is WorkflowStep {
+function validateWorkflowStep(
+  index: number,
+  value: unknown,
+): asserts value is WorkflowStep {
   if (!isObject(value)) {
     throw new WorkflowValidationError(`Step ${index} must be an object`);
   }
@@ -142,37 +177,57 @@ function validateWorkflowStep(index: number, value: unknown): asserts value is W
 
   const stepId = value.id;
 
-  if (!isString(value.type) || (value.type !== 'action' && value.type !== 'loop' && value.type !== 'ralph')) {
-    throw new WorkflowValidationError(`Step '${stepId}' must have a 'type' of 'action', 'loop', or 'ralph'`);
+  if (
+    !isString(value.type) ||
+    (value.type !== "action" && value.type !== "loop" && value.type !== "ralph")
+  ) {
+    throw new WorkflowValidationError(
+      `Step '${stepId}' must have a 'type' of 'action', 'loop', or 'ralph'`,
+    );
   }
 
   if (value.agent !== undefined && !isString(value.agent)) {
-    throw new WorkflowValidationError(`Step '${stepId}' agent must be a string if provided`);
+    throw new WorkflowValidationError(
+      `Step '${stepId}' agent must be a string if provided`,
+    );
   }
 
-  if (value.type === 'action') {
+  if (value.type === "action") {
     if (!isString(value.instructions)) {
-      throw new WorkflowValidationError(`Action step '${stepId}' must have an 'instructions' string`);
+      throw new WorkflowValidationError(
+        `Action step '${stepId}' must have an 'instructions' string`,
+      );
     }
   }
 
-  if (value.type === 'ralph') {
+  if (value.type === "ralph") {
     if (!isString(value.instructions)) {
-      throw new WorkflowValidationError(`Ralph step '${stepId}' must have an 'instructions' string`);
+      throw new WorkflowValidationError(
+        `Ralph step '${stepId}' must have an 'instructions' string`,
+      );
     }
-    if (value.n === undefined || typeof value.n !== 'number' || value.n < 1 || !Number.isInteger(value.n)) {
-      throw new WorkflowValidationError(`Ralph step '${stepId}' must have an 'n' field with a positive integer value`);
+    if (
+      value.n === undefined ||
+      typeof value.n !== "number" ||
+      value.n < 1 ||
+      !Number.isInteger(value.n)
+    ) {
+      throw new WorkflowValidationError(
+        `Ralph step '${stepId}' must have an 'n' field with a positive integer value`,
+      );
     }
   }
 
   // Validate optional context field
   if (value.context !== undefined) {
     if (!isString(value.context)) {
-      throw new WorkflowValidationError(`Step '${stepId}' context must be a string`);
-    }
-    if (value.context !== 'compact' && value.context !== 'clear') {
       throw new WorkflowValidationError(
-        `Step '${stepId}' context must be either 'compact' or 'clear', got: ${value.context}`
+        `Step '${stepId}' context must be a string`,
+      );
+    }
+    if (value.context !== "compact" && value.context !== "clear") {
+      throw new WorkflowValidationError(
+        `Step '${stepId}' context must be either 'compact' or 'clear', got: ${value.context}`,
       );
     }
   }
@@ -190,7 +245,7 @@ function validateAgentReferences(template: WorkflowTemplate): void {
   for (const step of template.steps) {
     if (step.agent && !agentIds.has(step.agent)) {
       throw new WorkflowValidationError(
-        `Step '${step.id}' references unknown agent '${step.agent}'`
+        `Step '${step.id}' references unknown agent '${step.agent}'`,
       );
     }
   }
@@ -201,7 +256,7 @@ function validateAgentReferences(template: WorkflowTemplate): void {
       for (const loopStep of loopSteps) {
         if (loopStep.agent && !agentIds.has(loopStep.agent)) {
           throw new WorkflowValidationError(
-            `Loop '${loopId}' step '${loopStep.id}' references unknown agent '${loopStep.agent}'`
+            `Loop '${loopId}' step '${loopStep.id}' references unknown agent '${loopStep.agent}'`,
           );
         }
       }
@@ -218,9 +273,9 @@ function validateLoopReferences(template: WorkflowTemplate): void {
   const loopIds = new Set(Object.keys(template.loops || {}));
 
   for (const step of template.steps) {
-    if (step.type === 'loop' && !loopIds.has(step.id)) {
+    if (step.type === "loop" && !loopIds.has(step.id)) {
       throw new WorkflowValidationError(
-        `Loop step '${step.id}' references unknown loop definition`
+        `Loop step '${step.id}' references unknown loop definition`,
       );
     }
   }
@@ -234,7 +289,7 @@ function validateLoopReferences(template: WorkflowTemplate): void {
  */
 export function validateTemplate(value: unknown): value is WorkflowTemplate {
   if (!isObject(value)) {
-    throw new WorkflowValidationError('Template must be an object');
+    throw new WorkflowValidationError("Template must be an object");
   }
 
   // Validate required top-level fields
@@ -243,13 +298,17 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
   }
 
   if (!isString(value.description)) {
-    throw new WorkflowValidationError("Template must have a 'description' string");
+    throw new WorkflowValidationError(
+      "Template must have a 'description' string",
+    );
   }
 
   // Validate agents (optional)
   if (value.agents !== undefined) {
     if (!isObject(value.agents)) {
-      throw new WorkflowValidationError("'agents' must be an object if provided");
+      throw new WorkflowValidationError(
+        "'agents' must be an object if provided",
+      );
     }
 
     for (const [key, agentConfig] of Object.entries(value.agents)) {
@@ -260,12 +319,16 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
   // Validate loops (optional)
   if (value.loops !== undefined) {
     if (!isObject(value.loops)) {
-      throw new WorkflowValidationError("'loops' must be an object if provided");
+      throw new WorkflowValidationError(
+        "'loops' must be an object if provided",
+      );
     }
 
     for (const [loopId, loopSteps] of Object.entries(value.loops)) {
       if (!isArray(loopSteps)) {
-        throw new WorkflowValidationError(`Loop '${loopId}' must be an array of steps`);
+        throw new WorkflowValidationError(
+          `Loop '${loopId}' must be an array of steps`,
+        );
       }
 
       for (let i = 0; i < loopSteps.length; i++) {
@@ -280,7 +343,7 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
   }
 
   if (value.steps.length === 0) {
-    throw new WorkflowValidationError('Template must have at least one step');
+    throw new WorkflowValidationError("Template must have at least one step");
   }
 
   for (let i = 0; i < value.steps.length; i++) {
@@ -304,9 +367,11 @@ export function validateTemplate(value: unknown): value is WorkflowTemplate {
  * @throws WorkflowValidationError if the template is invalid
  * @throws Error if the file cannot be read
  */
-export async function loadWorkflowTemplate(templatePath: string): Promise<WorkflowTemplate> {
+export async function loadWorkflowTemplate(
+  templatePath: string,
+): Promise<WorkflowTemplate> {
   // Read the file
-  const content = await fs.promises.readFile(templatePath, 'utf-8');
+  const content = await fs.promises.readFile(templatePath, "utf-8");
 
   // Parse YAML
   let parsed: unknown;
@@ -330,7 +395,9 @@ export async function loadWorkflowTemplate(templatePath: string): Promise<Workfl
  * @returns The parsed and validated WorkflowTemplate
  * @throws WorkflowValidationError if the template is invalid
  */
-export function loadWorkflowTemplateFromString(yamlContent: string): WorkflowTemplate {
+export function loadWorkflowTemplateFromString(
+  yamlContent: string,
+): WorkflowTemplate {
   // Parse YAML
   let parsed: unknown;
   try {
