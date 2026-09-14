@@ -12,7 +12,7 @@ suite('CodexAgent Command Building', () => {
         const command = agent.buildStartCommand({ permissionMode: 'acceptEdits' });
         assert.ok(command.includes('codex'), 'Command should include codex');
         assert.ok(command.includes('--sandbox workspace-write'), 'Should include sandbox flag');
-        assert.ok(command.includes('--ask-for-approval on-failure'), 'Should include approval flag');
+        assert.ok(command.includes('--ask-for-approval on-request'), 'Should include approval flag');
     });
 
     test('buildStartCommand with bypassPermissions', () => {
@@ -41,7 +41,7 @@ suite('CodexAgent Command Building', () => {
         });
         assert.ok(command.includes('codex'), 'Command should include codex');
         assert.ok(command.includes('--sandbox workspace-write'), 'Should include sandbox flag');
-        assert.ok(command.includes('--ask-for-approval on-failure'), 'Should include approval flag');
+        assert.ok(command.includes('--ask-for-approval on-request'), 'Should include approval flag');
         assert.ok(command.includes("'Implement feature X'"), 'Should include escaped prompt');
     });
 
@@ -132,7 +132,7 @@ suite('CodexAgent Permission Modes', () => {
     test('getPermissionFlag returns correct dual-flag string for acceptEdits', () => {
         const acceptEditsFlag = agent.getPermissionFlag('acceptEdits');
         assert.ok(acceptEditsFlag.includes('--sandbox workspace-write'), 'acceptEdits should have workspace-write');
-        assert.ok(acceptEditsFlag.includes('--ask-for-approval on-failure'), 'acceptEdits should have on-failure');
+        assert.ok(acceptEditsFlag.includes('--ask-for-approval on-request'), 'acceptEdits should have on-request');
     });
 
     test('getPermissionFlag returns correct dual-flag string for bypassPermissions', () => {
@@ -144,6 +144,10 @@ suite('CodexAgent Permission Modes', () => {
     test('getPermissionFlag returns empty string for invalid mode', () => {
         const invalidFlag = agent.getPermissionFlag('invalid-mode');
         assert.strictEqual(invalidFlag, '', 'Should return empty string for invalid mode');
+    });
+
+    test('buildPromptImproveCommand uses codex exec', () => {
+        assert.deepStrictEqual(agent.buildPromptImproveCommand('test prompt')?.args.slice(0, 1), ['exec']);
     });
 });
 

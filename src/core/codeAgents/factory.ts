@@ -11,10 +11,13 @@
  * - Singleton lifecycle (one instance per agent type)
  */
 
+import { execFile } from "child_process";
 import { constants } from "fs";
 import { access } from "fs/promises";
 import * as path from "path";
+import { promisify } from "util";
 import { CodeAgent } from "./CodeAgent";
+import { AntigravityAgent } from "./AntigravityAgent";
 import { ClaudeCodeAgent } from "./ClaudeCodeAgent";
 import { CodexAgent } from "./CodexAgent";
 import { CortexCodeAgent } from "./CortexCodeAgent";
@@ -32,6 +35,16 @@ export const DEFAULT_AGENT_NAME = "claude";
  * Ensures the same object reference is returned for repeated calls.
  */
 const instances = new Map<string, CodeAgent>();
+const execFileAsync = promisify(execFile);
+
+const cliSignatures: Record<string, RegExp[]> = {
+   claude: [/Claude Code/i, /--mcp-config/],
+   codex: [/Codex CLI/i, /on-request/],
+   cortex: [/(Cortex Code|CoCo|Usage:\s*cortex)/i, /--resume/],
+   antigravity: [/--conversation/, /--prompt-interactive/],
+   gemini: [/Gemini CLI/i, /--approval-mode/],
+   opencode: [/opencode session/i, /--session/],
+};
 
 /**
  * Hardcoded factory map of agent name to constructor function.
@@ -41,6 +54,7 @@ const agentConstructors: Record<string, () => CodeAgent> = {
    claude: () => new ClaudeCodeAgent(),
    codex: () => new CodexAgent(),
    cortex: () => new CortexCodeAgent(),
+   antigravity: () => new AntigravityAgent(),
    gemini: () => new GeminiAgent(),
    opencode: () => new OpenCodeAgent(),
 };
@@ -107,9 +121,9 @@ export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): {
  * @param cliCommand The CLI command to check (e.g., 'codex', 'claude')
  * @returns true if the command is available, false otherwise
  */
-export async function isCliAvailable(cliCommand: string): Promise<boolean> {
+async function findCliExecutable(cliCommand: string): Promise<string | null> {
    if (path.basename(cliCommand) !== cliCommand) {
-      return false;
+      return null;
    }
 
    const extensions =
@@ -119,19 +133,34 @@ export async function isCliAvailable(cliCommand: string): Promise<boolean> {
 
    for (const directory of (process.env.PATH || "").split(path.delimiter)) {
       for (const extension of extensions) {
+         const candidate = path.join(directory, cliCommand + extension);
          try {
-            await access(
-               path.join(directory, cliCommand + extension),
-               constants.X_OK,
-            );
-            return true;
+            await access(candidate, constants.X_OK);
+            return candidate;
          } catch {
             // Try the next PATH entry.
          }
       }
    }
 
-   return false;
+   return null;
+}
+
+export async function isCliAvailable(cliCommand: string): Promise<boolean> {
+   return Boolean(await findCliExecutable(cliCommand));
+}
+
+async function isCliCompatible(agent: CodeAgent, executable: string): Promise<boolean> {
+   try {
+      const { stdout, stderr } = await execFileAsync(executable, ["--help"], {
+         timeout: 5_000,
+         maxBuffer: 1024 * 1024,
+      });
+      const help = `${stdout}\n${stderr}`;
+      return (cliSignatures[agent.name] || []).every((signature) => signature.test(help));
+   } catch {
+      return false;
+   }
 }
 
 /**
@@ -152,13 +181,22 @@ export async function validateAndGetAgent(
       return { agent: null };
    }
 
-   const available = await isCliAvailable(agent.cliCommand);
-   if (!available) {
+   const executable = await findCliExecutable(agent.cliCommand);
+   if (!executable) {
       return {
          agent: null,
          warning:
             `${agent.displayName} CLI ('${agent.cliCommand}') not found. ` +
             `Please install it before using ${agent.displayName} sessions.`,
+      };
+   }
+
+   if (!(await isCliCompatible(agent, executable))) {
+      return {
+         agent: null,
+         warning:
+            `${agent.displayName} CLI ('${agent.cliCommand}') is incompatible with this Lanes version. ` +
+            `Install or update the official ${agent.displayName} CLI.`,
       };
    }
 

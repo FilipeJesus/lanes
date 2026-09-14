@@ -121,10 +121,7 @@ export class GeminiAgent extends CodeAgent {
             }
         }
 
-        parts.push('--resume');
-        if (sessionId !== GeminiAgent.LATEST_SENTINEL) {
-            parts.push(sessionId);
-        }
+        parts.push('--resume', sessionId);
 
         return parts.join(' ');
     }
