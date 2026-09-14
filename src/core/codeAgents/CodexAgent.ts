@@ -33,7 +33,7 @@ import * as fs from "fs/promises";
  * Codex CLI implementation of the CodeAgent interface
  *
  * Implements full command building with dual-flag permission system:
- * - acceptEdits: --sandbox workspace-write --ask-for-approval on-failure
+ * - acceptEdits: --sandbox workspace-write --ask-for-approval on-request
  * - bypassPermissions: --sandbox danger-full-access --ask-for-approval never
  */
 export class CodexAgent extends CodeAgent {
@@ -246,7 +246,7 @@ export class CodexAgent extends CodeAgent {
      * Get available permission modes for Codex CLI
      *
      * Returns exactly 2 modes using dual-flag system:
-     * - acceptEdits: Workspace write with approval on failure
+     * - acceptEdits: Workspace write with approval on request
      * - bypassPermissions: Full access with no approval prompts
      */
     getPermissionModes(): PermissionMode[] {
@@ -254,7 +254,7 @@ export class CodexAgent extends CodeAgent {
             {
                 id: "acceptEdits",
                 label: "Accept Edits",
-                flag: "--sandbox workspace-write --ask-for-approval on-failure",
+                flag: "--sandbox workspace-write --ask-for-approval on-request",
             },
             {
                 id: "bypassPermissions",
@@ -325,7 +325,7 @@ Original prompt:
 ${prompt}`;
         return {
             command: this.config.cliCommand,
-            args: ["--print", metaPrompt],
+            args: ["exec", metaPrompt],
         };
     }
 

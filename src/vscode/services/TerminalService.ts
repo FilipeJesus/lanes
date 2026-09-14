@@ -602,7 +602,7 @@ async function captureHooklessSessionId(
     terminal: vscode.Terminal
 ): Promise<void> {
     try {
-        const result = await codeAgent.captureSessionId(beforeTimestamp);
+        const result = await codeAgent.captureSessionIdForWorktree(beforeTimestamp, worktreePath);
         if (!result) {
             // Show warning only for agents that are hookless (they need session capture to work)
             if (!codeAgent.supportsHooks()) {
@@ -626,8 +626,10 @@ async function captureHooklessSessionId(
             timestamp: new Date().toISOString()
         });
 
-        // Start polling the session log file for activity-based status updates
-        startPolling(terminal, result.logPath, worktreePath);
+        // Start polling when the agent exposes a session log file.
+        if (result.logPath) {
+            startPolling(terminal, result.logPath, worktreePath);
+        }
     } catch (err) {
         console.error('Lanes: Failed to capture hookless session ID:', getErrorMessage(err));
     }

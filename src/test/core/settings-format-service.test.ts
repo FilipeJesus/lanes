@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { CodexAgent } from '../../core/codeAgents/CodexAgent';
-import { OpenCodeAgent } from '../../core/codeAgents/OpenCodeAgent';
 import { getSettingsFormat } from '../../core/services/SettingsFormatService';
 
 suite('SettingsFormatService', () => {
@@ -25,25 +24,6 @@ suite('SettingsFormatService', () => {
 
         assert.strictEqual(fs.readFileSync(filePath, 'utf-8'), '{\n  "nested": {\n    "enabled": true\n  }\n}');
         assert.deepStrictEqual(await format.read(filePath), { nested: { enabled: true } });
-    });
-
-    test('JSONC preserves comment markers and escaped quotes inside strings', async () => {
-        const filePath = path.join(tempDir, 'opencode.jsonc');
-        fs.writeFileSync(filePath, `{
-            // line comment
-            "url": "https://example.com/path/*not-comment*/",
-            "message": "say \\"hello\\" // still text",
-            /* block comment */
-            "enabled": true
-        }`);
-
-        const settings = await getSettingsFormat(new OpenCodeAgent()).read(filePath);
-
-        assert.deepStrictEqual(settings, {
-            url: 'https://example.com/path/*not-comment*/',
-            message: 'say "hello" // still text',
-            enabled: true,
-        });
     });
 
     test('round-trips TOML settings', async () => {

@@ -290,6 +290,7 @@
               "claude",
               "codex",
               "cortex",
+              "antigravity",
               "gemini",
               "opencode"
             ],
@@ -297,7 +298,8 @@
               "Claude Code - AI coding assistant by Anthropic",
               "Codex CLI - AI coding assistant by OpenAI (requires codex CLI)",
               "Cortex Code - AI coding assistant by Snowflake (requires cortex CLI)",
-              "Gemini CLI - AI coding assistant by Google (requires gemini CLI)",
+              "Antigravity - Preferred Google agent harness (requires agy CLI)",
+              "Gemini CLI - Legacy Google CLI support (requires gemini CLI)",
               "OpenCode - Open source AI coding agent (requires opencode CLI)"
             ],
             "default": "claude",
@@ -392,7 +394,7 @@
             "default": 3000,
             "minimum": 500,
             "maximum": 60000,
-            "description": "Time in milliseconds with no session log activity before status changes to 'waiting for user input'. Applies to agents without hook support (OpenCode, Codex).",
+            "description": "Time in milliseconds with no session log activity before status changes to 'waiting for user input'. Applies to hookless agents that expose session logs.",
             "order": 1
           }
         }

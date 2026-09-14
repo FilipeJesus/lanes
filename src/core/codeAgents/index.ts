@@ -26,6 +26,7 @@ export type {
 export { CodeAgent } from './CodeAgent';
 
 // Export concrete implementations
+export { AntigravityAgent } from './AntigravityAgent';
 export { ClaudeCodeAgent } from './ClaudeCodeAgent';
 export { CodexAgent } from './CodexAgent';
 export { CortexCodeAgent } from './CortexCodeAgent';
