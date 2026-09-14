@@ -7,11 +7,13 @@
  *
  * The factory also handles:
  * - Reading the lanes.defaultAgent VS Code setting
- * - Validating CLI availability using `command -v` (POSIX builtin)
+ * - Validating CLI availability from the system PATH
  * - Singleton lifecycle (one instance per agent type)
  */
 
-import { exec } from 'child_process';
+import { constants } from 'fs';
+import { access } from 'fs/promises';
+import * as path from 'path';
 import { CodeAgent } from './CodeAgent';
 import { ClaudeCodeAgent } from './ClaudeCodeAgent';
 import { CodexAgent } from './CodexAgent';
@@ -99,18 +101,30 @@ export function getDefaultAgent(configuredAgent: string = DEFAULT_AGENT_NAME): {
 /**
  * Check if a CLI command is available on the system.
  *
- * Uses `command -v` (POSIX builtin) instead of `which` for
- * reliable cross-platform behavior.
- *
  * @param cliCommand The CLI command to check (e.g., 'codex', 'claude')
  * @returns true if the command is available, false otherwise
  */
 export async function isCliAvailable(cliCommand: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        exec(`command -v ${cliCommand}`, { timeout: 5000 }, (error) => {
-            resolve(!error);
-        });
-    });
+    if (path.basename(cliCommand) !== cliCommand) {
+        return false;
+    }
+
+    const extensions = process.platform === 'win32'
+        ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';')
+        : [''];
+
+    for (const directory of (process.env.PATH || '').split(path.delimiter)) {
+        for (const extension of extensions) {
+            try {
+                await access(path.join(directory, cliCommand + extension), constants.X_OK);
+                return true;
+            } catch {
+                // Try the next PATH entry.
+            }
+        }
+    }
+
+    return false;
 }
 
 /**

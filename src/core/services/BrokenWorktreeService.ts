@@ -244,7 +244,7 @@ export async function repairWorktree(
                 success: false,
                 error:
                     `Failed to create worktree: ${getErrorMessage(err)}. ` +
-                    `WARNING: Original files backed up at ${tempPath} could not be restored.`,
+                    `WARNING: Original files backed up at ${tempPath} could not be restored: ${getErrorMessage(restoreErr)}.`,
             };
         }
         return {

@@ -23,15 +23,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+          persist-credentials: false
 
       - name: Install dependencies
         run: npm ci
@@ -43,8 +38,10 @@ jobs:
 
       - name: Bump version
         id: version
+        env:
+          VERSION_TYPE: ${{ inputs.version_type }}
         run: |
-          NEW_VERSION=$(npm version ${{ inputs.version_type }} --no-git-tag-version)
+          NEW_VERSION=$(npm version "$VERSION_TYPE" --no-git-tag-version)
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Bumped to $NEW_VERSION"
 
@@ -54,10 +51,11 @@ jobs:
       - name: Create release branch and PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.new_version }}
         run: |
-          VERSION="${{ steps.version.outputs.new_version }}"
           BRANCH="release/${VERSION}"
 
+          gh auth setup-git
           git checkout -b "$BRANCH"
           git add package.json package-lock.json CHANGELOG.md
           HUSKY=0 git commit -m "chore: release ${VERSION}"

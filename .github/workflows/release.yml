@@ -13,13 +13,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          persist-credentials: false
 
       - name: Install dependencies
         run: npm ci
@@ -41,9 +37,11 @@ jobs:
           echo "Publishing v${VERSION}"
 
       - name: Check tag does not already exist
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "::error::Tag v${{ steps.version.outputs.version }} already exists. Has this version already been released?"
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists. Has this version already been released?"
             exit 1
           fi
 
@@ -55,7 +53,9 @@ jobs:
           fi
 
       - name: Package extension
-        run: npx vsce package -o "lanes-${{ steps.version.outputs.version }}.vsix"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npx vsce package -o "lanes-${VERSION}.vsix"
 
       - name: Restore GitHub README
         run: |
@@ -64,26 +64,24 @@ jobs:
           fi
 
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --packagePath "lanes-${{ steps.version.outputs.version }}.vsix"
         env:
+          VERSION: ${{ steps.version.outputs.version }}
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish --packagePath "lanes-${VERSION}.vsix"
 
       - name: Publish to Open VSX Registry
-        run: npx ovsx publish "lanes-${{ steps.version.outputs.version }}.vsix" -p "$OVSX_PAT"
         env:
+          VERSION: ${{ steps.version.outputs.version }}
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish "lanes-${VERSION}.vsix" -p "$OVSX_PAT"
         continue-on-error: true
 
-      - name: Create tag
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          files: "lanes-${{ steps.version.outputs.version }}.vsix"
-          generate_release_notes: true
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/v${VERSION}" \
+            -f sha="${GITHUB_SHA}"
+          gh release create "v${VERSION}" "lanes-${VERSION}.vsix" --generate-notes --title "v${VERSION}"

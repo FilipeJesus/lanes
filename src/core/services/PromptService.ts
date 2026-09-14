@@ -87,9 +87,9 @@ export async function writePromptFile(
     await fsPromises.mkdir(promptPathInfo.needsDir, { recursive: true });
     await fsPromises.writeFile(promptPathInfo.path, prompt, 'utf-8');
 
-    const escapedPath = promptPathInfo.path.replace(/"/g, '\\"');
+    const escapedPath = promptPathInfo.path.replace(/'/g, "'\\''");
     return {
         path: promptPathInfo.path,
-        commandArg: `"$(cat "${escapedPath}")"`,
+        commandArg: `"$(cat '${escapedPath}')"`,
     };
 }

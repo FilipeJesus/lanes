@@ -9,7 +9,6 @@ import type {
   LoopStep,
   Task,
   WorkflowStatusResponse,
-  AgentConfig,
   StepContextAction,
   WorkflowProgress,
 } from './types';
@@ -46,7 +45,7 @@ export class WorkflowStateMachine {
       currentStepArtefacts: firstStep.artefacts,
       contextActionExecuted: false,
       // Include a snapshot of the workflow definition to ensure consistent resumption
-      workflow_definition: JSON.parse(JSON.stringify(this.template)),
+      workflow_definition: structuredClone(this.template),
     };
 
     // Initialize ralph iteration if first step is ralph
@@ -555,7 +554,7 @@ export class WorkflowStateMachine {
    * @returns The current workflow state
    */
   getState(): WorkflowState {
-    return JSON.parse(JSON.stringify(this.state));
+    return structuredClone(this.state);
   }
 
   /**
@@ -594,7 +593,7 @@ export class WorkflowStateMachine {
     // Use the saved workflow_definition if available (ensures consistency across session restarts)
     const effectiveTemplate = state.workflow_definition || template;
     const machine = new WorkflowStateMachine(effectiveTemplate);
-    machine.state = JSON.parse(JSON.stringify(state));
+    machine.state = structuredClone(state);
     return machine;
   }
 }
