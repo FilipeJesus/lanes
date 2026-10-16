@@ -71,10 +71,11 @@ let globalExtensionContext: vscode.ExtensionContext | undefined;
 /**
  * Initialize the global storage context.
  * VS Code-aware wrapper that accepts vscode.Uri and delegates to core.
+ * Returns the core promise for the background .lanes/.gitignore write.
  */
-export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string, codeAgent?: CodeAgent, context?: vscode.ExtensionContext, configProvider?: IConfigProvider): void {
+export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoPath?: string, codeAgent?: CodeAgent, context?: vscode.ExtensionContext, configProvider?: IConfigProvider): Promise<void> {
     globalExtensionContext = context;
-    SessionDataService.initializeGlobalStorageContext(storageUri.fsPath, baseRepoPath, codeAgent);
+    const gitignoreReady = SessionDataService.initializeGlobalStorageContext(storageUri.fsPath, baseRepoPath, codeAgent);
     // Wire config reads into the core service — prefer unified config provider
     // when available, otherwise fall back to direct VS Code reads.
     if (configProvider) {
@@ -88,6 +89,7 @@ export function initializeGlobalStorageContext(storageUri: vscode.Uri, baseRepoP
             getPromptsFolder: () => vscode.workspace.getConfiguration('lanes').get<string>('promptsFolder', ''),
         });
     }
+    return gitignoreReady;
 }
 
 /**

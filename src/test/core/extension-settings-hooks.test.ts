@@ -23,7 +23,7 @@ suite('Extension Settings File Hooks', () => {
 
 		// Initialize global storage context for tests
 		const mockUri = vscode.Uri.file(globalStorageDir);
-		initializeGlobalStorageContext(mockUri, tempDir);
+		await initializeGlobalStorageContext(mockUri, tempDir);
 
 	});
 

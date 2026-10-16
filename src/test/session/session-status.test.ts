@@ -10,10 +10,10 @@ suite('Session Status', () => {
 	let tempDir: string;
 	let globalStorageDir: string;
 
-	setup(() => {
+	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-session-status-test-'));
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-session-status-global-storage-'));
-		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
+		await initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 	});
 
 	teardown(() => {

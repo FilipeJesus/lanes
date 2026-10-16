@@ -58,18 +58,21 @@ export function setConfigCallbacks(callbacks: {
  * @param storagePath - Absolute filesystem path for global storage (e.g. context.globalStorageUri.fsPath)
  * @param baseRepoPath - Absolute path to the base repository
  * @param codeAgent - The global CodeAgent instance
+ * @returns A promise that settles once .lanes/.gitignore has been written. It never
+ *          rejects; callers may ignore it, but should await it before deleting baseRepoPath.
  */
-export function initializeGlobalStorageContext(storagePath: string, baseRepoPath?: string, codeAgent?: CodeAgent): void {
+export function initializeGlobalStorageContext(storagePath: string, baseRepoPath?: string, codeAgent?: CodeAgent): Promise<void> {
     globalStoragePath = storagePath;
     baseRepoPathForStorage = baseRepoPath;
     globalCodeAgent = codeAgent;
 
     // Ensure .lanes/.gitignore exists so runtime data is never committed
     if (baseRepoPath) {
-        ensureLanesGitignore(baseRepoPath).catch(err => {
+        return ensureLanesGitignore(baseRepoPath).catch(err => {
             console.warn('Lanes: Failed to ensure .lanes/.gitignore:', err);
         });
     }
+    return Promise.resolve();
 }
 
 function getGlobalStoragePath(): string | undefined {
