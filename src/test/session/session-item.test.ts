@@ -77,10 +77,10 @@ suite('SessionItem Visual Indicators', () => {
 	let tempDir: string;
 	let globalStorageDir: string;
 
-	setup(() => {
+	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-session-visual-test-'));
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-session-visual-global-storage-'));
-		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
+		await initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 	});
 
 	teardown(() => {

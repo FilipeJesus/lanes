@@ -23,7 +23,7 @@ suite('Extension Settings Workflow Configuration', () => {
 
 		// Initialize global storage context for tests
 		const mockUri = vscode.Uri.file(globalStorageDir);
-		initializeGlobalStorageContext(mockUri, tempDir);
+		await initializeGlobalStorageContext(mockUri, tempDir);
 
 	});
 

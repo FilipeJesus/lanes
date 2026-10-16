@@ -41,7 +41,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 
@@ -61,7 +61,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'my-feature-session';
 
@@ -81,7 +81,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '.claude/prompts', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 
@@ -103,7 +103,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', 'prompts/claude', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'feature-abc';
 
@@ -123,7 +123,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '/custom-prompts/', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'session-1';
 
@@ -145,7 +145,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const result = getPromptsPath('../../../etc/passwd', tempDir);
 
@@ -157,7 +157,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const result = getPromptsPath('session/name', tempDir);
 
@@ -169,7 +169,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const result = getPromptsPath('session\\name', tempDir);
 
@@ -181,7 +181,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const result = getPromptsPath('', tempDir);
 
@@ -193,7 +193,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '../../../etc/passwd', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 
@@ -210,7 +210,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', '/custom-folder', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 
@@ -230,7 +230,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', 'C:\\Windows\\System32', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 
@@ -244,7 +244,7 @@ suite('Prompts Storage Test Suite', () => {
 			await config.update('promptsFolder', 'prompts/../../../sensitive', vscode.ConfigurationTarget.Global);
 
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const sessionName = 'test-session';
 

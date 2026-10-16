@@ -18,7 +18,7 @@ suite('Edge Cases Test Suite', () => {
 		worktreesDir = path.join(tempDir, '.worktrees');
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-edge-cases-global-storage-'));
 		// Initialize global storage context
-		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
+		await initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 	});
 
 	// Clean up after each test

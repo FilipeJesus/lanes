@@ -12,12 +12,12 @@ suite('AgentSessionProvider', () => {
 	let globalStorageDir: string;
 
 	// Create a temp directory structure before tests
-	setup(() => {
+	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-session-provider-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-session-provider-global-storage-'));
 		// Initialize global storage context to enable global storage mode
-		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
+		await initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 	});
 
 	// Clean up after each test

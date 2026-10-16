@@ -21,7 +21,7 @@ suite('Local Settings Integration', () => {
 
 		// Initialize global storage context
 		const mockUri = vscode.Uri.file(globalStorageDir);
-		initializeGlobalStorageContext(mockUri, baseRepoPath);
+		await initializeGlobalStorageContext(mockUri, baseRepoPath);
 
 		// Create .claude/settings.local.json in base repo
 		const claudeDir = path.join(baseRepoPath, '.claude');

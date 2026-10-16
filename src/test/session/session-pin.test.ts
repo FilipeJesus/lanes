@@ -12,13 +12,13 @@ suite('Pin/Unpin Sessions', () => {
 	let globalStorageDir: string;
 	let mockContext: vscode.ExtensionContext;
 
-	setup(() => {
+	setup(async () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-pin-test-'));
 		worktreesDir = path.join(tempDir, '.worktrees');
 		globalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-pin-global-storage-'));
 
 		// Initialize global storage context
-		initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
+		await initializeGlobalStorageContext(vscode.Uri.file(globalStorageDir), tempDir);
 
 		// Create mock extension context with workspaceState
 		const workspaceStateMap = new Map<string, any>();

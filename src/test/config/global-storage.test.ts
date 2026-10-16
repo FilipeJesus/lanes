@@ -51,7 +51,7 @@ suite('Global Storage Configuration Test Suite', () => {
 			mockGlobalStorageDir = path.join(os.tmpdir(), 'vscode-mock-global-storage');
 			fs.mkdirSync(mockGlobalStorageDir, { recursive: true });
 			const mockUri = vscode.Uri.file(mockGlobalStorageDir);
-			initializeGlobalStorageContext(mockUri, testTempDir);
+			await initializeGlobalStorageContext(mockUri, testTempDir);
 		});
 
 		teardown(async () => {
@@ -100,7 +100,7 @@ suite('Global Storage Configuration Test Suite', () => {
 			testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fallback-resolver-test-'));
 			mockGlobalStorageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-fallback-global-storage-'));
 			const mockUri = vscode.Uri.file(mockGlobalStorageDir);
-			initializeGlobalStorageContext(mockUri, testTempDir);
+			await initializeGlobalStorageContext(mockUri, testTempDir);
 		});
 
 		teardown(async () => {
@@ -235,7 +235,7 @@ suite('Global Storage Configuration Test Suite', () => {
 
 		test('should return .lanes/current-sessions path for getStatusFilePath', async () => {
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
@@ -247,7 +247,7 @@ suite('Global Storage Configuration Test Suite', () => {
 
 		test('should return .lanes/current-sessions path for getSessionFilePath', async () => {
 			const mockUri = vscode.Uri.file(globalStorageDir);
-			initializeGlobalStorageContext(mockUri, tempDir);
+			await initializeGlobalStorageContext(mockUri, tempDir);
 
 			const worktreePath = path.join(tempDir, '.worktrees', 'test-session');
 
