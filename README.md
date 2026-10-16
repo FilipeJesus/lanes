@@ -8,7 +8,7 @@
 
 **Manage multiple, isolated AI coding sessions across VS Code and the terminal.**
 
-Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
+Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Google Antigravity CLI, legacy Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
 
 <video src="https://raw.githubusercontent.com/FilipeJesus/lanes/main/media/lanes-demo.mp4#t=4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
@@ -17,12 +17,12 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 ## Features
 
 - **True Isolation** - Each session gets its own Git worktree and dedicated terminal
-- **Session Resume** - Automatically resumes where you left off using `--resume`
+- **Session Resume** - Automatically resumes where you left off using each agent's native session support
 - **Real-Time Status** - See which agents are working, waiting, or have errors
 - **Built-in Diff Viewer** - Review all changes before merging back
 - **One-Click Cleanup** - Delete the worktree when done, keep the branch for merging
 - **Workflow System** - Optional MCP-based workflows guide agents through structured phases (plan → implement → test → review)
-- **Multi-Agent Support** - Claude Code, Codex CLI, Gemini CLI, and Cortex Code with inline logo selector for easy switching
+- **Multi-Agent Support** - Claude Code, Codex CLI, Antigravity, Gemini CLI, Cortex Code, and OpenCode with inline logo selector
 - **File Attachments** - Drag-and-drop files into the session form to include with your prompt
 - **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
 - **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
@@ -49,7 +49,7 @@ Visit [our website](https://lanes.pro) for more information.
 | Pin/protect sessions | ✓ | — |
 | View git diff | ✓ | ✓ |
 | Repair broken worktrees | ✓ | ✓ |
-| Claude Code / Codex / Gemini / Cortex / OpenCode | ✓ | ✓ |
+| Claude Code / Codex / Antigravity / Gemini / Cortex / OpenCode | ✓ | ✓ |
 | Workflow templates (built-in + custom) | ✓ | ✓ |
 | MCP-based workflows | ✓ | ✓ |
 | Integrated terminal | ✓ | N/A |
@@ -85,9 +85,16 @@ sudo apt-get install jq  # Ubuntu/Debian
 # Optional: Install Codex CLI for OpenAI agent support
 npm install -g @openai/codex
 
-# Optional: Install Gemini CLI for Google agent support
+# Optional: Install Google's current Antigravity CLI
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+agy
+
+# Legacy Google harness
 npm install -g @google/gemini-cli
 gemini
+
+# Optional: Install modern OpenCode
+npm install -g opencode-ai
 ```
 
 ### Install
@@ -141,12 +148,11 @@ lanes delete my-feature
 
 ---
 
-## Gemini CLI Notes
+## Google Harness Notes
 
-- **Authentication**: Configure your Gemini API key (e.g., `GEMINI_API_KEY`) before launching Gemini CLI sessions.
-- **MCP workflows**: Lanes writes MCP server config into `.gemini/settings.json` when workflows are enabled.
-- **Resume behavior**: Lanes resumes Gemini sessions using `gemini --resume` without an explicit session ID, which picks the most recent session for that project. If you run multiple Gemini sessions in the same worktree, the latest one is resumed.
-- **Status tracking**: Gemini CLI hooks update `working`/`waiting_for_user`/`idle` status via `.gemini/settings.json`.
+- **Antigravity CLI** (`antigravity`, executable `agy`) is the recommended Google harness. Lanes stores workflow MCP configuration in `.agents/mcp_config.json`.
+- **Gemini CLI** (`gemini`) remains available for existing sessions but is Google's legacy harness. Lanes uses `.gemini/settings.json` for hooks and workflow MCP configuration.
+- Both integrations use their native conversation IDs for resume.
 
 ---
 

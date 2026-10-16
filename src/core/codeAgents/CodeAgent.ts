@@ -158,8 +158,8 @@ export type AgentFeature = 'insights';
 export interface CapturedSession {
     /** The captured session ID */
     sessionId: string;
-    /** Path to the agent's session log file (for polling status) */
-    logPath: string;
+    /** Path to the agent's session log file (for polling status), when exposed by the CLI */
+    logPath?: string;
 }
 
 /**
@@ -478,6 +478,11 @@ export abstract class CodeAgent {
         return null;
     }
 
+    /** Settings required to enforce an agent permission mode. */
+    getPermissionSettings(_mode: string): Record<string, unknown> {
+        return {};
+    }
+
     // --- MCP Support (Optional) ---
 
     /**
@@ -528,10 +533,15 @@ export abstract class CodeAgent {
      * Override this in hookless agents to implement agent-specific capture logic.
      *
      * @param _beforeTimestamp Only consider sessions created after this time
-     * @returns CapturedSession with sessionId and logPath, or null if capture is not supported or failed
+     * @returns CapturedSession with sessionId and optional logPath, or null if capture is not supported or failed
      */
     async captureSessionId(_beforeTimestamp: Date): Promise<CapturedSession | null> {
         return null;
+    }
+
+    /** Capture a session with worktree context when the agent supports it. */
+    async captureSessionIdForWorktree(beforeTimestamp: Date, _worktreePath: string): Promise<CapturedSession | null> {
+        return this.captureSessionId(beforeTimestamp);
     }
 
     // --- MCP Settings Format ---

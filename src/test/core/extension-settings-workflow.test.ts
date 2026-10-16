@@ -85,6 +85,34 @@ suite('Extension Settings Workflow Configuration', () => {
 			assert.strictEqual(settings.hooks.SessionStart[0].hooks.length, 1, 'SessionStart should only have 1 command when no workflow');
 		});
 
+		test('should preserve user hooks in project settings', async () => {
+			const { GeminiAgent } = await import('../../core/codeAgents/GeminiAgent.js');
+			const worktreePath = path.join(worktreesDir, 'gemini-session');
+			const settingsPath = path.join(worktreePath, '.gemini', 'settings.json');
+			fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+			fs.writeFileSync(settingsPath, JSON.stringify({
+				hooks: { BeforeTool: [{ matcher: 'shell', hooks: [{ type: 'command', command: 'echo user-hook' }] }] }
+			}));
+
+			await getOrCreateExtensionSettingsFile(worktreePath, undefined, new GeminiAgent());
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+			assert.ok(settings.hooks.BeforeTool.some((entry: { hooks: Array<{ command: string }> }) =>
+				entry.hooks.some(hook => hook.command === 'echo user-hook')));
+			assert.ok(settings.hooks.BeforeTool.some((entry: { hooks: Array<{ command: string }> }) =>
+				entry.hooks.some(hook => hook.command.includes('.claude-status'))));
+		});
+
+		test('should enforce OpenCode permission mode in project settings', async () => {
+			const { OpenCodeAgent } = await import('../../core/codeAgents/OpenCodeAgent.js');
+			const worktreePath = path.join(worktreesDir, 'opencode-session');
+			fs.mkdirSync(worktreePath, { recursive: true });
+			const settingsPath = await getOrCreateExtensionSettingsFile(
+				worktreePath, undefined, new OpenCodeAgent(), null, 'acceptEdits');
+			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+			assert.strictEqual(settingsPath, path.join(worktreePath, 'opencode.json'));
+			assert.deepStrictEqual(settings.permission, { '*': 'ask', edit: 'allow' });
+		});
+
 		test('should save workflow to session data when workflow is provided', async () => {
 			// Arrange
 			const sessionName = 'mcp-workflow-test';

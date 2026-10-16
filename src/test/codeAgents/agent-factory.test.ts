@@ -1,5 +1,9 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { getAgent, getAvailableAgents } from "../../core/codeAgents/factory";
+import { AntigravityAgent } from "../../core/codeAgents/AntigravityAgent";
 import { ClaudeCodeAgent } from "../../core/codeAgents/ClaudeCodeAgent";
 import { CodexAgent } from "../../core/codeAgents/CodexAgent";
 import { CortexCodeAgent } from "../../core/codeAgents/CortexCodeAgent";
@@ -42,6 +46,13 @@ suite("Agent Factory", () => {
         );
     });
 
+    test('getAgent("antigravity") returns AntigravityAgent instance', () => {
+        const agent = getAgent("antigravity");
+        assert.ok(agent instanceof AntigravityAgent);
+        assert.strictEqual(agent.name, "antigravity");
+        assert.strictEqual(agent.cliCommand, "agy");
+    });
+
     test('getAgent("gemini") returns GeminiAgent instance', () => {
         const agent = getAgent("gemini");
         assert.ok(agent, "Agent should not be null");
@@ -80,15 +91,15 @@ suite("Agent Factory", () => {
         assert.strictEqual(agent, null, "Empty string should return null");
     });
 
-    test("getAvailableAgents() returns array containing claude, codex, cortex, gemini, and opencode", () => {
-        const agents = getAvailableAgents();
-        assert.ok(Array.isArray(agents), "Should return an array");
-        assert.ok(agents.includes("claude"), "Should include claude");
-        assert.ok(agents.includes("codex"), "Should include codex");
-        assert.ok(agents.includes("cortex"), "Should include cortex");
-        assert.ok(agents.includes("gemini"), "Should include gemini");
-        assert.ok(agents.includes("opencode"), "Should include opencode");
-        assert.strictEqual(agents.length, 5, "Should have exactly 5 agents");
+    test("getAvailableAgents() returns all supported agents", () => {
+        assert.deepStrictEqual(getAvailableAgents(), [
+            "claude",
+            "codex",
+            "cortex",
+            "antigravity",
+            "gemini",
+            "opencode",
+        ]);
     });
 
     test("getAgent returns same instance on repeated calls (singleton)", () => {
@@ -289,5 +300,25 @@ suite("Agent Factory - CLI Availability Implementation", () => {
         const { isCliAvailable } = require("../../core/codeAgents/factory");
         assert.strictEqual(await isCliAvailable("/bin/node"), false);
         assert.strictEqual(await isCliAvailable("node; echo unsafe"), false);
+    });
+
+    test("validateAndGetAgent rejects an incompatible executable", async function () {
+        if (process.platform === "win32") {
+            this.skip();
+        }
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-agent-probe-"));
+        const executable = path.join(directory, "opencode");
+        fs.writeFileSync(executable, "#!/bin/sh\necho 'obsolete OpenCode CLI'\n", { mode: 0o755 });
+        const previousPath = process.env.PATH;
+        process.env.PATH = `${directory}${path.delimiter}${previousPath || ""}`;
+        try {
+            const { validateAndGetAgent } = require("../../core/codeAgents/factory");
+            const result = await validateAndGetAgent("opencode");
+            assert.strictEqual(result.agent, null);
+            assert.match(result.warning || "", /incompatible/);
+        } finally {
+            process.env.PATH = previousPath;
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
     });
 });

@@ -43,7 +43,7 @@ suite('GeminiAgent Command Building', () => {
 
     test('buildResumeCommand with latest sentinel', () => {
         const command = agent.buildResumeCommand('latest', {});
-        assert.strictEqual(command, 'gemini --resume', 'Should build resume command without argument for latest');
+        assert.strictEqual(command, 'gemini --resume latest', 'Should explicitly resume latest');
     });
 
     test('buildResumeCommand with invalid session ID throws error', () => {

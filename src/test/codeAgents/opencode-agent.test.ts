@@ -37,12 +37,8 @@ suite('OpenCodeAgent', () => {
             );
         });
 
-        test('settingsFileName is opencode.jsonc', () => {
-            assert.strictEqual(
-                (agent as any).config.settingsFileName,
-                'opencode.jsonc',
-                'Settings file name should be opencode.jsonc'
-            );
+        test('settingsFileName is opencode.json', () => {
+            assert.strictEqual((agent as any).config.settingsFileName, 'opencode.json');
         });
 
         test('defaultDataDir is .opencode', () => {
@@ -63,8 +59,8 @@ suite('OpenCodeAgent', () => {
             assert.strictEqual(agent.getStatusFileName(), '.claude-status');
         });
 
-        test('getSettingsFileName returns opencode.jsonc', () => {
-            assert.strictEqual(agent.getSettingsFileName(), 'opencode.jsonc');
+        test('getSettingsFileName returns opencode.json', () => {
+            assert.strictEqual(agent.getSettingsFileName(), 'opencode.json');
         });
 
         test('getDataDirectory returns .opencode', () => {
@@ -236,12 +232,13 @@ suite('OpenCodeAgent', () => {
             assert.strictEqual(agent.validatePermissionMode('invalid'), false, 'Should reject invalid mode');
         });
 
-        test('getPermissionFlag returns empty strings for config-based permissions', () => {
-            const acceptEditsFlag = agent.getPermissionFlag('acceptEdits');
-            assert.strictEqual(acceptEditsFlag, '', 'acceptEdits should return empty string (config-based)');
-
-            const bypassFlag = agent.getPermissionFlag('bypassPermissions');
-            assert.strictEqual(bypassFlag, '', 'bypassPermissions should return empty string (config-based)');
+        test('builds explicit permission settings', () => {
+            assert.deepStrictEqual(agent.getPermissionSettings('acceptEdits'), {
+                permission: { '*': 'ask', edit: 'allow' }
+            });
+            assert.deepStrictEqual(agent.getPermissionSettings('bypassPermissions'), {
+                permission: 'allow'
+            });
         });
     });
 
@@ -284,10 +281,8 @@ suite('OpenCodeAgent', () => {
             assert.ok(config!.mcpServers['lanes-workflow'], 'Should have lanes-workflow server');
         });
 
-        test('getProjectSettingsPath returns path to opencode.jsonc in worktree', () => {
-            const path = agent.getProjectSettingsPath('/test/worktree');
-            assert.ok(path.includes('opencode.jsonc'), 'Path should include opencode.jsonc');
-            assert.ok(path.includes('/test/worktree'), 'Path should include worktree path');
+        test('getProjectSettingsPath returns opencode.json in worktree', () => {
+            assert.strictEqual(agent.getProjectSettingsPath('/test/worktree'), '/test/worktree/opencode.json');
         });
 
         test('formatMcpForSettings transforms to OpenCode native format', () => {

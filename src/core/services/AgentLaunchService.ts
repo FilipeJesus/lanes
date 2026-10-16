@@ -264,7 +264,8 @@ export async function prepareAgentLaunchContext(
             worktreePath,
             workflowResolver ? (workflow ? effectiveWorkflow : null) : (effectiveWorkflow ?? undefined),
             codeAgent,
-            mcpConfigForSettings
+            mcpConfigForSettings,
+            effectivePermissionMode
         );
 
         if (effectiveWorkflow && mcpConfig) {

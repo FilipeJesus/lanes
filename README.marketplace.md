@@ -1,6 +1,6 @@
 # Lanes: AI Project Management
 
-Run multiple AI coding sessions in parallel — Claude Code, Codex CLI, and Gemini CLI — each in its own isolated Git worktree. No more context contamination. No more conflicting file changes.
+Run multiple AI coding sessions in parallel — Claude Code, Codex CLI, Google Antigravity, Gemini CLI, Cortex Code, and OpenCode — each in its own isolated Git worktree. No more context contamination. No more conflicting file changes.
 
 - **Multi-agent support**: Choose between Claude Code, Codex CLI, Gemini CLI, and Cortex Code with an inline logo selector
 - **True isolation**: Every session gets its own worktree and dedicated terminal
@@ -33,7 +33,9 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 - At least one coding agent installed:
   - [Claude Code](https://claude.com/claude-code) — `npm install -g @anthropic-ai/claude-code`
   - [Codex CLI](https://github.com/openai/codex) (optional) — `npm install -g @openai/codex`
-  - [Gemini CLI](https://geminicli.com) (optional) — `npm install -g @google/gemini-cli`
+  - [Antigravity CLI](https://antigravity.google/docs/cli/install/) (optional, recommended Google harness) — executable `agy`
+  - [Gemini CLI](https://geminicli.com) (optional, legacy) — `npm install -g @google/gemini-cli`
+  - [OpenCode](https://opencode.ai/docs/) (optional) — `npm install -g opencode-ai`
 - [`jq`](https://stedolan.github.io/jq/) for status tracking
 
 ## Docs

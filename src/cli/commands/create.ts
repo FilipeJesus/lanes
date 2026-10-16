@@ -22,7 +22,7 @@ export function registerCreateCommand(program: Command): void {
         .description('Create a new session and open it')
         .requiredOption('--name <name>', 'Session name (used as branch name)')
         .option('--branch <source>', 'Source branch to create from', '')
-        .option('--agent <agent>', 'AI agent to use (claude, codex, cortex, gemini, opencode)')
+        .option('--agent <agent>', 'AI agent to use (claude, codex, cortex, antigravity, gemini, opencode)')
         .option('--prompt <text>', 'Starting prompt for the agent')
         .option('--workflow <name>', 'Workflow template name')
         .option('--permission-mode <mode>', 'Permission mode for the agent')

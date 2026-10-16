@@ -4,14 +4,14 @@
 
 Lanes manages isolated AI coding sessions using Git worktrees. It ships as a VS Code extension and a standalone CLI. Each session gets its own worktree, terminal, and code agent process, enabling parallel AI-assisted development.
 
-Supported code agents: Claude Code, Codex (OpenAI), Cortex (Snowflake), Gemini (Google), OpenCode.
+Supported code agents: Claude Code, Codex (OpenAI), Antigravity (Google, preferred), Gemini CLI (Google, legacy), Cortex (Snowflake), OpenCode.
 
 ## Directory Structure
 
-```
+```text
 src/
 ├── core/                     # Platform-agnostic core library
-│   ├── codeAgents/           # Agent implementations (Claude, Codex, Cortex, Gemini, OpenCode) + factory
+│   ├── codeAgents/           # Agent implementations (Claude, Codex, Antigravity, Gemini, Cortex, OpenCode) + factory
 │   ├── errors/               # Typed errors (LanesError, GitError, ValidationError)
 │   ├── interfaces/           # Platform abstractions (IConfigProvider, IStorageProvider, etc.)
 │   ├── services/             # Business logic (session creation, agent launch, diff, insights, etc.)

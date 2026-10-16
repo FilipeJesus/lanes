@@ -7,9 +7,9 @@
  * OpenCode CLI: https://opencode.ai
  */
 
+import { execFile } from 'child_process';
 import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs/promises';
+import { promisify } from 'util';
 import {
     CodeAgent,
     CapturedSession,
@@ -23,12 +23,14 @@ import {
     McpConfigDelivery
 } from './CodeAgent';
 
+const execFileAsync = promisify(execFile);
+
 /**
  * OpenCode CLI implementation of the CodeAgent interface
  *
  * Notes:
  * - OpenCode uses a plugin system instead of JSON hooks (hookless agent).
- * - MCP configuration is delivered via opencode.jsonc (project-level settings).
+ * - MCP configuration is delivered via opencode.json (project-level settings).
  * - OpenCode config format uses `mcp` key (not `mcpServers`) with array-based command format.
  * - Permission modes are handled through config files, not CLI flags.
  */
@@ -46,7 +48,7 @@ export class OpenCodeAgent extends CodeAgent {
             cliCommand: 'opencode',
             sessionFileExtension: '.claude-session',
             statusFileExtension: '.claude-status',
-            settingsFileName: 'opencode.jsonc',
+            settingsFileName: 'opencode.json',
             defaultDataDir: '.opencode',
             // Simple terminal/code icon
             logoSvg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>'
@@ -189,11 +191,16 @@ export class OpenCodeAgent extends CodeAgent {
         return this.getPermissionModes().some(m => m.id === mode);
     }
 
-    getPermissionFlag(mode: string): string {
-        // OpenCode doesn't use CLI flags for permissions
-        // Permissions are configured in opencode.json via the "permission" key
-        // or through the OPENCODE_PERMISSION environment variable
+    getPermissionFlag(_mode: string): string {
         return '';
+    }
+
+    getPermissionSettings(mode: string): Record<string, unknown> {
+        return {
+            permission: mode === 'bypassPermissions'
+                ? 'allow'
+                : { '*': 'ask', edit: 'allow' }
+        };
     }
 
     // --- Hooks ---
@@ -218,8 +225,7 @@ export class OpenCodeAgent extends CodeAgent {
     // --- Settings Delivery ---
 
     getProjectSettingsPath(worktreePath: string): string {
-        // OpenCode loads settings from opencode.jsonc in the working directory
-        return path.join(worktreePath, 'opencode.jsonc');
+        return path.join(worktreePath, 'opencode.json');
     }
 
     // --- MCP Support ---
@@ -267,90 +273,39 @@ export class OpenCodeAgent extends CodeAgent {
 
     // --- Session ID Capture (Hookless Agent) ---
 
-    /**
-     * Capture OpenCode session ID by polling the session_diff directory.
-     * OpenCode creates files named `ses_<id>.json` in
-     * ~/.local/share/opencode/storage/session_diff/ when sessions start.
-     *
-     * This approach avoids the sqlite3 CLI dependency and WAL locking issues
-     * that can occur when querying the database while OpenCode is running.
-     *
-     * @param beforeTimestamp Only consider sessions created after this time
-     * @param timeoutMs Maximum time to wait (default: 15000ms)
-     * @param pollIntervalMs Poll interval (default: 500ms)
-     * @returns CapturedSession with sessionId and logPath, or null if capture fails
-     */
-    async captureSessionId(
+    async captureSessionIdForWorktree(
         beforeTimestamp: Date,
-        timeoutMs: number = 15000,
-        pollIntervalMs: number = 500
+        worktreePath: string
     ): Promise<CapturedSession | null> {
-        // OpenCode stores data in XDG_DATA_HOME/opencode or ~/.local/share/opencode
-        const dataDir = process.env.XDG_DATA_HOME
-            ? path.join(process.env.XDG_DATA_HOME, 'opencode')
-            : path.join(os.homedir(), '.local', 'share', 'opencode');
-        const sessionDiffDir = path.join(dataDir, 'storage', 'session_diff');
-        const beforeMs = beforeTimestamp.getTime();
-        const startTime = Date.now();
-
-        console.log(`Lanes: OpenCode captureSessionId - polling ${sessionDiffDir} for files after ${beforeMs} (${beforeTimestamp.toISOString()})`);
-
-        try {
-            while (Date.now() - startTime < timeoutMs) {
-                const result = await this.findNewSessionFile(sessionDiffDir, beforeMs);
-                if (result) {
-                    console.log(`Lanes: OpenCode captureSessionId - found session ${result} after ${Date.now() - startTime}ms`);
-                    return {
-                        sessionId: result,
-                        logPath: path.join(sessionDiffDir, `${result}.json`)
-                    };
+        const startedAt = beforeTimestamp.getTime();
+        const timeoutAt = Date.now() + 15_000;
+        while (Date.now() < timeoutAt) {
+            try {
+                const { stdout } = await execFileAsync(
+                    this.config.cliCommand,
+                    ['session', 'list', '--max-count', '10', '--format', 'json'],
+                    { cwd: worktreePath, timeout: 2_000 }
+                );
+                const sessions = JSON.parse(stdout) as Array<{
+                    id?: string;
+                    directory?: string;
+                    created?: number;
+                    updated?: number;
+                }>;
+                const session = sessions.find(item =>
+                    item.id && OpenCodeAgent.SESSION_ID_PATTERN.test(item.id)
+                    && path.resolve(item.directory || '') === path.resolve(worktreePath)
+                    && Math.max(item.created || 0, item.updated || 0) >= startedAt
+                );
+                if (session?.id) {
+                    return { sessionId: session.id };
                 }
-                await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+            } catch {
+                // Retry while OpenCode creates the session.
             }
-            console.warn(`Lanes: OpenCode captureSessionId - timed out after ${timeoutMs}ms`);
-            return null;
-        } catch (err) {
-            console.error('Lanes: Error capturing OpenCode session ID:', err);
-            return null;
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
-    }
-
-    /**
-     * Scan session_diff directory for ses_*.json files created after the given timestamp.
-     * Returns the most recently created session ID, or null if none found.
-     */
-    private async findNewSessionFile(sessionDiffDir: string, afterMs: number): Promise<string | null> {
-        try {
-            const entries = await fs.readdir(sessionDiffDir);
-            let bestId: string | null = null;
-            let bestMtime = 0;
-
-            for (const entry of entries) {
-                // Only consider ses_*.json files
-                if (!entry.startsWith('ses_') || !entry.endsWith('.json')) {
-                    continue;
-                }
-
-                const filePath = path.join(sessionDiffDir, entry);
-                const stat = await fs.stat(filePath);
-                const mtimeMs = stat.mtimeMs;
-
-                // Only consider files created/modified after our timestamp
-                if (mtimeMs > afterMs && mtimeMs > bestMtime) {
-                    // Extract session ID from filename (remove .json extension)
-                    const sessionId = entry.replace('.json', '');
-                    if (OpenCodeAgent.SESSION_ID_PATTERN.test(sessionId)) {
-                        bestId = sessionId;
-                        bestMtime = mtimeMs;
-                    }
-                }
-            }
-
-            return bestId;
-        } catch (err) {
-            console.error(`Lanes: OpenCode findNewSessionFile error:`, err);
-            return null;
-        }
+        return null;
     }
 
     // --- Prompt Improvement (Non-interactive) ---
