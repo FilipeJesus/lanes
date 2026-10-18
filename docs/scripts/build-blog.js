@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
+const yaml = require('js-yaml');
 const { marked } = require('marked');
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
@@ -71,7 +72,9 @@ function readPosts() {
     .map(file => {
       const filePath = path.join(POSTS_DIR, file);
       const fileContent = fs.readFileSync(filePath, 'utf8');
-      const { data, content } = matter(fileContent);
+      const { data, content } = matter(fileContent, {
+        engines: { yaml: yaml.load }
+      });
 
       // Validate required fields
       if (!data.title) {

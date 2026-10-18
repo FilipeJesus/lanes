@@ -24,7 +24,8 @@ Be respectful, constructive, and collaborative. We aim to maintain a welcoming c
 - **Git** with worktree support
 - **VS Code** with Dev Container support
 - **Docker** (for Dev Container setup)
-- **Node.js** v16 or later (for manual setup)
+- **Node.js** v22.22.2+ on 22.x, v24.15.0+ on 24.x, or v26+ (supported by npm 12.2.0)
+- **npm** v12.2.0 (used by CI, release workflows, and the Dev Container)
 - **macOS or Linux** (Windows is not currently supported)
 
 ### Development Setup
@@ -68,10 +69,11 @@ If you prefer to set up your development environment manually:
    cd lanes
    ```
 
-2. **Install dependencies**
+2. **Select npm and install dependencies**
 
    ```bash
-   npm install
+   npm install --global npm@12.2.0
+   npm ci
    ```
 
 3. **Build the extension**

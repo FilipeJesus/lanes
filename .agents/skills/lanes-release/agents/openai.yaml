@@ -1,0 +1,3 @@
+interface:
+  display_name: "Lanes Release"
+  short_description: "Release Lanes through GitHub Actions"
