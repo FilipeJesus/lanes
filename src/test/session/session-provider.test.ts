@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { AgentSessionProvider, SessionItem, SessionDetailItem, initializeGlobalStorageContext, getSessionFilePath } from '../../vscode/providers/AgentSessionProvider';
+import { AgentSessionProvider, SessionItem, SessionDetailItem, initializeGlobalStorageContext, getSessionFilePath, saveSessionAlias } from '../../vscode/providers/AgentSessionProvider';
 
 suite('AgentSessionProvider', () => {
 
@@ -148,6 +148,56 @@ suite('AgentSessionProvider', () => {
 		assert.ok(children[1] instanceof SessionItem);
 		assert.strictEqual(children[1].label, 'child');
 		assert.strictEqual(children[1].command?.command, 'lanes.openSession');
+	});
+
+	test('preserves the hierarchy when parents and descendants have display aliases', async () => {
+		const parentPath = createSession('parent');
+		const childPath = createSession('child', 'parent');
+		const grandchildPath = createSession('grandchild', 'child');
+		await saveSessionAlias(parentPath, 'Project review');
+		await saveSessionAlias(childPath, 'Backend changes');
+		await saveSessionAlias(grandchildPath, 'Integration checks');
+
+		const provider = new AgentSessionProvider(tempDir);
+		const roots = await provider.getChildren();
+		assert.deepStrictEqual(roots.map(item => item.label), ['Project review']);
+		assert.strictEqual((roots[0] as SessionItem).sessionName, 'parent');
+		const children = await provider.getChildren(roots[0]);
+		assert.deepStrictEqual(children.map(item => item.label), ['Backend changes']);
+		assert.strictEqual((children[0] as SessionItem).sessionName, 'child');
+		const grandchildren = await provider.getChildren(children[0]);
+		assert.deepStrictEqual(grandchildren.map(item => item.label), ['Integration checks']);
+		assert.strictEqual(grandchildren[0].worktreePath, grandchildPath);
+
+		await saveSessionAlias(parentPath, 'Renamed project');
+		await saveSessionAlias(childPath, 'Renamed backend');
+		provider.refresh();
+		const renamedRoots = await provider.getChildren();
+		assert.deepStrictEqual(renamedRoots.map(item => item.label), ['Renamed project']);
+		const renamedChildren = await provider.getChildren(renamedRoots[0]);
+		assert.deepStrictEqual(renamedChildren.map(item => item.label), ['Renamed backend']);
+		assert.strictEqual(renamedChildren[0].id, childPath);
+		assert.strictEqual((await provider.getChildren(renamedChildren[0]))[0].worktreePath, grandchildPath);
+	});
+
+	test('keeps parent links correct when aliases duplicate each other or match a session name', async () => {
+		const parentPath = createSession('parent');
+		const otherPath = createSession('other');
+		const impostorPath = createSession('impostor');
+		const childPath = createSession('child', 'parent');
+		await saveSessionAlias(parentPath, 'Shared label');
+		await saveSessionAlias(otherPath, 'Shared label');
+		await saveSessionAlias(impostorPath, 'parent');
+
+		const provider = new AgentSessionProvider(tempDir);
+		const roots = await provider.getChildren() as SessionItem[];
+		assert.strictEqual(roots.length, 3);
+		const parent = roots.find(item => item.sessionName === 'parent')!;
+		const children = await provider.getChildren(parent);
+		assert.deepStrictEqual(children.map(item => item.worktreePath), [childPath]);
+		for (const root of roots.filter(item => item !== parent)) {
+			assert.deepStrictEqual(await provider.getChildren(root), []);
+		}
 	});
 
 	test('keeps children visible when their parent is no longer active', async () => {

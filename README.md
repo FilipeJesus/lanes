@@ -18,6 +18,7 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 
 - **True Isolation** - Each session gets its own Git worktree and dedicated terminal
 - **Session Resume** - Automatically resumes where you left off using each agent's native session support
+- **Session Aliases** - Right-click a session in Active Sessions and choose **Rename** to save a display name while keeping its branch and worktree names
 - **Real-Time Status** - See which agents are working, waiting, or have errors
 - **Session Hierarchy** - Sessions created by a lane through MCP appear beneath their parent in Active Sessions, with expandable children and workflow details
 - **Built-in Diff Viewer** - Review all changes before merging back
@@ -48,6 +49,7 @@ Visit [our website](https://lanes.pro) for more information.
 | Create / list / delete / open sessions | ✓ | ✓ |
 | Clear sessions | ✓ | ✓ |
 | Pin/protect sessions | ✓ | — |
+| Rename sessions with display aliases | ✓ | — |
 | View git diff | ✓ | ✓ |
 | Repair broken worktrees | ✓ | ✓ |
 | Claude Code / Codex / Antigravity / Gemini / Cortex / OpenCode | ✓ | ✓ |

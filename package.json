@@ -91,6 +91,11 @@
         "title": "Open Session"
       },
       {
+        "command": "lanes.renameSession",
+        "title": "Rename",
+        "icon": "$(edit)"
+      },
+      {
         "command": "lanes.setupStatusHooks",
         "title": "Setup Status Hooks",
         "icon": "$(gear)"
@@ -184,6 +189,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "lanes.renameSession",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "group": "navigation"
+        },
         {
           "command": "lanes.openInNewWindow",
           "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",

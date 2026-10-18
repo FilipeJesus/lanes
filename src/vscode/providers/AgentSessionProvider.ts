@@ -29,6 +29,8 @@ export {
     getSettingsDir,
     getGlobalCodeAgent,
     getBaseRepoPathForStorage,
+    saveSessionAlias,
+    getSessionAlias,
     saveSessionWorkflow,
     getSessionWorkflow,
     saveSessionPermissionMode,
@@ -141,6 +143,8 @@ export class SessionDetailItem extends vscode.TreeItem {
 export class SessionItem extends vscode.TreeItem {
     public readonly workflowStatus: WorkflowStatus | null;
     public readonly childSessions: SessionItem[] = [];
+    /** Stable session identity, independent of the display label. */
+    public readonly sessionName: string;
 
     constructor(
         public readonly label: string,
@@ -158,6 +162,7 @@ export class SessionItem extends vscode.TreeItem {
             ? vscode.TreeItemCollapsibleState.Expanded
             : collapsibleState;
         super(label, effectiveCollapsibleState);
+        this.sessionName = path.basename(worktreePath);
         this.id = worktreePath;
         this.workflowStatus = storedWorkflowStatus;
         this.tooltip = pinned ? `[Pinned] Path: ${this.worktreePath}` : `Path: ${this.worktreePath}`;
@@ -275,8 +280,9 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
                 const workflowStatus = await SessionDataService.getWorkflowStatus(fullPath);
                 const chimeEnabled = await SessionDataService.getSessionChimeEnabled(fullPath);
                 const parentSession = await SessionDataService.getSessionParent(fullPath);
+                const alias = await SessionDataService.getSessionAlias(fullPath);
                 const pinned = pinnedSet.has(fullPath);
-                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned, parentSession));
+                items.push(new SessionItem(alias ?? folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned, parentSession));
             }
         }
 
@@ -284,7 +290,8 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
         const pinnedItems = items.filter(item => pinnedSet.has(item.worktreePath));
         const unpinnedItems = items.filter(item => !pinnedSet.has(item.worktreePath));
         const sortedItems = [...pinnedItems, ...unpinnedItems];
-        const sessionsByName = new Map(items.map(item => [item.label, item]));
+        // Parent links use stable names even when display aliases change or collide.
+        const sessionsByName = new Map(items.map(item => [item.sessionName, item]));
         const parents = new Map<SessionItem, SessionItem>();
 
         for (const item of sortedItems) {
