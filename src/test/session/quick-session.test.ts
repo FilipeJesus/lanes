@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import sinon from 'sinon';
 import { getAgent } from '../../core/codeAgents';
+import * as AgentFactory from '../../core/codeAgents/factory';
 import { ensureQuickSession, getQuickSession } from '../../core/session/QuickSessionService';
 import * as SessionData from '../../core/session/SessionDataService';
 import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
@@ -75,6 +76,42 @@ suite('Quick session lifecycle', () => {
         const create = sandbox.stub(vscode.window, 'createTerminal').returns(terminal as unknown as vscode.Terminal);
         sandbox.stub(vscode.window, 'terminals').get(() => []);
         return { terminal, create };
+    }
+
+    for (const terminalMode of ['vscode', 'tmux'] as const) {
+        test(`Quick Start launches without a prompt in the ${terminalMode} backend`, async () => {
+            const agent = getAgent('claude')!;
+            const buildStart = sandbox.spy(agent, 'buildStartCommand');
+            const { terminal } = mockTerminal();
+            const showError = sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+            sandbox.stub(gitAdapter, 'execGit').resolves('true');
+            sandbox.stub(AgentFactory, 'isCliAvailable').resolves(true);
+            const getConfig = vscode.workspace.getConfiguration.bind(vscode.workspace);
+            sandbox.stub(vscode.workspace, 'getConfiguration').callsFake((section, scope) => section === 'lanes'
+                ? { get: (key: string, fallback: unknown) => {
+                    if (key === 'terminalMode') { return terminalMode; }
+                    if (key === 'defaultAgent') { return 'claude'; }
+                    return fallback;
+                } } as vscode.WorkspaceConfiguration
+                : getConfig(section, scope));
+            sandbox.stub(Tmux, 'isTmuxInstalled').resolves(true);
+            sandbox.stub(Tmux, 'sessionExists').resolves(false);
+            sandbox.stub(Tmux, 'createSession').resolves();
+            const send = sandbox.stub(Tmux, 'sendCommand').resolves();
+            const handlers = registerCommands();
+
+            await handlers.get('lanes.quickStart')!();
+
+            sinon.assert.notCalled(showError);
+            sinon.assert.calledOnce(buildStart);
+            assert.strictEqual(buildStart.firstCall.args[0].prompt, undefined);
+            assert.strictEqual(buildStart.firstCall.args[0].promptFilePath, undefined);
+            const commands = terminalMode === 'tmux'
+                ? send.getCalls().map(call => call.args[1])
+                : terminal.sendText.getCalls().map(call => call.args[0]);
+            assert.ok(commands.includes(buildStart.firstCall.returnValue));
+            assert.ok(commands.every(command => !command.includes('workflow_status')));
+        });
     }
 
     test('appears without any worktrees, persists aliases and pins, and has no workflow details', async () => {

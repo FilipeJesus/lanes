@@ -190,8 +190,7 @@ export function registerSessionCommands(
                     'acceptEdits',
                     null,
                     currentAgent,
-                    repoRoot,
-                    true
+                    repoRoot
                 );
                 sessionProvider.refresh();
             },
