@@ -21,6 +21,8 @@ export interface SessionCreationOptions {
     repoRoot: string;
     /** Sanitized and validated session name (callers must validate before calling). */
     sessionName: string;
+    /** Name of the Lanes session requesting this session, when created by another lane. */
+    parentSession?: string;
     /** Source branch (e.g. "origin/main" or "main"). Empty string means use HEAD. */
     sourceBranch?: string;
     worktreesFolder: string;
@@ -48,6 +50,7 @@ export async function createSessionWorktree(
     const {
         repoRoot,
         sessionName,
+        parentSession,
         sourceBranch = '',
         worktreesFolder,
         codeAgent,
@@ -157,14 +160,17 @@ export async function createSessionWorktree(
     }
 
     // 7. Seed session file
-    if (codeAgent) {
+    if (codeAgent || parentSession) {
         const sessionFilePath = getSessionFilePath(worktreePath);
         await ensureDir(path.dirname(sessionFilePath));
         const sessionSeed: Record<string, string> = {
-            agentName: codeAgent.name,
             timestamp: new Date().toISOString(),
         };
-        if (!codeAgent.supportsHooks() && terminalMode) {
+        if (codeAgent) { sessionSeed.agentName = codeAgent.name; }
+        if (parentSession && parentSession !== sessionName) {
+            sessionSeed.parentSession = parentSession;
+        }
+        if (codeAgent && !codeAgent.supportsHooks() && terminalMode) {
             sessionSeed.terminal = isTmuxMode(terminalMode) ? 'tmux' : 'code';
         }
         await writeJson(sessionFilePath, sessionSeed);

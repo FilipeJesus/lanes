@@ -264,6 +264,17 @@ export async function resolveStatusFilePath(worktreePath: string): Promise<strin
 // Session data read/write functions
 // ---------------------------------------------------------------------------
 
+/** Read the parent even before the agent has started and written a session ID. */
+export async function getSessionParent(worktreePath: string): Promise<string | null> {
+    const sessionPath = await resolveSessionFilePath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        return typeof data?.parentSession === 'string' && data.parentSession.trim()
+            ? data.parentSession
+            : null;
+    } catch { return null; }
+}
+
 export async function saveSessionWorkflow(worktreePath: string, workflow: string): Promise<void> {
     const sessionPath = getSessionFilePath(worktreePath);
     try {

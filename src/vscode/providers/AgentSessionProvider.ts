@@ -40,6 +40,7 @@ export {
     getAgentStatus,
     getSessionId,
     getSessionAgentName,
+    getSessionParent,
     clearSessionId,
     generateTaskListId,
     getTaskListId,
@@ -139,6 +140,7 @@ export class SessionDetailItem extends vscode.TreeItem {
 
 export class SessionItem extends vscode.TreeItem {
     public readonly workflowStatus: WorkflowStatus | null;
+    public readonly childSessions: SessionItem[] = [];
 
     constructor(
         public readonly label: string,
@@ -147,16 +149,19 @@ export class SessionItem extends vscode.TreeItem {
         agentStatus?: AgentSessionStatus | null,
         workflowStatus?: WorkflowStatus | null,
         chimeEnabled?: boolean,
-        pinned?: boolean
+        pinned?: boolean,
+        public readonly parentSession?: string | null
     ) {
         const storedWorkflowStatus = workflowStatus ?? null;
         const hasWorkflowStepInfo = storedWorkflowStatus?.active && storedWorkflowStatus.step;
         const effectiveCollapsibleState = hasWorkflowStepInfo
             ? vscode.TreeItemCollapsibleState.Expanded
-            : vscode.TreeItemCollapsibleState.None;
+            : collapsibleState;
         super(label, effectiveCollapsibleState);
+        this.id = worktreePath;
         this.workflowStatus = storedWorkflowStatus;
         this.tooltip = pinned ? `[Pinned] Path: ${this.worktreePath}` : `Path: ${this.worktreePath}`;
+        if (parentSession) { this.tooltip += `\nParent session: ${parentSession}`; }
         this.description = this.getDescriptionForStatus(agentStatus, workflowStatus, pinned);
         this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
         this.command = { command: 'lanes.openSession', title: 'Open Session', arguments: [this] };
@@ -242,8 +247,12 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
     async getChildren(element?: SessionItem | SessionDetailItem): Promise<(SessionItem | SessionDetailItem)[]> {
         if (!this.sessionsRoot) { return []; }
         if (element) {
-            if (element instanceof SessionItem && element.workflowStatus?.active && element.workflowStatus.step) {
-                return [new SessionDetailItem(element.worktreePath, element.workflowStatus.step, element.workflowStatus.progress)];
+            if (element instanceof SessionItem) {
+                const children: (SessionItem | SessionDetailItem)[] = [];
+                if (element.workflowStatus?.active && element.workflowStatus.step) {
+                    children.push(new SessionDetailItem(element.worktreePath, element.workflowStatus.step, element.workflowStatus.progress));
+                }
+                return [...children, ...element.childSessions];
             }
             return [];
         }
@@ -265,15 +274,34 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
                 const agentStatus = await SessionDataService.getAgentStatus(fullPath);
                 const workflowStatus = await SessionDataService.getWorkflowStatus(fullPath);
                 const chimeEnabled = await SessionDataService.getSessionChimeEnabled(fullPath);
+                const parentSession = await SessionDataService.getSessionParent(fullPath);
                 const pinned = pinnedSet.has(fullPath);
-                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
+                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned, parentSession));
             }
         }
 
-        // Sort: pinned items first, then unpinned. Maintain relative order within each group.
+        // Pinning sorts siblings without moving children away from their parent.
         const pinnedItems = items.filter(item => pinnedSet.has(item.worktreePath));
         const unpinnedItems = items.filter(item => !pinnedSet.has(item.worktreePath));
+        const sortedItems = [...pinnedItems, ...unpinnedItems];
+        const sessionsByName = new Map(items.map(item => [item.label, item]));
+        const parents = new Map<SessionItem, SessionItem>();
 
-        return [...pinnedItems, ...unpinnedItems];
+        for (const item of sortedItems) {
+            const parent = item.parentSession ? sessionsByName.get(item.parentSession) : undefined;
+            if (!parent) { continue; }
+
+            // Ignore the link that would close a cycle so every session stays accessible.
+            let ancestor: SessionItem | undefined = parent;
+            while (ancestor && ancestor !== item) { ancestor = parents.get(ancestor); }
+            if (ancestor === item) { continue; }
+
+            parents.set(item, parent);
+            parent.childSessions.push(item);
+            parent.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        }
+
+        // Sessions whose parent is no longer active remain visible at the root.
+        return sortedItems.filter(item => !parents.has(item));
     }
 }

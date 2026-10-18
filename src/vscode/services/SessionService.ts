@@ -112,7 +112,8 @@ async function createSession(
     attachments: string[],
     workspaceRoot: string | undefined,
     sessionProvider: AgentSessionProvider,
-    codeAgent?: CodeAgent
+    codeAgent?: CodeAgent,
+    parentSession?: string
 ): Promise<void> {
     console.log("Create Session triggered!");
 
@@ -185,6 +186,7 @@ async function createSession(
                 const { worktreePath } = await createSessionWorktree({
                     repoRoot: workspaceRoot,
                     sessionName: trimmedName,
+                    parentSession,
                     sourceBranch,
                     worktreesFolder: getWorktreesFolder(),
                     codeAgent,

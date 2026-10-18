@@ -97,7 +97,8 @@ export async function processPendingSession(
             [], // attachments - MCP sessions don't support attachments yet
             workspaceRoot,
             sessionProvider,
-            codeAgent
+            codeAgent,
+            config.parentSession
         );
 
     } catch (err) {
