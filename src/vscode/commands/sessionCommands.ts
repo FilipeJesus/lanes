@@ -24,7 +24,8 @@ import {
     getSettingsDir,
     getWorktreesFolder,
     getSessionTerminalMode,
-    getSessionAgentName
+    getSessionAgentName,
+    saveSessionAlias
 } from '../providers/AgentSessionProvider';
 import { getAgent } from '../../core/codeAgents';
 
@@ -149,11 +150,34 @@ export function registerSessionCommands(
         await createSession(name, '', 'acceptEdits', '', null, [], baseRepoPath, sessionProvider, codeAgent);
     });
 
+    // Command: Rename the session's display label without changing its branch or worktree
+    const renameDisposable = vscode.commands.registerCommand('lanes.renameSession', async (item?: SessionItem) => {
+        if (!item?.worktreePath) {
+            vscode.window.showErrorMessage('Please right-click on a session to rename it.');
+            return;
+        }
+
+        const alias = await vscode.window.showInputBox({
+            title: 'Rename Session',
+            prompt: 'Display name for this session. The Git branch will not change.',
+            value: item.label,
+            validateInput: value => value.trim() ? null : 'Session name cannot be empty.'
+        });
+        if (alias === undefined) { return; }
+
+        try {
+            await saveSessionAlias(item.worktreePath, alias);
+            sessionProvider.refresh();
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to rename session: ${getErrorMessage(err)}`);
+        }
+    });
+
     // Command: Open/resume a session
     const openDisposable = vscode.commands.registerCommand('lanes.openSession', async (item: SessionItem) => {
         const agentName = await getSessionAgentName(item.worktreePath);
         const sessionAgent = getAgent(agentName) || codeAgent;
-        await openAgentTerminal(item.label, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
+        await openAgentTerminal(item.sessionName, item.worktreePath, undefined, undefined, undefined, sessionAgent, baseRepoPath);
     });
 
     // Command: Delete a session
@@ -171,7 +195,7 @@ export function registerSessionCommands(
             // Kill terminal — resolve agent from session to find correct terminal name
             const deleteAgentName = await getSessionAgentName(item.worktreePath);
             const deleteAgent = getAgent(deleteAgentName) || codeAgent;
-            const termName = deleteAgent ? deleteAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
+            const termName = deleteAgent ? deleteAgent.getTerminalName(item.sessionName) : `Claude: ${item.sessionName}`;
             const terminal = vscode.window.terminals.find(t => t.name === termName);
             if (terminal) {
                 terminal.dispose();
@@ -179,7 +203,7 @@ export function registerSessionCommands(
 
             // Kill tmux session if this session used tmux
             if ((await getSessionTerminalMode(item.worktreePath)) === 'tmux') {
-                const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(item.label);
+                const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(item.sessionName);
                 await TmuxService.killSession(tmuxSessionName);
             }
 
@@ -246,9 +270,9 @@ export function registerSessionCommands(
             return;
         }
 
-        const branchValidation = validateBranchName(item.label);
+        const branchValidation = validateBranchName(item.sessionName);
         if (!branchValidation.valid) {
-            vscode.window.showErrorMessage(branchValidation.error || `Branch '${item.label}' contains invalid characters. Cannot view changes.`);
+            vscode.window.showErrorMessage(branchValidation.error || `Branch '${item.sessionName}' contains invalid characters. Cannot view changes.`);
             return;
         }
 
@@ -261,7 +285,7 @@ export function registerSessionCommands(
                 return;
             }
 
-            GitChangesPanel.createOrShow(context.extensionUri, item.label, diffContent, item.worktreePath, baseBranch);
+            GitChangesPanel.createOrShow(context.extensionUri, item.sessionName, diffContent, item.worktreePath, baseBranch);
         } catch (err) {
             let userMessage = 'Failed to get git changes.';
             if (err instanceof GitError) {
@@ -289,7 +313,7 @@ export function registerSessionCommands(
             return;
         }
 
-        const terminalName = codeAgent ? codeAgent.getTerminalName(item.label) : `Claude: ${item.label}`;
+        const terminalName = codeAgent ? codeAgent.getTerminalName(item.sessionName) : `Claude: ${item.sessionName}`;
         const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
 
         if (existingTerminal) {
@@ -325,7 +349,7 @@ export function registerSessionCommands(
         try {
             if (baseRepoPath) {
                 const repoName = SettingsService.getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
-                const projectName = `${repoName}-${item.label}`;
+                const projectName = `${repoName}-${item.sessionName}`;
                 await addProject(projectName, item.worktreePath, ['lanes']);
             }
 
@@ -603,6 +627,7 @@ export function registerSessionCommands(
     // Register all disposables
     const disposables = [
         createDisposable,
+        renameDisposable,
         openDisposable,
         deleteDisposable,
         setupHooksDisposable,

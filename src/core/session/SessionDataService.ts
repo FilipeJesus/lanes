@@ -264,6 +264,25 @@ export async function resolveStatusFilePath(worktreePath: string): Promise<strin
 // Session data read/write functions
 // ---------------------------------------------------------------------------
 
+export async function saveSessionAlias(worktreePath: string, alias: string): Promise<void> {
+    const trimmedAlias = alias.trim();
+    if (!trimmedAlias) { throw new Error('Session name cannot be empty.'); }
+
+    const existingPath = await resolveSessionFilePath(worktreePath);
+    const existingData = await readJson<Record<string, unknown>>(existingPath);
+    const sessionPath = getSessionFilePath(worktreePath);
+    await ensureDir(path.dirname(sessionPath));
+    await writeJson(sessionPath, { ...existingData, alias: trimmedAlias });
+}
+
+export async function getSessionAlias(worktreePath: string): Promise<string | null> {
+    const sessionPath = await resolveSessionFilePath(worktreePath);
+    try {
+        const data = await readJson<Record<string, unknown>>(sessionPath);
+        return typeof data?.alias === 'string' ? data.alias.trim() || null : null;
+    } catch { return null; }
+}
+
 export async function saveSessionWorkflow(worktreePath: string, workflow: string): Promise<void> {
     const sessionPath = getSessionFilePath(worktreePath);
     try {
