@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
+import { getNodeExecutable } from '../services/NodeRuntimeService';
 import {
     CodeAgent, CapturedSession, SessionData, AgentStatus, PermissionMode,
     HookConfig, StartCommandOptions, ResumeCommandOptions, McpConfig, McpConfigDelivery
@@ -127,7 +128,7 @@ export class PiAgent extends CodeAgent {
         return {
             mcpServers: {
                 'lanes-workflow': {
-                    command: process.versions.electron ? 'node' : process.execPath,
+                    command: getNodeExecutable(),
                     args: [path.join(__dirname, 'mcp', 'server.js'), '--worktree', worktreePath,
                         '--workflow-path', workflowPath, '--repo-root', repoRoot]
                 }

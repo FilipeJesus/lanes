@@ -268,6 +268,38 @@ suite('AgentLaunchService', () => {
             assert.ok(ctx.mcpConfigOverrides?.length);
         });
 
+        for (const agentName of ['claude', 'codex']) {
+            test(`Quick Start uses Node for ${agentName} MCP when Electron metadata is absent`, async () => {
+                const sandbox = sinon.createSandbox();
+                let mcpConfigPath: string | undefined;
+                try {
+                    sandbox.stub(process, 'execPath').value('/Applications/Visual Studio Code.app/Contents/MacOS/Electron');
+                    sandbox.stub(process, 'versions').value({ ...process.versions, electron: undefined });
+                    const ctx = await prepareAgentLaunchContext({
+                        worktreePath: path.join(tempDir, 'base-repo'),
+                        mcpWorkflowPath: '/extension/workflows/default.yaml',
+                        requireTransientMcp: true,
+                        transientSession: true,
+                        codeAgent: getAgent(agentName)!,
+                        repoRoot: '/repo',
+                    });
+                    mcpConfigPath = ctx.mcpConfigPath;
+                    if (agentName === 'claude') {
+                        const config = JSON.parse(fs.readFileSync(mcpConfigPath!, 'utf8')) as McpConfig;
+                        assert.strictEqual(config.mcpServers['lanes-workflow'].command, 'node');
+                    } else {
+                        assert.ok(ctx.mcpConfigOverrides?.includes('mcp_servers.lanes-workflow.command="node"'));
+                    }
+                    sinon.assert.notCalled(settingsStub);
+                } finally {
+                    sandbox.restore();
+                    if (mcpConfigPath) {
+                        fs.rmSync(path.dirname(mcpConfigPath), { recursive: true, force: true });
+                    }
+                }
+            });
+        }
+
         test('strict Quick Start rejects agents without transient MCP delivery', async () => {
             const agent = getAgent('gemini')!;
 

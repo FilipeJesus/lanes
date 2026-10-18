@@ -9,6 +9,7 @@
 
 import { execFile } from 'child_process';
 import * as path from 'path';
+import { getNodeExecutable } from '../services/NodeRuntimeService';
 import { promisify } from 'util';
 import {
     CodeAgent,
@@ -245,7 +246,7 @@ export class OpenCodeAgent extends CodeAgent {
         return {
             mcpServers: {
                 'lanes-workflow': {
-                    command: process.versions.electron ? 'node' : process.execPath,
+                    command: getNodeExecutable(),
                     args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
                 }
             }

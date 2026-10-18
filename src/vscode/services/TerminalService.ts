@@ -28,6 +28,7 @@ import {
     getOrCreateTaskListId,
 } from '../providers/AgentSessionProvider';
 import { generateTaskListId } from '../../core/session/SessionDataService';
+import { getNodeExecutable } from '../../core/services/NodeRuntimeService';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
@@ -252,7 +253,7 @@ async function openClaudeTerminalTmux(
             const fallback: McpConfig = {
                 mcpServers: {
                     'lanes-workflow': {
-                        command: process.versions.electron ? 'node' : process.execPath,
+                        command: getNodeExecutable(),
                         args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
                     }
                 }
@@ -515,7 +516,7 @@ export async function openAgentTerminal(
             const fallback: McpConfig = {
                 mcpServers: {
                     'lanes-workflow': {
-                        command: process.versions.electron ? 'node' : process.execPath,
+                        command: getNodeExecutable(),
                         args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
                     }
                 }

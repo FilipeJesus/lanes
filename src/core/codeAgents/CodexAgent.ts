@@ -28,6 +28,7 @@ import {
 import * as os from "os";
 import * as path from "path";
 import * as fs from "fs/promises";
+import { getNodeExecutable } from "../services/NodeRuntimeService";
 
 /**
  * Codex CLI implementation of the CodeAgent interface
@@ -349,9 +350,7 @@ ${prompt}`;
         return {
             mcpServers: {
                 "lanes-workflow": {
-                    command: process.versions.electron
-                        ? "node"
-                        : process.execPath,
+                    command: getNodeExecutable(),
                     args: [
                         mcpServerPath,
                         "--worktree",

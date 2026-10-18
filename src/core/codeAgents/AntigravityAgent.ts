@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
+import { getNodeExecutable } from "../services/NodeRuntimeService";
 import {
     AgentStatus,
     CapturedSession,
@@ -181,9 +182,7 @@ export class AntigravityAgent extends CodeAgent {
         return {
             mcpServers: {
                 "lanes-workflow": {
-                    command: process.versions.electron
-                        ? "node"
-                        : process.execPath,
+                    command: getNodeExecutable(),
                     args: [
                         mcpServerPath,
                         "--worktree",

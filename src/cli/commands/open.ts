@@ -21,6 +21,7 @@ import { validateAndGetAgent } from '../../core/codeAgents';
 import { CodeAgent } from '../../core/codeAgents/CodeAgent';
 import type { McpConfig } from '../../core/codeAgents/CodeAgent';
 import { prepareAgentLaunchContext } from '../../core/services/AgentLaunchService';
+import { getNodeExecutable } from '../../core/services/NodeRuntimeService';
 import * as TmuxService from '../../core/services/TmuxService';
 
 /**
@@ -60,7 +61,7 @@ export async function execIntoAgent(opts: {
             const fallback: McpConfig = {
                 mcpServers: {
                     'lanes-workflow': {
-                        command: process.execPath,
+                        command: getNodeExecutable(),
                         args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
                     }
                 }
