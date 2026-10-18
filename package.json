@@ -4,6 +4,7 @@
   "publisher": "FilipeMarquesJesus",
   "description": "Manage parallel Claude Code sessions via Git Worktrees",
   "version": "1.4.1",
+  "packageManager": "npm@12.2.0",
   "license": "MIT",
   "repository": {
     "type": "git",

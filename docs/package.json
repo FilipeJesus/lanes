@@ -9,7 +9,13 @@
   "dependencies": {
     "dompurify": "^3.3.1",
     "gray-matter": "^4.0.3",
+    "js-yaml": "^4.3.2",
     "jsdom": "^27.4.0",
     "marked": "^11.0.0"
+  },
+  "overrides": {
+    "gray-matter": {
+      "js-yaml": "$js-yaml"
+    }
   }
 }

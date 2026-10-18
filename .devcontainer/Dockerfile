@@ -5,6 +5,9 @@ FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
 
 USER root
 
+# Match the package manager used by CI and release workflows.
+RUN npm install --global npm@12.2.0
+
 # Install dependencies needed for VS Code extension development
 # These libraries are required for Electron/VS Code to run in headless mode
 RUN apt-get update && apt-get install -y \
