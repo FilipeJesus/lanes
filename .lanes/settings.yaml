@@ -1,0 +1,14 @@
+lanes:
+  worktreesFolder: .worktrees
+  defaultAgent: codex
+  baseBranch: ""
+  includeUncommittedChanges: true
+  localSettingsPropagation: copy
+  customWorkflowsFolder: .lanes/workflows
+  terminalMode: vscode
+  promptsFolder: ""
+  permissionMode: acceptEdits
+  workflowsEnabled: true
+  chimeSound: notification
+  polling:
+    quietThresholdMs: 3000

@@ -178,6 +178,7 @@ does not discover skills automatically, load the linked file directly.
 | [code-reviewer](.agents/skills/code-reviewer/SKILL.md) | Code quality review | After tests pass or when reviewing changes |
 | [initializer](.agents/skills/initializer/SKILL.md) | Initialize progress tracking + verify setup | Fresh clones or requested setup resets |
 | [create-pr](.agents/skills/create-pr/SKILL.md) | Prepare commits, pushes, and pull requests | When the user requests those actions |
+| [lanes-release](.agents/skills/lanes-release/SKILL.md) | Prepare and publish releases through GitHub Actions | Releasing a Lanes version |
 | [new-agent](.agents/skills/new-agent/SKILL.md) | Implement a code agent backend | Adding a supported coding CLI |
 
 Skills describe roles and procedures; they do not register client-specific

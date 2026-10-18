@@ -24,7 +24,7 @@ Be respectful, constructive, and collaborative. We aim to maintain a welcoming c
 - **Git** with worktree support
 - **VS Code** with Dev Container support
 - **Docker** (for Dev Container setup)
-- **Node.js** v16 or later (for manual setup)
+- **Node.js** v22 or later (for manual setup and packaging tools)
 - **macOS or Linux** (Windows is not currently supported)
 
 ### Development Setup
