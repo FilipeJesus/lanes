@@ -24,8 +24,6 @@ import { getErrorMessage } from '../utils';
 export interface PrepareAgentLaunchOptions {
     worktreePath: string;
     workflow?: string | null;
-    /** Workflow path used only to configure MCP when no workflow is active. */
-    mcpWorkflowPath?: string;
     /** Fail the launch unless MCP is configured through a transient CLI mechanism. */
     requireTransientMcp?: boolean;
     /** Do not read or write persistent Lanes session metadata for this launch. */
@@ -198,7 +196,6 @@ export async function prepareAgentLaunchContext(
     const {
         worktreePath,
         workflow,
-        mcpWorkflowPath,
         requireTransientMcp,
         transientSession,
         permissionMode,
@@ -218,7 +215,7 @@ export async function prepareAgentLaunchContext(
 
     // --- Resolve workflow ---
     let effectiveWorkflow: string | null = workflow || null;
-    if (!effectiveWorkflow && !mcpWorkflowPath && !transientSession) {
+    if (!effectiveWorkflow && !transientSession) {
         effectiveWorkflow = await getSessionWorkflow(worktreePath);
     }
 
@@ -265,12 +262,9 @@ export async function prepareAgentLaunchContext(
     let settingsPath: string | undefined;
     let mcpConfigPath: string | undefined;
     let mcpConfigOverrides: string[] | undefined;
-    const workflowPathForMcp = effectiveWorkflow || mcpWorkflowPath;
+    const workflowPathForMcp = effectiveWorkflow || '';
 
     if (requireTransientMcp) {
-        if (!workflowPathForMcp) {
-            throw new Error('A workflow path is required to configure Lanes MCP.');
-        }
         if (!codeAgent?.supportsMcp()) {
             throw new Error(`${codeAgent?.displayName ?? 'The selected agent'} does not support MCP.`);
         }
@@ -284,26 +278,32 @@ export async function prepareAgentLaunchContext(
         let mcpConfig: McpConfig | null = null;
         let mcpConfigDelivery: McpConfigDelivery | undefined;
 
-        if (workflowPathForMcp) {
-            const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
+        const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
 
-            if (codeAgent?.supportsMcp()) {
-                mcpConfig = codeAgent.getMcpConfig(worktreePath, workflowPathForMcp, effectiveRepoRoot);
-                // Normalize MCP server paths (bridge-style fix for bundled paths)
-                if (workflowResolver) {
-                    mcpConfig = normalizeMcpConfig(mcpConfig);
-                }
-                mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
-                if (mcpConfig && mcpConfigDelivery === 'settings') {
-                    mcpConfigForSettings = mcpConfig;
-                }
-            } else if (fallbackMcpConfigFactory) {
-                mcpConfig = fallbackMcpConfigFactory({
-                    worktreePath,
-                    workflowPath: workflowPathForMcp,
-                    repoRoot: effectiveRepoRoot,
-                });
-                mcpConfigDelivery = 'cli';
+        if (codeAgent?.supportsMcp()) {
+            mcpConfig = codeAgent.getMcpConfig(worktreePath, workflowPathForMcp, effectiveRepoRoot);
+            // Normalize MCP server paths (bridge-style fix for bundled paths)
+            if (workflowResolver) {
+                mcpConfig = normalizeMcpConfig(mcpConfig);
+            }
+            mcpConfigDelivery = getMcpConfigDelivery(codeAgent);
+            if (mcpConfig && mcpConfigDelivery === 'settings') {
+                mcpConfigForSettings = mcpConfig;
+            }
+        } else if (fallbackMcpConfigFactory) {
+            mcpConfig = fallbackMcpConfigFactory({
+                worktreePath,
+                workflowPath: workflowPathForMcp,
+                repoRoot: effectiveRepoRoot,
+            });
+            mcpConfigDelivery = 'cli';
+        }
+
+        // A session without an assigned workflow exposes only session_create.
+        if (mcpConfig && !effectiveWorkflow) {
+            for (const server of Object.values(mcpConfig.mcpServers)) {
+                const workflowArgIndex = server.args.indexOf('--workflow-path');
+                if (workflowArgIndex !== -1) { server.args.splice(workflowArgIndex, 2); }
             }
         }
 
@@ -317,7 +317,7 @@ export async function prepareAgentLaunchContext(
             );
         }
 
-        if (workflowPathForMcp && mcpConfig) {
+        if (mcpConfig) {
             const delivery = mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent);
             if (delivery === 'cli-overrides' && codeAgent) {
                 mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);

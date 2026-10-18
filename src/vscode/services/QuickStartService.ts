@@ -9,6 +9,7 @@ import {
 } from '../../core/codeAgents';
 import { getErrorMessage } from '../../core/utils';
 import { execGit } from '../../gitService';
+import { ensureQuickSession } from '../../core/session/QuickSessionService';
 
 export type QuickStartGitExecutor = (args: string[], cwd: string) => Promise<string>;
 
@@ -16,12 +17,11 @@ export interface QuickStartLaunchRequest {
     taskName: string;
     repoRoot: string;
     codeAgent: CodeAgent;
-    mcpWorkflowPath: string;
+    sessionPath: string;
 }
 
 export interface QuickStartOptions {
     repoRoot?: string;
-    extensionPath: string;
     getConfiguredAgentName: () => string;
     openTerminal: (request: QuickStartLaunchRequest) => Promise<void>;
     showError: (message: string) => void;
@@ -31,19 +31,14 @@ export interface QuickStartOptions {
 }
 
 /**
- * Build a stable repository-and-agent-specific identity for Quick Start
- * terminals and tmux sessions. Tmux session names are global to the user, so
- * both values are needed to prevent attaching to another launch.
+ * Create a new identity for each Quick Start invocation, including concurrent
+ * launches across windows. Persisted identities are reused only when resuming
+ * a specific session from Active Sessions.
  */
 export function getQuickStartTaskName(repoRoot: string, agentName: string): string {
-    const normalizedPath = path.normalize(repoRoot).toLowerCase();
     const normalizedAgent = agentName.replace(/[^a-zA-Z0-9_-]/g, '_') || 'agent';
-    const repoHash = crypto.createHash('sha256')
-        .update(`${normalizedPath}:${normalizedAgent}`)
-        .digest('hex')
-        .substring(0, 8);
     const repoName = path.basename(repoRoot).replace(/[^a-zA-Z0-9_-]/g, '_') || 'repository';
-    return `Quick Start-${normalizedAgent}-${repoName}-${repoHash}`;
+    return `quick-start-${normalizedAgent}-${repoName}-${crypto.randomUUID()}`;
 }
 
 /** Verify the launch directory is an actual Git working tree. */
@@ -106,11 +101,13 @@ export async function executeQuickStart(options: QuickStartOptions): Promise<voi
     }
 
     try {
+        const taskName = getQuickStartTaskName(repoRoot, codeAgent.name);
+        const sessionPath = await ensureQuickSession(repoRoot, taskName, codeAgent.name);
         await options.openTerminal({
-            taskName: getQuickStartTaskName(repoRoot, codeAgent.name),
+            taskName,
             repoRoot,
             codeAgent,
-            mcpWorkflowPath: path.join(options.extensionPath, 'workflows', 'default.yaml'),
+            sessionPath,
         });
     } catch (err) {
         options.showError(`Quick Start could not configure the required Lanes MCP: ${getErrorMessage(err)}`);

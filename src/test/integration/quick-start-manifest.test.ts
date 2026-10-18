@@ -48,6 +48,25 @@ suite('Quick Start Manifest Integration', () => {
         });
     });
 
+    test('offers lifecycle actions for quick sessions while hiding worktree-specific actions', () => {
+        const menus = manifest.contributes?.menus?.['view/item/context'] ?? [];
+        for (const contextValue of ['sessionItemQuick', 'sessionItemQuickPinned']) {
+            const commands = menus.filter(menu => (menu.when ?? '').split(' && ').every(clause => {
+                const match = clause.match(/^viewItem (=~|==) (.+)$/);
+                if (!match) { return true; }
+                if (match[1] === '==') { return contextValue === match[2]; }
+                return new RegExp(match[2].slice(1, -1)).test(contextValue);
+            })).map(menu => menu.command);
+            for (const command of ['lanes.renameSession', 'lanes.clearSession', 'lanes.deleteSession', 'lanes.createTerminal']) {
+                assert.ok(commands.includes(command), `${contextValue}: ${command}`);
+            }
+            assert.ok(commands.includes(contextValue.endsWith('Pinned') ? 'lanes.unpinSession' : 'lanes.pinSession'));
+            for (const command of ['lanes.showGitChanges', 'lanes.openWorkflowState', 'lanes.searchInWorktree']) {
+                assert.ok(!commands.includes(command), `${contextValue} must omit ${command}`);
+            }
+        }
+    });
+
     test('places Quick Start first in the New Session view title', () => {
         const newSessionView = manifest.contributes?.views?.['lanes-sidebar']?.find(
             view => view.id === 'lanesSessionFormView'

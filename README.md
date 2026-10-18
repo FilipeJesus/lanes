@@ -144,7 +144,9 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 
 #### Quick Start
 
-Use the **rocket button above New Session** (or run **Lanes: Quick Start** from the Command Palette) to open the configured agent directly in the base repository. Quick Start does not create a worktree or select/start a workflow. Instead, it supplies the Lanes workflow MCP transiently so the agent can create full Lanes sessions when needed without modifying repository agent settings. Quick Start currently supports **Claude Code** and **Codex**, whose CLIs accept transient MCP configuration; agents that require project-settings MCP delivery are rejected with an explanation.
+Use the **rocket button above New Session** (or run **Lanes: Quick Start** from the Command Palette) to open the configured agent directly in the base repository. Every click creates a new independent quick session, so you can run multiple sessions with the same agent in the same repository. Quick sessions appear in **Active Sessions** and can be resumed after closing their terminal, renamed, pinned, cleared, or deleted. Select an existing session in Active Sessions to resume it. Metadata is stored under `.lanes/current-sessions/` without creating a worktree. Quick sessions omit Git changes, workflow state, and worktree search actions.
+
+Every MCP-capable Lanes session receives the `session_create` tool. Sessions with an assigned workflow template also receive the workflow tools and `session_clear`. Quick Start currently supports **Claude Code** and **Codex**, whose CLIs accept MCP configuration without modifying project agent settings.
 
 ### CLI
 

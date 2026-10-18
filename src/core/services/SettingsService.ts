@@ -93,7 +93,7 @@ export async function getBaseRepoPath(workspacePath: string): Promise<string> {
  */
 export function getStatusWatchPattern(): string {
     const statusFileName = getGlobalCodeAgent()?.getStatusFileName() || DEFAULTS.statusFileName;
-    return '.lanes/current-sessions/**/*/' + statusFileName;
+    return `.lanes/current-sessions/**/*/{${statusFileName},status.json}`;
 }
 
 /**
@@ -104,7 +104,7 @@ export function getStatusWatchPattern(): string {
  */
 export function getSessionWatchPattern(): string {
     const sessionFileName = getGlobalCodeAgent()?.getSessionFileName() || DEFAULTS.sessionFileName;
-    return '.lanes/current-sessions/**/*/' + sessionFileName;
+    return `.lanes/current-sessions/**/*/{${sessionFileName},session.json}`;
 }
 
 /**
