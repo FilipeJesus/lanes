@@ -35,6 +35,8 @@ export const NON_GLOBAL_SESSION_PATH = '.lanes/current-sessions';
 
 export interface AgentSessionData {
     sessionId: string;
+    /** Display name only; the worktree and branch retain their original names. */
+    alias?: string;
     timestamp?: string;
     workflow?: string;
     permissionMode?: string;

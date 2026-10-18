@@ -29,6 +29,8 @@ export {
     getSettingsDir,
     getGlobalCodeAgent,
     getBaseRepoPathForStorage,
+    saveSessionAlias,
+    getSessionAlias,
     saveSessionWorkflow,
     getSessionWorkflow,
     saveSessionPermissionMode,
@@ -139,6 +141,8 @@ export class SessionDetailItem extends vscode.TreeItem {
 
 export class SessionItem extends vscode.TreeItem {
     public readonly workflowStatus: WorkflowStatus | null;
+    /** Stable session identity, independent of the display label. */
+    public readonly sessionName: string;
 
     constructor(
         public readonly label: string,
@@ -155,6 +159,8 @@ export class SessionItem extends vscode.TreeItem {
             ? vscode.TreeItemCollapsibleState.Expanded
             : vscode.TreeItemCollapsibleState.None;
         super(label, effectiveCollapsibleState);
+        this.sessionName = path.basename(worktreePath);
+        this.id = worktreePath;
         this.workflowStatus = storedWorkflowStatus;
         this.tooltip = pinned ? `[Pinned] Path: ${this.worktreePath}` : `Path: ${this.worktreePath}`;
         this.description = this.getDescriptionForStatus(agentStatus, workflowStatus, pinned);
@@ -265,8 +271,9 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
                 const agentStatus = await SessionDataService.getAgentStatus(fullPath);
                 const workflowStatus = await SessionDataService.getWorkflowStatus(fullPath);
                 const chimeEnabled = await SessionDataService.getSessionChimeEnabled(fullPath);
+                const alias = await SessionDataService.getSessionAlias(fullPath);
                 const pinned = pinnedSet.has(fullPath);
-                items.push(new SessionItem(folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
+                items.push(new SessionItem(alias ?? folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned));
             }
         }
 

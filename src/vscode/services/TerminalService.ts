@@ -130,7 +130,7 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
     }
 
     const worktreePath = item.worktreePath;
-    const sessionName = item.label;
+    const sessionName = item.sessionName;
 
     // Verify worktree exists
     if (!await fileExists(worktreePath)) {
