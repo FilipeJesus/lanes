@@ -1,3 +1,15 @@
+## [1.4.2](https://github.com/FilipeJesus/lanes/compare/v1.4.1...v1.4.2) (2026-10-18)
+
+### Features
+
+* **sessions:** add Quick Start keyboard shortcuts ([#222](https://github.com/FilipeJesus/lanes/issues/222)) ([9a5be06](https://github.com/FilipeJesus/lanes/commit/9a5be0656bfa813ca5bba277841058326d4f7afa))
+
+### Bug Fixes
+
+* **sessions:** persist independent quick sessions and scope MCP tools ([#219](https://github.com/FilipeJesus/lanes/issues/219)) ([45a026e](https://github.com/FilipeJesus/lanes/commit/45a026ec72c4a41bcd641c608f1744ecd2b611d6))
+* **sessions:** prevent editor executables in MCP launches ([#218](https://github.com/FilipeJesus/lanes/issues/218)) ([d86ae2a](https://github.com/FilipeJesus/lanes/commit/d86ae2a5259833489194f8a4e2373934138ed735))
+* **sessions:** start quick sessions without a prompt ([#221](https://github.com/FilipeJesus/lanes/issues/221)) ([6e055f6](https://github.com/FilipeJesus/lanes/commit/6e055f657fead6a18180677e54d03175daf7763b))
+
 ## [1.4.1](https://github.com/FilipeJesus/lanes/compare/v1.4.0...v1.4.1) (2026-10-18)
 
 ### Features
