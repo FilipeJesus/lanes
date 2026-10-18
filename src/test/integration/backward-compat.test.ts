@@ -24,6 +24,7 @@ suite("Backward Compatibility", () => {
 			// Act & Assert: Verify each new command is registered
 			const newCommands = [
 				"lanes.createSession",
+				"lanes.quickStart",
 				"lanes.deleteSession",
 				"lanes.openSession",
 				"lanes.setupStatusHooks",

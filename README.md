@@ -142,6 +142,10 @@ lanes --help
 
 Click any session to resume it. Click the trash icon to delete (branch is preserved for merging).
 
+#### Quick Start
+
+Use the **rocket button above New Session** (or run **Lanes: Quick Start** from the Command Palette) to open the configured agent directly in the base repository. Quick Start does not create a worktree or select/start a workflow. Instead, it supplies the Lanes workflow MCP transiently so the agent can create full Lanes sessions when needed without modifying repository agent settings. Quick Start currently supports **Claude Code** and **Codex**, whose CLIs accept transient MCP configuration; agents that require project-settings MCP delivery are rejected with an explanation.
+
 ### CLI
 
 ```bash
@@ -175,6 +179,7 @@ Lanes requires an official Pi release with native `pi mcp` support (available in
 | Command | Description |
 | --------- | ------------- |
 | `Lanes: Create Session` | Create a new isolated session |
+| `Lanes: Quick Start` | Launch Claude Code or Codex in the base repository with Lanes MCP access, without a worktree |
 | `Lanes: Open Session` | Open/focus an existing session's terminal |
 | `Lanes: Delete Session` | Remove a session's worktree and terminal |
 | `Lanes: Clear Session` | Reset session state while preserving the worktree |
