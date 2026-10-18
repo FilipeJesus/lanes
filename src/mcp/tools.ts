@@ -213,6 +213,8 @@ export interface PendingSessionConfig {
   sourceBranch: string;
   prompt?: string;
   workflow?: string;
+  /** Set by the MCP server from the calling lane, rather than supplied by the agent. */
+  parentSession?: string;
   requestedAt: string;
 }
 
@@ -225,6 +227,7 @@ export interface PendingSessionConfig {
  * @param prompt Optional starting prompt for Claude
  * @param workflow Optional workflow template name to use
  * @param repoRoot Root directory of the repository (where .claude directory lives)
+ * @param parentSession Name of the lane making the request
  * @returns Result object with success status, config path, or error
  */
 export async function createSession(
@@ -233,6 +236,7 @@ export async function createSession(
   prompt?: string,
   workflow?: string,
   repoRoot?: string,
+  parentSession?: string,
 ): Promise<CreateSessionResult> {
   try {
     // 1. Validate and sanitize the session name
@@ -273,6 +277,7 @@ export async function createSession(
       sourceBranch,
       prompt: prompt?.trim() || undefined,
       workflow: workflow?.trim() || undefined,
+      parentSession,
       requestedAt: new Date().toISOString(),
     };
 

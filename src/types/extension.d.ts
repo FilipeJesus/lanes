@@ -13,6 +13,7 @@ export interface PendingSessionConfig {
     sourceBranch: string;
     prompt?: string;
     workflow?: string;
+    parentSession?: string;
     requestedAt: string;
 }
 

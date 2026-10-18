@@ -494,7 +494,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error('name and sourceBranch are required');
         }
 
-        const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow, repoRoot);
+        const result = await tools.createSession(sessionName, sourceBranch, prompt, workflow, repoRoot, path.basename(worktreePath));
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };

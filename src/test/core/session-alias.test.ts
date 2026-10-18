@@ -31,7 +31,7 @@ suite('Session Alias Storage', () => {
 
     test('persists a trimmed alias while preserving session metadata and paths', async () => {
         const sessionPath = getSessionFilePath(worktreePath);
-        const data = { sessionId: 'abc-123', workflow: 'feature', agentName: 'codex', terminal: 'tmux', taskListId: 'tasks-123' };
+        const data = { sessionId: 'abc-123', workflow: 'feature', agentName: 'codex', terminal: 'tmux', taskListId: 'tasks-123', parentSession: 'parent-branch' };
         fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
         fs.writeFileSync(sessionPath, JSON.stringify(data));
 

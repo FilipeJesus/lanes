@@ -41,6 +41,8 @@ export interface AgentSessionData {
     workflow?: string;
     permissionMode?: string;
     agentName?: string;
+    /** Name of the Lanes session that created this session (independent of agent session IDs). */
+    parentSession?: string;
     isChimeEnabled?: boolean;
     taskListId?: string;
     terminal?: 'code' | 'tmux';

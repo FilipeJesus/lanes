@@ -52,6 +52,15 @@ suite('MCP Session Creation with Workflow', () => {
 
 		assert.strictEqual(config.workflow, undefined);
 		assert.strictEqual(config.name, 'test-session-no-workflow');
+		assert.strictEqual(config.parentSession, undefined);
+	});
+
+	test('createSession records the calling lane as the parent', async () => {
+		const result = await createSession('child-lane', 'main', 'Child task', undefined, testRepoRoot, 'parent-lane');
+
+		assert.ok(result.success);
+		const config: PendingSessionConfig = JSON.parse(fs.readFileSync(result.configPath!, 'utf-8'));
+		assert.strictEqual(config.parentSession, 'parent-lane');
 	});
 
 	test('createSession trims workflow parameter', async () => {
