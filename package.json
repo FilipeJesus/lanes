@@ -302,7 +302,8 @@
               "cortex",
               "antigravity",
               "gemini",
-              "opencode"
+              "opencode",
+              "pi"
             ],
             "enumDescriptions": [
               "Claude Code - AI coding assistant by Anthropic",
@@ -310,7 +311,8 @@
               "Cortex Code - AI coding assistant by Snowflake (requires cortex CLI)",
               "Antigravity - Preferred Google agent harness (requires agy CLI)",
               "Gemini CLI - Legacy Google CLI support (requires gemini CLI)",
-              "OpenCode - Open source AI coding agent (requires opencode CLI)"
+              "OpenCode - Open source AI coding agent (requires opencode CLI)",
+              "Pi - Coding agent (requires pi CLI; runs with full access)"
             ],
             "default": "claude",
             "description": "Default code agent for new sessions",

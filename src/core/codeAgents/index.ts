@@ -32,6 +32,7 @@ export { CodexAgent } from './CodexAgent';
 export { CortexCodeAgent } from './CortexCodeAgent';
 export { GeminiAgent } from './GeminiAgent';
 export { OpenCodeAgent } from './OpenCodeAgent';
+export { PiAgent } from './PiAgent';
 
 // Export factory functions and constants
 export { getAgent, getAvailableAgents, getDefaultAgent, isCliAvailable, validateAndGetAgent, DEFAULT_AGENT_NAME } from './factory';

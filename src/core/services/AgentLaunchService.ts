@@ -9,7 +9,8 @@
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 import { CodeAgent, McpConfig, McpConfigDelivery, getAgent, DEFAULT_AGENT_NAME } from '../codeAgents';
-import { getSessionId, getSessionPermissionMode, getSessionWorkflow } from '../session/SessionDataService';
+import { getSessionId, getSessionPermissionMode, getSessionWorkflow, getSettingsDir, getSessionFilePath } from '../session/SessionDataService';
+import { ensureDir, readJson, writeJson } from './FileService';
 import type { AgentSessionData } from '../session/types';
 import * as SettingsService from './SettingsService';
 import { discoverWorkflows } from '../workflow/discovery';
@@ -46,6 +47,8 @@ export interface PrepareAgentLaunchOptions {
 }
 
 export interface PreparedAgentLaunchContext {
+    /** Reserved session log file for a fresh launch, persisted before starting the process. */
+    sessionPath?: string;
     effectiveWorkflow: string | null;
     effectivePermissionMode: string;
     settingsPath?: string;
@@ -69,6 +72,7 @@ export interface LaunchCommandResult {
 
 export interface LaunchCommandInput {
     prompt?: string;
+    promptFilePath?: string;
     preferResume?: boolean;
 }
 
@@ -77,8 +81,9 @@ export interface LaunchCommandInput {
  * PreparedAgentLaunchContext satisfies this when codeAgent is set.
  */
 export interface LaunchContext {
+    sessionPath?: string;
     codeAgent: CodeAgent;
-    sessionData: { sessionId: string } | null;
+    sessionData: { sessionId: string; logPath?: string } | null;
     effectiveWorkflow: string | null;
     effectivePermissionMode: string | undefined;
     settingsPath?: string;
@@ -226,6 +231,11 @@ export async function prepareAgentLaunchContext(
         effectivePermissionMode = await getSessionPermissionMode(worktreePath) || undefined;
     }
     effectivePermissionMode = effectivePermissionMode || 'acceptEdits';
+    // Some agents (Pi) always run unrestricted and cannot enforce acceptEdits.
+    const permissionModes = codeAgent?.getPermissionModes();
+    if (permissionModes?.length === 1) {
+        effectivePermissionMode = permissionModes[0].id;
+    }
 
     // --- Settings + MCP config ---
     let settingsPath: string | undefined;
@@ -286,8 +296,27 @@ export async function prepareAgentLaunchContext(
     }
 
     const sessionData = await getSessionId(worktreePath, codeAgent);
+    let sessionPath: string | undefined;
+    if (!sessionData && codeAgent) {
+        const identity = codeAgent.createSessionIdentity(getSettingsDir(worktreePath));
+        if (identity) {
+            // Pi may not create a log until its first response. Reserving the path
+            // makes resume reliable even when startup is idle or the CLI blocks.
+            const metadataPath = getSessionFilePath(worktreePath);
+            await ensureDir(path.dirname(metadataPath));
+            const existing = await readJson<Record<string, unknown>>(metadataPath).catch(() => null) || {};
+            await writeJson(metadataPath, {
+                ...existing,
+                ...identity,
+                agentName: codeAgent.name,
+                timestamp: new Date().toISOString()
+            });
+            sessionPath = identity.logPath;
+        }
+    }
 
     return {
+        sessionPath,
         effectiveWorkflow,
         effectivePermissionMode,
         settingsPath,
@@ -314,6 +343,7 @@ export async function buildAgentLaunchCommand(
     if (preferResume && context.sessionData?.sessionId) {
         try {
             const command = agent.buildResumeCommand(context.sessionData.sessionId, {
+                sessionPath: context.sessionData.logPath,
                 permissionMode: context.effectivePermissionMode,
                 settingsPath: context.settingsPath,
                 mcpConfigPath: context.mcpConfigPath,
@@ -326,6 +356,8 @@ export async function buildAgentLaunchCommand(
     }
 
     const command = agent.buildStartCommand({
+        sessionPath: context.sessionPath,
+        promptFilePath: input.promptFilePath,
         permissionMode: context.effectivePermissionMode,
         settingsPath: context.settingsPath,
         mcpConfigPath: context.mcpConfigPath,

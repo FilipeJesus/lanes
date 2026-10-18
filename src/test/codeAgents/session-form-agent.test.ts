@@ -10,6 +10,8 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import { runInNewContext } from 'vm';
+import { getAvailableAgents } from '../../core/codeAgents';
 import {
 	SessionFormProvider,
 	SessionFormSubmitCallback,
@@ -79,6 +81,79 @@ suite('Session Form Agent Selection', () => {
 		extensionUri = vscode.Uri.file('/mock/extension/path');
 		provider = new SessionFormProvider(extensionUri);
 	});
+
+
+    suite('Pi permissions in the running form script', () => {
+        // A tiny event-capable DOM exercises the generated script and persisted state.
+        class Element {
+            value = '';
+            title = '';
+            disabled = false;
+            innerHTML = '';
+            dataset: Record<string, string> = {};
+            attributes: Record<string, string> = {};
+            listeners = new Map<string, (event: any) => void>();
+            classes = new Set<string>();
+            classList = {
+                add: (value: string) => this.classes.add(value),
+                remove: (value: string) => this.classes.delete(value),
+                contains: (value: string) => this.classes.has(value),
+                toggle: (value: string, force: boolean) => force ? this.classes.add(value) : this.classes.delete(value),
+            };
+            setAttribute(name: string, value: string) { this.attributes[name] = value; }
+            addEventListener(name: string, handler: (event: any) => void) { this.listeners.set(name, handler); }
+            querySelector() { return null; }
+            focus() {}
+            fire(name: string) { this.listeners.get(name)?.({ preventDefault() {}, stopPropagation() {} }); }
+        }
+
+        function runForm(savedBypass: boolean) {
+            const html = getFormHtml(provider);
+            const script = html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)?.[1];
+            assert.ok(script);
+            const elements = new Map<string, Element>();
+            const getElement = (id: string) => {
+                if (!elements.has(id)) { elements.set(id, new Element()); }
+                return elements.get(id)!;
+            };
+            const agents = getAvailableAgents().map(agent => {
+                const element = new Element();
+                element.dataset.agent = agent;
+                return element;
+            });
+            let state: any = { name: 'feature', agent: 'claude', bypassPermissions: savedBypass };
+            const messages: any[] = [];
+            runInNewContext(script, {
+                acquireVsCodeApi: () => ({ getState: () => state, setState: (value: any) => { state = value; },
+                    postMessage: (message: any) => messages.push(message) }),
+                document: { getElementById: getElement, querySelectorAll: () => agents, addEventListener() {} },
+                window: { addEventListener() {} },
+            });
+            return { html, getElement, messages, state: () => state,
+                select: (name: string) => agents.find(element => element.dataset.agent === name)!.fire('click') };
+        }
+
+        for (const savedBypass of [false, true]) {
+            test(`Pi shows full access while preserving saved bypass=${savedBypass} when switching back to Claude`, () => {
+                const form = runForm(savedBypass);
+                assert.match(form.html, /data-agent="pi"/);
+                form.select('pi');
+                const button = form.getElement('bypassPermissionsBtn');
+                assert.strictEqual(button.disabled, true);
+                assert.strictEqual(button.attributes['aria-pressed'], 'true');
+                assert.match(button.title, /Full Access.*no permission restrictions/);
+                assert.strictEqual(form.state().bypassPermissions, savedBypass);
+                form.getElement('sessionForm').fire('submit');
+                assert.strictEqual(form.messages.at(-1).agent, 'pi');
+                assert.strictEqual(form.messages.at(-1).permissionMode, 'bypassPermissions');
+                form.select('claude');
+                assert.strictEqual(button.disabled, false);
+                assert.strictEqual(button.attributes['aria-pressed'], String(savedBypass));
+                form.getElement('sessionForm').fire('submit');
+                assert.strictEqual(form.messages.at(-1).permissionMode, savedBypass ? 'bypassPermissions' : 'acceptEdits');
+            });
+        }
+    });
 
 	suite('Agent Dropdown Rendering', () => {
 		test('Default agent codex is pre-selected', () => {

@@ -7,7 +7,7 @@
                                     <h2 class="text-3xl font-bold text-ink">Multi-Agent Support</h2>
                                 </div>
                                 <p class="text-ink-muted mb-6">
-                                    Lanes supports Claude Code, Codex CLI, Google Antigravity, legacy Gemini CLI, Cortex Code, and OpenCode. Choose the best agent for each task, or mix agents across sessions.
+                                    Lanes supports Claude Code, Codex CLI, Google Antigravity, legacy Gemini CLI, Cortex Code, OpenCode, and Pi. Choose the best agent for each task, or mix agents across sessions.
                                 </p>
 
                                 <div class="space-y-8">
@@ -38,6 +38,12 @@
                                         </div>
                                     </div>
 
+                                    <div>
+                                        <h3 class="text-xl font-bold text-ink mb-3">Pi</h3>
+                                        <p class="text-ink-muted mb-3">Install the official Pi CLI with native <code>pi mcp</code> support (Pi 1.2.0+) and select Pi in the session form, or run <code>lanes create --name my-feature --agent pi</code>. Pi runs with full tool access and has no built-in permission restriction modes.</p>
+                                        <p class="text-ink-muted">Lanes resumes each worktree's exact JSONL conversation and tracks log activity in VS Code. Workflows use <code>.pi/mcp.json</code>; trust the worktree in Pi to load project MCP servers. Existing servers and <code>.pi/settings.json</code> are preserved.</p>
+                                    </div>
+
                                     <!-- How to Select -->
                                     <div>
                                         <h3 class="text-xl font-bold text-ink mb-3">Selecting an Agent</h3>
@@ -46,7 +52,7 @@
                                         </p>
                                         <div class="bg-accent-dim border border-accent/20 rounded-lg p-4">
                                             <p class="text-sm text-accent">
-                                                <strong>Default agent:</strong> Set <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">lanes.defaultAgent</code> to <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"claude"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"codex"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"antigravity"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"gemini"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"cortex"</code>, or <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"opencode"</code>.
+                                                <strong>Default agent:</strong> Set <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">lanes.defaultAgent</code> to <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"claude"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"codex"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"antigravity"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"gemini"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"cortex"</code>, <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"opencode"</code>, or <code class="bg-surface-2 px-1.5 py-0.5 rounded font-mono">"pi"</code>.
                                             </p>
                                         </div>
                                     </div>

@@ -9,6 +9,7 @@ import { CodexAgent } from "../../core/codeAgents/CodexAgent";
 import { CortexCodeAgent } from "../../core/codeAgents/CortexCodeAgent";
 import { GeminiAgent } from "../../core/codeAgents/GeminiAgent";
 import { OpenCodeAgent } from "../../core/codeAgents/OpenCodeAgent";
+import { PiAgent } from "../../core/codeAgents";
 
 suite("Agent Factory", () => {
     test('getAgent("claude") returns ClaudeCodeAgent instance', () => {
@@ -81,6 +82,23 @@ suite("Agent Factory", () => {
         );
     });
 
+    test('Pi is exported and uses the registered singleton', () => {
+        const agent = getAgent('pi');
+        assert.ok(agent instanceof PiAgent);
+        assert.strictEqual(agent, getAgent('pi'));
+        assert.strictEqual(agent.name, 'pi');
+        assert.strictEqual(agent.displayName, 'Pi');
+    });
+
+    test('VS Code defaultAgent configuration includes Pi and its permission description', () => {
+        const manifest = require('../../../package.json');
+        const config = manifest.contributes.configuration
+            .find((entry: any) => entry.properties['lanes.defaultAgent']).properties['lanes.defaultAgent'];
+        const index = config.enum.indexOf('pi');
+        assert.ok(index >= 0);
+        assert.match(config.enumDescriptions[index], /Pi.*full access/);
+    });
+
     test('getAgent("unknown") returns null', () => {
         const agent = getAgent("unknown");
         assert.strictEqual(agent, null, "Unknown agent should return null");
@@ -99,6 +117,7 @@ suite("Agent Factory", () => {
             "antigravity",
             "gemini",
             "opencode",
+            "pi",
         ]);
     });
 
@@ -320,5 +339,70 @@ suite("Agent Factory - CLI Availability Implementation", () => {
             process.env.PATH = previousPath;
             fs.rmSync(directory, { recursive: true, force: true });
         }
+    });
+});
+
+
+suite('Pi CLI compatibility', () => {
+    let directory: string;
+    let previousPath: string | undefined;
+    // Help excerpt from the released official CLI, not a guessed feature signature:
+    // https://github.com/earendil-works/pi/blob/v1.3.0/packages/coding-agent/src/cli/args.ts
+    const officialHelp = `pi - AI coding assistant with read, bash, edit, write tools
+Usage: pi [options] [--] [@files...] [messages...]
+Commands:
+  pi mcp <command>
+Options:
+  --print, -p
+  --session <path|id>
+  --session-dir <dir>
+  --no-session`;
+
+    setup(() => {
+        directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lanes-pi-probe-'));
+        previousPath = process.env.PATH;
+        process.env.PATH = `${directory}${path.delimiter}${previousPath || ''}`;
+    });
+    teardown(() => {
+        if (previousPath === undefined) { delete process.env.PATH; }
+        else { process.env.PATH = previousPath; }
+        fs.rmSync(directory, { recursive: true, force: true });
+    });
+
+    async function probe(help: string) {
+        fs.writeFileSync(path.join(directory, 'pi'),
+            `#!/bin/sh
+printf '%s\\n' "$@" > '${directory}/argv.txt'
+cat <<'PI_HELP'
+${help}
+PI_HELP
+`,
+            { mode: 0o755 });
+        const { validateAndGetAgent } = require('../../core/codeAgents/factory');
+        return validateAndGetAgent('pi');
+    }
+
+    test('released official Pi help passes an offline extension-free compatibility probe', async function () {
+        if (process.platform === 'win32') { this.skip(); }
+        const result = await probe(officialHelp);
+        assert.strictEqual(result.agent, getAgent('pi'));
+        assert.strictEqual(result.warning, undefined);
+        assert.deepStrictEqual(fs.readFileSync(path.join(directory, 'argv.txt'), 'utf8').trim().split('\n'),
+            ['--no-extensions', '--offline', '--help']);
+    });
+
+    test('unrelated executable named pi is rejected', async function () {
+        if (process.platform === 'win32') { this.skip(); }
+        const result = await probe('pi: compute digits of pi --print --session-dir');
+        assert.strictEqual(result.agent, null);
+        assert.match(result.warning || '', /incompatible/);
+    });
+
+    test('older official Pi without native MCP is rejected with upgrade guidance', async function () {
+        if (process.platform === 'win32') { this.skip(); }
+        const result = await probe(officialHelp.replace('  pi mcp <command>\n', ''));
+        assert.strictEqual(result.agent, null);
+        assert.match(result.warning || '', /Install or update the official Pi CLI/);
+        assert.match(result.warning || '', /native MCP.*pi mcp/);
     });
 });
