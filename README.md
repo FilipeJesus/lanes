@@ -8,7 +8,7 @@
 
 **Manage multiple, isolated AI coding sessions across VS Code and the terminal.**
 
-Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Google Antigravity CLI, legacy Gemini CLI, Cortex Code, and OpenCode out of the box. No more context contamination. No more half-finished files clashing with each other.
+Lanes uses Git Worktrees to give every agent session its own isolated file system and dedicated terminal. Supports Claude Code, Codex CLI, Google Antigravity CLI, legacy Gemini CLI, Cortex Code, OpenCode, and Pi out of the box. No more context contamination. No more half-finished files clashing with each other.
 
 <video src="https://raw.githubusercontent.com/FilipeJesus/lanes/main/media/lanes-demo.mp4#t=4" autoplay loop muted playsinline controls alt="Lanes in action"></video>
 
@@ -24,7 +24,7 @@ Lanes uses Git Worktrees to give every agent session its own isolated file syste
 - **Built-in Diff Viewer** - Review all changes before merging back
 - **One-Click Cleanup** - Delete the worktree when done, keep the branch for merging
 - **Workflow System** - Optional MCP-based workflows guide agents through structured phases (plan → implement → test → review)
-- **Multi-Agent Support** - Claude Code, Codex CLI, Antigravity, Gemini CLI, Cortex Code, and OpenCode with inline logo selector
+- **Multi-Agent Support** - Claude Code, Codex CLI, Antigravity, Gemini CLI, Cortex Code, OpenCode, and Pi with inline logo selector
 - **File Attachments** - Drag-and-drop files into the session form to include with your prompt
 - **Tmux Terminal Backend** - Persistent tmux sessions via `lanes.terminalMode` setting
 - **Local Settings Propagation** - Auto-propagate `.claude/settings.local.json` and `.gemini/settings.json` to worktrees
@@ -52,7 +52,7 @@ Visit [our website](https://lanes.pro) for more information.
 | Rename sessions with display aliases | ✓ | — |
 | View git diff | ✓ | ✓ |
 | Repair broken worktrees | ✓ | ✓ |
-| Claude Code / Codex / Antigravity / Gemini / Cortex / OpenCode | ✓ | ✓ |
+| Claude Code / Codex / Antigravity / Gemini / Cortex / OpenCode / Pi | ✓ | ✓ |
 | Workflow templates (built-in + custom) | ✓ | ✓ |
 | MCP-based workflows | ✓ | ✓ |
 | Integrated terminal | ✓ | N/A |
@@ -98,6 +98,9 @@ gemini
 
 # Optional: Install modern OpenCode
 npm install -g opencode-ai
+
+# Optional: Install Pi (Node.js 22.19+)
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 ```
 
 ### Install
@@ -156,6 +159,14 @@ lanes delete my-feature
 - **Antigravity CLI** (`antigravity`, executable `agy`) is the recommended Google harness. Lanes stores workflow MCP configuration in `.agents/mcp_config.json`.
 - **Gemini CLI** (`gemini`) remains available for existing sessions but is Google's legacy harness. Lanes uses `.gemini/settings.json` for hooks and workflow MCP configuration.
 - Both integrations use their native conversation IDs for resume.
+
+## Pi Harness Notes
+
+Select **Pi** in the session form, set `lanes.defaultAgent` to `"pi"`, or run `lanes create --name my-feature --agent pi`. Run `pi` and `/login` first to configure a provider.
+
+Pi runs with full tool access; it has no native Lanes permission restriction modes. Lanes stores each conversation in a separate JSONL file under `.lanes/current-sessions/<session>/` and resumes that exact file, including sessions started without a prompt. In VS Code, log activity drives working/waiting status rather than command hooks.
+
+Lanes requires an official Pi release with native `pi mcp` support (available in Pi 1.2.0 and later). Update older installations with `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`. Workflows use Pi's native `.pi/mcp.json`; trust the worktree in Pi to enable project MCP servers. Lanes preserves other servers and `.pi/settings.json`. The local settings propagation option copies or symlinks both Pi files to new worktrees. See the [Pi CLI](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md) and [MCP documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md).
 
 ---
 

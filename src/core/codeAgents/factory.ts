@@ -23,6 +23,7 @@ import { CodexAgent } from "./CodexAgent";
 import { CortexCodeAgent } from "./CortexCodeAgent";
 import { GeminiAgent } from "./GeminiAgent";
 import { OpenCodeAgent } from "./OpenCodeAgent";
+import { PiAgent } from "./PiAgent";
 
 /**
  * The default agent name used as fallback throughout the extension.
@@ -44,6 +45,7 @@ const cliSignatures: Record<string, RegExp[]> = {
    antigravity: [/--conversation/, /--prompt-interactive/],
    gemini: [/Gemini CLI/i, /--approval-mode/],
    opencode: [/opencode session/i, /--session/],
+   pi: [/AI coding assistant with read, bash, edit, write tools/i, /--session-dir/, /--print/, /\bpi mcp\b/],
 };
 
 /**
@@ -57,6 +59,7 @@ const agentConstructors: Record<string, () => CodeAgent> = {
    antigravity: () => new AntigravityAgent(),
    gemini: () => new GeminiAgent(),
    opencode: () => new OpenCodeAgent(),
+   pi: () => new PiAgent(),
 };
 
 /**
@@ -152,7 +155,9 @@ export async function isCliAvailable(cliCommand: string): Promise<boolean> {
 
 async function isCliCompatible(agent: CodeAgent, executable: string): Promise<boolean> {
    try {
-      const { stdout, stderr } = await execFileAsync(executable, ["--help"], {
+      // Probe Pi without loading user extensions or making startup network calls.
+      const helpArgs = agent.name === 'pi' ? ['--no-extensions', '--offline', '--help'] : ['--help'];
+      const { stdout, stderr } = await execFileAsync(executable, helpArgs, {
          timeout: 5_000,
          maxBuffer: 1024 * 1024,
       });
@@ -196,7 +201,8 @@ export async function validateAndGetAgent(
          agent: null,
          warning:
             `${agent.displayName} CLI ('${agent.cliCommand}') is incompatible with this Lanes version. ` +
-            `Install or update the official ${agent.displayName} CLI.`,
+            `Install or update the official ${agent.displayName} CLI.` +
+            (agent.name === 'pi' ? ' Pi requires native MCP support (pi mcp).' : ''),
       };
    }
 

@@ -71,10 +71,12 @@ export async function execIntoAgent(opts: {
 
     // Write prompt to file and use command substitution (avoids terminal buffer issues)
     let promptArg: string | undefined;
+    let promptFilePath: string | undefined;
     if (prompt) {
         const promptsFolder = config.get('lanes', 'promptsFolder', '');
         const result = await writePromptFile(prompt, sessionName, repoRoot, promptsFolder);
         promptArg = result?.commandArg;
+        promptFilePath = result?.path;
     }
 
     // Build the command
@@ -83,6 +85,7 @@ export async function execIntoAgent(opts: {
     if (!isNewSession && launch.sessionData?.sessionId) {
         // Resume existing session
         command = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+            sessionPath: launch.sessionData.logPath,
             permissionMode: launch.effectivePermissionMode,
             settingsPath: launch.settingsPath,
             mcpConfigPath: launch.mcpConfigPath,
@@ -93,6 +96,8 @@ export async function execIntoAgent(opts: {
         await saveSessionPermissionMode(worktreePath, launch.effectivePermissionMode);
 
         command = codeAgent.buildStartCommand({
+            sessionPath: launch.sessionPath,
+            promptFilePath,
             permissionMode: launch.effectivePermissionMode,
             settingsPath: launch.settingsPath,
             mcpConfigPath: launch.mcpConfigPath,

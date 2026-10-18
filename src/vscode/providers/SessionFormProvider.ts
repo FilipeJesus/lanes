@@ -211,6 +211,11 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         return JSON.stringify(labels);
     }
 
+    private _getAgentPermissionModesJson(): string {
+        return JSON.stringify(Object.fromEntries(getAvailableAgents().map(name =>
+            [name, getAgent(name)?.getPermissionModes() || []])));
+    }
+
     /**
      * Generate a random nonce for Content Security Policy
      */
@@ -928,6 +933,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
 
         let bypassPermissions = false;
         let selectedAgent = '${this._escapeHtml(this._defaultAgent)}';
+        const agentPermissionModes = ${this._getAgentPermissionModesJson()};
         const defaultAgentChanged = ${this._defaultAgentChanged ? 'true' : 'false'};
         let attachments = [];
         const MAX_FILES = 20;
@@ -952,6 +958,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             agentItems.forEach(function(item) {
                 item.classList.toggle('active', item.dataset.agent === agentName);
             });
+            updateBypassBtn();
             if (save !== false) saveState();
         }
 
@@ -1174,7 +1181,13 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
         }
 
         function updateBypassBtn() {
-            if (bypassPermissions) {
+            const modes = agentPermissionModes[selectedAgent] || [];
+            const fixedMode = modes.length === 1 ? modes[0] : null;
+            const isBypass = fixedMode ? fixedMode.id === 'bypassPermissions' : bypassPermissions;
+            bypassPermissionsBtn.disabled = !!fixedMode;
+            bypassPermissionsBtn.title = fixedMode ? fixedMode.label : 'bypassPermissions';
+            bypassPermissionsBtn.setAttribute('aria-label', fixedMode ? fixedMode.label : 'Toggle bypass permissions');
+            if (isBypass) {
                 bypassPermissionsBtn.classList.add('active');
                 bypassPermissionsBtn.setAttribute('aria-pressed', 'true');
             } else {
@@ -1206,6 +1219,7 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             attachments = previousState.attachments || [];
             renderAttachmentChips();
         }
+        updateBypassBtn();
 
         // Save state whenever form values change
         function saveState() {
@@ -1233,7 +1247,9 @@ export class SessionFormProvider implements vscode.WebviewViewProvider {
             const agent = selectedAgent;
             const sourceBranch = sourceBranchInput.value.trim();
             const prompt = promptInput.value.trim();
-            const permissionMode = bypassPermissions ? 'bypassPermissions' : 'acceptEdits';
+            const modes = agentPermissionModes[agent] || [];
+            const permissionMode = modes.length === 1 ? modes[0].id
+                : (bypassPermissions ? 'bypassPermissions' : 'acceptEdits');
             const workflow = workflowInput.value;
 
             if (!name) {

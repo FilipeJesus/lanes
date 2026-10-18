@@ -24,6 +24,7 @@ import {
     saveSessionPermissionMode,
     saveSessionTerminalMode,
     getSessionTerminalMode,
+    getSessionId,
     getOrCreateTaskListId,
 } from '../providers/AgentSessionProvider';
 
@@ -236,6 +237,13 @@ async function openClaudeTerminalTmux(
             color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
         terminal.show();
+        if (codeAgent && !codeAgent.supportsHooks()) {
+            await trackHooklessTerminal(terminal, worktreePath);
+            const sessionData = await getSessionId(worktreePath, codeAgent);
+            if (sessionData?.logPath) {
+                startPolling(terminal, sessionData.logPath, worktreePath);
+            }
+        }
         return;
     }
 
@@ -275,6 +283,7 @@ async function openClaudeTerminalTmux(
                 try {
                     // Use CodeAgent to build resume command
                     const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                        sessionPath: launch.sessionData.logPath,
                         permissionMode: launch.effectivePermissionMode,
                         settingsPath: launch.settingsPath,
                         mcpConfigPath: launch.mcpConfigPath,
@@ -311,15 +320,19 @@ async function openClaudeTerminalTmux(
 
             // Write prompt to file for history and to avoid terminal buffer issues
             let promptFileCommand: string | undefined;
+            let promptFilePath: string | undefined;
             if (combinedPrompt) {
                 const repoRootForPrompt = path.dirname(path.dirname(worktreePath));
                 const result = await writePromptFile(combinedPrompt, taskName, repoRootForPrompt);
                 promptFileCommand = result?.commandArg;
+                promptFilePath = result?.path;
             }
 
             if (codeAgent) {
                 // Use CodeAgent to build start command (each agent handles prompt formatting)
                 const startCommand = codeAgent.buildStartCommand({
+                    sessionPath: launch.sessionPath,
+                    promptFilePath,
                     permissionMode: validatedMode,
                     settingsPath: launch.settingsPath,
                     mcpConfigPath: launch.mcpConfigPath,
@@ -364,6 +377,11 @@ async function openClaudeTerminalTmux(
         });
 
         terminal.show();
+        const sessionLogPath = launch.sessionPath || launch.sessionData?.logPath;
+        if (codeAgent && !codeAgent.supportsHooks() && sessionLogPath) {
+            await trackHooklessTerminal(terminal, worktreePath);
+            startPolling(terminal, sessionLogPath, worktreePath);
+        }
     } catch (err) {
         // Clean up orphaned tmux session on failure
         await TmuxService.killSession(tmuxSessionName).catch(() => {});
@@ -493,6 +511,7 @@ export async function openAgentTerminal(
             try {
                 // Use CodeAgent to build resume command
                 const resumeCommand = codeAgent.buildResumeCommand(launch.sessionData.sessionId, {
+                    sessionPath: launch.sessionData.logPath,
                     permissionMode: launch.effectivePermissionMode,
                     settingsPath: launch.settingsPath,
                     mcpConfigPath: launch.mcpConfigPath,
@@ -537,15 +556,19 @@ export async function openAgentTerminal(
 
         // Write prompt to file for history and to avoid terminal buffer issues
         let promptFileCommand: string | undefined;
+        let promptFilePath: string | undefined;
         if (combinedPrompt) {
             const repoRootForPrompt = path.dirname(path.dirname(worktreePath));
             const result = await writePromptFile(combinedPrompt, taskName, repoRootForPrompt);
             promptFileCommand = result?.commandArg;
+            promptFilePath = result?.path;
         }
 
         if (codeAgent) {
             // Use CodeAgent to build start command (each agent handles prompt formatting)
             const startCommand = codeAgent.buildStartCommand({
+                sessionPath: launch.sessionPath,
+                promptFilePath,
                 permissionMode: validatedMode,
                 settingsPath: launch.settingsPath,
                 mcpConfigPath: launch.mcpConfigPath,
@@ -580,7 +603,11 @@ export async function openAgentTerminal(
 
         // For hookless agents, capture session ID asynchronously after start
         if (codeAgent && !codeAgent.supportsHooks()) {
-            captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal);
+            if (launch.sessionPath) {
+                startPolling(terminal, launch.sessionPath, worktreePath);
+            } else {
+                captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal);
+            }
         }
     }
 }

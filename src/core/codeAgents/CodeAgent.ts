@@ -115,6 +115,12 @@ export interface HookConfig {
  * Options for building a start command
  */
 export interface StartCommandOptions {
+    /** Explicit session file for agents that can reserve a resumable path before launch. */
+    sessionPath?: string;
+
+    /** Prompt file to read as an argument, for agents that distinguish files from raw text. */
+    promptFilePath?: string;
+
     /** Permission mode to use (e.g., 'default', 'acceptEdits') */
     permissionMode?: string;
 
@@ -135,6 +141,9 @@ export interface StartCommandOptions {
  * Options for building a resume command
  */
 export interface ResumeCommandOptions {
+    /** Saved session log path, when the agent can resume a file directly. */
+    sessionPath?: string;
+
     /** Permission mode to use when resuming, if supported by the agent CLI */
     permissionMode?: string;
 
@@ -527,6 +536,15 @@ export abstract class CodeAgent {
     }
 
     // --- Session ID Capture ---
+
+    /**
+     * Reserve a resumable identity before starting a hookless agent.
+     * Agents supporting explicit session files can use this instead of discovering
+     * their ID after launch (which may not exist until the first response).
+     */
+    createSessionIdentity(_sessionDirectory: string): CapturedSession | null {
+        return null;
+    }
 
     /**
      * Capture the session ID for agents that don't support hooks.
