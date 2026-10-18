@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { getNodeExecutable } from '../services/NodeRuntimeService';
 import {
     CodeAgent,
     SessionData,
@@ -295,7 +296,7 @@ export class GeminiAgent extends CodeAgent {
         return {
             mcpServers: {
                 'lanes-workflow': {
-                    command: process.versions.electron ? 'node' : process.execPath,
+                    command: getNodeExecutable(),
                     args: [mcpServerPath, '--worktree', worktreePath, '--workflow-path', workflowPath, '--repo-root', repoRoot]
                 }
             }
