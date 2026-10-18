@@ -146,6 +146,8 @@ Click any session to resume it. Click the trash icon to delete (branch is preser
 
 Use the **rocket button above New Session** (or run **Lanes: Quick Start** from the Command Palette) to open the configured agent directly in the base repository. Every click creates a new independent quick session, so you can run multiple sessions with the same agent in the same repository. New quick sessions start without an initial prompt. Quick sessions appear in **Active Sessions** and can be resumed after closing their terminal, renamed, pinned, cleared, or deleted. Select an existing session in Active Sessions to resume it. Metadata is stored under `.lanes/current-sessions/` without creating a worktree. Quick sessions omit Git changes, workflow state, and worktree search actions.
 
+Start a quick session with **Cmd+Option+L** on macOS, **Ctrl+Alt+L** on Windows, or **Ctrl+K**, then **L** on Linux. The shortcut requires an open workspace folder and is inactive while the editor's Find widget is open, preserving macOS **Find in Selection**. Customize it by searching for **Lanes: Quick Start** in VS Code's Keyboard Shortcuts editor. To use the Windows shortcut while a terminal has focus, add `lanes.quickStart` to `terminal.integrated.commandsToSkipShell` in VS Code settings (see [terminal keyboard shortcuts](https://code.visualstudio.com/docs/terminal/advanced#keyboard-shortcuts-and-the-shell)).
+
 Every MCP-capable Lanes session receives the `session_create` tool. Sessions with an assigned workflow template also receive the workflow tools and `session_clear`. Quick Start currently supports **Claude Code** and **Codex**, whose CLIs accept MCP configuration without modifying project agent settings.
 
 ### CLI
