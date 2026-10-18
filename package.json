@@ -283,6 +283,13 @@
     },
     "keybindings": [
       {
+        "command": "lanes.quickStart",
+        "key": "ctrl+k l",
+        "win": "ctrl+alt+l",
+        "mac": "cmd+alt+l",
+        "when": "workspaceFolderCount > 0 && !findWidgetVisible"
+      },
+      {
         "command": "lanes.createSession",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
