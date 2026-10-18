@@ -211,27 +211,27 @@
         },
         {
           "command": "lanes.showGitChanges",
-          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Pinned)?$/",
           "group": "inline@1"
         },
         {
           "command": "lanes.openWorkflowState",
-          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Pinned)?$/",
           "group": "inline@2"
         },
         {
           "command": "lanes.searchInWorktree",
-          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem/",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Pinned)?$/",
           "group": "inline@3"
         },
         {
           "command": "lanes.pinSession",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Quick)?$/",
           "group": "inline@4"
         },
         {
           "command": "lanes.unpinSession",
-          "when": "view == lanesSessionsView && viewItem == sessionItemPinned",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Quick)?Pinned$/",
           "group": "inline@4"
         },
         {
@@ -270,12 +270,12 @@
         },
         {
           "command": "lanes.pinSession",
-          "when": "view == lanesSessionsView && viewItem == sessionItem",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Quick)?$/",
           "group": "pin"
         },
         {
           "command": "lanes.unpinSession",
-          "when": "view == lanesSessionsView && viewItem == sessionItemPinned",
+          "when": "view == lanesSessionsView && viewItem =~ /^sessionItem(Quick)?Pinned$/",
           "group": "pin"
         }
       ]

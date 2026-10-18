@@ -59,6 +59,8 @@ import {
 } from '../../core/session/types';
 
 import * as SessionDataService from '../../core/session/SessionDataService';
+import { getQuickSession } from '../../core/session/QuickSessionService';
+import { NON_GLOBAL_SESSION_PATH } from '../../core/session/types';
 
 // Track previous icon state per session to detect transitions
 const previousIconState = new Map<string, string>();
@@ -154,7 +156,9 @@ export class SessionItem extends vscode.TreeItem {
         workflowStatus?: WorkflowStatus | null,
         chimeEnabled?: boolean,
         pinned?: boolean,
-        public readonly parentSession?: string | null
+        public readonly parentSession?: string | null,
+        public readonly isQuickSession = false,
+        public readonly workingDirectory = worktreePath
     ) {
         const storedWorkflowStatus = workflowStatus ?? null;
         const hasWorkflowStepInfo = storedWorkflowStatus?.active && storedWorkflowStatus.step;
@@ -170,7 +174,13 @@ export class SessionItem extends vscode.TreeItem {
         this.description = this.getDescriptionForStatus(agentStatus, workflowStatus, pinned);
         this.iconPath = this.getIconForStatus(agentStatus, chimeEnabled);
         this.command = { command: 'lanes.openSession', title: 'Open Session', arguments: [this] };
-        this.contextValue = pinned ? 'sessionItemPinned' : 'sessionItem';
+        this.contextValue = isQuickSession
+            ? (pinned ? 'sessionItemQuickPinned' : 'sessionItemQuick')
+            : (pinned ? 'sessionItemPinned' : 'sessionItem');
+        if (isQuickSession) {
+            this.tooltip = `Quick session: ${workingDirectory}`;
+            if (!agentStatus || agentStatus.status === 'idle') { this.iconPath = new vscode.ThemeIcon('rocket'); }
+        }
     }
 
     private getIconForStatus(agentStatus?: AgentSessionStatus | null, chimeEnabled?: boolean): vscode.ThemeIcon {
@@ -262,13 +272,11 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
             return [];
         }
         const worktreesDir = path.join(this.sessionsRoot, getWorktreesFolder());
-        const exists = await fileExists(worktreesDir);
-        if (!exists) { return []; }
         return this.getSessionsInDir(worktreesDir);
     }
 
     private async getSessionsInDir(dirPath: string): Promise<SessionItem[]> {
-        const entries = await readDir(dirPath);
+        const entries = await fileExists(dirPath) ? await readDir(dirPath) : [];
         const items: SessionItem[] = [];
         const pinnedSet = new Set(this.getPinnedSessions());
 
@@ -284,6 +292,22 @@ export class AgentSessionProvider implements vscode.TreeDataProvider<SessionItem
                 const pinned = pinnedSet.has(fullPath);
                 items.push(new SessionItem(alias ?? folderName, fullPath, vscode.TreeItemCollapsibleState.None, agentStatus, workflowStatus, chimeEnabled, pinned, parentSession));
             }
+        }
+
+        const sessionStorageDir = path.join(this.sessionsRoot!, NON_GLOBAL_SESSION_PATH);
+        const storedSessions = await fileExists(sessionStorageDir) ? await readDir(sessionStorageDir) : [];
+        for (const name of storedSessions) {
+            const sessionPath = path.join(sessionStorageDir, name);
+            if (!await isDirectory(sessionPath)) { continue; }
+            const quickSession = await getQuickSession(sessionPath);
+            if (!quickSession) { continue; }
+            items.push(new SessionItem(
+                quickSession.alias ?? `Quick Start (${quickSession.agentName})`, sessionPath,
+                vscode.TreeItemCollapsibleState.None,
+                await SessionDataService.getAgentStatus(sessionPath), null,
+                await SessionDataService.getSessionChimeEnabled(sessionPath), pinnedSet.has(sessionPath),
+                null, true, quickSession.workingDirectory
+            ));
         }
 
         // Pinning sorts siblings without moving children away from their parent.

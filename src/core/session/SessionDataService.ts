@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CodeAgent, DEFAULT_AGENT_NAME, getAgent } from '../codeAgents';
 import { validateWorktreesFolder } from '../validation';
+import { isQuickSessionPath } from './QuickSessionService';
 import { fileExists, readJson, readFile, writeJson, ensureDir, readDir, isDirectory, atomicWrite } from '../services/FileService';
 import {
     AgentStatusState,
@@ -108,6 +109,7 @@ export function getSessionNameFromWorktree(worktreePath: string): string {
  * are co-located with session/status files under: <baseRepo>/.lanes/current-sessions/<sessionName>/
  */
 export function getSettingsDir(worktreePath: string): string {
+    if (isQuickSessionPath(worktreePath)) { return worktreePath; }
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || path.dirname(path.dirname(worktreePath));
     return path.join(baseRepoPath, NON_GLOBAL_SESSION_PATH, sessionName);
@@ -209,6 +211,7 @@ export function getWorktreesFolder(worktreesFolderSetting?: string): string {
  * @param worktreePath - Path to the worktree
  */
 export function getSessionFilePath(worktreePath: string): string {
+    if (isQuickSessionPath(worktreePath)) { return path.join(worktreePath, 'session.json'); }
     const sessionFileName = globalCodeAgent?.getSessionFileName() || DEFAULTS.sessionFileName;
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;
@@ -222,6 +225,7 @@ export function getSessionFilePath(worktreePath: string): string {
  * @param worktreePath - Path to the worktree
  */
 export function getStatusFilePath(worktreePath: string): string {
+    if (isQuickSessionPath(worktreePath)) { return path.join(worktreePath, 'status.json'); }
     const statusFileName = globalCodeAgent?.getStatusFileName() || DEFAULTS.statusFileName;
     const sessionName = getSessionNameFromWorktree(worktreePath);
     const baseRepoPath = getBaseRepoPathForStorage() || worktreePath;

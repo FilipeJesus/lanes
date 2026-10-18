@@ -191,28 +191,28 @@ suite('AgentLaunchService', () => {
             assert.ok(ctx.mcpConfigPath);
         });
 
-        test('skips MCP when no workflow', async () => {
+        test('configures session creation MCP without a workflow', async () => {
             const agent = getAgent('claude')!;
             const ctx = await prepareAgentLaunchContext({
                 worktreePath: path.join(tempDir, 'wt'),
                 codeAgent: agent,
                 repoRoot: '/repo',
             });
-            assert.strictEqual(ctx.mcpConfigPath, undefined);
-            assert.strictEqual(ctx.mcpConfigOverrides, undefined);
+            assert.ok(ctx.mcpConfigPath);
+            const config = JSON.parse(fs.readFileSync(ctx.mcpConfigPath!, 'utf-8')) as McpConfig;
+            assert.ok(!config.mcpServers['lanes-workflow'].args.includes('--workflow-path'));
+            assert.strictEqual(ctx.effectiveWorkflow, null);
         });
 
-        test('transient Quick Start bypasses colliding session metadata while configuring MCP', async () => {
+        test('transient launches bypass colliding session metadata while configuring MCP', async () => {
             const agent = getAgent('claude')!;
             const worktreePath = path.join(tempDir, 'base-repo');
-            const mcpWorkflowPath = '/extension/workflows/default.yaml';
             sessionWorkflowStub.resolves('/stored/colliding-workflow.yaml');
             sessionPermissionStub.resolves('bypassPermissions');
             sessionIdStub.resolves({ sessionId: '550e8400-e29b-41d4-a716-446655440000' });
 
             const ctx = await prepareAgentLaunchContext({
                 worktreePath,
-                mcpWorkflowPath,
                 requireTransientMcp: true,
                 transientSession: true,
                 codeAgent: agent,
@@ -229,15 +229,13 @@ suite('AgentLaunchService', () => {
             assert.ok(!ctx.mcpConfigPath!.startsWith(worktreePath));
             const config = JSON.parse(fs.readFileSync(ctx.mcpConfigPath!, 'utf-8')) as McpConfig;
             const serverArgs = config.mcpServers['lanes-workflow'].args;
-            assert.deepStrictEqual(serverArgs?.slice(-6), [
+            assert.deepStrictEqual(serverArgs?.slice(-4), [
                 '--worktree', worktreePath,
-                '--workflow-path', mcpWorkflowPath,
                 '--repo-root', worktreePath,
             ]);
 
             const secondCtx = await prepareAgentLaunchContext({
                 worktreePath,
-                mcpWorkflowPath,
                 requireTransientMcp: true,
                 transientSession: true,
                 codeAgent: agent,
@@ -258,7 +256,6 @@ suite('AgentLaunchService', () => {
 
             const ctx = await prepareAgentLaunchContext({
                 worktreePath: path.join(tempDir, 'base-repo'),
-                mcpWorkflowPath: '/extension/workflows/default.yaml',
                 requireTransientMcp: true,
                 codeAgent: agent,
                 repoRoot: '/repo',
@@ -266,6 +263,7 @@ suite('AgentLaunchService', () => {
 
             assert.strictEqual(ctx.mcpConfigPath, undefined);
             assert.ok(ctx.mcpConfigOverrides?.length);
+            assert.ok(ctx.mcpConfigOverrides?.every(override => !override.includes('--workflow-path')));
         });
 
         for (const agentName of ['claude', 'codex']) {
@@ -277,7 +275,6 @@ suite('AgentLaunchService', () => {
                     sandbox.stub(process, 'versions').value({ ...process.versions, electron: undefined });
                     const ctx = await prepareAgentLaunchContext({
                         worktreePath: path.join(tempDir, 'base-repo'),
-                        mcpWorkflowPath: '/extension/workflows/default.yaml',
                         requireTransientMcp: true,
                         transientSession: true,
                         codeAgent: getAgent(agentName)!,
@@ -306,7 +303,6 @@ suite('AgentLaunchService', () => {
             await assert.rejects(
                 prepareAgentLaunchContext({
                     worktreePath: path.join(tempDir, 'base-repo'),
-                    mcpWorkflowPath: '/extension/workflows/default.yaml',
                     requireTransientMcp: true,
                     codeAgent: agent,
                     repoRoot: '/repo',
@@ -322,7 +318,6 @@ suite('AgentLaunchService', () => {
             await assert.rejects(
                 prepareAgentLaunchContext({
                     worktreePath: path.join(tempDir, 'base-repo'),
-                    mcpWorkflowPath: '/extension/workflows/default.yaml',
                     requireTransientMcp: true,
                     codeAgent: agent,
                     repoRoot: '/repo',
@@ -339,7 +334,6 @@ suite('AgentLaunchService', () => {
             await assert.rejects(
                 prepareAgentLaunchContext({
                     worktreePath: path.join(tempDir, 'base-repo'),
-                    mcpWorkflowPath: '/extension/workflows/default.yaml',
                     requireTransientMcp: true,
                     codeAgent: agent,
                     repoRoot: '/repo',

@@ -45,11 +45,6 @@ if (!worktreePath) {
   process.exit(1);
 }
 
-if (!workflowPath) {
-  console.error('Error: --workflow-path <path> is required');
-  process.exit(1);
-}
-
 if (!repoRoot) {
   console.error('Error: --repo-root <path> is required');
   process.exit(1);
@@ -62,7 +57,7 @@ if (!path.isAbsolute(worktreePath)) {
 }
 
 // Validate workflowPath - must be an absolute path
-if (!path.isAbsolute(workflowPath)) {
+if (workflowPath && !path.isAbsolute(workflowPath)) {
   console.error('Error: --workflow-path must be an absolute path');
   process.exit(1);
 }
@@ -74,7 +69,7 @@ if (!path.isAbsolute(repoRoot)) {
 }
 
 // Validate workflowPath - must end with .yaml
-if (!workflowPath.endsWith('.yaml')) {
+if (workflowPath && !workflowPath.endsWith('.yaml')) {
   console.error('Error: --workflow-path must end with .yaml');
   process.exit(1);
 }
@@ -269,7 +264,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: [],
       },
     },
-  ],
+  ].filter(tool => workflowPath || tool.name === 'session_create'),
 }));
 
 // Register tool call handler
@@ -277,6 +272,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: toolArgs } = request.params;
 
   try {
+    if (!workflowPath && name !== 'session_create') {
+      throw new Error(`Tool unavailable without an assigned workflow: ${name}`);
+    }
     switch (name) {
       case 'workflow_start': {
         // Initialize or restore workflow

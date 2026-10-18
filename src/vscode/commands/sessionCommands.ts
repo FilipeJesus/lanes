@@ -160,7 +160,7 @@ export function registerSessionCommands(
 
         const alias = await vscode.window.showInputBox({
             title: 'Rename Session',
-            prompt: 'Display name for this session. The Git branch will not change.',
+            prompt: item.isQuickSession ? 'Display name for this session.' : 'Display name for this session. The Git branch will not change.',
             value: item.label,
             validateInput: value => value.trim() ? null : 'Session name cannot be empty.'
         });
@@ -178,25 +178,22 @@ export function registerSessionCommands(
     const quickStartDisposable = vscode.commands.registerCommand('lanes.quickStart', async () => {
         await executeQuickStart({
             repoRoot: baseRepoPath || services.workspaceRoot,
-            extensionPath: services.extensionPath,
             // Resolve on every invocation so settings changes do not require an extension reload.
             getConfiguredAgentName: () => vscode.workspace
                 .getConfiguration('lanes')
                 .get<string>('defaultAgent', DEFAULT_AGENT_NAME),
-            openTerminal: async ({ taskName, repoRoot, codeAgent: currentAgent, mcpWorkflowPath }) => {
+            openTerminal: async ({ taskName, repoRoot, sessionPath, codeAgent: currentAgent }) => {
                 await openAgentTerminal(
                     taskName,
-                    repoRoot,
+                    sessionPath,
                     undefined,
                     'acceptEdits',
                     null,
                     currentAgent,
                     repoRoot,
-                    true,
-                    mcpWorkflowPath,
-                    true,
                     true
                 );
+                sessionProvider.refresh();
             },
             showError: (message) => { vscode.window.showErrorMessage(message); },
             showWarning: (message) => { vscode.window.showWarningMessage(message); },
@@ -237,12 +234,11 @@ export function registerSessionCommands(
                 await TmuxService.killSession(tmuxSessionName);
             }
 
-            // Remove from Project Manager
-            await removeProject(item.worktreePath);
-
-            // Remove worktree
-            if (baseRepoPath) {
-                await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
+            if (!item.isQuickSession) {
+                await removeProject(item.worktreePath);
+                if (baseRepoPath) {
+                    await execGit(['worktree', 'remove', item.worktreePath, '--force'], baseRepoPath);
+                }
             }
 
             // Clean up repo-local settings files
@@ -338,12 +334,14 @@ export function registerSessionCommands(
             return;
         }
 
-        if (!(await fileExists(item.worktreePath))) {
+        if (!(await fileExists(item.workingDirectory))) {
             vscode.window.showErrorMessage(`Worktree path does not exist: ${item.worktreePath}`);
             return;
         }
 
-        const terminalName = codeAgent ? codeAgent.getTerminalName(item.sessionName) : `Claude: ${item.sessionName}`;
+        const agentName = await getSessionAgentName(item.worktreePath);
+        const sessionAgent = getAgent(agentName) || codeAgent;
+        const terminalName = sessionAgent ? sessionAgent.getTerminalName(item.sessionName) : `Claude: ${item.sessionName}`;
         const existingTerminal = vscode.window.terminals.find(t => t.name === terminalName);
 
         if (existingTerminal) {
@@ -377,13 +375,13 @@ export function registerSessionCommands(
         }
 
         try {
-            if (baseRepoPath) {
+            if (baseRepoPath && !item.isQuickSession) {
                 const repoName = SettingsService.getRepoName(baseRepoPath).replace(/[<>:"/\\|?*]/g, '_');
                 const projectName = `${repoName}-${item.sessionName}`;
                 await addProject(projectName, item.worktreePath, ['lanes']);
             }
 
-            await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.worktreePath), true);
+            await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.workingDirectory), true);
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to open in new window: ${getErrorMessage(err)}`);
         }

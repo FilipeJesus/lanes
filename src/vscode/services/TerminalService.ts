@@ -29,6 +29,7 @@ import {
 } from '../providers/AgentSessionProvider';
 import { generateTaskListId } from '../../core/session/SessionDataService';
 import { getNodeExecutable } from '../../core/services/NodeRuntimeService';
+import { getQuickSession, isQuickSessionPath } from '../../core/session/QuickSessionService';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
@@ -60,6 +61,7 @@ export function registerHooklessTerminalTracking(context: vscode.ExtensionContex
     const disposable = vscode.window.onDidCloseTerminal(async (terminal) => {
         const worktreePath = hooklessTerminals.get(terminal);
         if (!worktreePath) { return; }
+        hooklessTerminals.delete(terminal);
 
         // Stop polling before writing idle status
         stopPolling(terminal);
@@ -67,7 +69,11 @@ export function registerHooklessTerminalTracking(context: vscode.ExtensionContex
         // Terminal closed - write idle status
         try {
             const statusPath = getStatusFilePath(worktreePath);
-            await ensureDir(path.dirname(statusPath));
+            if (isQuickSessionPath(worktreePath)) {
+                if (!await fileExists(getSessionFilePath(worktreePath))) { return; }
+            } else {
+                await ensureDir(path.dirname(statusPath));
+            }
             await writeJson(statusPath, {
                 status: 'idle',
                 timestamp: new Date().toISOString()
@@ -75,9 +81,6 @@ export function registerHooklessTerminalTracking(context: vscode.ExtensionContex
         } catch (err) {
             console.warn('Lanes: Failed to write idle status for hookless terminal:', getErrorMessage(err));
         }
-
-        // Clean up the tracking entry
-        hooklessTerminals.delete(terminal);
     });
 
     context.subscriptions.push(disposable);
@@ -143,7 +146,7 @@ export async function createTerminalForSession(item: SessionItem): Promise<void>
         return;
     }
 
-    const worktreePath = item.worktreePath;
+    const worktreePath = item.workingDirectory;
     const sessionName = item.sessionName;
 
     // Verify worktree exists
@@ -215,10 +218,11 @@ async function openClaudeTerminalTmux(
     codeAgent?: CodeAgent,
     repoRoot?: string,
     skipWorkflowPrompt?: boolean,
-    mcpWorkflowPath?: string,
     requireTransientMcp?: boolean,
     transientSession?: boolean
 ): Promise<void> {
+    const quickSession = await getQuickSession(worktreePath);
+    const workingDirectory = quickSession?.workingDirectory ?? worktreePath;
     // Check if tmux is installed
     if (!await TmuxService.isTmuxInstalled()) {
         vscode.window.showErrorMessage(
@@ -241,7 +245,6 @@ async function openClaudeTerminalTmux(
     const prepareLaunch = () => prepareAgentLaunchContext({
         worktreePath,
         workflow,
-        mcpWorkflowPath,
         requireTransientMcp,
         transientSession,
         permissionMode,
@@ -280,7 +283,7 @@ async function openClaudeTerminalTmux(
             name: terminalName,
             shellPath: 'tmux',
             shellArgs: ['attach-session', '-t', tmuxSessionName],
-            cwd: worktreePath,
+            cwd: workingDirectory,
             iconPath: new vscode.ThemeIcon(iconConfig.id),
             color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
@@ -296,13 +299,14 @@ async function openClaudeTerminalTmux(
     }
 
     // Create new tmux session
-    await TmuxService.createSession(tmuxSessionName, worktreePath);
+    await TmuxService.createSession(tmuxSessionName, workingDirectory);
 
     // Export env vars in the initial shell (set-environment only affects new windows/panes)
     await TmuxService.sendCommand(tmuxSessionName, `export CLAUDE_CODE_TASK_LIST_ID='${taskListId}'`);
 
     try {
         const launch = preflightLaunch ?? await prepareLaunch();
+        const beforeStartTimestamp = new Date();
 
         let shouldStartFresh = true;
 
@@ -337,7 +341,7 @@ async function openClaudeTerminalTmux(
             // Validate permissionMode to prevent command injection from untrusted webview input
             const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
-            // Persist only ordinary Lanes sessions. Quick Start is intentionally transient.
+            // Persist lifecycle settings for tracked sessions, including Quick Start.
             if (!transientSession) {
                 await saveSessionPermissionMode(worktreePath, validatedMode);
                 await saveSessionTerminalMode(worktreePath, 'tmux');
@@ -402,7 +406,7 @@ async function openClaudeTerminalTmux(
             name: terminalName,
             shellPath: 'tmux',
             shellArgs: ['attach-session', '-t', tmuxSessionName],
-            cwd: worktreePath,
+            cwd: workingDirectory,
             iconPath: new vscode.ThemeIcon(iconConfig.id),
             color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen')
         });
@@ -412,6 +416,9 @@ async function openClaudeTerminalTmux(
         if (codeAgent && !codeAgent.supportsHooks() && sessionLogPath) {
             await trackHooklessTerminal(terminal, worktreePath);
             startPolling(terminal, sessionLogPath, worktreePath);
+        } else if (codeAgent && !codeAgent.supportsHooks()) {
+            await trackHooklessTerminal(terminal, worktreePath);
+            void captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal, workingDirectory);
         }
     } catch (err) {
         // Clean up orphaned tmux session on failure
@@ -438,7 +445,6 @@ async function openClaudeTerminalTmux(
  * @param codeAgent Optional CodeAgent for custom agent behavior
  * @param repoRoot Optional repository root path
  * @param skipWorkflowPrompt If true, don't add workflow prompt (for cleared sessions)
- * @param mcpWorkflowPath Workflow path used only to configure MCP when no workflow is active
  * @param requireTransientMcp Fail before launch unless MCP can be supplied without project settings
  * @param transientSession Do not read, resume, track, or persist normal Lanes session metadata
  */
@@ -451,10 +457,12 @@ export async function openAgentTerminal(
     codeAgent?: CodeAgent,
     repoRoot?: string,
     skipWorkflowPrompt?: boolean,
-    mcpWorkflowPath?: string,
     requireTransientMcp?: boolean,
     transientSession?: boolean
 ): Promise<void> {
+    const quickSession = await getQuickSession(worktreePath);
+    const workingDirectory = quickSession?.workingDirectory ?? worktreePath;
+    requireTransientMcp = requireTransientMcp || !!quickSession;
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
     const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
 
@@ -475,7 +483,7 @@ export async function openAgentTerminal(
     if (savedTerminalMode !== null) {
         useTmux = savedTerminalMode === 'tmux';
     } else {
-        const sessionExists = transientSession
+        const sessionExists = transientSession || quickSession
             ? false
             : await fileExists(getSessionFilePath(worktreePath));
         const terminalMode = vscode.workspace.getConfiguration('lanes').get<string>('terminalMode', 'vscode');
@@ -492,7 +500,6 @@ export async function openAgentTerminal(
             codeAgent,
             repoRoot,
             skipWorkflowPrompt,
-            mcpWorkflowPath,
             requireTransientMcp,
             transientSession
         );
@@ -504,7 +511,6 @@ export async function openAgentTerminal(
     const launch = await prepareAgentLaunchContext({
         worktreePath,
         workflow,
-        mcpWorkflowPath,
         requireTransientMcp,
         transientSession,
         permissionMode,
@@ -536,7 +542,7 @@ export async function openAgentTerminal(
 
     const terminal = vscode.window.createTerminal({
         name: terminalName,      // <--- This sets the tab name in the UI
-        cwd: worktreePath,       // <--- Starts shell directly inside the isolated worktree
+        cwd: workingDirectory,
         iconPath: new vscode.ThemeIcon(iconConfig.id), // Terminal icon
         color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen'), // Color code the tab
         env: { CLAUDE_CODE_TASK_LIST_ID: taskListId } // Enable Claude Code task persistence with unique ID
@@ -591,7 +597,7 @@ export async function openAgentTerminal(
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
-        // Persist only ordinary Lanes sessions. Quick Start is intentionally transient.
+        // Persist lifecycle settings for tracked sessions, including Quick Start.
         if (!transientSession) {
             await saveSessionPermissionMode(worktreePath, validatedMode);
             await saveSessionTerminalMode(worktreePath, 'code');
@@ -656,7 +662,7 @@ export async function openAgentTerminal(
             if (launch.sessionPath) {
                 startPolling(terminal, launch.sessionPath, worktreePath);
             } else {
-                captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal);
+                void captureHooklessSessionId(codeAgent, worktreePath, beforeStartTimestamp, terminal, workingDirectory);
             }
         }
     }
@@ -676,10 +682,13 @@ async function captureHooklessSessionId(
     codeAgent: CodeAgent,
     worktreePath: string,
     beforeTimestamp: Date,
-    terminal: vscode.Terminal
+    terminal: vscode.Terminal,
+    workingDirectory = worktreePath
 ): Promise<void> {
     try {
-        const result = await codeAgent.captureSessionIdForWorktree(beforeTimestamp, worktreePath);
+        const result = await codeAgent.captureSessionIdForWorktree(beforeTimestamp, workingDirectory);
+        // A closed or cleared terminal must not overwrite a newer session's history.
+        if (hooklessTerminals.get(terminal) !== worktreePath) { return; }
         if (!result) {
             // Show warning only for agents that are hookless (they need session capture to work)
             if (!codeAgent.supportsHooks()) {
