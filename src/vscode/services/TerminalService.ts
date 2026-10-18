@@ -27,9 +27,21 @@ import {
     getSessionId,
     getOrCreateTaskListId,
 } from '../providers/AgentSessionProvider';
+import { generateTaskListId } from '../../core/session/SessionDataService';
 
 // Terminal close delay constant
 const TERMINAL_CLOSE_DELAY_MS = 200; // Delay to ensure terminal is closed before reopening
+
+/** Validate strict transient launch requirements before checking/attaching tmux. */
+export async function preflightTmuxAttach<T>(
+    requireTransientMcp: boolean | undefined,
+    prepareLaunch: () => Promise<T>,
+    sessionExists: () => Promise<boolean>
+): Promise<{ preflightLaunch?: T; tmuxSessionExists: boolean }> {
+    const preflightLaunch = requireTransientMcp ? await prepareLaunch() : undefined;
+    const tmuxSessionExists = await sessionExists();
+    return { preflightLaunch, tmuxSessionExists };
+}
 
 // Track hookless agent terminals for lifecycle-based status updates
 // Maps terminal instances to their worktree paths for status file management
@@ -201,7 +213,10 @@ async function openClaudeTerminalTmux(
     workflow?: string | null,
     codeAgent?: CodeAgent,
     repoRoot?: string,
-    skipWorkflowPrompt?: boolean
+    skipWorkflowPrompt?: boolean,
+    mcpWorkflowPath?: string,
+    requireTransientMcp?: boolean,
+    transientSession?: boolean
 ): Promise<void> {
     // Check if tmux is installed
     if (!await TmuxService.isTmuxInstalled()) {
@@ -217,11 +232,43 @@ async function openClaudeTerminalTmux(
     // Sanitize session name for tmux
     const tmuxSessionName = TmuxService.sanitizeTmuxSessionName(taskName);
 
-    // Get or create a unique task list ID for this session
-    const taskListId = await getOrCreateTaskListId(worktreePath, taskName);
+    // Transient launches must not reuse or create persistent session metadata.
+    const taskListId = transientSession
+        ? generateTaskListId(taskName)
+        : await getOrCreateTaskListId(worktreePath, taskName);
 
-    // Check if tmux session already exists
-    const tmuxSessionExists = await TmuxService.sessionExists(tmuxSessionName);
+    const prepareLaunch = () => prepareAgentLaunchContext({
+        worktreePath,
+        workflow,
+        mcpWorkflowPath,
+        requireTransientMcp,
+        transientSession,
+        permissionMode,
+        codeAgent,
+        repoRoot,
+        onWarning: (message) => console.warn(`Lanes: ${message}`),
+        fallbackMcpConfigFactory: ({ worktreePath: wtPath, workflowPath, repoRoot: effectiveRepoRoot }) => {
+            const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
+            const fallback: McpConfig = {
+                mcpServers: {
+                    'lanes-workflow': {
+                        command: process.versions.electron ? 'node' : process.execPath,
+                        args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
+                    }
+                }
+            };
+            return fallback;
+        }
+    });
+
+    // Strict transient launches validate their agent and MCP configuration before
+    // attaching to an existing tmux session. This prevents a stale session from
+    // bypassing Quick Start's required MCP contract.
+    const { preflightLaunch, tmuxSessionExists } = await preflightTmuxAttach(
+        requireTransientMcp,
+        prepareLaunch,
+        () => TmuxService.sessionExists(tmuxSessionName)
+    );
 
     // Use CodeAgent for terminal icon configuration if available
     const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
@@ -254,26 +301,7 @@ async function openClaudeTerminalTmux(
     await TmuxService.sendCommand(tmuxSessionName, `export CLAUDE_CODE_TASK_LIST_ID='${taskListId}'`);
 
     try {
-        const launch = await prepareAgentLaunchContext({
-            worktreePath,
-            workflow,
-            permissionMode,
-            codeAgent,
-            repoRoot,
-            onWarning: (message) => console.warn(`Lanes: ${message}`),
-            fallbackMcpConfigFactory: ({ worktreePath: wtPath, workflowPath, repoRoot: effectiveRepoRoot }) => {
-                const mcpServerPath = path.join(__dirname, 'mcp', 'server.js');
-                const fallback: McpConfig = {
-                    mcpServers: {
-                        'lanes-workflow': {
-                            command: process.versions.electron ? 'node' : process.execPath,
-                            args: [mcpServerPath, '--worktree', wtPath, '--workflow-path', workflowPath, '--repo-root', effectiveRepoRoot]
-                        }
-                    }
-                };
-                return fallback;
-            }
-        });
+        const launch = preflightLaunch ?? await prepareLaunch();
 
         let shouldStartFresh = true;
 
@@ -308,9 +336,11 @@ async function openClaudeTerminalTmux(
             // Validate permissionMode to prevent command injection from untrusted webview input
             const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
-            // Persist permission mode and terminal mode for future session clears/restarts
-            await saveSessionPermissionMode(worktreePath, validatedMode);
-            await saveSessionTerminalMode(worktreePath, 'tmux');
+            // Persist only ordinary Lanes sessions. Quick Start is intentionally transient.
+            if (!transientSession) {
+                await saveSessionPermissionMode(worktreePath, validatedMode);
+                await saveSessionTerminalMode(worktreePath, 'tmux');
+            }
 
             const combinedPrompt = assemblePrompt({
                 userPrompt: prompt,
@@ -407,6 +437,9 @@ async function openClaudeTerminalTmux(
  * @param codeAgent Optional CodeAgent for custom agent behavior
  * @param repoRoot Optional repository root path
  * @param skipWorkflowPrompt If true, don't add workflow prompt (for cleared sessions)
+ * @param mcpWorkflowPath Workflow path used only to configure MCP when no workflow is active
+ * @param requireTransientMcp Fail before launch unless MCP can be supplied without project settings
+ * @param transientSession Do not read, resume, track, or persist normal Lanes session metadata
  */
 export async function openAgentTerminal(
     taskName: string,
@@ -416,7 +449,10 @@ export async function openAgentTerminal(
     workflow?: string | null,
     codeAgent?: CodeAgent,
     repoRoot?: string,
-    skipWorkflowPrompt?: boolean
+    skipWorkflowPrompt?: boolean,
+    mcpWorkflowPath?: string,
+    requireTransientMcp?: boolean,
+    transientSession?: boolean
 ): Promise<void> {
     // Use CodeAgent for terminal naming if available, otherwise fallback to hardcoded
     const terminalName = codeAgent ? codeAgent.getTerminalName(taskName) : `Claude: ${taskName}`;
@@ -432,15 +468,15 @@ export async function openAgentTerminal(
         return;
     }
 
-    // Determine terminal mode: persisted value wins, legacy sessions default to vscode,
-    // brand new sessions (no session file yet) use the global setting.
-    const savedTerminalMode = await getSessionTerminalMode(worktreePath);
+    // Determine terminal mode. Transient launches bypass any colliding saved session.
+    const savedTerminalMode = transientSession ? null : await getSessionTerminalMode(worktreePath);
     let useTmux: boolean;
     if (savedTerminalMode !== null) {
         useTmux = savedTerminalMode === 'tmux';
     } else {
-        const sessionPath = getSessionFilePath(worktreePath);
-        const sessionExists = await fileExists(sessionPath);
+        const sessionExists = transientSession
+            ? false
+            : await fileExists(getSessionFilePath(worktreePath));
         const terminalMode = vscode.workspace.getConfiguration('lanes').get<string>('terminalMode', 'vscode');
         useTmux = !sessionExists && TmuxService.isTmuxMode(terminalMode);
     }
@@ -454,36 +490,22 @@ export async function openAgentTerminal(
             workflow,
             codeAgent,
             repoRoot,
-            skipWorkflowPrompt
+            skipWorkflowPrompt,
+            mcpWorkflowPath,
+            requireTransientMcp,
+            transientSession
         );
         return;
     }
 
-    // B. Create a Brand New Terminal Tab
-    // Use CodeAgent for terminal icon configuration if available
-    const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
-
-    // Get or create a unique task list ID for this session
-    const taskListId = await getOrCreateTaskListId(worktreePath, taskName);
-
-    const terminal = vscode.window.createTerminal({
-        name: terminalName,      // <--- This sets the tab name in the UI
-        cwd: worktreePath,       // <--- Starts shell directly inside the isolated worktree
-        iconPath: new vscode.ThemeIcon(iconConfig.id), // Terminal icon
-        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen'), // Color code the tab
-        env: { CLAUDE_CODE_TASK_LIST_ID: taskListId } // Enable Claude Code task persistence with unique ID
-    });
-
-    terminal.show();
-
-    // B2. Track hookless agent terminals for lifecycle-based status updates
-    if (codeAgent && !codeAgent.supportsHooks()) {
-        await trackHooklessTerminal(terminal, worktreePath);
-    }
-
+    // Prepare launch configuration before creating a terminal. Strict MCP callers
+    // can therefore abort without leaving an ordinary shell behind.
     const launch = await prepareAgentLaunchContext({
         worktreePath,
         workflow,
+        mcpWorkflowPath,
+        requireTransientMcp,
+        transientSession,
         permissionMode,
         codeAgent,
         repoRoot,
@@ -501,6 +523,30 @@ export async function openAgentTerminal(
             return fallback;
         }
     });
+
+    // B. Create a Brand New Terminal Tab
+    // Use CodeAgent for terminal icon configuration if available
+    const iconConfig = codeAgent ? codeAgent.getTerminalIcon() : { id: 'robot', color: 'terminal.ansiGreen' };
+
+    // Transient launches get an in-memory identity without touching session metadata.
+    const taskListId = transientSession
+        ? generateTaskListId(taskName)
+        : await getOrCreateTaskListId(worktreePath, taskName);
+
+    const terminal = vscode.window.createTerminal({
+        name: terminalName,      // <--- This sets the tab name in the UI
+        cwd: worktreePath,       // <--- Starts shell directly inside the isolated worktree
+        iconPath: new vscode.ThemeIcon(iconConfig.id), // Terminal icon
+        color: iconConfig.color ? new vscode.ThemeColor(iconConfig.color) : new vscode.ThemeColor('terminal.ansiGreen'), // Color code the tab
+        env: { CLAUDE_CODE_TASK_LIST_ID: taskListId } // Enable Claude Code task persistence with unique ID
+    });
+
+    terminal.show();
+
+    // B2. Track hookless agent terminals for lifecycle-based status updates
+    if (!transientSession && codeAgent && !codeAgent.supportsHooks()) {
+        await trackHooklessTerminal(terminal, worktreePath);
+    }
 
     // D. Auto-start agent - resume if session ID exists, otherwise start fresh
     let shouldStartFresh = true;
@@ -544,9 +590,11 @@ export async function openAgentTerminal(
         // Validate permissionMode to prevent command injection from untrusted webview input
         const validatedMode = isValidPermissionMode(launch.effectivePermissionMode) ? launch.effectivePermissionMode : 'acceptEdits';
 
-        // Persist permission mode and terminal mode for future session clears/restarts
-        await saveSessionPermissionMode(worktreePath, validatedMode);
-        await saveSessionTerminalMode(worktreePath, 'code');
+        // Persist only ordinary Lanes sessions. Quick Start is intentionally transient.
+        if (!transientSession) {
+            await saveSessionPermissionMode(worktreePath, validatedMode);
+            await saveSessionTerminalMode(worktreePath, 'code');
+        }
 
         const combinedPrompt = assemblePrompt({
             userPrompt: prompt,
@@ -601,8 +649,9 @@ export async function openAgentTerminal(
             }
         }
 
-        // For hookless agents, capture session ID asynchronously after start
-        if (codeAgent && !codeAgent.supportsHooks()) {
+        // For hookless agents, capture session ID asynchronously after start.
+        // Transient launches deliberately bypass all persistent session tracking.
+        if (!transientSession && codeAgent && !codeAgent.supportsHooks()) {
             if (launch.sessionPath) {
                 startPolling(terminal, launch.sessionPath, worktreePath);
             } else {

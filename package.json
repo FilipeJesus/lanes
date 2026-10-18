@@ -82,6 +82,11 @@
         "icon": "$(plus)"
       },
       {
+        "command": "lanes.quickStart",
+        "title": "Lanes: Quick Start",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "lanes.deleteSession",
         "title": "Delete Session",
         "icon": "$(trash)"
@@ -182,6 +187,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "lanes.quickStart",
+          "when": "view == lanesSessionFormView",
+          "group": "navigation@0"
+        },
         {
           "command": "lanes.createWorkflow",
           "when": "view == workflowsView",

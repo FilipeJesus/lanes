@@ -202,6 +202,120 @@ suite('AgentLaunchService', () => {
             assert.strictEqual(ctx.mcpConfigOverrides, undefined);
         });
 
+        test('transient Quick Start bypasses colliding session metadata while configuring MCP', async () => {
+            const agent = getAgent('claude')!;
+            const worktreePath = path.join(tempDir, 'base-repo');
+            const mcpWorkflowPath = '/extension/workflows/default.yaml';
+            sessionWorkflowStub.resolves('/stored/colliding-workflow.yaml');
+            sessionPermissionStub.resolves('bypassPermissions');
+            sessionIdStub.resolves({ sessionId: '550e8400-e29b-41d4-a716-446655440000' });
+
+            const ctx = await prepareAgentLaunchContext({
+                worktreePath,
+                mcpWorkflowPath,
+                requireTransientMcp: true,
+                transientSession: true,
+                codeAgent: agent,
+                repoRoot: worktreePath,
+            });
+
+            assert.strictEqual(ctx.effectiveWorkflow, null);
+            assert.strictEqual(ctx.sessionData, null);
+            sinon.assert.notCalled(sessionWorkflowStub);
+            sinon.assert.notCalled(sessionPermissionStub);
+            sinon.assert.notCalled(sessionIdStub);
+            sinon.assert.notCalled(settingsStub);
+            assert.ok(ctx.mcpConfigPath);
+            assert.ok(!ctx.mcpConfigPath!.startsWith(worktreePath));
+            const config = JSON.parse(fs.readFileSync(ctx.mcpConfigPath!, 'utf-8')) as McpConfig;
+            const serverArgs = config.mcpServers['lanes-workflow'].args;
+            assert.deepStrictEqual(serverArgs?.slice(-6), [
+                '--worktree', worktreePath,
+                '--workflow-path', mcpWorkflowPath,
+                '--repo-root', worktreePath,
+            ]);
+
+            const secondCtx = await prepareAgentLaunchContext({
+                worktreePath,
+                mcpWorkflowPath,
+                requireTransientMcp: true,
+                transientSession: true,
+                codeAgent: agent,
+                repoRoot: worktreePath,
+            });
+            assert.ok(secondCtx.mcpConfigPath);
+            assert.notStrictEqual(secondCtx.mcpConfigPath, ctx.mcpConfigPath);
+            if (process.platform !== 'win32') {
+                assert.strictEqual(fs.statSync(path.dirname(ctx.mcpConfigPath!)).mode & 0o777, 0o700);
+                assert.strictEqual(fs.statSync(ctx.mcpConfigPath!).mode & 0o777, 0o600);
+            }
+            fs.rmSync(path.dirname(ctx.mcpConfigPath!), { recursive: true, force: true });
+            fs.rmSync(path.dirname(secondCtx.mcpConfigPath!), { recursive: true, force: true });
+        });
+
+        test('strict Quick Start accepts CLI override MCP delivery', async () => {
+            const agent = getAgent('codex')!;
+
+            const ctx = await prepareAgentLaunchContext({
+                worktreePath: path.join(tempDir, 'base-repo'),
+                mcpWorkflowPath: '/extension/workflows/default.yaml',
+                requireTransientMcp: true,
+                codeAgent: agent,
+                repoRoot: '/repo',
+            });
+
+            assert.strictEqual(ctx.mcpConfigPath, undefined);
+            assert.ok(ctx.mcpConfigOverrides?.length);
+        });
+
+        test('strict Quick Start rejects agents without transient MCP delivery', async () => {
+            const agent = getAgent('gemini')!;
+
+            await assert.rejects(
+                prepareAgentLaunchContext({
+                    worktreePath: path.join(tempDir, 'base-repo'),
+                    mcpWorkflowPath: '/extension/workflows/default.yaml',
+                    requireTransientMcp: true,
+                    codeAgent: agent,
+                    repoRoot: '/repo',
+                }),
+                /cannot receive MCP configuration without modifying project settings/
+            );
+            sinon.assert.notCalled(settingsStub);
+        });
+
+        test('strict Quick Start rejects agents without MCP support', async () => {
+            const agent = getAgent('cortex')!;
+
+            await assert.rejects(
+                prepareAgentLaunchContext({
+                    worktreePath: path.join(tempDir, 'base-repo'),
+                    mcpWorkflowPath: '/extension/workflows/default.yaml',
+                    requireTransientMcp: true,
+                    codeAgent: agent,
+                    repoRoot: '/repo',
+                }),
+                /does not support MCP/
+            );
+            sinon.assert.notCalled(settingsStub);
+        });
+
+        test('strict Quick Start aborts when MCP setup fails', async () => {
+            const agent = getAgent('claude')!;
+            settingsStub.rejects(new Error('storage unavailable'));
+
+            await assert.rejects(
+                prepareAgentLaunchContext({
+                    worktreePath: path.join(tempDir, 'base-repo'),
+                    mcpWorkflowPath: '/extension/workflows/default.yaml',
+                    requireTransientMcp: true,
+                    codeAgent: agent,
+                    repoRoot: '/repo',
+                }),
+                /Failed to configure required Lanes MCP: storage unavailable/
+            );
+        });
+
         test('resume preserves restored workflow MCP + permission mode settings', async () => {
             const agent = getAgent('claude')!;
             const worktreePath = path.join(tempDir, 'wt');

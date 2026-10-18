@@ -6,6 +6,7 @@ import type { SessionItem } from '../providers/AgentSessionProvider';
 import type { PreviousSessionItem } from '../providers/PreviousSessionProvider';
 import { createSession } from '../services/SessionService';
 import { openAgentTerminal, createTerminalForSession, TERMINAL_CLOSE_DELAY_MS } from '../services/TerminalService';
+import { executeQuickStart } from '../services/QuickStartService';
 import * as SettingsService from '../../core/services/SettingsService';
 import * as DiffService from '../../core/services/DiffService';
 import * as TmuxService from '../../core/services/TmuxService';
@@ -27,7 +28,7 @@ import {
     getSessionAgentName,
     saveSessionAlias
 } from '../providers/AgentSessionProvider';
-import { getAgent } from '../../core/codeAgents';
+import { DEFAULT_AGENT_NAME, getAgent } from '../../core/codeAgents';
 
 /**
  * Register all session-related commands.
@@ -171,6 +172,35 @@ export function registerSessionCommands(
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to rename session: ${getErrorMessage(err)}`);
         }
+    });
+
+    // Command: Launch the currently configured agent in the base repository with Lanes MCP access
+    const quickStartDisposable = vscode.commands.registerCommand('lanes.quickStart', async () => {
+        await executeQuickStart({
+            repoRoot: baseRepoPath || services.workspaceRoot,
+            extensionPath: services.extensionPath,
+            // Resolve on every invocation so settings changes do not require an extension reload.
+            getConfiguredAgentName: () => vscode.workspace
+                .getConfiguration('lanes')
+                .get<string>('defaultAgent', DEFAULT_AGENT_NAME),
+            openTerminal: async ({ taskName, repoRoot, codeAgent: currentAgent, mcpWorkflowPath }) => {
+                await openAgentTerminal(
+                    taskName,
+                    repoRoot,
+                    undefined,
+                    'acceptEdits',
+                    null,
+                    currentAgent,
+                    repoRoot,
+                    true,
+                    mcpWorkflowPath,
+                    true,
+                    true
+                );
+            },
+            showError: (message) => { vscode.window.showErrorMessage(message); },
+            showWarning: (message) => { vscode.window.showWarningMessage(message); },
+        });
     });
 
     // Command: Open/resume a session
@@ -628,6 +658,7 @@ export function registerSessionCommands(
     const disposables = [
         createDisposable,
         renameDisposable,
+        quickStartDisposable,
         openDisposable,
         deleteDisposable,
         setupHooksDisposable,

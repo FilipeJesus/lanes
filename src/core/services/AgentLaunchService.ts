@@ -7,6 +7,7 @@
  */
 
 import * as path from 'path';
+import * as os from 'os';
 import * as fsPromises from 'fs/promises';
 import { CodeAgent, McpConfig, McpConfigDelivery, getAgent, DEFAULT_AGENT_NAME } from '../codeAgents';
 import { getSessionId, getSessionPermissionMode, getSessionWorkflow, getSettingsDir, getSessionFilePath } from '../session/SessionDataService';
@@ -23,6 +24,12 @@ import { getErrorMessage } from '../utils';
 export interface PrepareAgentLaunchOptions {
     worktreePath: string;
     workflow?: string | null;
+    /** Workflow path used only to configure MCP when no workflow is active. */
+    mcpWorkflowPath?: string;
+    /** Fail the launch unless MCP is configured through a transient CLI mechanism. */
+    requireTransientMcp?: boolean;
+    /** Do not read or write persistent Lanes session metadata for this launch. */
+    transientSession?: boolean;
     permissionMode?: string;
     codeAgent?: CodeAgent;
     repoRoot?: string;
@@ -97,6 +104,20 @@ export interface LaunchContext {
 
 function getMcpConfigDelivery(codeAgent?: CodeAgent): McpConfigDelivery {
     return codeAgent?.getMcpConfigDelivery() ?? 'cli';
+}
+
+async function writeTransientMcpConfig(config: McpConfig): Promise<string> {
+    // A unique private directory prevents another local process from pre-creating
+    // or symlinking the config path before Lanes writes agent launch credentials.
+    const tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'lanes-quick-start-'));
+    await fsPromises.chmod(tempDir, 0o700);
+    const configPath = path.join(tempDir, 'mcp-config.json');
+    await fsPromises.writeFile(configPath, JSON.stringify(config, null, 2), {
+        encoding: 'utf-8',
+        flag: 'wx',
+        mode: 0o600,
+    });
+    return configPath;
 }
 
 function resolveAgentFromName(agentName?: string, defaultAgentName?: string): CodeAgent {
@@ -177,6 +198,9 @@ export async function prepareAgentLaunchContext(
     const {
         worktreePath,
         workflow,
+        mcpWorkflowPath,
+        requireTransientMcp,
+        transientSession,
         permissionMode,
         repoRoot,
         extensionPath,
@@ -194,7 +218,7 @@ export async function prepareAgentLaunchContext(
 
     // --- Resolve workflow ---
     let effectiveWorkflow: string | null = workflow || null;
-    if (!effectiveWorkflow) {
+    if (!effectiveWorkflow && !mcpWorkflowPath && !transientSession) {
         effectiveWorkflow = await getSessionWorkflow(worktreePath);
     }
 
@@ -227,7 +251,7 @@ export async function prepareAgentLaunchContext(
 
     // --- Resolve permission mode ---
     let effectivePermissionMode = permissionMode;
-    if (!effectivePermissionMode) {
+    if (!effectivePermissionMode && !transientSession) {
         effectivePermissionMode = await getSessionPermissionMode(worktreePath) || undefined;
     }
     effectivePermissionMode = effectivePermissionMode || 'acceptEdits';
@@ -241,17 +265,30 @@ export async function prepareAgentLaunchContext(
     let settingsPath: string | undefined;
     let mcpConfigPath: string | undefined;
     let mcpConfigOverrides: string[] | undefined;
+    const workflowPathForMcp = effectiveWorkflow || mcpWorkflowPath;
+
+    if (requireTransientMcp) {
+        if (!workflowPathForMcp) {
+            throw new Error('A workflow path is required to configure Lanes MCP.');
+        }
+        if (!codeAgent?.supportsMcp()) {
+            throw new Error(`${codeAgent?.displayName ?? 'The selected agent'} does not support MCP.`);
+        }
+        if (getMcpConfigDelivery(codeAgent) === 'settings') {
+            throw new Error(`${codeAgent.displayName} cannot receive MCP configuration without modifying project settings.`);
+        }
+    }
 
     try {
         let mcpConfigForSettings: McpConfig | undefined;
         let mcpConfig: McpConfig | null = null;
         let mcpConfigDelivery: McpConfigDelivery | undefined;
 
-        if (effectiveWorkflow) {
+        if (workflowPathForMcp) {
             const effectiveRepoRoot = repoRoot || await SettingsService.getBaseRepoPath(worktreePath);
 
             if (codeAgent?.supportsMcp()) {
-                mcpConfig = codeAgent.getMcpConfig(worktreePath, effectiveWorkflow, effectiveRepoRoot);
+                mcpConfig = codeAgent.getMcpConfig(worktreePath, workflowPathForMcp, effectiveRepoRoot);
                 // Normalize MCP server paths (bridge-style fix for bundled paths)
                 if (workflowResolver) {
                     mcpConfig = normalizeMcpConfig(mcpConfig);
@@ -263,41 +300,56 @@ export async function prepareAgentLaunchContext(
             } else if (fallbackMcpConfigFactory) {
                 mcpConfig = fallbackMcpConfigFactory({
                     worktreePath,
-                    workflowPath: effectiveWorkflow,
+                    workflowPath: workflowPathForMcp,
                     repoRoot: effectiveRepoRoot,
                 });
                 mcpConfigDelivery = 'cli';
             }
         }
 
-        settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(
-            worktreePath,
-            workflowResolver ? (workflow ? effectiveWorkflow : null) : (effectiveWorkflow ?? undefined),
-            codeAgent,
-            mcpConfigForSettings,
-            effectivePermissionMode
-        );
+        if (!transientSession) {
+            settingsPath = await SettingsService.getOrCreateExtensionSettingsFile(
+                worktreePath,
+                workflowResolver ? (workflow ? effectiveWorkflow : null) : (effectiveWorkflow ?? undefined),
+                codeAgent,
+                mcpConfigForSettings,
+                effectivePermissionMode
+            );
+        }
 
-        if (effectiveWorkflow && mcpConfig) {
+        if (workflowPathForMcp && mcpConfig) {
             const delivery = mcpConfigDelivery ?? getMcpConfigDelivery(codeAgent);
             if (delivery === 'cli-overrides' && codeAgent) {
                 mcpConfigOverrides = codeAgent.buildMcpOverrides(mcpConfig);
             } else if (delivery === 'cli') {
-                mcpConfigPath = path.join(path.dirname(settingsPath), 'mcp-config.json');
-                await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                if (transientSession) {
+                    mcpConfigPath = await writeTransientMcpConfig(mcpConfig);
+                } else {
+                    mcpConfigPath = path.join(path.dirname(settingsPath!), 'mcp-config.json');
+                    await fsPromises.mkdir(path.dirname(mcpConfigPath), { recursive: true });
+                    await fsPromises.writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+                }
             }
         }
+
+        if (requireTransientMcp && !mcpConfigPath && !mcpConfigOverrides?.length) {
+            throw new Error(`${codeAgent?.displayName ?? 'The selected agent'} did not produce a transient MCP configuration.`);
+        }
     } catch (err) {
-        onWarning?.(`Failed to create extension settings file: ${getErrorMessage(err)}`);
+        const message = `Failed to configure agent settings: ${getErrorMessage(err)}`;
+        if (requireTransientMcp) {
+            throw new Error(`Failed to configure required Lanes MCP: ${getErrorMessage(err)}`);
+        }
+        onWarning?.(message);
     }
 
     if (codeAgent?.getProjectSettingsPath(worktreePath)) {
         settingsPath = undefined;
     }
 
-    const sessionData = await getSessionId(worktreePath, codeAgent);
+    const sessionData = transientSession ? null : await getSessionId(worktreePath, codeAgent);
     let sessionPath: string | undefined;
-    if (!sessionData && codeAgent) {
+    if (!transientSession && !sessionData && codeAgent) {
         const identity = codeAgent.createSessionIdentity(getSettingsDir(worktreePath));
         if (identity) {
             // Pi may not create a log until its first response. Reserving the path
