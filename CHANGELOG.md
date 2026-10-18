@@ -1,3 +1,12 @@
+## [1.4.1](https://github.com/FilipeJesus/lanes/compare/v1.4.0...v1.4.1) (2026-10-18)
+
+### Features
+
+* **agents:** add Pi coding agent harness support ([#214](https://github.com/FilipeJesus/lanes/issues/214)) ([31f3250](https://github.com/FilipeJesus/lanes/commit/31f325043c1327e1252ebae8cb6d7b2bc0cf3445))
+* **sessions:** add persistent display aliases ([#213](https://github.com/FilipeJesus/lanes/issues/213)) ([2f19c48](https://github.com/FilipeJesus/lanes/commit/2f19c4891f47b1e90459a4e3b145656ce1fe0897))
+* **sessions:** add quick start launcher ([#215](https://github.com/FilipeJesus/lanes/issues/215)) ([1b493cf](https://github.com/FilipeJesus/lanes/commit/1b493cf537f5b19cf894bfa667de5f355188ca7e))
+* **sessions:** show parent-child session hierarchy ([#212](https://github.com/FilipeJesus/lanes/issues/212)) ([be32de8](https://github.com/FilipeJesus/lanes/commit/be32de8e87f1667950a784143a9941a77fb1ca68))
+
 ## [1.4.0](https://github.com/FilipeJesus/lanes/compare/v1.3.4...v1.4.0) (2026-10-16)
 
 ## [1.3.4](https://github.com/FilipeJesus/lanes/compare/v1.3.3...v1.3.4) (2026-09-10)
