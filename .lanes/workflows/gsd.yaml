@@ -19,17 +19,13 @@
 # 6. Complete milestone (/gsd:complete-milestone)
 #
 # PREREQUISITES:
-# - GSD skills must be installed and available
-# - The 'code-reviewer' agent should exist in .claude/agents/
+# - GSD skills must be installed and available in the active coding client
+# - The code-reviewer skill is available at .agents/skills/code-reviewer/SKILL.md
 #
 # =============================================================================
 
 name: gsd
 description: Full development lifecycle powered by GSD skills - from requirements to milestone completion
-
-agents:
-  code-reviewer:
-    description: Reviews code quality, security, and correctness after each phase execution
 
 loops:
   development:
@@ -37,7 +33,7 @@ loops:
       instructions: |
         Discuss phase context for: {task.title}
 
-        Run: /gsd:discuss-phase {task.id}
+        Invoke the installed GSD discuss-phase skill for phase {task.id} using your client's supported syntax.
 
         This step gathers context through adaptive questioning before planning.
         Answer questions based on the project requirements and phase goals.
@@ -48,7 +44,7 @@ loops:
       instructions: |
         Plan the execution of phase: {task.title}
 
-        Run: /gsd:plan-phase {task.id}
+        Invoke the installed GSD plan-phase skill for phase {task.id} using your client's supported syntax.
 
         This will create a PLAN.md with task breakdown, dependency analysis,
         and goal-backward verification. Review the plan before advancing.
@@ -58,7 +54,7 @@ loops:
       instructions: |
         Execute phase: {task.title}
 
-        Run: /gsd:execute-phase {task.id}
+        Invoke the installed GSD execute-phase skill for phase {task.id} using your client's supported syntax.
 
         This will execute all plans in the phase with wave-based parallelization,
         atomic commits, and state tracking. Ensure all tasks complete successfully
@@ -66,12 +62,13 @@ loops:
       context: clear
 
     - id: review
-      agent: code-reviewer
       instructions: |
+        Read `.agents/skills/code-reviewer/SKILL.md` and follow it for this step.
+
         Review the implementation of phase: {task.title}
 
         First, get context on what was built:
-        Run: /gsd:progress
+        Invoke the installed GSD progress skill using your client's supported syntax.
 
         Then thoroughly review all code changes made during this phase execution.
 
@@ -110,7 +107,7 @@ steps:
 
       Invoke the GSD new-project skill:
 
-      Run: /gsd:new-project
+      Invoke the installed GSD new-project skill using your client's supported syntax.
 
       Provide the requirements summary from the previous step when prompted.
       This will:
@@ -155,7 +152,7 @@ steps:
 
       Invoke the GSD audit-milestone skill:
 
-      Run: /gsd:audit-milestone
+      Invoke the installed GSD audit-milestone skill using your client's supported syntax.
 
       This will check milestone completion against the original project intent.
       Review the audit results and note any gaps or issues that need addressing.
@@ -170,7 +167,7 @@ steps:
 
       Invoke the GSD complete-milestone skill:
 
-      Run: /gsd:complete-milestone
+      Invoke the installed GSD complete-milestone skill using your client's supported syntax.
 
       This will:
       - Archive the completed milestone

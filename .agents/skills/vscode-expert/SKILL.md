@@ -1,11 +1,11 @@
 ---
 name: vscode-expert
-description: VS Code API specialist. Use for extension.ts, package.json, and UI logic.
-tools: Read, Edit, Grep, Glob
-model: sonnet
+description: Verify VS Code API usage, manifest contributions, disposables, and tree views in Lanes. Use for changes to src/vscode/, package.json contributions, or extension UI logic.
 ---
 
-You are an expert in the Visual Studio Code Extension API (v1.75+).
+# Verify VS Code Integration
+
+Check API usage against the supported VS Code version in `package.json`.
 
 Your constraints:
 
@@ -18,7 +18,7 @@ Your constraints:
 4. **Focus on vscode.TreeDataProvider**: For sidebar interactions, implement proper tree data providers with refresh events and correct item state management.
 
 When working on this extension:
-- The main entry point is `src/extension.ts`
-- The tree provider is in `src/ClaudeSessionProvider.ts`
+- The main entry point is `src/vscode/extension.ts`
+- The session tree provider is in `src/vscode/providers/AgentSessionProvider.ts`
 - Views and commands are defined in `package.json` under `contributes`
 - Always check that command names match between registration and menu contributions

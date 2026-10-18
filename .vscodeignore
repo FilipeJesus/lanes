@@ -12,9 +12,9 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 .husky/**
 node_modules/**
-claude-progress.txt
-CLAUDE.md
-.claude/**
+agent-progress.txt
+AGENTS.md
+.agents/**
 .worktrees/**
 *.vsix
 .git/**

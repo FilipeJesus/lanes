@@ -6,12 +6,14 @@ node_modules
 *.vsix
 .DS_Store
 
-# Claude Code session files
+# Shared legacy session filenames used by all code agents
 .claude-session
 .claude-status
 workflow-state.json
 features.json
 tests.json
+
+# Client-local configuration
 .claude/settings.local.json
 
 # Lanes directory (pending sessions, custom workflows)

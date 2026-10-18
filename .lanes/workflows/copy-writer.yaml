@@ -1,10 +1,6 @@
 name: copy-writer
 description: A workflow for generating social media copy
 
-agents:
-  social-media-copywriter:
-    description: Implements features and writes code
-
 steps:
   
   - id: plan
@@ -15,9 +11,9 @@ steps:
 
   - id: write
     type: ralph
-    agent: social-media-copywriter
     n: 5
     instructions: |
+      Act as a social media copywriter for this step.
       Take the request and produce a social media post that markets to the target audience.
       Make sure to include relevant hashtags and a call to action.
       If the feature is technical, explain it in terms needed for the target audience.

@@ -1,19 +1,21 @@
 ---
 name: new-agent
-description: You MUST use the new-agent skill when asked to add a implement a agent in lanes.
+description: Implement and register a new code agent backend in Lanes. Use when adding support for another coding CLI, including its configuration, commands, hooks, and tests.
 ---
 
 # New Agent Implementation
 
-You are implementing a new code agent backend for the Lanes VS Code extension.
+Implement a new code agent backend for Lanes, shared by the VS Code extension and CLI.
 
 # IRON LAW: Agent Abstraction
 
-When implementing new agents DO NOT add agent specific logic to any files outside of the `src/codeAgents/<ClassName>.ts` files.
+Keep agent-specific behavior in `src/core/codeAgents/<ClassName>.ts`. Shared
+services and UI must use the `CodeAgent` abstraction. Registration, exports,
+settings schema, tests, and documentation may be updated as described below.
 
 ## Step 0: Gather information
 
-Ask the user for:
+Determine these details from the task and the agent's official documentation; ask for any missing information:
 
 1. **Agent internal name** - lowercase identifier, e.g. `aider`
 2. **Display name** - user-facing label, e.g. `Aider`
@@ -34,7 +36,7 @@ Also determine these behavioral traits:
 
 Read these files to understand the current abstract contract:
 
-- `src/codeAgents/CodeAgent.ts` — the abstract base class defines all required and optional methods, interfaces, and types. **This is the source of truth** for what must be implemented.
+- `src/core/codeAgents/CodeAgent.ts` — the abstract base class defines all required and optional methods, interfaces, and types. **This is the source of truth** for what must be implemented.
 - Pick the closest existing agent as reference:
   - **Hook-based with MCP via CLI flag**: `ClaudeCodeAgent.ts`
   - **Hookless with MCP via CLI overrides**: `CodexAgent.ts`
@@ -43,12 +45,12 @@ Read these files to understand the current abstract contract:
 
 ## Step 2: Create the agent class
 
-Create `src/codeAgents/<ClassName>.ts` using the reference agent from Step 1 as a template. Implement every abstract method from `CodeAgent.ts` and override optional base class methods as needed based on the agent's capabilities.
+Create `src/core/codeAgents/<ClassName>.ts` using the reference agent from Step 1 as a template. Implement every abstract method from `CodeAgent.ts` and override optional base class methods as needed based on the agent's capabilities.
 
 ## Step 3: Register the agent
 
-1. **Factory** (`src/codeAgents/factory.ts`): add import and entry to `agentConstructors` map
-2. **Barrel** (`src/codeAgents/index.ts`): add export for the new class
+1. **Factory** (`src/core/codeAgents/factory.ts`): add import and entry to `agentConstructors` map
+2. **Barrel** (`src/core/codeAgents/index.ts`): add export for the new class
 3. **Settings schema** (`package.json`): add to `lanes.defaultAgent` enum and enumDescriptions
 
 No UI changes are needed — the dropdown derives from `getAvailableAgents()` + `getAgent()` automatically.

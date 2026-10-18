@@ -361,22 +361,24 @@ To create a custom workflow for your project:
    - Adjust the loop steps
    - Modify the main steps sequence
 
-4. **Define corresponding agents (if needed):**
+4. **Share role instructions as skills (if needed):**
    ```bash
-   mkdir -p .claude/agents
-   # Create .claude/agents/my-agent.md with agent instructions
+   mkdir -p .agents/skills/my-role
+   # Create .agents/skills/my-role/SKILL.md with name/description frontmatter
    ```
+   Omit `agent:` to run a step directly and tell the coding client to read the
+   skill in that step's `instructions`. If using `agent:` for delegation,
+   configure a named sub-agent in the client and pass it the shared instructions.
 
 5. **The workflow will appear in VS Code:**
    - Open the Lanes sidebar
    - Click "Start Workflow"
    - Your custom workflow appears in the "Custom" section
 
-**Note:** Agent names in the workflow (in the `agents:` section and `agent:` fields) must match either:
-- Inline agent definitions in the workflow file, OR
-- Agent files in `.claude/agents/` (e.g., `agent: orchestrator` requires `.claude/agents/orchestrator.md`)
-
-Inline definitions take precedence over external files.
+**Note:** Every `agent:` value must match a key in the workflow's `agents:`
+section. Lanes requests delegation but does not load external agent definitions
+or register named sub-agents. Shared skills provide portable instructions;
+sub-agent registration and tool permissions remain client-specific.
 
 ### Workflow State Persistence
 
@@ -391,9 +393,9 @@ The state file is automatically updated after each step and should not be manual
 
 ---
 
-## Progress Tracking with claude-progress.txt
+## Progress Tracking with agent-progress.txt
 
-For even better continuity across sessions, add a `claude-progress.txt` file that Claude updates at the end of each session:
+For continuity across sessions, add an `agent-progress.txt` file that the active coding agent updates at the end of each session:
 
 ```markdown
 ## Session: 2025-01-15
@@ -445,7 +447,7 @@ This gives new sessions immediate context about what's been accomplished.
 
 1. **Always use a workflow** - Even simple tasks benefit from structured tracking
 2. **Break down work into discrete units** - Smaller tasks are easier to complete and verify
-3. **Update claude-progress.txt at the end of each session** - Future sessions will thank you
+3. **Update agent-progress.txt at the end of each session** - Preserve context for future sessions
 4. **Clean up when done** - Delete workflow-state.json when the task is complete
 5. **Commit frequently** - Commit after each task completion
 6. **Use workflows for consistency** - Create custom workflows for your team's standard processes
@@ -456,4 +458,4 @@ This gives new sessions immediate context about what's been accomplished.
 
 - [Anthropic: Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
 - [Model Context Protocol (MCP) Specification](https://modelcontextprotocol.io/)
-- Lanes Documentation: `CLAUDE.md` in the project root
+- Lanes development instructions: [AGENTS.md](../AGENTS.md)

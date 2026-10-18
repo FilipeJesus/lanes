@@ -9,14 +9,8 @@
 		"OVSX_PAT": "${localEnv:OVSX_PAT:-}"
 	},
 	"features": {
-		"ghcr.io/devcontainers/features/github-cli:1": {},
-		"ghcr.io/devcontainers-extra/features/claude-code:2": {}
+		"ghcr.io/devcontainers/features/github-cli:1": {}
 	},
-	"mounts": [
-		"source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind",
-		"source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
-		"source=${localEnv:HOME}/.claude.json.backup,target=/home/node/.claude.json.backup,type=bind,consistency=cached"
-	],
 	"postCreateCommand": "npm ci && npm run compile",
 	"containerUser": "node"
 }
