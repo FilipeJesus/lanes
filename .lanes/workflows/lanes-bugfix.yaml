@@ -1,18 +1,12 @@
 name: lanes-bugfix
 description: Investigate and fix a bug
 
-agents:
-  coder:
-    description: Implements bug fixes
-
-  test-engineer:
-    description: Verifies fixes work correctly
-
 loops:
   fix_cycle:
     - id: fix
-      agent: coder
       instructions: |
+        Read `.agents/skills/coder/SKILL.md` and follow it for this step.
+
         Fix: {task.title}
         Description: {task.description}
 
@@ -22,8 +16,9 @@ loops:
         4. Verify the fix compiles
 
     - id: verify
-      agent: test-engineer
       instructions: |
+        Read `.agents/skills/test-engineer/SKILL.md` and follow it for this step.
+
         Verify the fix for: {task.title}
 
         1. Run relevant tests
@@ -34,6 +29,8 @@ loops:
 
     - id: code-reviewer
       instructions: |
+        Read `.agents/skills/code-reviewer/SKILL.md` and follow it for this step.
+
         Review the fix for: {task.title}
 
         1. Verify the fix is correct
@@ -71,8 +68,9 @@ steps:
 
   - id: final_verify
     type: action
-    agent: code-reviewer
     instructions: |
+      Read `.agents/skills/code-reviewer/SKILL.md` and follow it for this step.
+
       Run full test suite to verify no regressions.
 
       1. Run all tests in the project

@@ -11,25 +11,30 @@
 # 2. Customize the workflow for your project's needs
 # 3. The workflow will appear in the "Custom" section of the dropdown
 #
-# AGENTS
-# ------
-# Agent names used in this workflow (in the `agents:` section and `agent:`
-# fields on steps) must match agent definition files in your project's
-# .claude/agents/ directory. For example:
-#   - `agent: orchestrator` requires .claude/agents/orchestrator.md
-#   - `agent: implementer` requires .claude/agents/implementer.md
+# ROLE INSTRUCTIONS
+# -----------------
+# Every `agent:` value must match a key in this file's `agents:` section.
+# The field requests delegation by the active coding client; Lanes does not load
+# external agent definitions or register named sub-agents for the client.
 #
-# You can define agents inline in this file (as shown below) or reference
-# external agent files. Inline definitions take precedence.
+# For portable role instructions, store an Agent Skill at
+# .agents/skills/<role>/SKILL.md. Omit `agent:` to run the step directly and
+# explicitly load the skill in its instructions, for example:
+#   instructions: |
+#     Read .agents/skills/coder/SKILL.md and follow it for this step.
+#     Implement the feature...
+#
+# If using `agent:`, configure the named sub-agent in your coding client and pass
+# it the relevant shared skill instructions. Client delegation support varies.
 #
 # OPTIONAL AGENT FIELD
 # --------------------
 # The `agent:` field on steps and sub-steps is OPTIONAL. If you omit it,
-# the main Claude agent will handle that step directly instead of delegating
+# the active coding agent will handle that step directly instead of delegating
 # to a specialized sub-agent. This is useful for simpler workflows or steps
 # that don't require specialized capabilities.
 #
-# Example without agent (main Claude handles it):
+# Example without agent (active coding agent handles it):
 #   - id: resolution
 #     instructions: |
 #       Check the review feedback and address issues...
@@ -60,7 +65,7 @@
 #   - agents: Only needed for complex workflows with specialized sub-agents
 #   - loops: Only needed for workflows that iterate over multiple tasks
 #
-# Simple workflows can omit agents and loops. When omitted, the main Claude
+# Simple workflows can omit agents and loops. When omitted, the active coding
 # agent handles all steps directly.
 #
 # =============================================================================

@@ -1,11 +1,12 @@
 ---
 name: code-reviewer
-description: Expert code review specialist. Proactively reviews code for quality, security, and maintainability. Use immediately after writing or modifying code.
-tools: Read, Grep, Glob, Bash
-model: inherit
+description: Review Lanes code for quality, security, and maintainability. Use after implementation and testing, or when the user requests a code review.
 ---
 
-You are a senior code reviewer ensuring high standards of code quality and security.
+# Review Code
+
+Review code quality and security without editing files. Report suggested fixes
+so the implementation step can address them.
 
 When invoked:
 1. Run git diff to see recent changes

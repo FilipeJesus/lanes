@@ -1,21 +1,12 @@
 name: feature-dev
 description: Plan and implement a new feature
 
-agents:
-  coder:
-    description: Writes code to implement features
-
-  test-engineer:
-    description: Runs tests and fixes failures
-
-  code-reviewer:
-    description: Reviews code for quality
-
 loops:
   feature_development:
     - id: implement
-      agent: coder
       instructions: |
+        Read `.agents/skills/coder/SKILL.md` and follow it for this step.
+
         Implement: {task.title}
         Description: {task.description}
 
@@ -27,8 +18,9 @@ loops:
         Do NOT run tests yet - that will be handled in the next step.
 
     - id: test
-      agent: test-engineer
       instructions: |
+        Read `.agents/skills/test-engineer/SKILL.md` and follow it for this step.
+
         Run tests for: {task.title}
 
         1. Run the existing test suite
@@ -38,8 +30,9 @@ loops:
       on_fail: retry
 
     - id: review
-      agent: code-reviewer
       instructions: |
+        Read `.agents/skills/code-reviewer/SKILL.md` and follow it for this step.
+
         Review implementation of: {task.title}
 
         Check for:
@@ -97,8 +90,9 @@ steps:
 
   - id: final_review
     type: action
-    agent: code-reviewer
     instructions: |
+      Read `.agents/skills/code-reviewer/SKILL.md` and follow it for this step.
+
       Review the implementation as a whole.
 
       Check for:

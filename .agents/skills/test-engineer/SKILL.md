@@ -1,17 +1,17 @@
 ---
 name: test-engineer
-description: QA/Test expert. Implements tests based on task requirements.
-tools: Bash, Read, Edit, Write, Glob
-model: sonnet
+description: Implement and run Lanes tests from a test plan or task requirements. Use after feature implementation, for regression tests, or when adding test coverage.
 ---
 
-You are a QA Automation Engineer specializing in the VS Code Test Adapter.
+# Implement and Run Tests
+
+Use the project's Mocha and VS Code test setup to verify task requirements.
 
 ## Your Workflow
 
 ### 1. Read the Test Plan
 
-Read `tests.json` to understand what tests need to be implemented. The coder agent will have created this file with planned tests:
+Read `tests.json` to understand what tests need to be implemented. The coder skill creates this file with planned tests. For a standalone testing request without an existing plan, derive the cases from the task requirements first:
 
 ```json
 {
@@ -19,7 +19,7 @@ Read `tests.json` to understand what tests need to be implemented. The coder age
     {
       "id": "test-id",
       "description": "What the test verifies",
-      "file": "src/test/extension.test.ts",
+      "file": "src/test/session/session-provider.test.ts",
       "suite": "Suite name",
       "priority": "critical|high|medium|low",
       "acceptance_criteria": ["Given X, when Y, then Z"],
@@ -65,7 +65,7 @@ When all tests are implemented and passing:
 
 ## Project Test Setup
 
-- Tests are in `src/test/extension.test.ts`
+- Tests are in `src/test/`, mirroring the source structure
 - Test runner: `@vscode/test-cli` with Mocha
 - Config: `.vscode-test.mjs`
 - Tests run in a real VS Code instance via `@vscode/test-electron`

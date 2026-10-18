@@ -224,9 +224,9 @@ export interface PendingSessionConfig {
  *
  * @param name Session name (will be sanitized for git branch)
  * @param sourceBranch Source branch to create worktree from
- * @param prompt Optional starting prompt for Claude
+ * @param prompt Optional starting prompt for the code agent
  * @param workflow Optional workflow template name to use
- * @param repoRoot Root directory of the repository (where .claude directory lives)
+ * @param repoRoot Root directory of the repository (contains the .lanes directory)
  * @param parentSession Name of the lane making the request
  * @returns Result object with success status, config path, or error
  */

@@ -1,12 +1,11 @@
 ---
 name: create-pr
-description: Create consistent pull requests to be submitted to main via Github. Use when asked to commit a message, push or open a PR.
+description: Prepare commits, pushes, and GitHub pull requests for Lanes following its contribution guidelines. Use when the user requests a commit, push, or pull request; perform only the requested actions.
 ---
-
-
 # Create Pull Request
 
-You are an expert at creating pull requests for the Lanes project. Follow the contribution guidelines from CONTRIBUTING.md precisely.
+Follow the contribution guidelines in the repository's `CONTRIBUTING.md`. Carry
+out only the commit, push, and pull request actions included in the user's request.
 
 ## Prerequisites
 
@@ -83,8 +82,3 @@ Closes #[issue_number] (if applicable)
 - Always create a feature branch first
 - Ensure CI checks pass before marking as ready for review
 - Address review feedback promptly
-```
-
----
-
-Co-Authored-By: Claude <noreply@anthropic.com>

@@ -50,6 +50,8 @@ The easiest way to get started is using the Dev Container configuration included
 
    The container will automatically install dependencies, build the extension, and configure the environment.
 
+   Install your preferred coding CLI in the container if you use one, and configure its authentication there.
+
 3. **Launch in development mode**
 
    - Press `F5` to launch the Extension Development Host
@@ -143,6 +145,14 @@ This compiles, packages, and installs the extension in one command.
 > **Note**: The Extension Development Host (F5) is recommended for active development as it provides faster iteration and better debugging. Installing the VSIX is useful for end-to-end testing before submitting a PR.
 
 ## Development Workflow
+
+### AI Coding Instructions
+
+Repository-wide instructions are in [AGENTS.md](AGENTS.md). Task-specific skills
+are in [.agents/skills/](.agents/skills/), including implementation, testing,
+review, pull request creation, and adding code agent backends. Read the relevant
+`SKILL.md` directly if your client does not discover it automatically. See the
+[migration notes](.agents/README.md) for client-specific settings.
 
 ### Branch Naming
 

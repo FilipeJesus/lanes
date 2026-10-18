@@ -32,6 +32,8 @@ src/
 
 scripts/                      # Build, bundle & install scripts
 docs/                         # Documentation site
+.agents/skills/               # Shared Agent Skills (SKILL.md per skill)
+.lanes/workflows/             # Repository-specific Lanes workflows
 ```
 
 ## Architecture
@@ -160,15 +162,31 @@ When creating a session, Lanes can propagate `.claude/settings.local.json` from 
 { "lanes.localSettingsPropagation": "copy" }  // "copy" | "symlink" | "disabled"
 ```
 
-## Agent Summary
+## Repository Skills
 
-| Agent | Purpose | When to Use |
+Shared instructions live in this `AGENTS.md`. Task-specific guidance uses the
+[Agent Skills format](https://agentskills.io/specification) in `.agents/skills/`.
+Read the relevant `SKILL.md` before starting that kind of work. If your client
+does not discover skills automatically, load the linked file directly.
+
+| Skill | Purpose | When to Use |
 | ------- | --------- | ------------- |
-| `coder` | Plan tests + implement features | Each coding task |
-| `vscode-expert` | VS Code API verification | Called by coder |
-| `shell-ops` | Git/shell safety checks | Called by coder |
-| `test-engineer` | Implement planned tests | After each feature |
-| `code-reviewer` | Code quality review | After tests pass |
+| [coder](.agents/skills/coder/SKILL.md) | Plan tests + implement features | Each coding task |
+| [vscode-expert](.agents/skills/vscode-expert/SKILL.md) | VS Code API verification | Changes to extension APIs, manifest, or UI |
+| [shell-ops](.agents/skills/shell-ops/SKILL.md) | Git/shell safety checks | Changes to Git, paths, or process execution |
+| [test-engineer](.agents/skills/test-engineer/SKILL.md) | Implement planned tests | After each feature or when adding tests |
+| [code-reviewer](.agents/skills/code-reviewer/SKILL.md) | Code quality review | After tests pass or when reviewing changes |
+| [initializer](.agents/skills/initializer/SKILL.md) | Initialize progress tracking + verify setup | Fresh clones or requested setup resets |
+| [create-pr](.agents/skills/create-pr/SKILL.md) | Prepare commits, pushes, and pull requests | When the user requests those actions |
+| [new-agent](.agents/skills/new-agent/SKILL.md) | Implement a code agent backend | Adding a supported coding CLI |
+
+Skills describe roles and procedures; they do not register client-specific
+sub-agents. Apply a skill directly, or pass its instructions to a sub-agent when
+the active client supports delegation. Repository workflows load these skills
+in their step instructions so they can also run without named sub-agents.
+
+See [.agents/README.md](.agents/README.md) for the migration map and client-specific
+settings that cannot be expressed by these standards.
 
 ## Constraints
 
@@ -178,3 +196,5 @@ When creating a session, Lanes can propagate `.claude/settings.local.json` from 
 - Never commit code that breaks existing tests
 - Keep changes focused and minimal
 - No synchronous fs methods in production code
+- Do not run `scripts/release.sh`, including through `npm run release` or its
+  `release:*` aliases. This preserves the repository's previous release restriction.

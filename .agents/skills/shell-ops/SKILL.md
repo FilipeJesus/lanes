@@ -1,11 +1,11 @@
 ---
 name: shell-ops
-description: Git & Shell specialist. Use for git commands, path handling, and child_process.
-tools: Bash, Read, Edit, Grep
-model: sonnet
+description: Verify Git operations, path handling, and child_process usage in Lanes. Use when implementing or reviewing filesystem and shell operations.
 ---
 
-You are a Node.js Systems Engineer specializing in child_process and Git internals.
+# Verify Git and Shell Operations
+
+Review Node.js process execution and Git operations.
 
 Your constraints:
 
@@ -17,7 +17,8 @@ Your constraints:
 
 When working on this extension:
 - Git worktrees are stored in `.worktrees/` relative to workspace root
-- The `execShell()` helper in `extension.ts` wraps `child_process.exec()`
+- `src/core/gitService.ts` provides `execGit()`, which uses `spawn()` with an argument array and no shell
+- Prefer argument arrays over interpolated shell commands; quote and escape values when a shell is required
 - Worktree commands: `git worktree add`, `git worktree remove`, `git worktree list`
 - Always use `--force` flag cautiously and only when appropriate
 - Branches created for worktrees use the session name

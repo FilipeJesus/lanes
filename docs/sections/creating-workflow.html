@@ -21,16 +21,16 @@
                                             <li class="flex gap-3">
                                                 <span class="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
                                                 <div class="flex-1">
-                                                    <h5 class="font-semibold text-ink mb-1">Define corresponding agents (if needed)</h5>
+                                                    <h5 class="font-semibold text-ink mb-1">Share role instructions (if needed)</h5>
                                                     <p class="text-sm text-ink-muted mb-2">
-                                                        First thing you will want to do is make sure you have already created all the agents you want to use in your workflow ahead of time. This is because agent names in your workflow must match either inline definitions or external agent files.
+                                                        Store reusable role instructions as Agent Skills. To run a step directly, omit its agent field and tell the coding client to read the skill in the step instructions. To delegate instead, configure a named sub-agent in your coding client and pass it the shared instructions.
                                                     </p>
                                                     <div class="bg-surface-2 rounded-lg p-2 font-mono text-sm text-ink-muted mb-2">
-                                                        mkdir -p .claude/agents<br>
-                                                        # Create .claude/agents/my-agent.md
+                                                        mkdir -p .agents/skills/my-role<br>
+                                                        # Create .agents/skills/my-role/SKILL.md with name/description frontmatter
                                                     </div>
                                                     <p class="text-xs text-ink-faint">
-                                                        Note: Inline agent definitions in the workflow file take precedence over external files.
+                                                        Every agent field must match a key in the workflow's agents section. Lanes does not load external agent definitions or register client sub-agents.
                                                     </p>
                                                 </div>
                                             </li>
@@ -92,7 +92,7 @@
                                     <div>
                                         <h3 class="text-2xl font-bold text-ink mb-4">Simple Workflow Example</h3>
                                         <p class="text-ink-muted mb-4">
-                                            For straightforward tasks, you can create a workflow with just steps—no agents or loops required. The main Claude agent handles all steps directly:
+                                            For straightforward tasks, you can create a workflow with just steps—no agents or loops required. The active coding agent handles all steps directly:
                                         </p>
 
                                         <div class="bg-surface-2 rounded-lg overflow-hidden mb-4">
@@ -430,7 +430,7 @@
                                                 <ul class="text-sm text-ink-muted list-disc list-inside ml-4">
                                                     <li>Is the agent name spelled correctly?</li>
                                                     <li>Is the agent defined in the <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">agents:</code> section?</li>
-                                                    <li>Does a matching file exist in <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">.claude/agents/</code>?</li>
+                                                    <li>For delegation, is the named sub-agent configured in your coding client? Lanes does not register it from external files.</li>
                                                 </ul>
                                             </div>
 
